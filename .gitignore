@@ -18,3 +18,4 @@ run/
 !gradlew
 !gradlew.bat
 !gradle/wrapper/gradle-wrapper.properties
+bin/
