@@ -22,7 +22,6 @@ public class MaredCommands {
 
         dispatcher.register(
             Commands.literal("mared")
-                // /mared hello
                 .then(Commands.literal("hello")
                     .executes(context -> {
                         context.getSource().sendSuccess(
@@ -32,13 +31,20 @@ public class MaredCommands {
                         return 1;
                     })
                 )
-                // /mared gui
                 .then(Commands.literal("gui")
                     .executes(context -> {
                         ServerPlayer player = context.getSource().getPlayer();
                         if (player == null) {
                             context.getSource().sendFailure(
                                 Component.literal("Эту команду может выполнить только игрок.")
+                            );
+                            return 0;
+                        }
+
+                        // Проверка на оператора (уровень 2 — стандартный OP).
+                        if (!player.hasPermissions(2)) {
+                            context.getSource().sendFailure(
+                                Component.literal("У вас нет прав для открытия редактора Mared.")
                             );
                             return 0;
                         }
@@ -51,7 +57,7 @@ public class MaredCommands {
                         }
 
                         Minecraft.getInstance().execute(() -> {
-                            Minecraft.getInstance().setScreen(new MaredGuiScreen());
+                            Minecraft.getInstance().setScreen(new MaredScriptsScreen());
                         });
 
                         context.getSource().sendSuccess(
