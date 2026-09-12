@@ -1,4 +1,6 @@
-package com.fixmer.mared;
+package com.fixmer.mared.script.commands;
+
+import com.fixmer.mared.script.MaredScriptContext;
 
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
@@ -20,28 +22,25 @@ public class MaredGiveCommand extends MaredScriptCommand {
         MinecraftServer server = ctx.getServer();
         if (server == null) return false;
 
-        // Заменяем @s на имя игрока-инициатора.
         String resolvedTarget = target;
         if ("@s".equals(target)) {
             if (ctx.getInitiator() != null) {
                 resolvedTarget = ctx.getInitiator().getName().getString();
             } else {
-                ctx.log("[give] нет игрока для @s");
+                ctx.log("[give] no player for @s");
                 return false;
             }
         }
 
-        // Выполняем команду от имени сервера.
         String command = "give " + resolvedTarget + " " + item + " " + count;
-        CommandSourceStack source = server.createCommandSourceStack()
-            .withSuppressedOutput();
+        CommandSourceStack source = server.createCommandSourceStack().withSuppressedOutput();
 
         try {
             server.getCommands().performPrefixedCommand(source, command);
             ctx.log("[give] " + resolvedTarget + " ← " + count + " × " + item);
             return true;
         } catch (Exception e) {
-            ctx.log("[give] ошибка: " + e.getMessage());
+            ctx.log("[give] error: " + e.getMessage());
             return false;
         }
     }

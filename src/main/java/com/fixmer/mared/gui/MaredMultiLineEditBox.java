@@ -1,4 +1,4 @@
-package com.fixmer.mared;
+package com.fixmer.mared.gui;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,9 +10,6 @@ import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
-/**
- * Многострочный редактор текста Mared.
- */
 public class MaredMultiLineEditBox extends AbstractWidget {
 
     private static final int LINE_HEIGHT    = 10;
@@ -33,8 +30,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
     private long lastBlink = 0;
     private boolean cursorVisible = true;
-
-    /** Разрешено ли редактирование. */
     private boolean editable = true;
 
     public MaredMultiLineEditBox(int x, int y, int width, int height, Runnable onValueChanged) {
@@ -52,9 +47,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         }
     }
 
-    public boolean isEditable() {
-        return editable;
-    }
+    public boolean isEditable() { return editable; }
 
     public String getValue() {
         StringBuilder sb = new StringBuilder();
@@ -81,8 +74,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         if (onValueChanged != null) onValueChanged.run();
     }
 
-    // ---- Ввод ----
-
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (!isFocused() || !editable) return false;
@@ -101,16 +92,9 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         if (!isFocused() || !editable) return false;
 
         switch (keyCode) {
-            case 257:
-            case 335:
-                insertNewLine();
-                return true;
-            case 259:
-                backspace();
-                return true;
-            case 261:
-                delete();
-                return true;
+            case 257: case 335: insertNewLine(); return true;
+            case 259: backspace(); return true;
+            case 261: delete(); return true;
             case 262: moveRight(); return true;
             case 263: moveLeft(); return true;
             case 264: moveDown(); return true;
@@ -203,8 +187,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         if (scrollLine < 0) scrollLine = 0;
     }
 
-    // ---- Мышь ----
-
     @Override
     public void onClick(double mx, double my) {
         if (!editable) return;
@@ -240,13 +222,10 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         return true;
     }
 
-    // ---- Рендер ----
-
     @Override
     protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
 
-        // Фон.
         graphics.fill(getX(), getY(), getX() + width, getY() + height, 0xFF141420);
 
         int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
@@ -258,7 +237,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             String lineText = lines.get(lineIdx).toString();
             int lineY = getY() + PADDING + i * LINE_HEIGHT;
 
-            // Номер строки — только если строка НЕ пустая.
             if (!lineText.isEmpty()) {
                 String num = String.valueOf(lineIdx + 1);
                 graphics.drawString(mc.font, num, getX() + PADDING, lineY, COLOR_NUMBERS, false);
@@ -268,7 +246,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             graphics.drawString(mc.font, lineText, textX, lineY, COLOR_TEXT, false);
         }
 
-        // Курсор — только если РЕДАКТИРУЕМ и в фокусе.
         if (!editable || !isFocused()) return;
 
         long now = System.currentTimeMillis();

@@ -1,4 +1,6 @@
-package com.fixmer.mared;
+package com.fixmer.mared.script.commands;
+
+import com.fixmer.mared.script.MaredScriptContext;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
@@ -7,7 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 public class MaredSayCommand extends MaredScriptCommand {
 
     private final String text;
-    private final String scope; // "all" | "self" | "player:<ник>"
+    private final String scope;
 
     public MaredSayCommand(String text, String scope) {
         this.text = text;

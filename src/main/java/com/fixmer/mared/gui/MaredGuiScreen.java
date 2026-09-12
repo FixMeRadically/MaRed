@@ -1,4 +1,4 @@
-package com.fixmer.mared;
+package com.fixmer.mared.gui;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;

@@ -1,8 +1,7 @@
-package com.fixmer.mared;
+package com.fixmer.mared.script.commands;
 
-/**
- * Команда ожидания. Хранит количество тиков для паузы.
- */
+import com.fixmer.mared.script.MaredScriptContext;
+
 public class MaredWaitCommand extends MaredScriptCommand {
 
     private final int ticks;
@@ -24,7 +23,6 @@ public class MaredWaitCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        // Просто возвращаемся — задержка обрабатывается в executor.
         return true;
     }
 

@@ -1,5 +1,7 @@
-package com.fixmer.mared;
+package com.fixmer.mared.command;
 
+import com.fixmer.mared.Mared;
+import com.fixmer.mared.gui.MaredEditorScreen;
 import com.mojang.brigadier.CommandDispatcher;
 
 import net.minecraft.client.Minecraft;
@@ -25,7 +27,7 @@ public class MaredCommands {
                 .then(Commands.literal("hello")
                     .executes(context -> {
                         context.getSource().sendSuccess(
-                            () -> Component.literal("Привет из мода Mared!"),
+                            () -> Component.literal("Hello from Mared!"),
                             false
                         );
                         return 1;
@@ -36,32 +38,31 @@ public class MaredCommands {
                         ServerPlayer player = context.getSource().getPlayer();
                         if (player == null) {
                             context.getSource().sendFailure(
-                                Component.literal("Эту команду может выполнить только игрок.")
+                                Component.literal("Only a player can run this command.")
                             );
                             return 0;
                         }
 
-                        // Проверка на оператора (уровень 2 — стандартный OP).
                         if (!player.hasPermissions(2)) {
                             context.getSource().sendFailure(
-                                Component.literal("У вас нет прав для открытия редактора Mared.")
+                                Component.literal("You don't have permission to open Mared.")
                             );
                             return 0;
                         }
 
                         if (FMLEnvironment.dist != Dist.CLIENT) {
                             context.getSource().sendFailure(
-                                Component.literal("GUI можно открыть только на клиенте.")
+                                Component.literal("GUI can only be opened on the client.")
                             );
                             return 0;
                         }
 
                         Minecraft.getInstance().execute(() -> {
-                            Minecraft.getInstance().setScreen(new MaredScriptsScreen());
+                            Minecraft.getInstance().setScreen(new MaredEditorScreen());
                         });
 
                         context.getSource().sendSuccess(
-                            () -> Component.literal("Открываю редактор Mared..."),
+                            () -> Component.literal("Opening Mared editor..."),
                             false
                         );
                         return 1;

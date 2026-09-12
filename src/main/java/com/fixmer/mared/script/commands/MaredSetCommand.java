@@ -1,4 +1,6 @@
-package com.fixmer.mared;
+package com.fixmer.mared.script.commands;
+
+import com.fixmer.mared.script.MaredScriptContext;
 
 public class MaredSetCommand extends MaredScriptCommand {
 
@@ -12,7 +14,6 @@ public class MaredSetCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        // Пытаемся распарсить как число.
         Object parsed = parseValue(value, ctx);
         ctx.setVariable(name, parsed);
         return true;
@@ -20,14 +21,13 @@ public class MaredSetCommand extends MaredScriptCommand {
 
     private Object parseValue(String raw, MaredScriptContext ctx) {
         String substituted = ctx.substitute(raw);
-        // Число?
         try {
             if (substituted.contains(".")) {
                 return Double.parseDouble(substituted);
             }
             return Long.parseLong(substituted);
         } catch (NumberFormatException ignored) {
-            // Не число — значит строка.
+            // not a number
         }
         return substituted;
     }

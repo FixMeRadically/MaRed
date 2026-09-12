@@ -1,24 +1,20 @@
-package com.fixmer.mared;
+package com.fixmer.mared.script;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
-/**
- * Контекст выполнения скрипта.
- * Хранит: кто запустил, мир, переменные, ссылку на лог.
- */
 public class MaredScriptContext {
 
     private final ServerPlayer initiator;
     private final MinecraftServer server;
     private final Map<String, Object> variables = new HashMap<>();
-    private final java.util.function.Consumer<String> logger;
+    private final Consumer<String> logger;
 
-    public MaredScriptContext(ServerPlayer initiator, MinecraftServer server,
-                              java.util.function.Consumer<String> logger) {
+    public MaredScriptContext(ServerPlayer initiator, MinecraftServer server, Consumer<String> logger) {
         this.initiator = initiator;
         this.server = server;
         this.logger = logger;
@@ -36,14 +32,11 @@ public class MaredScriptContext {
         if (logger != null) logger.accept(line);
     }
 
-    // ---- Переменные ----
-
     public void setVariable(String name, Object value) {
         variables.put(name, value);
     }
 
     public Object getVariable(String name) {
-        // Спецпеременные.
         if ("self".equals(name)) {
             return initiator != null ? initiator.getName().getString() : "console";
         }
@@ -56,10 +49,6 @@ public class MaredScriptContext {
         return variables.get(name);
     }
 
-    /**
-     * Подставляет переменные в строку.
-     * Ищет $name и заменяет на значение из переменных.
-     */
     public String substitute(String input) {
         if (input == null || input.isEmpty()) return input;
         StringBuilder result = new StringBuilder();

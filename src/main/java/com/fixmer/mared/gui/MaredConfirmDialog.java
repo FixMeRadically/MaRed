@@ -1,4 +1,4 @@
-package com.fixmer.mared;
+package com.fixmer.mared.gui;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -57,7 +57,6 @@ public class MaredConfirmDialog extends Screen {
         graphics.fill(x + 3, y + 3, x + w + 3, y + h + 3, COLOR_SHADOW);
         graphics.fill(x, y, x + w, y + h, COLOR_BG);
         graphics.renderOutline(x, y, w, h, COLOR_DANGER);
-
         graphics.drawString(this.font, title, x + 10, y + 10, COLOR_TEXT, true);
         graphics.drawString(this.font, message, x + 10, y + 30, COLOR_DIM, true);
         graphics.drawString(this.font, "This action cannot be undone.", x + 10, y + 46, COLOR_DANGER, true);
@@ -67,17 +66,12 @@ public class MaredConfirmDialog extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 256) {
-            this.minecraft.setScreen(parent);
-            return true;
-        }
+        if (keyCode == 256) { this.minecraft.setScreen(parent); return true; }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
+    public boolean isPauseScreen() { return false; }
 
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {

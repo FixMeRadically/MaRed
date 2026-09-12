@@ -1,7 +1,14 @@
-package com.fixmer.mared;
+package com.fixmer.mared.gui;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import com.fixmer.mared.script.commands.MaredScriptCommand;
+import com.fixmer.mared.script.MaredScriptContext;
+import com.fixmer.mared.script.MaredScriptExecutor;
+import com.fixmer.mared.script.MaredScriptParser;
+import com.fixmer.mared.script.MaredScriptRunner;
+import com.fixmer.mared.script.MaredScriptStorage;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -11,9 +18,9 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
-public class MaredScriptsScreen extends Screen {
+public class MaredEditorScreen extends Screen {
 
-    // ---- Палитра ----
+    // ---- Palette ----
     private static final int COLOR_BACKGROUND   = 0xFF0E0E14;
     private static final int COLOR_TAB_STRIP    = 0xFF181822;
     private static final int COLOR_TOOLBAR_BG   = 0xFF20202C;
@@ -34,7 +41,7 @@ public class MaredScriptsScreen extends Screen {
     private static final int COLOR_STATES  = 0xFF55FFFF;
     private static final int COLOR_DANGER  = 0xFFFF4444;
 
-    // ---- Размеры ----
+    // ---- Sizes ----
     private static final int TAB_WIDTH       = 30;
     private static final int TAB_HEIGHT      = 30;
     private static final int TOOLBAR_HEIGHT  = 22;
@@ -68,7 +75,7 @@ public class MaredScriptsScreen extends Screen {
 
     private MaredMultiLineEditBox editor;
 
-    public MaredScriptsScreen() {
+    public MaredEditorScreen() {
         super(Component.literal("Mared Editor"));
     }
 
@@ -154,7 +161,7 @@ public class MaredScriptsScreen extends Screen {
     }
 
     private void onEditorChanged() {
-        // Пока ничего.
+        // Empty for now.
     }
 
     private void updateToolButtonsVisibility() {
@@ -176,7 +183,7 @@ public class MaredScriptsScreen extends Screen {
         scrollOffset = 0;
     }
 
-    // ---- Действия ----
+    // ---- Actions ----
 
     private void onNew() {
         Minecraft.getInstance().setScreen(new MaredNameDialog(this, "New script", name -> {
@@ -286,13 +293,13 @@ public class MaredScriptsScreen extends Screen {
         logScrollOffset = 0;
     }
 
-    // ---- Геометрия ----
+    // ---- Geometry ----
 
     private int logTop() { return this.height - LOG_HEIGHT; }
     private int sidebarBottom() { return logTop(); }
     private int editorBottom() { return logTop() - GAP_EDITOR_LOG; }
 
-    // ---- Мышь ----
+    // ---- Mouse ----
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
@@ -420,7 +427,7 @@ public class MaredScriptsScreen extends Screen {
         return super.mouseScrolled(mx, my, deltaX, deltaY);
     }
 
-    // ---- Рендер ----
+    // ---- Render ----
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {

@@ -1,13 +1,13 @@
-package com.fixmer.mared;
+package com.fixmer.mared.event;
+
+import com.fixmer.mared.Mared;
+import com.fixmer.mared.script.MaredScriptRunner;
 
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
-/**
- * Серверные события: тик и остановка.
- */
 @EventBusSubscriber(modid = Mared.MOD_ID)
 public class MaredServerEvents {
 

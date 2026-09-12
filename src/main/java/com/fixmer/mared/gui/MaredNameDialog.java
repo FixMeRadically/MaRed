@@ -1,6 +1,8 @@
-package com.fixmer.mared;
+package com.fixmer.mared.gui;
 
 import java.util.function.Consumer;
+
+import com.fixmer.mared.script.MaredScriptStorage;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -77,7 +79,6 @@ public class MaredNameDialog extends Screen {
         graphics.fill(x + 3, y + 3, x + w + 3, y + h + 3, COLOR_SHADOW);
         graphics.fill(x, y, x + w, y + h, COLOR_BG);
         graphics.renderOutline(x, y, w, h, COLOR_BORDER);
-
         graphics.drawString(this.font, title, x + 10, y + 10, COLOR_TEXT, true);
 
         if (error != null) {
@@ -89,21 +90,13 @@ public class MaredNameDialog extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 257 || keyCode == 335) {
-            confirm();
-            return true;
-        }
-        if (keyCode == 256) {
-            this.minecraft.setScreen(parent);
-            return true;
-        }
+        if (keyCode == 257 || keyCode == 335) { confirm(); return true; }
+        if (keyCode == 256) { this.minecraft.setScreen(parent); return true; }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
-    public boolean isPauseScreen() {
-        return false;
-    }
+    public boolean isPauseScreen() { return false; }
 
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {

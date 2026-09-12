@@ -1,13 +1,9 @@
-package com.fixmer.mared;
+package com.fixmer.mared.script;
 
 import java.util.List;
 
-import net.minecraft.server.MinecraftServer;
+import com.fixmer.mared.script.commands.MaredScriptCommand;
 
-/**
- * Исполнитель скрипта.
- * Выполняет команды по одной. Для wait — откладывает продолжение.
- */
 public class MaredScriptExecutor {
 
     private final MaredScriptContext context;
@@ -29,11 +25,6 @@ public class MaredScriptExecutor {
         return context;
     }
 
-    /**
-     * Вызывается каждый тик сервера.
-     * Если waitTicks > 0 — уменьшаем, не выполняем команды.
-     * Иначе — выполняем следующую команду.
-     */
     public void tick() {
         if (finished) return;
 
@@ -53,7 +44,7 @@ public class MaredScriptExecutor {
         try {
             boolean ok = cmd.execute(context);
             if (!ok) {
-                context.log("[error] команда не выполнена: " + cmd.describe());
+                context.log("[error] command failed: " + cmd.describe());
                 finished = true;
                 return;
             }

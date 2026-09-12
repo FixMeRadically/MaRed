@@ -1,12 +1,14 @@
-package com.fixmer.mared;
+package com.fixmer.mared.script;
 
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Парсер скриптов Mared.
- * Разбирает текст в список MaredScriptCommand.
- */
+import com.fixmer.mared.script.commands.MaredGiveCommand;
+import com.fixmer.mared.script.commands.MaredSayCommand;
+import com.fixmer.mared.script.commands.MaredScriptCommand;
+import com.fixmer.mared.script.commands.MaredSetCommand;
+import com.fixmer.mared.script.commands.MaredWaitCommand;
+
 public class MaredScriptParser {
 
     public static class ParseException extends RuntimeException {
@@ -25,10 +27,8 @@ public class MaredScriptParser {
             String line = lines[i].trim();
             int lineNumber = i + 1;
 
-            // Пустая строка или комментарий.
             if (line.isEmpty() || line.startsWith("//")) continue;
 
-            // Удаляем комментарий в конце строки.
             int commentIdx = findCommentStart(line);
             if (commentIdx >= 0) {
                 line = line.substring(0, commentIdx).trim();
@@ -47,7 +47,6 @@ public class MaredScriptParser {
         return commands;
     }
 
-    /** Ищет // вне кавычек. */
     private static int findCommentStart(String line) {
         boolean inString = false;
         for (int i = 0; i < line.length() - 1; i++) {
@@ -61,7 +60,6 @@ public class MaredScriptParser {
     }
 
     private static MaredScriptCommand parseLine(String line) {
-        // Разбиваем на токены, учитывая кавычки.
         List<String> tokens = tokenize(line);
         if (tokens.isEmpty()) return null;
 
@@ -76,7 +74,6 @@ public class MaredScriptParser {
         }
     }
 
-    /** Разбивает строку на токены, сохраняя кавычки как часть токена. */
     private static List<String> tokenize(String line) {
         List<String> tokens = new ArrayList<>();
         StringBuilder current = new StringBuilder();
@@ -100,13 +97,10 @@ public class MaredScriptParser {
         return tokens;
     }
 
-    // ---- Парсеры отдельных команд ----
-
     private static MaredScriptCommand parseSay(List<String> tokens) {
         if (tokens.size() < 2) throw new ParseException(0, "say: missing text");
         String text = stripQuotes(tokens.get(1));
         String scope = "all";
-        // Ищем scope=...
         for (int i = 2; i < tokens.size(); i++) {
             String t = tokens.get(i);
             if (t.startsWith("scope=")) {
@@ -144,13 +138,11 @@ public class MaredScriptParser {
     }
 
     private static MaredScriptCommand parseSet(List<String> tokens) {
-        // set name = value
         if (tokens.size() < 4) throw new ParseException(0, "set: expected 'set name = value'");
         String name = tokens.get(1);
         if (!tokens.get(2).equals("=")) {
             throw new ParseException(0, "set: expected '=' after name");
         }
-        // Собираем всё после = в одну строку (могут быть пробелы).
         StringBuilder value = new StringBuilder();
         for (int i = 3; i < tokens.size(); i++) {
             if (i > 3) value.append(' ');
