@@ -8,6 +8,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 
 public class MaredScriptsScreen extends Screen {
 
@@ -45,8 +47,8 @@ public class MaredScriptsScreen extends Screen {
     private static final int SCROLLBAR_WIDTH = 6;
     private static final int LOG_LINE_HEIGHT = 10;
     private static final int LOG_HEADER      = 16;
-    /** Отступ между редактором и логом. Для панели Scripts не применяется. */
     private static final int GAP_EDITOR_LOG  = 6;
+    private static final int EDITOR_HEADER   = 18;
 
     private enum SidebarState { CLOSED, STRIP, FULL }
     private enum ScrollTarget { NONE, SCRIPTS, LOG }
@@ -63,6 +65,8 @@ public class MaredScriptsScreen extends Screen {
     private int logScrollOffset = 0;
 
     private final List<AbstractWidget> toolButtons = new ArrayList<>();
+
+    private MaredMultiLineEditBox editor;
 
     public MaredScriptsScreen() {
         super(Component.literal("Mared Editor"));
@@ -112,7 +116,45 @@ public class MaredScriptsScreen extends Screen {
         toolButtons.add(addRenderableWidget(new MaredCompactButton(
             rightEdge, y, newW, 18, Component.literal("New"), 0xFFFF55FF, this::onNew)));
 
+        createEditor();
         updateToolButtonsVisibility();
+    }
+
+    private void createEditor() {
+        int sbW = sidebarWidth();
+        int frameX = TAB_WIDTH + sbW + PADDING;
+        int frameY = TOOLBAR_HEIGHT + PADDING * 2;
+        int frameW = this.width - frameX - PADDING;
+        int frameH = editorBottom() - frameY - PADDING;
+
+        int inputX = frameX + 2;
+        int inputY = frameY + EDITOR_HEADER + 2;
+        int inputW = frameW - 4;
+        int inputH = frameH - EDITOR_HEADER - 4;
+
+        editor = new MaredMultiLineEditBox(inputX, inputY, inputW, inputH, this::onEditorChanged);
+        if (selectedScript != null) {
+            editor.setValue(MaredScriptStorage.readScript(selectedScript));
+            editor.setEditable(true);
+        } else {
+            editor.setValue("");
+            editor.setEditable(false);
+        }
+        addRenderableWidget(editor);
+    }
+
+    private void recreateEditor() {
+        if (editor != null) {
+            removeWidget(editor);
+            editor = null;
+        }
+        if ("scripts".equals(openTab)) {
+            createEditor();
+        }
+    }
+
+    private void onEditorChanged() {
+        // Пока ничего.
     }
 
     private void updateToolButtonsVisibility() {
@@ -137,36 +179,44 @@ public class MaredScriptsScreen extends Screen {
     // ---- Действия ----
 
     private void onNew() {
-        Minecraft.getInstance().setScreen(new MaredNameDialog(this, "Новый скрипт", name -> {
+        Minecraft.getInstance().setScreen(new MaredNameDialog(this, "New script", name -> {
             if (MaredScriptStorage.createScript(name)) {
-                addLog("Создан скрипт: " + name);
+                addLog("Created script: " + name);
                 selectedScript = name;
                 reloadScripts();
+                if (editor != null) {
+                    editor.setValue(MaredScriptStorage.readScript(name));
+                    editor.setEditable(true);
+                }
             } else {
-                addLog("Не удалось создать " + name);
+                addLog("Failed to create: " + name);
             }
         }));
     }
 
-    private void onImport() { addLog("Import: пока не реализовано"); }
+    private void onImport() { addLog("Import: not implemented yet"); }
 
     private void onDelete() {
         if (selectedScript == null) {
-            addLog("Не выбран скрипт для удаления");
+            addLog("No script selected for deletion");
             return;
         }
         String name = selectedScript;
         Minecraft.getInstance().setScreen(new MaredConfirmDialog(
             this,
-            "Удалить скрипт?",
-            "Скрипт \"" + name + "\" будет удалён.",
+            "Delete script?",
+            "Script \"" + name + "\" will be deleted.",
             () -> {
                 if (MaredScriptStorage.deleteScript(name)) {
-                    addLog("Удалён скрипт: " + name);
+                    addLog("Deleted script: " + name);
                     selectedScript = null;
                     reloadScripts();
+                    if (editor != null) {
+                        editor.setValue("");
+                        editor.setEditable(false);
+                    }
                 } else {
-                    addLog("Не удалось удалить: " + name);
+                    addLog("Failed to delete: " + name);
                 }
             }
         ));
@@ -174,19 +224,60 @@ public class MaredScriptsScreen extends Screen {
 
     private void onSave() {
         if (selectedScript == null) {
-            addLog("Не выбран скрипт для сохранения");
+            addLog("No script selected for saving");
             return;
         }
-        MaredScriptStorage.writeScript(selectedScript, "// TODO\n");
-        addLog("Сохранён: " + selectedScript);
+        if (editor == null) return;
+        MaredScriptStorage.writeScript(selectedScript, editor.getValue());
+        addLog("Saved: " + selectedScript);
     }
 
     private void onRun() {
         if (selectedScript == null) {
-            addLog("Не выбран скрипт для запуска");
+            addLog("No script selected for running");
             return;
         }
-        addLog("Запуск: " + selectedScript + " (движок в разработке)");
+        if (editor == null) {
+            addLog("Editor unavailable");
+            return;
+        }
+
+        String text = editor.getValue();
+        if (text == null || text.trim().isEmpty()) {
+            addLog("Script is empty");
+            return;
+        }
+
+        Minecraft mc = Minecraft.getInstance();
+        MinecraftServer server = mc.getSingleplayerServer();
+        if (server == null) {
+            addLog("Server unavailable (singleplayer only)");
+            return;
+        }
+
+        ServerPlayer initiator = null;
+        if (mc.player != null) {
+            initiator = server.getPlayerList().getPlayer(mc.player.getUUID());
+        }
+
+        List<MaredScriptCommand> commands;
+        try {
+            commands = MaredScriptParser.parse(text);
+        } catch (MaredScriptParser.ParseException e) {
+            addLog("[parse error] " + e.getMessage());
+            return;
+        }
+
+        if (commands.isEmpty()) {
+            addLog("Script contains no commands");
+            return;
+        }
+
+        MaredScriptContext ctx = new MaredScriptContext(initiator, server, this::addLog);
+        MaredScriptExecutor executor = new MaredScriptExecutor(ctx, commands);
+
+        MaredScriptRunner.start(executor);
+        addLog("[run] " + selectedScript + " — " + commands.size() + " commands");
     }
 
     private void addLog(String line) {
@@ -197,19 +288,9 @@ public class MaredScriptsScreen extends Screen {
 
     // ---- Геометрия ----
 
-    private int logTop() {
-        return this.height - LOG_HEIGHT;
-    }
-
-    /** Границы панели Scripts: от верха до лога без зазора. */
-    private int sidebarBottom() {
-        return logTop();
-    }
-
-    /** Границы редактора: чуть выше лога. */
-    private int editorBottom() {
-        return logTop() - GAP_EDITOR_LOG;
-    }
+    private int logTop() { return this.height - LOG_HEIGHT; }
+    private int sidebarBottom() { return logTop(); }
+    private int editorBottom() { return logTop() - GAP_EDITOR_LOG; }
 
     // ---- Мышь ----
 
@@ -227,6 +308,7 @@ public class MaredScriptsScreen extends Screen {
                     sidebarState = "scripts".equals(clicked) ? SidebarState.STRIP : SidebarState.CLOSED;
                 }
                 updateToolButtonsVisibility();
+                recreateEditor();
                 scrollTarget = ScrollTarget.NONE;
                 return true;
             }
@@ -237,6 +319,7 @@ public class MaredScriptsScreen extends Screen {
             int ay = arrowY();
             if (mx >= ax && mx < ax + BTN_SIZE && my >= ay && my < ay + BTN_SIZE) {
                 sidebarState = SidebarState.FULL;
+                recreateEditor();
                 return true;
             }
         }
@@ -249,6 +332,7 @@ public class MaredScriptsScreen extends Screen {
 
             if (mx >= arrowX && mx < arrowX + BTN_SIZE && my >= ay && my < ay + BTN_SIZE) {
                 sidebarState = SidebarState.STRIP;
+                recreateEditor();
                 return true;
             }
             if (mx >= plusX && mx < plusX + BTN_SIZE && my >= ay && my < ay + BTN_SIZE) {
@@ -266,7 +350,11 @@ public class MaredScriptsScreen extends Screen {
                 int idx = ((int) my - listY) / ITEM_HEIGHT + scrollOffset;
                 if (idx >= 0 && idx < scriptNames.size()) {
                     selectedScript = scriptNames.get(idx);
-                    addLog("Выбран: " + selectedScript);
+                    addLog("Selected: " + selectedScript);
+                    if (editor != null) {
+                        editor.setValue(MaredScriptStorage.readScript(selectedScript));
+                        editor.setEditable(true);
+                    }
                 }
                 return true;
             }
@@ -308,6 +396,10 @@ public class MaredScriptsScreen extends Screen {
             }
         }
 
+        if (editor != null && editor.isMouseOver(mx, my)) {
+            if (editor.mouseScrolled(mx, my, deltaX, deltaY)) return true;
+        }
+
         if (scrollTarget == ScrollTarget.LOG) {
             int visibleLines = Math.max(1, (LOG_HEIGHT - LOG_HEADER - PADDING) / LOG_LINE_HEIGHT);
             int maxScroll = Math.max(0, logLines.size() - visibleLines);
@@ -337,24 +429,19 @@ public class MaredScriptsScreen extends Screen {
         int sbW = sidebarWidth();
         int logTop = logTop();
 
-        // 1. Лог — внизу, во всю ширину.
         drawLog(graphics, mouseX, mouseY, logTop);
 
-        // 2. Панель Scripts — от верха до лога (без зазора).
         if (sbW > 0) {
             int bgColor = (sidebarState == SidebarState.STRIP) ? COLOR_PANEL_STRIP : COLOR_PANEL;
             graphics.fill(TAB_WIDTH, 0, TAB_WIDTH + sbW, sidebarBottom(), bgColor);
         }
 
-        // 3. Тулбар — фон.
         int toolbarX = TAB_WIDTH + sbW;
         graphics.fill(toolbarX, 0, this.width, TOOLBAR_HEIGHT + PADDING, COLOR_TOOLBAR_BG);
 
-        // 4. Полоса вкладок.
         graphics.fill(0, 0, TAB_WIDTH, this.height, COLOR_TAB_STRIP);
         drawTabs(graphics, mouseX, mouseY);
 
-        // 5. Содержимое панели Scripts.
         if (sidebarState == SidebarState.STRIP && "scripts".equals(openTab)) {
             drawArrow(graphics, TAB_WIDTH + (STRIP_WIDTH - BTN_SIZE) / 2, arrowY(), "►", mouseX, mouseY);
         }
@@ -362,48 +449,56 @@ public class MaredScriptsScreen extends Screen {
             drawFullSidebar(graphics, mouseX, mouseY);
         }
 
-        // 6. Редактор — с зазором до лога.
-        int editorX = TAB_WIDTH + sbW;
-        int editorY = TOOLBAR_HEIGHT + PADDING + 1;
-        int editorW = this.width - editorX;
-        int editorH = editorBottom() - editorY;
-
         if ("scripts".equals(openTab)) {
-            graphics.fill(editorX, editorY, editorX + editorW, editorY + editorH, COLOR_EDITOR_BG);
-            graphics.renderOutline(editorX, editorY, editorW, editorH, COLOR_SCRIPTS);
+            int frameX = TAB_WIDTH + sbW + PADDING;
+            int frameY = TOOLBAR_HEIGHT + PADDING * 2;
+            int frameW = this.width - frameX - PADDING;
+            int frameH = editorBottom() - frameY - PADDING;
 
-            String title = (selectedScript == null) ? "Редактор (скрипт не выбран)" : "Редактор: " + selectedScript;
-            graphics.drawString(this.font, title, editorX + 6, editorY + 6, COLOR_TEXT, true);
+            graphics.fill(frameX, frameY, frameX + frameW, frameY + frameH, COLOR_EDITOR_BG);
+            graphics.renderOutline(frameX, frameY, frameW, frameH, COLOR_SCRIPTS);
+
+            String title = (selectedScript == null) ? "Editor (no script selected)" : "Editor: " + selectedScript;
+            graphics.drawString(this.font, title, frameX + 6, frameY + 5, COLOR_TEXT, true);
+
+            drawDashedLine(graphics, frameX + 2, frameY + EDITOR_HEADER,
+                frameX + frameW - 2, COLOR_SCRIPTS);
 
             if (selectedScript == null) {
-                graphics.drawString(this.font, "Выберите скрипт слева или создайте новый",
-                    editorX + 6, editorY + 24, COLOR_TEXT_DIM, true);
-            } else {
-                String content = MaredScriptStorage.readScript(selectedScript);
-                String[] lines = content.split("\n");
-                int maxLines = (editorH - 30) / 10;
-                for (int i = 0; i < Math.min(lines.length, maxLines); i++) {
-                    graphics.drawString(this.font, lines[i],
-                        editorX + 6, editorY + 24 + i * 10, COLOR_TEXT_DIM, true);
-                }
+                graphics.drawString(this.font, "Select a script on the left or create a new one",
+                    frameX + 6, frameY + EDITOR_HEADER + 6, COLOR_TEXT_DIM, true);
             }
         } else {
-            graphics.fill(editorX, editorY, editorX + editorW, editorY + editorH, COLOR_EDITOR_BG);
-            graphics.renderOutline(editorX, editorY, editorW, editorH, COLOR_TEXT_DIM);
-            graphics.drawString(this.font, "Раздел «" + tabTitle(openTab) + "» в разработке",
-                editorX + 8, editorY + 8, COLOR_TEXT_DIM, true);
+            int frameX = TAB_WIDTH + sbW + PADDING;
+            int frameY = TOOLBAR_HEIGHT + PADDING * 2;
+            int frameW = this.width - frameX - PADDING;
+            int frameH = editorBottom() - frameY - PADDING;
+            graphics.fill(frameX, frameY, frameX + frameW, frameY + frameH, COLOR_EDITOR_BG);
+            graphics.renderOutline(frameX, frameY, frameW, frameH, COLOR_TEXT_DIM);
+            graphics.drawString(this.font, "Section \"" + tabTitle(openTab) + "\" is under development",
+                frameX + 8, frameY + 8, COLOR_TEXT_DIM, true);
         }
 
-        // 7. Тонкий разделитель над логом — во всю ширину.
         int dividerY = logTop - 1;
         graphics.fill(0, dividerY, this.width, dividerY + 1, COLOR_EVENTS);
 
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 
+    private void drawDashedLine(GuiGraphics graphics, int x1, int y, int x2, int color) {
+        int dash = 4;
+        int gap = 3;
+        int x = x1;
+        while (x < x2) {
+            int end = Math.min(x + dash, x2);
+            graphics.fill(x, y, end, y + 1, color);
+            x += dash + gap;
+        }
+    }
+
     private void drawLog(GuiGraphics graphics, int mouseX, int mouseY, int logTop) {
         graphics.fill(0, logTop, this.width, this.height, COLOR_LOG_BG);
-        graphics.drawString(this.font, "Лог:", PADDING, logTop + 4, COLOR_EVENTS, true);
+        graphics.drawString(this.font, "Log:", PADDING, logTop + 4, COLOR_EVENTS, true);
 
         int visibleLines = Math.max(1, (LOG_HEIGHT - LOG_HEADER - PADDING) / LOG_LINE_HEIGHT);
         int maxScroll = Math.max(0, logLines.size() - visibleLines);
@@ -477,7 +572,7 @@ public class MaredScriptsScreen extends Screen {
         int maxVisible = listH / ITEM_HEIGHT;
 
         if (scriptNames.isEmpty()) {
-            graphics.drawString(this.font, "Нет скриптов. Нажмите +", listX + 4, listY + 4, COLOR_TEXT_DIM, true);
+            graphics.drawString(this.font, "No scripts. Click +", listX + 4, listY + 4, COLOR_TEXT_DIM, true);
             return;
         }
 
@@ -555,6 +650,6 @@ public class MaredScriptsScreen extends Screen {
 
     @Override
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // Пусто.
+        // Empty.
     }
 }
