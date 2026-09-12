@@ -3,6 +3,7 @@ package com.fixmer.mared;
 import java.util.ArrayList;
 import java.util.List;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
@@ -20,12 +21,16 @@ public class MaredScriptsScreen extends Screen {
     private static final int COLOR_LOG_BG       = 0xFF1A1A24;
     private static final int COLOR_TEXT         = 0xFFFFFFFF;
     private static final int COLOR_TEXT_DIM     = 0xFFAAAAAA;
+    private static final int COLOR_ITEM_HOVER   = 0xFF2E2E3E;
+    private static final int COLOR_ITEM_SEL     = 0xFF55336B;
+    private static final int COLOR_ITEM_NORMAL  = 0xFF252530;
 
     private static final int COLOR_SCRIPTS = 0xFFFF55FF;
     private static final int COLOR_NPC     = 0xFFFFAA00;
     private static final int COLOR_EVENTS  = 0xFF55AAFF;
     private static final int COLOR_QUESTS  = 0xFF55FF55;
     private static final int COLOR_STATES  = 0xFF55FFFF;
+    private static final int COLOR_DANGER  = 0xFFFF4444;
 
     // ---- Размеры ----
     private static final int TAB_WIDTH       = 30;
@@ -36,15 +41,26 @@ public class MaredScriptsScreen extends Screen {
     private static final int STRIP_WIDTH     = 36;
     private static final int FULL_WIDTH      = 200;
     private static final int BTN_SIZE        = 18;
+    private static final int ITEM_HEIGHT     = 14;
+    private static final int SCROLLBAR_WIDTH = 6;
+    private static final int LOG_LINE_HEIGHT = 10;
+    private static final int LOG_HEADER      = 16;
+    /** Отступ между редактором и логом. Для панели Scripts не применяется. */
+    private static final int GAP_EDITOR_LOG  = 6;
 
     private enum SidebarState { CLOSED, STRIP, FULL }
+    private enum ScrollTarget { NONE, SCRIPTS, LOG }
 
     private SidebarState sidebarState = SidebarState.CLOSED;
+    private ScrollTarget scrollTarget = ScrollTarget.NONE;
     private String openTab = "scripts";
 
     private final List<String> scriptNames = new ArrayList<>();
     private final List<String> logLines = new ArrayList<>();
     private String selectedScript = null;
+
+    private int scrollOffset = 0;
+    private int logScrollOffset = 0;
 
     private final List<AbstractWidget> toolButtons = new ArrayList<>();
 
@@ -52,28 +68,11 @@ public class MaredScriptsScreen extends Screen {
         super(Component.literal("Mared Editor"));
     }
 
-    private int sidebarWidth() {
-        if (!"scripts".equals(openTab)) return 0;
-        switch (sidebarState) {
-            case STRIP: return STRIP_WIDTH;
-            case FULL:  return FULL_WIDTH;
-            default:    return 0;
-        }
-    }
-
-    private boolean sidebarVisible() {
-        return sidebarWidth() > 0;
-    }
-
-    /** Верхняя Y-координата стрелки. Всегда в шапке панели. */
-    private int arrowY() {
-        return PADDING + 1;
-    }
-
     @Override
     protected void init() {
         super.init();
         toolButtons.clear();
+        reloadScripts();
 
         int y = PADDING + 1;
         int rightEdge = this.width - PADDING;
@@ -99,7 +98,7 @@ public class MaredScriptsScreen extends Screen {
         int delW = 50;
         rightEdge -= delW;
         toolButtons.add(addRenderableWidget(new MaredCompactButton(
-            rightEdge, y, delW, 18, Component.literal("Delete"), 0xFFAA4444, this::onDelete)));
+            rightEdge, y, delW, 18, Component.literal("Delete"), COLOR_DANGER, this::onDelete)));
         rightEdge -= 4;
 
         int impW = 52;
@@ -112,40 +111,127 @@ public class MaredScriptsScreen extends Screen {
         rightEdge -= newW;
         toolButtons.add(addRenderableWidget(new MaredCompactButton(
             rightEdge, y, newW, 18, Component.literal("New"), 0xFFFF55FF, this::onNew)));
+
+        updateToolButtonsVisibility();
     }
 
-    private void onNew()    { addLog("New"); }
-    private void onImport() { addLog("Import"); }
-    private void onDelete() { addLog("Delete"); }
-    private void onSave()   { addLog("Save"); }
-    private void onRun()    { addLog("Run"); }
+    private void updateToolButtonsVisibility() {
+        boolean scripts = "scripts".equals(openTab);
+        for (int i = 0; i < toolButtons.size(); i++) {
+            AbstractWidget w = toolButtons.get(i);
+            boolean isClose = i == 0;
+            w.visible = isClose || scripts;
+            w.active = isClose || scripts;
+        }
+    }
+
+    private void reloadScripts() {
+        scriptNames.clear();
+        scriptNames.addAll(MaredScriptStorage.listScripts());
+        if (selectedScript != null && !scriptNames.contains(selectedScript)) {
+            selectedScript = null;
+        }
+        scrollOffset = 0;
+    }
+
+    // ---- Действия ----
+
+    private void onNew() {
+        Minecraft.getInstance().setScreen(new MaredNameDialog(this, "Новый скрипт", name -> {
+            if (MaredScriptStorage.createScript(name)) {
+                addLog("Создан скрипт: " + name);
+                selectedScript = name;
+                reloadScripts();
+            } else {
+                addLog("Не удалось создать " + name);
+            }
+        }));
+    }
+
+    private void onImport() { addLog("Import: пока не реализовано"); }
+
+    private void onDelete() {
+        if (selectedScript == null) {
+            addLog("Не выбран скрипт для удаления");
+            return;
+        }
+        String name = selectedScript;
+        Minecraft.getInstance().setScreen(new MaredConfirmDialog(
+            this,
+            "Удалить скрипт?",
+            "Скрипт \"" + name + "\" будет удалён.",
+            () -> {
+                if (MaredScriptStorage.deleteScript(name)) {
+                    addLog("Удалён скрипт: " + name);
+                    selectedScript = null;
+                    reloadScripts();
+                } else {
+                    addLog("Не удалось удалить: " + name);
+                }
+            }
+        ));
+    }
+
+    private void onSave() {
+        if (selectedScript == null) {
+            addLog("Не выбран скрипт для сохранения");
+            return;
+        }
+        MaredScriptStorage.writeScript(selectedScript, "// TODO\n");
+        addLog("Сохранён: " + selectedScript);
+    }
+
+    private void onRun() {
+        if (selectedScript == null) {
+            addLog("Не выбран скрипт для запуска");
+            return;
+        }
+        addLog("Запуск: " + selectedScript + " (движок в разработке)");
+    }
 
     private void addLog(String line) {
         logLines.add(line);
-        if (logLines.size() > 200) logLines.remove(0);
+        if (logLines.size() > 500) logLines.remove(0);
+        logScrollOffset = 0;
+    }
+
+    // ---- Геометрия ----
+
+    private int logTop() {
+        return this.height - LOG_HEIGHT;
+    }
+
+    /** Границы панели Scripts: от верха до лога без зазора. */
+    private int sidebarBottom() {
+        return logTop();
+    }
+
+    /** Границы редактора: чуть выше лога. */
+    private int editorBottom() {
+        return logTop() - GAP_EDITOR_LOG;
     }
 
     // ---- Мышь ----
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        // Клик по вкладкам.
         if (mx < TAB_WIDTH) {
             int idx = (int) (my / TAB_HEIGHT);
             String[] tabs = {"scripts", "npc", "events", "quests", "states"};
             if (idx >= 0 && idx < tabs.length) {
                 String clicked = tabs[idx];
-                if (clicked.equals(openTab) && sidebarVisible()) {
+                if (clicked.equals(openTab) && sidebarWidth() > 0) {
                     sidebarState = SidebarState.CLOSED;
                 } else {
                     openTab = clicked;
                     sidebarState = "scripts".equals(clicked) ? SidebarState.STRIP : SidebarState.CLOSED;
                 }
+                updateToolButtonsVisibility();
+                scrollTarget = ScrollTarget.NONE;
                 return true;
             }
         }
 
-        // ---- STRIP: стрелка ----
         if (sidebarState == SidebarState.STRIP && "scripts".equals(openTab)) {
             int ax = TAB_WIDTH + (STRIP_WIDTH - BTN_SIZE) / 2;
             int ay = arrowY();
@@ -155,43 +241,112 @@ public class MaredScriptsScreen extends Screen {
             }
         }
 
-        // ---- FULL: стрелка в шапке ----
         if (sidebarState == SidebarState.FULL && "scripts".equals(openTab)) {
             int sx = TAB_WIDTH;
-            int arrowX = sx + FULL_WIDTH - BTN_SIZE - 4;
             int ay = arrowY();
+            int arrowX = sx + FULL_WIDTH - BTN_SIZE - 4;
+            int plusX = arrowX - BTN_SIZE - 4;
+
             if (mx >= arrowX && mx < arrowX + BTN_SIZE && my >= ay && my < ay + BTN_SIZE) {
                 sidebarState = SidebarState.STRIP;
                 return true;
             }
-
-            // Кнопка "+"
-            int plusX = arrowX - BTN_SIZE - 4;
             if (mx >= plusX && mx < plusX + BTN_SIZE && my >= ay && my < ay + BTN_SIZE) {
                 onNew();
                 return true;
             }
+
+            int listX = sx + 6;
+            int listW = FULL_WIDTH - 12 - SCROLLBAR_WIDTH;
+            int listY = ay + BTN_SIZE + 8;
+            int listH = sidebarBottom() - listY - 6;
+
+            if (mx >= listX && mx < listX + listW && my >= listY && my < listY + listH) {
+                scrollTarget = ScrollTarget.SCRIPTS;
+                int idx = ((int) my - listY) / ITEM_HEIGHT + scrollOffset;
+                if (idx >= 0 && idx < scriptNames.size()) {
+                    selectedScript = scriptNames.get(idx);
+                    addLog("Выбран: " + selectedScript);
+                }
+                return true;
+            }
         }
 
+        if (my >= logTop()) {
+            scrollTarget = ScrollTarget.LOG;
+            return true;
+        }
+
+        scrollTarget = ScrollTarget.NONE;
         return super.mouseClicked(mx, my, button);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mx, double my, double deltaX, double deltaY) {
+        if (my >= logTop()) {
+            scrollTarget = ScrollTarget.LOG;
+            int visibleLines = Math.max(1, (LOG_HEIGHT - LOG_HEADER - PADDING) / LOG_LINE_HEIGHT);
+            int maxScroll = Math.max(0, logLines.size() - visibleLines);
+            if (deltaY < 0) logScrollOffset = Math.max(0, logScrollOffset - 1);
+            else if (deltaY > 0) logScrollOffset = Math.min(maxScroll, logScrollOffset + 1);
+            return true;
+        }
+
+        if (sidebarState == SidebarState.FULL && "scripts".equals(openTab)) {
+            int listX = TAB_WIDTH + 6;
+            int listW = FULL_WIDTH - 12 - SCROLLBAR_WIDTH;
+            int listY = arrowY() + BTN_SIZE + 8;
+            int listH = sidebarBottom() - listY - 6;
+
+            if (mx >= listX && mx < listX + listW && my >= listY && my < listY + listH) {
+                scrollTarget = ScrollTarget.SCRIPTS;
+                int maxVisible = listH / ITEM_HEIGHT;
+                int maxScroll = Math.max(0, scriptNames.size() - maxVisible);
+                if (deltaY < 0) scrollOffset = Math.min(maxScroll, scrollOffset + 1);
+                else if (deltaY > 0) scrollOffset = Math.max(0, scrollOffset - 1);
+                return true;
+            }
+        }
+
+        if (scrollTarget == ScrollTarget.LOG) {
+            int visibleLines = Math.max(1, (LOG_HEIGHT - LOG_HEADER - PADDING) / LOG_LINE_HEIGHT);
+            int maxScroll = Math.max(0, logLines.size() - visibleLines);
+            if (deltaY < 0) logScrollOffset = Math.max(0, logScrollOffset - 1);
+            else if (deltaY > 0) logScrollOffset = Math.min(maxScroll, logScrollOffset + 1);
+            return true;
+        }
+        if (scrollTarget == ScrollTarget.SCRIPTS && sidebarState == SidebarState.FULL && "scripts".equals(openTab)) {
+            int listY = arrowY() + BTN_SIZE + 8;
+            int listH = sidebarBottom() - listY - 6;
+            int maxVisible = listH / ITEM_HEIGHT;
+            int maxScroll = Math.max(0, scriptNames.size() - maxVisible);
+            if (deltaY < 0) scrollOffset = Math.min(maxScroll, scrollOffset + 1);
+            else if (deltaY > 0) scrollOffset = Math.max(0, scrollOffset - 1);
+            return true;
+        }
+
+        return super.mouseScrolled(mx, my, deltaX, deltaY);
     }
 
     // ---- Рендер ----
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // 1. Фон.
         graphics.fill(0, 0, this.width, this.height, COLOR_BACKGROUND);
 
         int sbW = sidebarWidth();
+        int logTop = logTop();
 
-        // 2. Фон боковой панели.
+        // 1. Лог — внизу, во всю ширину.
+        drawLog(graphics, mouseX, mouseY, logTop);
+
+        // 2. Панель Scripts — от верха до лога (без зазора).
         if (sbW > 0) {
             int bgColor = (sidebarState == SidebarState.STRIP) ? COLOR_PANEL_STRIP : COLOR_PANEL;
-            graphics.fill(TAB_WIDTH, 0, TAB_WIDTH + sbW, this.height, bgColor);
+            graphics.fill(TAB_WIDTH, 0, TAB_WIDTH + sbW, sidebarBottom(), bgColor);
         }
 
-        // 3. Тулбар.
+        // 3. Тулбар — фон.
         int toolbarX = TAB_WIDTH + sbW;
         graphics.fill(toolbarX, 0, this.width, TOOLBAR_HEIGHT + PADDING, COLOR_TOOLBAR_BG);
 
@@ -199,22 +354,19 @@ public class MaredScriptsScreen extends Screen {
         graphics.fill(0, 0, TAB_WIDTH, this.height, COLOR_TAB_STRIP);
         drawTabs(graphics, mouseX, mouseY);
 
-        // 5. STRIP — стрелка в шапке панели (не по центру экрана!).
+        // 5. Содержимое панели Scripts.
         if (sidebarState == SidebarState.STRIP && "scripts".equals(openTab)) {
             drawArrow(graphics, TAB_WIDTH + (STRIP_WIDTH - BTN_SIZE) / 2, arrowY(), "►", mouseX, mouseY);
         }
-
-        // 6. FULL — полная панель со стрелкой в шапке.
         if (sidebarState == SidebarState.FULL && "scripts".equals(openTab)) {
-            drawFullSidebar(graphics, TAB_WIDTH, FULL_WIDTH, mouseX, mouseY);
+            drawFullSidebar(graphics, mouseX, mouseY);
         }
 
-        // 7. Редактор — без разделителя сверху, до лога.
+        // 6. Редактор — с зазором до лога.
         int editorX = TAB_WIDTH + sbW;
         int editorY = TOOLBAR_HEIGHT + PADDING + 1;
         int editorW = this.width - editorX;
-        int logTop = this.height - LOG_HEIGHT;
-        int editorH = logTop - editorY;
+        int editorH = editorBottom() - editorY;
 
         if ("scripts".equals(openTab)) {
             graphics.fill(editorX, editorY, editorX + editorW, editorY + editorH, COLOR_EDITOR_BG);
@@ -226,6 +378,14 @@ public class MaredScriptsScreen extends Screen {
             if (selectedScript == null) {
                 graphics.drawString(this.font, "Выберите скрипт слева или создайте новый",
                     editorX + 6, editorY + 24, COLOR_TEXT_DIM, true);
+            } else {
+                String content = MaredScriptStorage.readScript(selectedScript);
+                String[] lines = content.split("\n");
+                int maxLines = (editorH - 30) / 10;
+                for (int i = 0; i < Math.min(lines.length, maxLines); i++) {
+                    graphics.drawString(this.font, lines[i],
+                        editorX + 6, editorY + 24 + i * 10, COLOR_TEXT_DIM, true);
+                }
             }
         } else {
             graphics.fill(editorX, editorY, editorX + editorW, editorY + editorH, COLOR_EDITOR_BG);
@@ -234,22 +394,50 @@ public class MaredScriptsScreen extends Screen {
                 editorX + 8, editorY + 8, COLOR_TEXT_DIM, true);
         }
 
-        // 8. Лог — единственная линия-разделитель (верхняя граница).
+        // 7. Тонкий разделитель над логом — во всю ширину.
+        int dividerY = logTop - 1;
+        graphics.fill(0, dividerY, this.width, dividerY + 1, COLOR_EVENTS);
+
+        super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    private void drawLog(GuiGraphics graphics, int mouseX, int mouseY, int logTop) {
         graphics.fill(0, logTop, this.width, this.height, COLOR_LOG_BG);
-        graphics.fill(0, logTop, this.width, logTop + 1, COLOR_EVENTS);
         graphics.drawString(this.font, "Лог:", PADDING, logTop + 4, COLOR_EVENTS, true);
 
-        int lineHeight = 10;
-        int headerHeight = 16;
-        int visibleLines = Math.max(1, (LOG_HEIGHT - headerHeight - PADDING) / lineHeight);
-        int start = Math.max(0, logLines.size() - visibleLines);
-        for (int i = start; i < logLines.size(); i++) {
-            graphics.drawString(this.font, logLines.get(i),
-                PADDING + 4, logTop + headerHeight + (i - start) * lineHeight, COLOR_TEXT, true);
+        int visibleLines = Math.max(1, (LOG_HEIGHT - LOG_HEADER - PADDING) / LOG_LINE_HEIGHT);
+        int maxScroll = Math.max(0, logLines.size() - visibleLines);
+        if (logScrollOffset > maxScroll) logScrollOffset = maxScroll;
+
+        int end = logLines.size() - logScrollOffset;
+        int start = Math.max(0, end - visibleLines);
+
+        for (int i = start; i < end && i < logLines.size(); i++) {
+            int lineY = logTop + LOG_HEADER + (i - start) * LOG_LINE_HEIGHT;
+            graphics.drawString(this.font, logLines.get(i), PADDING + 4, lineY, COLOR_TEXT, true);
         }
 
-        // 9. Кнопки — поверх.
-        super.render(graphics, mouseX, mouseY, partialTick);
+        if (logLines.size() > visibleLines) {
+            int trackX = this.width - SCROLLBAR_WIDTH - 2;
+            int trackY = logTop + LOG_HEADER;
+            int trackH = LOG_HEIGHT - LOG_HEADER - PADDING;
+            graphics.fill(trackX, trackY, trackX + SCROLLBAR_WIDTH, trackY + trackH, 0xFF15151E);
+
+            int thumbH = Math.max(8, trackH * visibleLines / logLines.size());
+            int thumbY = trackY + (trackH - thumbH) * (maxScroll - logScrollOffset) / Math.max(1, maxScroll);
+            graphics.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH, COLOR_EVENTS);
+        }
+    }
+
+    private int arrowY() { return PADDING + 1; }
+
+    private int sidebarWidth() {
+        if (!"scripts".equals(openTab)) return 0;
+        switch (sidebarState) {
+            case STRIP: return STRIP_WIDTH;
+            case FULL:  return FULL_WIDTH;
+            default:    return 0;
+        }
     }
 
     private void drawArrow(GuiGraphics graphics, int ax, int ay, String symbol, int mouseX, int mouseY) {
@@ -260,49 +448,72 @@ public class MaredScriptsScreen extends Screen {
         graphics.drawString(this.font, symbol, ax + 5, ay + 5, COLOR_SCRIPTS, true);
     }
 
-    private void drawFullSidebar(GuiGraphics graphics, int sx, int sw, int mouseX, int mouseY) {
-        // Заголовок.
-        graphics.drawString(this.font, tabTitle(openTab), sx + 8, arrowY() + 5, COLOR_TEXT, true);
-
-        // Кнопки "+" и "◄" — в шапке, одинаковые, справа.
-        int arrowX = sx + sw - BTN_SIZE - 4;
-        int plusX = arrowX - BTN_SIZE - 4;
+    private void drawFullSidebar(GuiGraphics graphics, int mouseX, int mouseY) {
+        int sx = TAB_WIDTH;
+        int sw = FULL_WIDTH;
         int ay = arrowY();
 
-        // "+"
+        graphics.drawString(this.font, tabTitle(openTab), sx + 8, ay + 5, COLOR_TEXT, true);
+
+        int arrowX = sx + sw - BTN_SIZE - 4;
+        int plusX = arrowX - BTN_SIZE - 4;
+
         boolean plusHover = mouseX >= plusX && mouseX < plusX + BTN_SIZE
             && mouseY >= ay && mouseY < ay + BTN_SIZE;
-        graphics.fill(plusX, ay, plusX + BTN_SIZE, ay + BTN_SIZE,
-            plusHover ? 0xFF3E3E42 : 0xFF2D2D2D);
+        graphics.fill(plusX, ay, plusX + BTN_SIZE, ay + BTN_SIZE, plusHover ? 0xFF3E3E42 : 0xFF2D2D2D);
         graphics.renderOutline(plusX, ay, BTN_SIZE, BTN_SIZE, COLOR_SCRIPTS);
         graphics.drawString(this.font, "+", plusX + 6, ay + 5, COLOR_SCRIPTS, true);
 
-        // "◄"
         boolean arrowHover = mouseX >= arrowX && mouseX < arrowX + BTN_SIZE
             && mouseY >= ay && mouseY < ay + BTN_SIZE;
-        graphics.fill(arrowX, ay, arrowX + BTN_SIZE, ay + BTN_SIZE,
-            arrowHover ? 0xFF3E3E42 : 0xFF2D2D2D);
+        graphics.fill(arrowX, ay, arrowX + BTN_SIZE, ay + BTN_SIZE, arrowHover ? 0xFF3E3E42 : 0xFF2D2D2D);
         graphics.renderOutline(arrowX, ay, BTN_SIZE, BTN_SIZE, COLOR_SCRIPTS);
         graphics.drawString(this.font, "◄", arrowX + 5, ay + 5, COLOR_SCRIPTS, true);
 
-        // Список скриптов.
-        int listY = arrowY() + BTN_SIZE + 8;
         int listX = sx + 6;
-        int listW = sw - 12;
+        int listW = sw - 12 - SCROLLBAR_WIDTH;
+        int listY = ay + BTN_SIZE + 8;
+        int listH = sidebarBottom() - listY - 6;
+        int maxVisible = listH / ITEM_HEIGHT;
 
         if (scriptNames.isEmpty()) {
-            graphics.drawString(this.font, "Нет скриптов", listX + 4, listY + 4, COLOR_TEXT_DIM, true);
-        } else {
-            int maxVisible = (this.height - LOG_HEIGHT - listY - 6) / 14;
-            for (int i = 0; i < Math.min(scriptNames.size(), maxVisible); i++) {
-                String name = scriptNames.get(i);
-                boolean selected = name.equals(selectedScript);
-                int itemY = listY + i * 14;
-                int itemColor = selected ? 0xFF3E3E42 : 0xFF252530;
-                graphics.fill(listX, itemY, listX + listW, itemY + 12, itemColor);
-                graphics.drawString(this.font, name, listX + 4, itemY + 2,
-                    selected ? COLOR_SCRIPTS : COLOR_TEXT, true);
+            graphics.drawString(this.font, "Нет скриптов. Нажмите +", listX + 4, listY + 4, COLOR_TEXT_DIM, true);
+            return;
+        }
+
+        int maxScroll = Math.max(0, scriptNames.size() - maxVisible);
+        if (scrollOffset > maxScroll) scrollOffset = maxScroll;
+
+        for (int i = 0; i < maxVisible; i++) {
+            int realIdx = i + scrollOffset;
+            if (realIdx >= scriptNames.size()) break;
+
+            String name = scriptNames.get(realIdx);
+            int itemY = listY + i * ITEM_HEIGHT;
+            boolean hovered = mouseX >= listX && mouseX < listX + listW
+                && mouseY >= itemY && mouseY < itemY + ITEM_HEIGHT - 2;
+            boolean selected = name.equals(selectedScript);
+
+            int bg = selected ? COLOR_ITEM_SEL : (hovered ? COLOR_ITEM_HOVER : COLOR_ITEM_NORMAL);
+            graphics.fill(listX, itemY, listX + listW, itemY + ITEM_HEIGHT - 2, bg);
+
+            if (selected) {
+                graphics.fill(listX, itemY, listX + 2, itemY + ITEM_HEIGHT - 2, COLOR_SCRIPTS);
             }
+
+            graphics.drawString(this.font, name, listX + 4, itemY + 2,
+                selected ? COLOR_SCRIPTS : COLOR_TEXT, true);
+        }
+
+        if (scriptNames.size() > maxVisible) {
+            int trackX = sx + sw - SCROLLBAR_WIDTH - 2;
+            int trackY = listY;
+            int trackH = listH;
+            graphics.fill(trackX, trackY, trackX + SCROLLBAR_WIDTH, trackY + trackH, 0xFF15151E);
+
+            int thumbH = Math.max(10, trackH * maxVisible / scriptNames.size());
+            int thumbY = trackY + (trackH - thumbH) * scrollOffset / Math.max(1, maxScroll);
+            graphics.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH, COLOR_SCRIPTS);
         }
     }
 
