@@ -3,6 +3,7 @@ package com.fixmer.mared.gui;
 import java.util.function.Consumer;
 
 import com.fixmer.mared.script.MaredScriptStorage;
+import com.fixmer.mared.storage.MaredCommandStorage;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -13,7 +14,6 @@ public class MaredNameDialog extends Screen {
 
     private static final int COLOR_SCREEN_BG = 0xFF0E0E14;
     private static final int COLOR_BG        = 0xFF1E1E2A;
-    private static final int COLOR_BORDER    = 0xFFFF55FF;
     private static final int COLOR_TEXT      = 0xFFFFFFFF;
     private static final int COLOR_ERROR     = 0xFFFF5555;
     private static final int COLOR_SHADOW    = 0x80000000;
@@ -21,15 +21,25 @@ public class MaredNameDialog extends Screen {
     private final Screen parent;
     private final String title;
     private final Consumer<String> onConfirm;
+    private final int accentColor;
+    private final boolean isCommandMode;
 
     private EditBox input;
     private String error = null;
 
+    /** Script mode (default). */
     public MaredNameDialog(Screen parent, String title, Consumer<String> onConfirm) {
+        this(parent, title, onConfirm, 0xFFFF55FF, false);
+    }
+
+    /** Generic. */
+    public MaredNameDialog(Screen parent, String title, Consumer<String> onConfirm, int accentColor, boolean isCommandMode) {
         super(Component.literal(title));
         this.parent = parent;
         this.title = title;
         this.onConfirm = onConfirm;
+        this.accentColor = accentColor;
+        this.isCommandMode = isCommandMode;
     }
 
     @Override
@@ -46,7 +56,7 @@ public class MaredNameDialog extends Screen {
 
         this.addRenderableWidget(new MaredCompactButton(
             x + 10, y + h - 28, 105, 18,
-            Component.literal("Create"), COLOR_BORDER, this::confirm));
+            Component.literal("Create"), accentColor, this::confirm));
         this.addRenderableWidget(new MaredCompactButton(
             x + w - 115, y + h - 28, 105, 18,
             Component.literal("Cancel"), 0xFFAAAAAA,
@@ -55,14 +65,14 @@ public class MaredNameDialog extends Screen {
 
     private void confirm() {
         String name = input.getValue().trim();
-        if (!MaredScriptStorage.isValidName(name)) {
-            error = "Only a-z, A-Z, 0-9, _ and -";
-            return;
-        }
-        if (MaredScriptStorage.listScripts().contains(name)) {
-            error = "Script with this name already exists";
-            return;
-        }
+        boolean valid = isCommandMode
+            ? MaredCommandStorage.isValidName(name)
+            : MaredScriptStorage.isValidName(name);
+        if (!valid) { error = "Only a-z, A-Z, 0-9, _ and -"; return; }
+        boolean exists = isCommandMode
+            ? MaredCommandStorage.listCommands().contains(name)
+            : MaredScriptStorage.listScripts().contains(name);
+        if (exists) { error = "File with this name already exists"; return; }
         onConfirm.accept(name);
         this.minecraft.setScreen(parent);
     }
@@ -78,7 +88,7 @@ public class MaredNameDialog extends Screen {
 
         graphics.fill(x + 3, y + 3, x + w + 3, y + h + 3, COLOR_SHADOW);
         graphics.fill(x, y, x + w, y + h, COLOR_BG);
-        graphics.renderOutline(x, y, w, h, COLOR_BORDER);
+        graphics.renderOutline(x, y, w, h, accentColor);
         graphics.drawString(this.font, title, x + 10, y + 10, COLOR_TEXT, true);
 
         if (error != null) {
@@ -99,7 +109,5 @@ public class MaredNameDialog extends Screen {
     public boolean isPauseScreen() { return false; }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        // Empty.
-    }
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) { /* Empty. */ }
 }
