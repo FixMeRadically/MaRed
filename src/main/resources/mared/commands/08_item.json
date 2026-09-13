@@ -1,0 +1,52 @@
+{
+  "commands": [
+    {
+      "name": "item",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Modify items in containers or inventories",
+      "example": "/item replace entity @s hotbar.0 with minecraft:diamond",
+      "arguments": [
+        { "value": "replace", "description": "Replace item", "examples": ["/item replace entity @s hotbar.0 with minecraft:diamond"] },
+        { "value": "modify", "description": "Modify item", "examples": ["/item modify entity @s hotbar.0 mypack:add"] },
+        { "value": "entity <target>", "description": "Entity inventory", "examples": ["/item replace entity @s hotbar.0 with minecraft:diamond"] },
+        { "value": "block <pos>", "description": "Block container", "examples": ["/item replace block ~ ~1 ~ container.0 with minecraft:stone"] },
+        { "value": "hotbar.0-8", "description": "Hotbar slots", "examples": ["/item replace entity @s hotbar.0 with minecraft:diamond"] },
+        { "value": "inventory.0-26", "description": "Main inventory slots", "examples": ["/item replace entity @s inventory.0 with minecraft:diamond"] },
+        { "value": "armor.head", "description": "Helmet slot", "examples": ["/item replace entity @s armor.head with minecraft:diamond_helmet"] },
+        { "value": "armor.chest", "description": "Chestplate slot", "examples": ["/item replace entity @s armor.chest with minecraft:diamond_chestplate"] },
+        { "value": "armor.legs", "description": "Leggings slot", "examples": ["/item replace entity @s armor.legs with minecraft:diamond_leggings"] },
+        { "value": "armor.feet", "description": "Boots slot", "examples": ["/item replace entity @s armor.feet with minecraft:diamond_boots"] },
+        { "value": "weapon.mainhand", "description": "Main hand", "examples": ["/item replace entity @s weapon.mainhand with minecraft:netherite_sword"] },
+        { "value": "weapon.offhand", "description": "Off hand", "examples": ["/item replace entity @s weapon.offhand with minecraft:shield"] },
+        { "value": "container.0-53", "description": "Container slots", "examples": ["/item replace block ~ ~1 ~ container.0 with minecraft:stone"] },
+        { "value": "enderchest.0-26", "description": "Ender chest slots", "examples": ["/item replace entity @s enderchest.0 with minecraft:diamond"] },
+        { "value": "horse.saddle", "description": "Horse saddle slot", "examples": ["/item replace entity @e[type=horse,limit=1] horse.saddle with minecraft:saddle"] },
+        { "value": "villager.0-7", "description": "Villager trade slots", "examples": ["/item replace entity @e[type=villager,limit=1] villager.0 with minecraft:emerald"] },
+        { "value": "with <item>", "description": "Item to place", "examples": ["/item replace entity @s hotbar.0 with minecraft:diamond 5"] },
+        { "value": "from <source>", "description": "Source of item", "examples": ["/item replace entity @s hotbar.0 from entity @p hotbar.0"] },
+        { "value": "[count]", "description": "Stack size", "examples": ["/item replace entity @s hotbar.0 with minecraft:diamond 64"] }
+      ],
+      "nbt": [
+        { "tag": "replace", "what": "Replace item in slot", "why": "Overwrite existing item", "example": "/item replace entity @s hotbar.0 with minecraft:diamond" },
+        { "tag": "modify", "what": "Modify existing item", "why": "Change NBT of item in slot", "example": "/item modify entity @s hotbar.0 mypack:add_enchantment" },
+        { "tag": "entity <target>", "what": "Target entity inventory", "why": "Player or mob inventory", "example": "/item replace entity @s hotbar.0 with minecraft:diamond" },
+        { "tag": "block <pos>", "what": "Target block container", "why": "Chest, barrel, shulker, etc.", "example": "/item replace block ~ ~1 ~ container.0 with minecraft:stone" },
+        { "tag": "hotbar.N", "what": "Hotbar slots 0-8", "why": "First row of inventory", "example": "/item replace entity @s hotbar.0 with minecraft:diamond" },
+        { "tag": "inventory.N", "what": "Main inventory 0-26", "why": "Main 27 slots", "example": "/item replace entity @s inventory.0 with minecraft:diamond" },
+        { "tag": "armor.head", "what": "Helmet slot", "why": "Equip a helmet", "example": "/item replace entity @s armor.head with minecraft:diamond_helmet" },
+        { "tag": "armor.chest", "what": "Chestplate slot", "why": "Equip a chestplate", "example": "/item replace entity @s armor.chest with minecraft:diamond_chestplate" },
+        { "tag": "armor.legs", "what": "Leggings slot", "why": "Equip leggings", "example": "/item replace entity @s armor.legs with minecraft:diamond_leggings" },
+        { "tag": "armor.feet", "what": "Boots slot", "why": "Equip boots", "example": "/item replace entity @s armor.feet with minecraft:diamond_boots" },
+        { "tag": "weapon.mainhand", "what": "Main hand slot", "why": "What entity holds in main hand", "example": "/item replace entity @s weapon.mainhand with minecraft:netherite_sword" },
+        { "tag": "weapon.offhand", "what": "Off hand slot", "why": "What entity holds in off hand", "example": "/item replace entity @s weapon.offhand with minecraft:shield" },
+        { "tag": "container.N", "what": "Container slots 0-53", "why": "Chest, barrel, shulker slots", "example": "/item replace block ~ ~1 ~ container.0 with minecraft:stone" },
+        { "tag": "enderchest.N", "what": "Ender chest slots 0-26", "why": "Ender chest inventory", "example": "/item replace entity @s enderchest.0 with minecraft:diamond" },
+        { "tag": "horse.saddle", "what": "Horse saddle slot", "why": "Saddle for rideable mobs", "example": "/item replace entity @e[type=horse,limit=1] horse.saddle with minecraft:saddle" },
+        { "tag": "with", "what": "Item to place", "why": "What item to put in slot", "example": "/item replace entity @s hotbar.0 with minecraft:diamond 5" },
+        { "tag": "from", "what": "Source of item", "why": "Copy item from another slot", "example": "/item replace entity @s hotbar.0 from entity @p hotbar.0" },
+        { "tag": "[count]", "what": "Stack size", "why": "Number of items", "example": "/item replace entity @s hotbar.0 with minecraft:diamond 64" }
+      ]
+    }
+  ]
+}

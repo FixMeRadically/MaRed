@@ -1,0 +1,18 @@
+{
+  "commands": [
+    {
+      "name": "datapack",
+      "category": "Server",
+      "opLevel": 4,
+      "description": "Manage data packs",
+      "example": "/datapack list",
+      "arguments": [
+        { "value": "list", "description": "List data packs", "examples": ["/datapack list"] },
+        { "value": "list enabled", "description": "List enabled packs", "examples": ["/datapack list enabled"] },
+        { "value": "list available", "description": "List available packs", "examples": ["/datapack list available"] },
+        { "value": "enable <name>", "description": "Enable pack", "examples": ["/datapack enable mypack"] },
+        { "value": "disable <name>", "description": "Disable pack", "examples": ["/datapack disable mypack"] }
+      ]
+    }
+  ]
+}

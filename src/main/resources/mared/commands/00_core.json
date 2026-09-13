@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "mared",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Mared mod core command",
+      "example": "/mared help",
+      "arguments": [
+        { "value": "help", "description": "Show Mared help", "examples": ["/mared help"] },
+        { "value": "version", "description": "Show version", "examples": ["/mared version"] }
+      ]
+    }
+  ]
+}

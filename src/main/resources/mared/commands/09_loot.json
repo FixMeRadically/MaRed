@@ -1,0 +1,39 @@
+{
+  "commands": [
+    {
+      "name": "loot",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Give loot from a loot table",
+      "example": "/loot give @s loot minecraft:chests/simple_dungeon",
+      "arguments": [
+        { "value": "give", "description": "Give loot to players", "examples": ["/loot give @s loot minecraft:chests/simple_dungeon"] },
+        { "value": "insert", "description": "Insert loot into container", "examples": ["/loot insert ~ ~1 ~ loot minecraft:chests/simple_dungeon"] },
+        { "value": "spawn", "description": "Spawn as item entity", "examples": ["/loot spawn ~ ~1 ~ loot minecraft:chests/simple_dungeon"] },
+        { "value": "replace", "description": "Replace items in inventory", "examples": ["/loot replace entity @s hotbar.0 loot minecraft:chests/simple_dungeon"] },
+        { "value": "loot <table>", "description": "Loot table resource location", "examples": ["/loot give @s loot minecraft:chests/simple_dungeon", "/loot give @s loot minecraft:chests/end_city_treasure"] },
+        { "value": "kill <target>", "description": "From entity death", "examples": ["/loot give @s kill @e[type=zombie,limit=1]"] },
+        { "value": "mine <pos>", "description": "From block", "examples": ["/loot give @s mine ~ ~1 ~"] },
+        { "value": "fish <table>", "description": "From fishing", "examples": ["/loot give @s fish minecraft:gameplay/fishing"] },
+        { "value": "mainhand", "description": "Loot from held item", "examples": ["/loot give @s kill @e[type=zombie,limit=1] mainhand"] },
+        { "value": "entity <target>", "description": "Replace in entity inventory", "examples": ["/loot replace entity @s hotbar.0 loot minecraft:chests/simple_dungeon"] },
+        { "value": "block <pos>", "description": "Replace in block container", "examples": ["/loot replace block ~ ~1 ~ container.0 loot minecraft:chests/simple_dungeon"] },
+        { "value": "[slot]", "description": "Slot to fill", "examples": ["/loot replace entity @s hotbar.0 loot minecraft:chests/simple_dungeon"] }
+      ],
+      "nbt": [
+        { "tag": "give", "what": "Give to player", "why": "Adds loot directly to inventory", "example": "/loot give @s loot minecraft:chests/simple_dungeon" },
+        { "tag": "insert", "what": "Insert into container", "why": "Puts loot into chest/barrel", "example": "/loot insert ~ ~1 ~ loot minecraft:chests/simple_dungeon" },
+        { "tag": "spawn", "what": "Spawn as item entities", "why": "Drops loot on the ground", "example": "/loot spawn ~ ~1 ~ loot minecraft:chests/simple_dungeon" },
+        { "tag": "replace", "what": "Replace items in slot", "why": "Clears slot then fills with loot", "example": "/loot replace entity @s hotbar.0 loot minecraft:chests/simple_dungeon" },
+        { "tag": "loot <table>", "what": "Loot table source", "why": "Where the loot comes from", "example": "/loot give @s loot minecraft:chests/simple_dungeon" },
+        { "tag": "kill <target>", "what": "Loot from entity death", "why": "Simulates killing entity for drops", "example": "/loot give @s kill @e[type=zombie,limit=1]" },
+        { "tag": "mine <pos>", "what": "Loot from block break", "why": "Simulates breaking block", "example": "/loot give @s mine ~ ~1 ~" },
+        { "tag": "fish <table>", "what": "Loot from fishing", "why": "Loot for fishing table", "example": "/loot give @s fish minecraft:gameplay/fishing" },
+        { "tag": "mainhand", "what": "Use held item", "why": "Modify loot based on held item (e.g. fortune)", "example": "/loot give @s kill @e[type=zombie,limit=1] mainhand" },
+        { "tag": "entity <target>", "what": "Target entity", "why": "Which entity inventory", "example": "/loot replace entity @s hotbar.0 loot minecraft:chests/simple_dungeon" },
+        { "tag": "block <pos>", "what": "Target container block", "why": "Which container to fill", "example": "/loot replace block ~ ~1 ~ container.0 loot minecraft:chests/simple_dungeon" },
+        { "tag": "[slot]", "what": "Slot to fill", "why": "Where in the target to put loot", "example": "/loot replace entity @s hotbar.0 loot minecraft:chests/simple_dungeon" }
+      ]
+    }
+  ]
+}

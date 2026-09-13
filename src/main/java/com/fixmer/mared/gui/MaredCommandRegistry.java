@@ -2,11 +2,19 @@ package com.fixmer.mared.gui;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 import com.fixmer.mared.Mared;
 import com.google.gson.Gson;
@@ -14,13 +22,14 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
-import net.neoforged.fml.loading.FMLPaths;
-
+/**
+ * Загрузчик справочника команд из JSON.
+ * Читает ВСЕ .json-файлы из папки resources/mared/commands/.
+ * Если файл отсутствует — пропускает с предупреждением в логе.
+ */
 public class MaredCommandRegistry {
 
-    private static final String SUBDIR = "mared";
-    private static final String FILE_NAME = "commands.json";
-    private static final String RESOURCE_PATH = "/mared/commands.json";
+    private static final String COMMANDS_DIR = "/mared/commands";
 
     // ---- Data classes ----
 
@@ -81,54 +90,83 @@ public class MaredCommandRegistry {
         loaded = true;
         COMMANDS.clear();
 
-        Path file = getFilePath();
-
-        if (file == null || !Files.exists(file)) {
-            if (file != null) copyResourceTo(file);
+        List<String> files = listCommandFiles();
+        if (files.isEmpty()) {
+            Mared.LOGGER.warn("No .json files found in {}", COMMANDS_DIR);
+            return;
         }
 
-        if (file != null && Files.exists(file)) {
-            try {
-                String json = Files.readString(file, StandardCharsets.UTF_8);
+        for (String fileName : files) {
+            String fullPath = COMMANDS_DIR + "/" + fileName;
+            try (InputStream in = MaredCommandRegistry.class.getResourceAsStream(fullPath)) {
+                if (in == null) {
+                    Mared.LOGGER.warn("Command file not found, skipping: {}", fullPath);
+                    continue;
+                }
+                String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+                int before = COMMANDS.size();
                 parseJson(json);
-                Mared.LOGGER.info("Loaded {} commands from {}", COMMANDS.size(), file);
-                return;
+                Mared.LOGGER.info("Loaded {} commands from {}", COMMANDS.size() - before, fullPath);
             } catch (Exception e) {
-                Mared.LOGGER.error("Failed to parse commands.json: {}", e.getMessage());
+                Mared.LOGGER.error("Failed to load {}: {}", fullPath, e.getMessage());
             }
         }
 
-        try (InputStream in = MaredCommandRegistry.class.getResourceAsStream(RESOURCE_PATH)) {
-            if (in != null) {
-                String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-                parseJson(json);
-                Mared.LOGGER.info("Loaded {} commands from built-in resource", COMMANDS.size());
+        Mared.LOGGER.info("Total commands loaded: {}", COMMANDS.size());
+    }
+
+    /** Возвращает список имён .json-файлов в папке commands/. */
+    private static List<String> listCommandFiles() {
+        List<String> result = new ArrayList<>();
+
+        try {
+            URL url = MaredCommandRegistry.class.getResource(COMMANDS_DIR);
+            if (url == null) {
+                Mared.LOGGER.warn("Commands directory not found: {}", COMMANDS_DIR);
+                return result;
+            }
+
+            // В JAR-файле (в реальной сборке) — нужен FileSystem для чтения папки.
+            if ("jar".equals(url.getProtocol())) {
+                try {
+                    URI uri = url.toURI();
+                    try (FileSystem fs = FileSystems.newFileSystem(uri, Collections.emptyMap())) {
+                        Path dir = fs.getPath(COMMANDS_DIR);
+                        if (Files.exists(dir)) {
+                            try (Stream<Path> stream = Files.list(dir)) {
+                                stream.filter(Files::isRegularFile)
+                                      .map(p -> p.getFileName().toString())
+                                      .filter(n -> n.endsWith(".json"))
+                                      .sorted()
+                                      .forEach(result::add);
+                            }
+                        }
+                    }
+                } catch (URISyntaxException | IOException e) {
+                    Mared.LOGGER.error("Failed to list commands from JAR", e);
+                }
             } else {
-                Mared.LOGGER.warn("Built-in commands.json resource not found");
+                // В dev-окружении — обычная папка.
+                try {
+                    Path dir = Paths.get(url.toURI());
+                    if (Files.exists(dir)) {
+                        try (Stream<Path> stream = Files.list(dir)) {
+                            stream.filter(Files::isRegularFile)
+                                  .map(p -> p.getFileName().toString())
+                                  .filter(n -> n.endsWith(".json"))
+                                  .sorted()
+                                  .forEach(result::add);
+                        }
+                    }
+                } catch (URISyntaxException | IOException e) {
+                    Mared.LOGGER.error("Failed to list commands from folder", e);
+                }
             }
         } catch (Exception e) {
-            Mared.LOGGER.error("Failed to load built-in commands: {}", e.getMessage());
+            Mared.LOGGER.error("Failed to list commands", e);
         }
-    }
 
-    private static Path getFilePath() {
-        try {
-            Path dir = FMLPaths.CONFIGDIR.get().resolve(SUBDIR);
-            if (!Files.exists(dir)) Files.createDirectories(dir);
-            return dir.resolve(FILE_NAME);
-        } catch (IOException e) {
-            Mared.LOGGER.error("Failed to create commands config dir", e);
-            return null;
-        }
-    }
-
-    private static void copyResourceTo(Path file) {
-        try (InputStream in = MaredCommandRegistry.class.getResourceAsStream(RESOURCE_PATH)) {
-            if (in == null) return;
-            Files.write(file, in.readAllBytes());
-        } catch (IOException e) {
-            Mared.LOGGER.error("Failed to copy default commands.json", e);
-        }
+        return result;
     }
 
     private static void parseJson(String json) {
@@ -201,14 +239,17 @@ public class MaredCommandRegistry {
         return null;
     }
 
-    /** Поиск только по имени команды. */
+    /**
+     * Поиск по НАЧАЛУ имени команды.
+     * "Tr" -> trigger, "Su" -> summon.
+     */
     public static List<CommandInfo> search(String query) {
         List<CommandInfo> all = all();
         if (query == null || query.isEmpty()) return all;
         String q = query.toLowerCase();
         List<CommandInfo> result = new ArrayList<>();
         for (CommandInfo c : all) {
-            if (c.name.toLowerCase().contains(q)) {
+            if (c.name.toLowerCase().startsWith(q)) {
                 result.add(c);
             }
         }

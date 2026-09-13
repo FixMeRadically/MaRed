@@ -1,0 +1,23 @@
+{
+  "commands": [
+    {
+      "name": "weather",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Set weather",
+      "example": "/weather clear",
+      "arguments": [
+        { "value": "clear", "description": "Clear weather", "examples": ["/weather clear", "/weather clear 3600"] },
+        { "value": "rain", "description": "Rain", "examples": ["/weather rain", "/weather rain 3600"] },
+        { "value": "thunder", "description": "Thunderstorm", "examples": ["/weather thunder", "/weather thunder 3600"] },
+        { "value": "[duration]", "description": "Duration in seconds", "examples": ["/weather clear 3600", "/weather rain 600"] }
+      ],
+      "nbt": [
+        { "tag": "clear", "what": "Clear weather", "why": "No rain or thunder", "example": "/weather clear" },
+        { "tag": "rain", "what": "Rain", "why": "Rain without thunder", "example": "/weather rain" },
+        { "tag": "thunder", "what": "Thunderstorm", "why": "Rain + lightning", "example": "/weather thunder" },
+        { "tag": "[duration]", "what": "Duration in seconds", "why": "How long the weather lasts", "example": "/weather clear 3600" }
+      ]
+    }
+  ]
+}

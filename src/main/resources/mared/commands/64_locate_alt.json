@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "locate",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Locate alternate syntax",
+      "example": "/locate biome minecraft:plains",
+      "arguments": [
+        { "value": "biome <id>", "description": "Locate biome", "examples": ["/locate biome minecraft:plains"] },
+        { "value": "structure <id>", "description": "Locate structure", "examples": ["/locate structure minecraft:village_plains"] },
+        { "value": "poi <id>", "description": "Locate POI", "examples": ["/locate poi minecraft:nether_portal"] }
+      ]
+    }
+  ]
+}

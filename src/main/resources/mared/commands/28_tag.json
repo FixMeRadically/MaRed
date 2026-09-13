@@ -1,0 +1,17 @@
+{
+  "commands": [
+    {
+      "name": "tag",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Manage entity tags",
+      "example": "/tag @s add my_tag",
+      "arguments": [
+        { "value": "add <name>", "description": "Add tag", "examples": ["/tag @s add my_tag", "/tag @a add admin"] },
+        { "value": "remove <name>", "description": "Remove tag", "examples": ["/tag @s remove my_tag"] },
+        { "value": "list", "description": "List tags", "examples": ["/tag @s list"] },
+        { "value": "<target>", "description": "Who to tag", "examples": ["/tag @s add my_tag", "/tag @e[type=zombie] add boss"] }
+      ]
+    }
+  ]
+}

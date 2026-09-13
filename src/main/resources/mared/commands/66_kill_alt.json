@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "name": "kill",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Kill alternate syntax",
+      "example": "/kill",
+      "arguments": [
+        { "value": "", "description": "Kill self", "examples": ["/kill"] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "commands": [
+    {
+      "name": "playsound",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Play a sound to players",
+      "example": "/playsound minecraft:entity.player.levelup master @a ~ ~ ~ 1 1",
+      "arguments": [
+        { "value": "<sound>", "description": "Sound ID", "examples": ["/playsound minecraft:entity.player.levelup master @a"] },
+        { "value": "<source>", "description": "Sound source", "examples": ["/playsound minecraft:block.note_block.harp master @a"] },
+        { "value": "<targets>", "description": "Who hears", "examples": ["/playsound minecraft:entity.player.levelup master @a"] },
+        { "value": "<pos>", "description": "Sound position", "examples": ["/playsound minecraft:entity.player.levelup master @a ~ ~ ~"] },
+        { "value": "<volume>", "description": "Volume", "examples": ["/playsound minecraft:entity.player.levelup master @a ~ ~ ~ 1.0"] },
+        { "value": "<pitch>", "description": "Pitch", "examples": ["/playsound minecraft:entity.player.levelup master @a ~ ~ ~ 1.0 1.0"] },
+        { "value": "<minVolume>", "description": "Min volume", "examples": ["/playsound minecraft:entity.player.levelup master @a ~ ~ ~ 1.0 1.0 1.0"] }
+      ],
+      "nbt": [
+        { "tag": "master", "what": "Master source", "why": "All sounds", "example": "/playsound minecraft:entity.player.levelup master @a" },
+        { "tag": "player", "what": "Player source", "why": "Player-related sounds", "example": "/playsound minecraft:entity.player.levelup player @a" },
+        { "tag": "block", "what": "Block source", "why": "Block-related sounds", "example": "/playsound minecraft:block.note_block.harp block @a" },
+        { "tag": "hostile", "what": "Hostile source", "why": "Hostile mob sounds", "example": "/playsound minecraft:entity.zombie.ambient hostile @a" },
+        { "tag": "neutral", "what": "Neutral source", "why": "Neutral mob sounds", "example": "/playsound minecraft:entity.cow.ambient neutral @a" },
+        { "tag": "record", "what": "Record source", "why": "Music discs", "example": "/playsound minecraft:music_disc.pigstep record @a" },
+        { "tag": "ambient", "what": "Ambient source", "why": "Ambient sounds", "example": "/playsound minecraft:ambient.cave ambient @a" },
+        { "tag": "voice", "what": "Voice source", "why": "Voice sounds", "example": "/playsound minecraft:entity.villager.ambient voice @a" },
+        { "tag": "weather", "what": "Weather source", "why": "Weather sounds", "example": "/playsound minecraft:weather.rain weather @a" }
+      ]
+    }
+  ]
+}

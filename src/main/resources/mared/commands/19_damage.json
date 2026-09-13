@@ -1,0 +1,19 @@
+{
+  "commands": [
+    {
+      "name": "damage",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Deal damage to entities",
+      "example": "/damage @s 5",
+      "arguments": [
+        { "value": "<target>", "description": "Who to damage", "examples": ["/damage @s 5"] },
+        { "value": "<amount>", "description": "Damage amount", "examples": ["/damage @s 10"] },
+        { "value": "<damageType>", "description": "Type of damage", "examples": ["/damage @s 5 minecraft:generic"] },
+        { "value": "at <pos>", "description": "Damage source position", "examples": ["/damage @s 5 minecraft:generic at 0 64 0"] },
+        { "value": "by <entity>", "description": "Damage source entity", "examples": ["/damage @s 5 minecraft:generic by @p"] },
+        { "value": "from <cause>", "description": "Damage cause entity", "examples": ["/damage @s 5 minecraft:generic from @p"] }
+      ]
+    }
+  ]
+}

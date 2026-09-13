@@ -5,6 +5,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.lwjgl.glfw.GLFW;
+
+import com.fixmer.mared.MaredSettings;
+import com.fixmer.mared.script.MaredBindRegistry;
+import com.fixmer.mared.script.MaredLang;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
 import com.fixmer.mared.script.MaredScriptParser;
@@ -25,59 +30,53 @@ import net.minecraft.server.level.ServerPlayer;
 public class MaredEditorScreen extends Screen {
 
     // ---- Palette ----
-    private static final int COLOR_BACKGROUND   = 0xFF0E0E14;
-    private static final int COLOR_TAB_STRIP    = 0xFF181822;
-    private static final int COLOR_TOOLBAR_BG   = 0xFF20202C;
-    private static final int COLOR_PANEL        = 0xFF1E1E2A;
-    private static final int COLOR_PANEL_STRIP  = 0xFF252530;
-    private static final int COLOR_EDITOR_BG    = 0xFF141420;
-    private static final int COLOR_LOG_BG       = 0xFF1A1A24;
-    private static final int COLOR_INFO_BG      = 0xFF1A1A26;
-    private static final int COLOR_TEXT         = 0xFFFFFFFF;
-    private static final int COLOR_TEXT_DIM     = 0xFFAAAAAA;
-    private static final int COLOR_TEXT_WARN    = 0xFFFFAA00;
-    private static final int COLOR_ITEM_HOVER   = 0xFF2E2E3E;
-    private static final int COLOR_ITEM_NORMAL  = 0xFF252530;
-    private static final int COLOR_SECTION_BG   = 0xFF2A2A38;
-    private static final int COLOR_SCROLLBAR_BG = 0xFF15151E;
-    private static final int COLOR_DIVIDER      = 0xFF333344;
-    private static final int COLOR_BTN_BG       = 0xFF2D2D2D;
-    private static final int COLOR_BTN_HOVER    = 0xFF3E3E42;
-    private static final int COLOR_FILTER_BG    = 0xFF0A0A10;
+    private static final int BG          = 0xFF0E0E14;
+    private static final int TAB_STRIP   = 0xFF181822;
+    private static final int TOOLBAR_BG  = 0xFF20202C;
+    private static final int PANEL       = 0xFF1E1E2A;
+    private static final int PANEL_STRIP = 0xFF252530;
+    private static final int EDITOR_BG   = 0xFF141420;
+    private static final int LOG_BG      = 0xFF1A1A24;
+    private static final int INFO_BG     = 0xFF1A1A26;
+    private static final int TEXT        = 0xFFFFFFFF;
+    private static final int TEXT_DIM    = 0xFFAAAAAA;
+    private static final int TEXT_WARN   = 0xFFFFAA00;
+    private static final int ITEM_HOVER  = 0xFF2E2E3E;
+    private static final int ITEM_NORMAL = 0xFF252530;
+    private static final int SECTION_BG  = 0xFF2A2A38;
+    private static final int DIVIDER     = 0xFF333344;
+    private static final int BTN_BG      = 0xFF2D2D2D;
+    private static final int BTN_HOVER   = 0xFF3E3E42;
+    private static final int FILTER_BG   = 0xFF0A0A10;
+    private static final int DANGER      = 0xFFFF4444;
 
-    private static final int COLOR_SCRIPTS  = 0xFFFF55FF;
-    private static final int COLOR_COMMANDS = 0xFFFFAA00;
-    private static final int COLOR_NPC      = 0xFFFFAA00;
-    private static final int COLOR_EVENTS   = 0xFF55AAFF;
-    private static final int COLOR_QUESTS   = 0xFF55FF55;
-    private static final int COLOR_DANGER   = 0xFFFF4444;
+    private static final int SCRIPTS_TOP  = 0xFFFF55FF;
+    private static final int SCRIPTS_BOT  = 0xFFDD33DD;
+    private static final int COMMANDS_TOP = 0xFFFFAA00;
+    private static final int COMMANDS_BOT = 0xFFFF8800;
+    private static final int NPC_TOP      = 0xFF55FF55;
+    private static final int NPC_BOT      = 0xFF33DD33;
+    private static final int EVENTS_TOP   = 0xFF55AAFF;
+    private static final int EVENTS_BOT   = 0xFF3388DD;
+    private static final int QUESTS_TOP   = 0xFFFF5555;
+    private static final int QUESTS_BOT   = 0xFFDD3333;
 
-    // ---- Sizes ----
-    private static final int TAB_WIDTH       = 30;
-    private static final int TAB_HEIGHT      = 30;
-    private static final int TOOLBAR_HEIGHT  = 22;
-    private static final int PADDING         = 6;
-    private static final int LOG_HEIGHT      = 110;
-    private static final int LOG_HEIGHT_COLLAPSED = 20;
-    private static final int STRIP_WIDTH     = 36;
-    private static final int FULL_WIDTH      = 220;
-    private static final int INFO_WIDTH      = 280;
-    private static final int INFO_COLLAPSED_WIDTH = 24;
-    private static final int BTN_SIZE        = 18;
-    private static final int ITEM_HEIGHT     = 14;
-    private static final int SCROLLBAR_WIDTH = 6;
-    private static final int LOG_LINE_HEIGHT = 10;
-    private static final int LOG_HEADER      = 16;
-    private static final int GAP_EDITOR_LOG  = 6;
-    private static final int EDITOR_HEADER   = 18;
-    private static final int FILE_SECTION_HEIGHT = 140;
-    private static final int FILTER_HEIGHT   = 14;
+    private static final int MRED_COLOR = 0xFFFF3333;
+
+    private static final int TAB_W = 30, TAB_H = 30, TOOLBAR_H = 22, PAD = 6;
+    private static final int LOG_H = 110, LOG_H_COLLAPSED = 20, LOG_HEADER = 16, LOG_LINE = 10;
+    private static final int STRIP_W = 36, FULL_W = 220;
+    private static final int INFO_W = 280, INFO_COLLAPSED_W = 24;
+    private static final int BTN_SZ = 18, ITEM_H = 14, SCROLLBAR_W = 6;
+    private static final int GAP_EDITOR_LOG = 6, EDITOR_HDR = 18;
+    private static final int FILE_SECTION_H = 140, FILTER_H = 14, FILE_DEL_SZ = 12;
+    private static final int TOGGLE_W = 22, TOGGLE_H = 12;
+    private static final int ACTIVE_BINDS_W = 220;
+    private static final int BIND_DEL_SZ = 10;
 
     private enum SidebarState { CLOSED, STRIP, FULL }
-    private enum DragTarget { NONE, FILES, COMMANDS, INFO, LOG }
 
     private SidebarState sidebarState = SidebarState.CLOSED;
-    private DragTarget dragTarget = DragTarget.NONE;
     private String openTab = "scripts";
 
     private final List<String> fileNames = new ArrayList<>();
@@ -85,7 +84,6 @@ public class MaredEditorScreen extends Screen {
     private final List<String> logLines = new ArrayList<>();
     private String selectedFile = null;
     private MaredCommandRegistry.CommandInfo selectedCommandInfo = null;
-
     private final Set<Integer> expandedArgs = new HashSet<>();
 
     private String commandFilter = "";
@@ -96,109 +94,249 @@ public class MaredEditorScreen extends Screen {
 
     private boolean infoPanelCollapsed = false;
     private boolean logCollapsed = false;
+    private boolean showMaredCommands = false;
 
-    private int fileScrollOffset = 0;
-    private int commandScrollOffset = 0;
-    private int infoScrollOffset = 0;
-    private int logScrollOffset = 0;
+    private final MaredUi.ScrollArea fileScroll = new MaredUi.ScrollArea();
+    private final MaredUi.ScrollArea cmdScroll  = new MaredUi.ScrollArea();
+    private final MaredUi.PixelScroll infoScroll = new MaredUi.PixelScroll();
+    private final MaredUi.ScrollArea logScroll  = new MaredUi.ScrollArea();
+    private final MaredUi.DragState drag = new MaredUi.DragState();
 
-    private double dragStartY = 0;
-    private int dragStartScroll = 0;
+    private int activeBindsScrollOffset = 0;
 
     private String lastSavedText = "";
 
     private final List<AbstractWidget> toolButtons = new ArrayList<>();
-
     private MaredMultiLineEditBox editor;
 
-    public MaredEditorScreen() {
-        super(Component.literal("Mared Editor"));
+    /** Ленивая инициализация — заполняется при первом обращении. */
+    private static List<MaredCommandRegistry.CommandInfo> MRED_COMMANDS = null;
+
+    /** Заполнить список Mared-команд с локализованными описаниями. */
+    private static void ensureMredCommands() {
+        if (MRED_COMMANDS != null) return;
+        MRED_COMMANDS = new ArrayList<>();
+
+        MRED_COMMANDS.add(mk("say",
+            MaredLang.get("mared.help.say.desc"),
+            "say \"Hello, $self\"",
+            args("text", MaredLang.get("mared.help.say.arg.text"), "say \"Hello!\"", "say $greeting")));
+
+        MRED_COMMANDS.add(mk("wait",
+            MaredLang.get("mared.help.wait.desc"),
+            "wait 3 seconds",
+            args("time", MaredLang.get("mared.help.wait.arg.time"), "wait 3 seconds", "wait 100 ticks")));
+
+        MRED_COMMANDS.add(mk("set",
+            MaredLang.get("mared.help.set.desc"),
+            "set count = 5",
+            args("name = value", MaredLang.get("mared.help.set.arg.name"), "set count = 5", "set name = \"Steve\"")));
+
+        MRED_COMMANDS.add(mk("array",
+            MaredLang.get("mared.help.array.desc"),
+            "array items = [1, 2, 3]",
+            args("name = [values]", MaredLang.get("mared.help.array.arg.name"),
+                "array items = [1, 2, 3]", "array names = [\"a\", \"b\"]")));
+
+        MRED_COMMANDS.add(mk("give",
+            MaredLang.get("mared.help.give.desc"),
+            "give @s diamond 5",
+            args("target", MaredLang.get("mared.help.give.arg.target"), "give @s diamond 5"),
+            args("item", MaredLang.get("mared.help.give.arg.item"), "give @s minecraft:diamond 5"),
+            args("count", MaredLang.get("mared.help.give.arg.count"), "give @s diamond 64")));
+
+        MRED_COMMANDS.add(mk("bind",
+            MaredLang.get("mared.help.bind.desc"),
+            "bind R { say \"Hi\" }",
+            args("key", MaredLang.get("mared.help.bind.arg.key"), "bind R { say \"Hi\" }"),
+            args("add", MaredLang.get("mared.help.bind.arg.add"), "bind R add { say \"second\" }"),
+            args("replace", MaredLang.get("mared.help.bind.arg.replace"), "bind R replace { say \"new\" }"),
+            args("clear", MaredLang.get("mared.help.bind.arg.clear"), "bind Q clear"),
+            args("block", MaredLang.get("mared.help.bind.arg.block"), "bind W block { say \"locked\" }")));
+
+        MRED_COMMANDS.add(mk("if",
+            MaredLang.get("mared.help.if.desc"),
+            "if $count > 5 { say \"Many\" }",
+            args("condition", MaredLang.get("mared.help.if.arg.condition"), "if $count > 5 { say \"Many\" }"),
+            args("block", MaredLang.get("mared.help.if.arg.block"), "if $name == \"Steve\" { say \"Hi\" }"),
+            args("elif / else", MaredLang.get("mared.help.if.arg.elif"), "elif $count == 5 { say \"Equal\" } else { say \"Less\" }")));
+
+        MRED_COMMANDS.add(mk("repeat",
+            MaredLang.get("mared.help.repeat.desc"),
+            "repeat 3 { say \"Tick\" }",
+            args("N", MaredLang.get("mared.help.repeat.arg.n"), "repeat 5 { say \"Tick\" }"),
+            args("block", MaredLang.get("mared.help.repeat.arg.block"), "repeat 3 { wait 1 second }")));
+
+        MRED_COMMANDS.add(mk("for",
+            MaredLang.get("mared.help.for.desc"),
+            "for $i = 1 to 5 { say $i }",
+            args("var = from to to", MaredLang.get("mared.help.for.arg.range"), "for $i = 1 to 5 { say $i }")));
+
+        MRED_COMMANDS.add(mk("while",
+            MaredLang.get("mared.help.while.desc"),
+            "while $n < 3 { set n = $n + 1 }",
+            args("condition", MaredLang.get("mared.help.while.arg.condition"), "while $n < 3 { set n = $n + 1 }")));
+
+        MRED_COMMANDS.add(mk("break",
+            MaredLang.get("mared.help.break.desc"),
+            "break",
+            args("", MaredLang.get("mared.help.break.arg.empty"), "repeat 10 { break }")));
+
+        MRED_COMMANDS.add(mk("continue",
+            MaredLang.get("mared.help.continue.desc"),
+            "continue",
+            args("", MaredLang.get("mared.help.continue.arg.empty"), "if $i == 3 { continue }")));
+
+        MRED_COMMANDS.add(mk("func",
+            MaredLang.get("mared.help.func.desc"),
+            "func greet($name) { say \"Hi, $name\" }",
+            args("name(params)", MaredLang.get("mared.help.func.arg.name"), "func greet($name) { say \"Hi\" }")));
+
+        MRED_COMMANDS.add(mk("call",
+            MaredLang.get("mared.help.call.desc"),
+            "call greet(\"Steve\")",
+            args("name(args)", MaredLang.get("mared.help.call.arg.name"), "call greet(\"Steve\")")));
+
+        MRED_COMMANDS.add(mk("debug",
+            MaredLang.get("mared.help.debug.desc"),
+            "debug $x",
+            args("expression", MaredLang.get("mared.help.debug.arg.expr"), "debug $x")));
+
+        MRED_COMMANDS.add(mk("assert",
+            MaredLang.get("mared.help.assert.desc"),
+            "assert $x > 10 \"must be big\"",
+            args("condition [message]", MaredLang.get("mared.help.assert.arg.condition"), "assert $x > 10 \"x too small\"")));
+
+        MRED_COMMANDS.add(mk("{}",
+            MaredLang.get("mared.help.block.desc"),
+            "{ say \"Hello\" }",
+            args("open", MaredLang.get("mared.help.block.arg.open"), "{"),
+            args("close", MaredLang.get("mared.help.block.arg.close"), "}"),
+            args("inside", MaredLang.get("mared.help.block.arg.inside"), "say \"Hi\"")));
+
+        MRED_COMMANDS.add(mk("$self",
+            MaredLang.get("mared.help.self.desc"),
+            "say \"Hello, $self\"",
+            args("", MaredLang.get("mared.help.self.arg.empty"), "say \"Hello, $self\"")));
+
+        MRED_COMMANDS.add(mk("$world",
+            MaredLang.get("mared.help.world.desc"),
+            "say \"World: $world\"",
+            args("", MaredLang.get("mared.help.world.arg.empty"), "say \"World: $world\"")));
+
+        MRED_COMMANDS.add(mk("help",
+            MaredLang.get("mared.help.help.desc"),
+            "help",
+            args("hybrid mode", MaredLang.get("mared.help.help.arg.hybrid"), "/give @s diamond 5", "{ say \"Hi\" }"),
+            args("variables", MaredLang.get("mared.help.help.arg.variables"), "set count = 5"),
+            args("special vars", MaredLang.get("mared.help.help.arg.special"), "say \"Hi, $self\""),
+            args("conditions", MaredLang.get("mared.help.help.arg.conditions"), "if $count > 5 { say \"5+\" }"),
+            args("loops", MaredLang.get("mared.help.help.arg.loops"), "repeat 3 { say \"Tick\" }"),
+            args("binds", MaredLang.get("mared.help.help.arg.binds"), "bind R { say \"Hi\" }"),
+            args("expressions", MaredLang.get("mared.help.help.arg.expr"), "${2 + 3}"),
+            args("functions", MaredLang.get("mared.help.help.arg.funcs"), "func hi($n) { say $n }"),
+            args("arrays", MaredLang.get("mared.help.help.arg.arrays"), "$items.push(4)"),
+            args("strings", MaredLang.get("mared.help.help.arg.strings"), "$name.upper()"),
+            args("hotkeys", MaredLang.get("mared.help.help.arg.hotkeys"), "Ctrl+S")));
     }
+
+    private static MaredCommandRegistry.Argument args(String value, String desc, String... examples) {
+        return new MaredCommandRegistry.Argument(value, desc, List.of(examples));
+    }
+
+    private static MaredCommandRegistry.CommandInfo mk(String name, String desc, String example,
+                                                       MaredCommandRegistry.Argument... arguments) {
+        return new MaredCommandRegistry.CommandInfo(
+            name, "Mared", 0, desc, example,
+            new ArrayList<>(List.of(arguments)), new ArrayList<>());
+    }
+
+    public MaredEditorScreen() { super(Component.literal("Mared Editor")); }
 
     @Override
     protected void init() {
         super.init();
+        MaredSettings.load();
+        MaredLang.reload();
+        ensureMredCommands();
         toolButtons.clear();
         reloadFiles();
         refreshCommands();
-
-        int y = PADDING + 1;
-        int rightEdge = this.width - PADDING;
-
-        int closeW = 50;
-        rightEdge -= closeW;
-        toolButtons.add(addRenderableWidget(new MaredCompactButton(
-            rightEdge, y, closeW, 18, Component.literal("Close"), 0xFFFF5555, this::onClose)));
-        rightEdge -= 4;
-
-        int runW = 40;
-        rightEdge -= runW;
-        toolButtons.add(addRenderableWidget(new MaredCompactButton(
-            rightEdge, y, runW, 18, Component.literal("Run"), 0xFF55FF55, this::onRun)));
-        rightEdge -= 4;
-
-        int saveW = 44;
-        rightEdge -= saveW;
-        toolButtons.add(addRenderableWidget(new MaredCompactButton(
-            rightEdge, y, saveW, 18, Component.literal("Save"), 0xFF55AAFF, this::onSave)));
-        rightEdge -= 4;
-
-        int delW = 50;
-        rightEdge -= delW;
-        toolButtons.add(addRenderableWidget(new MaredCompactButton(
-            rightEdge, y, delW, 18, Component.literal("Delete"), COLOR_DANGER, this::onDelete)));
-        rightEdge -= 4;
-
-        int impW = 52;
-        rightEdge -= impW;
-        toolButtons.add(addRenderableWidget(new MaredCompactButton(
-            rightEdge, y, impW, 18, Component.literal("Import"), 0xFFFFAA00, this::onImport)));
-        rightEdge -= 4;
-
-        int newW = 40;
-        rightEdge -= newW;
-        toolButtons.add(addRenderableWidget(new MaredCompactButton(
-            rightEdge, y, newW, 18, Component.literal("New"), 0xFFFF55FF, this::onNew)));
-
+        buildToolButtons();
         createEditor();
         createFilterBoxes();
         updateToolButtonsVisibility();
     }
 
+    private void buildToolButtons() {
+        int y = PAD + 1;
+        int right = this.width - PAD;
+
+        String[][] defs = {
+            {MaredLang.get("mared.ui.close"),    "50", "FF5555"},
+            {MaredLang.get("mared.ui.run"),      "40", "55FF55"},
+            {MaredLang.get("mared.ui.save"),     "60", "55AAFF"},
+            {MaredLang.get("mared.ui.delete"),   "60", "FF4444"},
+            {MaredLang.get("mared.ui.import"),   "60", "FFAA00"},
+            {MaredLang.get("mared.ui.settings"), "70", "AAAAFF"},
+            {MaredLang.get("mared.ui.new"),      "50", "FF55FF"}
+        };
+        Runnable[] actions = {
+            this::onClose, this::onRun, this::onSave, this::onDelete,
+            this::onImport, this::onSettings, this::onNew
+        };
+
+        for (int i = 0; i < defs.length; i++) {
+            int w = Integer.parseInt(defs[i][1]);
+            int color = 0xFF000000 | Integer.parseInt(defs[i][2], 16);
+            right -= w;
+            Runnable action = actions[i];
+            toolButtons.add(addRenderableWidget(new MaredCompactButton(
+                right, y, w, 18, Component.literal(defs[i][0]), color, action)));
+            right -= 4;
+        }
+    }
+
+    private void updateToolButtonsVisibility() {
+        boolean active = isScripts() || isCommands();
+        boolean commands = isCommands();
+        for (int i = 0; i < toolButtons.size(); i++) {
+            AbstractWidget w = toolButtons.get(i);
+            boolean alwaysVisible = (i == 0);
+            boolean onlyCommands  = (i == 5);
+            if (onlyCommands) {
+                w.visible = w.active = commands;
+            } else {
+                w.visible = w.active = alwaysVisible || active;
+            }
+        }
+    }
+
     private void createFilterBoxes() {
-        // Command filter box
         if (commandFilterBox != null) { removeWidget(commandFilterBox); commandFilterBox = null; }
         if (isCommands() && sidebarState == SidebarState.FULL) {
-            int sx = TAB_WIDTH;
-            int listX = sx + 6;
-            int listW = FULL_WIDTH - 12 - SCROLLBAR_WIDTH;
+            int listX = TAB_W + 6;
+            int listW = FULL_W - 12 - SCROLLBAR_W;
             int ay = arrowY();
-            int listY = ay + BTN_SIZE + 8;
-            int filesH = Math.min(FILE_SECTION_HEIGHT, sidebarBottom() - listY - 6);
-            int commandsY = listY + filesH + 4;
-            int filterY = commandsY + 14;
-
-            commandFilterBox = new EditBox(this.font, listX + 3, filterY + 1, listW - 6, FILTER_HEIGHT - 2, Component.literal("Filter"));
+            int listY = ay + BTN_SZ + 8;
+            int filesH = Math.min(FILE_SECTION_H, sidebarBottom() - listY - 6);
+            int filterY = listY + filesH + 4 + 14;
+            commandFilterBox = new EditBox(this.font, listX + 4, filterY + 2, listW - 8, FILTER_H - 2,
+                Component.literal(MaredLang.get("mared.ui.filter")));
             commandFilterBox.setValue(commandFilter);
-            commandFilterBox.setResponder(s -> {
-                commandFilter = s;
-                filteredCommands.clear();
-                filteredCommands.addAll(MaredCommandRegistry.search(commandFilter));
-                commandScrollOffset = 0;
-            });
+            commandFilterBox.setResponder(s -> { commandFilter = s; refreshCommands(); });
             commandFilterBox.setMaxLength(64);
             commandFilterBox.setBordered(false);
             addRenderableWidget(commandFilterBox);
         }
 
-        // Arg filter box
         if (argFilterBox != null) { removeWidget(argFilterBox); argFilterBox = null; }
         if (!infoPanelCollapsed && isCommands() && selectedCommandInfo != null
             && !selectedCommandInfo.arguments.isEmpty()) {
             int infoX = infoPanelX();
             int y = infoArgFilterBoxY();
-
-            argFilterBox = new EditBox(this.font, infoX + 5, y + 1, INFO_WIDTH - 10, FILTER_HEIGHT - 2, Component.literal("Filter"));
+            argFilterBox = new EditBox(this.font, infoX + 5, y + 2, INFO_W - 10, FILTER_H - 2,
+                Component.literal(MaredLang.get("mared.ui.filter")));
             argFilterBox.setValue(argFilter);
             argFilterBox.setResponder(s -> argFilter = s);
             argFilterBox.setMaxLength(64);
@@ -209,57 +347,55 @@ public class MaredEditorScreen extends Screen {
 
     private boolean isScripts() { return "scripts".equals(openTab); }
     private boolean isCommands() { return "commands".equals(openTab); }
+    private int selColor(int a) { return 0xFF000000 | ((a >> 16 & 0xFF) / 3 << 16) | ((a >> 8 & 0xFF) / 3 << 8) | ((a & 0xFF) / 3); }
+    private boolean isMaredInfo() { return selectedCommandInfo != null && "Mared".equals(selectedCommandInfo.category); }
 
-    private int accentColor() {
-        if (isCommands()) return COLOR_COMMANDS;
-        if (isScripts()) return COLOR_SCRIPTS;
-        return COLOR_TEXT_DIM;
+    private int accentTop() {
+        if (isCommands()) return COMMANDS_TOP;
+        if (isScripts()) return SCRIPTS_TOP;
+        return COMMANDS_TOP;
     }
 
-    private int itemSelColor(int accent) {
-        int r = ((accent >> 16) & 0xFF) / 3;
-        int g = ((accent >> 8) & 0xFF) / 3;
-        int b = (accent & 0xFF) / 3;
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    private int accentBottom() {
+        if (isCommands()) return COMMANDS_BOT;
+        if (isScripts()) return SCRIPTS_BOT;
+        return COMMANDS_BOT;
     }
 
     private void refreshCommands() {
+        ensureMredCommands();
         MaredCommandRegistry.load();
         filteredCommands.clear();
-        filteredCommands.addAll(MaredCommandRegistry.search(commandFilter));
-        commandScrollOffset = 0;
+        if (showMaredCommands) {
+            for (MaredCommandRegistry.CommandInfo c : MRED_COMMANDS) {
+                if (commandFilter.isEmpty() || c.name.toLowerCase().startsWith(commandFilter.toLowerCase())) {
+                    filteredCommands.add(c);
+                }
+            }
+        } else {
+            filteredCommands.addAll(MaredCommandRegistry.search(commandFilter));
+        }
+        cmdScroll.offset = 0;
+    }
+
+    private void reloadFiles() {
+        fileNames.clear();
+        if (isScripts()) fileNames.addAll(MaredScriptStorage.listScripts());
+        else if (isCommands()) fileNames.addAll(MaredCommandStorage.listCommands());
+        if (selectedFile != null && !fileNames.contains(selectedFile)) selectedFile = null;
+        fileScroll.offset = 0;
     }
 
     private void createEditor() {
-        int sbW = sidebarWidth();
-        int infoW = infoWidth();
-        int frameX = TAB_WIDTH + sbW + PADDING;
-        int frameY = TOOLBAR_HEIGHT + PADDING * 2;
-        int frameW = this.width - frameX - PADDING - infoW;
-        int frameH = editorBottom() - frameY - PADDING;
-
-        int inputX = frameX + 2;
-        int inputY = frameY + EDITOR_HEADER + 2;
-        int inputW = frameW - 4;
-        int inputH = frameH - EDITOR_HEADER - 4;
-
-        editor = new MaredMultiLineEditBox(inputX, inputY, inputW, inputH, accentColor(), this::onEditorChanged);
-        if (selectedFile != null) {
-            if (isScripts()) {
-                String val = MaredScriptStorage.readScript(selectedFile);
-                editor.setValue(val);
-                lastSavedText = val;
-            } else if (isCommands()) {
-                String val = MaredCommandStorage.readCommand(selectedFile);
-                editor.setValue(val);
-                lastSavedText = val;
-            }
-            editor.setEditable(true);
-        } else {
-            editor.setValue("");
-            lastSavedText = "";
-            editor.setEditable(false);
-        }
+        int frameX = TAB_W + sidebarWidth() + PAD;
+        int frameY = TOOLBAR_H + PAD * 2;
+        int frameW = this.width - frameX - PAD - infoWidth();
+        int frameH = editorBottom() - frameY - PAD;
+        editor = new MaredMultiLineEditBox(
+            frameX + 2, frameY + EDITOR_HDR + 2,
+            frameW - 4, frameH - EDITOR_HDR - 4,
+            accentTop(), this::onEditorChanged);
+        loadIntoEditor();
         addRenderableWidget(editor);
     }
 
@@ -269,71 +405,68 @@ public class MaredEditorScreen extends Screen {
         createFilterBoxes();
     }
 
-    private void onEditorChanged() { /* Empty. */ }
+    private void onEditorChanged() {}
 
-    private void updateToolButtonsVisibility() {
-        boolean active = isScripts() || isCommands();
-        for (int i = 0; i < toolButtons.size(); i++) {
-            AbstractWidget w = toolButtons.get(i);
-            boolean isClose = i == 0;
-            w.visible = isClose || active;
-            w.active = isClose || active;
+    private void loadIntoEditor() {
+        if (editor == null) return;
+        if (selectedFile == null) {
+            editor.setValue("");
+            lastSavedText = "";
+            editor.setEditable(false);
+            return;
         }
+        String val = isScripts() ? MaredScriptStorage.readScript(selectedFile)
+                                 : MaredCommandStorage.readCommand(selectedFile);
+        editor.setValue(val);
+        lastSavedText = val;
+        editor.setEditable(true);
+        editor.setFocused(true);
     }
-
-    private void reloadFiles() {
-        fileNames.clear();
-        if (isScripts()) fileNames.addAll(MaredScriptStorage.listScripts());
-        else if (isCommands()) fileNames.addAll(MaredCommandStorage.listCommands());
-        if (selectedFile != null && !fileNames.contains(selectedFile)) selectedFile = null;
-        fileScrollOffset = 0;
-    }
-
-    // ---- Actions ----
 
     private void onNew() {
         if (isScripts()) {
             Minecraft.getInstance().setScreen(new MaredNameDialog(this, "New script", name -> {
                 if (MaredScriptStorage.createScript(name)) {
-                    addLog("Created script: " + name);
+                    addLog(MaredLang.format("mared.log.info.created_script", name));
                     selectedFile = name;
                     reloadFiles();
-                    if (editor != null) {
-                        String val = MaredScriptStorage.readScript(name);
-                        editor.setValue(val); lastSavedText = val; editor.setEditable(true);
-                    }
-                } else addLog("Failed to create: " + name);
-            }, COLOR_SCRIPTS, false));
+                    loadIntoEditor();
+                } else addLog(MaredLang.format("mared.log.error.failed_create", name));
+            }, SCRIPTS_TOP, false));
         } else if (isCommands()) {
             Minecraft.getInstance().setScreen(new MaredNameDialog(this, "New command file", name -> {
                 if (MaredCommandStorage.createCommand(name)) {
-                    addLog("Created command file: " + name);
+                    addLog(MaredLang.format("mared.log.info.created_command", name));
                     selectedFile = name;
                     reloadFiles();
-                    if (editor != null) {
-                        String val = MaredCommandStorage.readCommand(name);
-                        editor.setValue(val); lastSavedText = val; editor.setEditable(true);
-                    }
-                } else addLog("Failed to create: " + name);
-            }, COLOR_COMMANDS, true));
+                    loadIntoEditor();
+                } else addLog(MaredLang.format("mared.log.error.failed_create", name));
+            }, COMMANDS_TOP, true));
         }
     }
 
-    private void onImport() { addLog("Import: not implemented yet"); }
+    private void onImport() { addLog(MaredLang.get("mared.log.warn.import")); }
+    private void onDelete() { onDelete(selectedFile); }
 
-    private void onDelete() {
-        if (selectedFile == null) { addLog("No file selected for deletion"); return; }
-        String name = selectedFile;
+    private void onSettings() {
+        Minecraft.getInstance().setScreen(new MaredSettingsScreen(this));
+    }
+
+    private void onDelete(String fileName) {
+        if (fileName == null) { addLog(MaredLang.get("mared.log.warn.no_file")); return; }
         String type = isScripts() ? "script" : "command file";
         Minecraft.getInstance().setScreen(new MaredConfirmDialog(this,
-            "Delete " + type + "?", "\"" + name + "\" will be deleted.",
+            "Delete " + type + "?", "\"" + fileName + "\" will be deleted.",
             () -> {
-                boolean ok = isScripts() ? MaredScriptStorage.deleteScript(name) : MaredCommandStorage.deleteCommand(name);
+                boolean ok = isScripts()
+                    ? MaredScriptStorage.deleteScript(fileName)
+                    : MaredCommandStorage.deleteCommand(fileName);
                 if (ok) {
-                    addLog("Deleted: " + name);
-                    selectedFile = null; reloadFiles();
-                    if (editor != null) { editor.setValue(""); lastSavedText = ""; editor.setEditable(false); }
-                } else addLog("Failed to delete: " + name);
+                    addLog(MaredLang.format("mared.log.info.deleted", fileName));
+                    if (fileName.equals(selectedFile)) selectedFile = null;
+                    reloadFiles();
+                    loadIntoEditor();
+                } else addLog(MaredLang.format("mared.log.error.failed_delete", fileName));
             }));
     }
 
@@ -341,32 +474,28 @@ public class MaredEditorScreen extends Screen {
         if (selectedFile == null || editor == null) return false;
         String content = editor.getValue();
         if (content.equals(lastSavedText)) return false;
-        boolean ok;
-        if (isScripts()) ok = MaredScriptStorage.writeScript(selectedFile, content);
-        else if (isCommands()) ok = MaredCommandStorage.writeCommand(selectedFile, content);
-        else return false;
+        boolean ok = isScripts()
+            ? MaredScriptStorage.writeScript(selectedFile, content)
+            : MaredCommandStorage.writeCommand(selectedFile, content);
         if (ok) lastSavedText = content;
         return ok;
     }
 
     private void onSave() {
-        if (selectedFile == null) { addLog("No file selected for saving"); return; }
-        if (editor == null) return;
+        if (selectedFile == null || editor == null) return;
         String content = editor.getValue();
-        boolean ok;
-        if (isScripts()) ok = MaredScriptStorage.writeScript(selectedFile, content);
-        else if (isCommands()) ok = MaredCommandStorage.writeCommand(selectedFile, content);
-        else return;
-        if (ok) { lastSavedText = content; addLog("Saved: " + selectedFile); }
-        else addLog("Failed to save: " + selectedFile);
+        boolean ok = isScripts()
+            ? MaredScriptStorage.writeScript(selectedFile, content)
+            : MaredCommandStorage.writeCommand(selectedFile, content);
+        if (ok) { lastSavedText = content; addLog(MaredLang.format("mared.log.info.saved", selectedFile)); }
+        else addLog(MaredLang.format("mared.log.error.failed_save", selectedFile));
     }
 
     private void onRun() {
-        if (selectedFile == null) { addLog("No file selected for running"); return; }
-        if (editor == null) { addLog("Editor unavailable"); return; }
+        if (selectedFile == null || editor == null) return;
         if (!editor.getValue().equals(lastSavedText)) {
-            if (saveCurrentFile()) addLog("[auto-save] Saved changes before running");
-            else addLog("[auto-save] Failed to save");
+            if (saveCurrentFile()) addLog(MaredLang.get("mared.log.auto_save.saved"));
+            else addLog(MaredLang.get("mared.log.auto_save.failed"));
         }
         if (isScripts()) runScript();
         else if (isCommands()) runCommandFile();
@@ -374,856 +503,875 @@ public class MaredEditorScreen extends Screen {
 
     private void runScript() {
         String text = editor.getValue();
-        if (text == null || text.trim().isEmpty()) { addLog("Script is empty"); return; }
+        if (text == null || text.trim().isEmpty()) { addLog(MaredLang.get("mared.log.warn.script_empty")); return; }
         Minecraft mc = Minecraft.getInstance();
         MinecraftServer server = mc.getSingleplayerServer();
-        if (server == null) { addLog("Server unavailable (singleplayer only)"); return; }
-        ServerPlayer initiator = null;
-        if (mc.player != null) initiator = server.getPlayerList().getPlayer(mc.player.getUUID());
+        if (server == null) { addLog(MaredLang.get("mared.log.error.server_unavailable")); return; }
+        ServerPlayer initiator = mc.player != null
+            ? server.getPlayerList().getPlayer(mc.player.getUUID())
+            : null;
         List<MaredScriptCommand> commands;
         try { commands = MaredScriptParser.parse(text); }
-        catch (MaredScriptParser.ParseException e) { addLog("[parse error] " + e.getMessage()); return; }
-        if (commands.isEmpty()) { addLog("Script contains no commands"); return; }
+        catch (MaredScriptParser.ParseException e) {
+            addLog(MaredLang.format("mared.log.mared.parse_error", e.getMessage()));
+            return;
+        }
+        if (commands.isEmpty()) { addLog(MaredLang.get("mared.log.warn.script_empty")); return; }
+        addLog(MaredLang.format("mared.log.run.script", selectedFile, commands.size()));
         MaredScriptContext ctx = new MaredScriptContext(initiator, server, this::addLog);
-        MaredScriptExecutor executor = new MaredScriptExecutor(ctx, commands);
-        MaredScriptRunner.start(executor);
-        addLog("[run script] " + selectedFile + " — " + commands.size() + " commands");
+        MaredScriptRunner.start(new MaredScriptExecutor(ctx, commands));
     }
 
     private void runCommandFile() {
         String text = editor.getValue();
-        if (text == null || text.trim().isEmpty()) { addLog("Command file is empty"); return; }
+        if (text == null || text.trim().isEmpty()) { addLog(MaredLang.get("mared.log.warn.file_empty")); return; }
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.player.connection == null) { addLog("Player unavailable"); return; }
-        String[] lines = text.split("\n");
-        int count = 0;
-        for (String raw : lines) {
-            String line = raw.trim();
-            if (line.isEmpty() || line.startsWith("//")) continue;
-            String cmd = line.startsWith("/") ? line.substring(1) : line;
-            try { mc.player.connection.sendCommand(cmd); addLog("[cmd] /" + cmd); count++; }
-            catch (Exception e) { addLog("[cmd error] /" + cmd + " — " + e.getMessage()); }
+        if (mc.player == null || mc.player.connection == null) {
+            addLog(MaredLang.get("mared.log.error.player_unavailable"));
+            return;
         }
-        addLog("[run commands] " + selectedFile + " — " + count + " commands sent");
+
+        addLog(MaredLang.format("mared.log.run.file", selectedFile));
+
+        List<String> blockBuffer = new ArrayList<>();
+        int braceDepth = 0;
+        int cmdCount = 0, blockCount = 0;
+        int blockStartLine = 0;
+
+        String[] lines = text.split("\n");
+        for (int i = 0; i < lines.length; i++) {
+            String raw = lines[i];
+            String trimmed = raw.trim();
+            int ln = i + 1;
+
+            if (trimmed.isEmpty() || trimmed.startsWith("//")) {
+                if (braceDepth > 0) blockBuffer.add(raw);
+                continue;
+            }
+
+            int opens = countChar(trimmed, '{');
+            int closes = countChar(trimmed, '}');
+
+            if (braceDepth == 0 && opens > 0) {
+                blockStartLine = ln;
+                addLog(MaredLang.format("mared.log.mared.block_start", ln));
+            }
+
+            if (braceDepth > 0 || opens > 0) {
+                blockBuffer.add(raw);
+                braceDepth += opens - closes;
+
+                if (braceDepth == 0) {
+                    if (!blockBuffer.isEmpty()) {
+                        runMaredBlock(blockBuffer, blockStartLine);
+                        blockCount++;
+                        blockBuffer.clear();
+                    }
+                }
+                continue;
+            }
+
+            String cmd = trimmed.startsWith("/") ? trimmed.substring(1) : trimmed;
+            try {
+                mc.player.connection.sendCommand(cmd);
+                addLog(MaredLang.format("mared.log.cmd.sent", cmd));
+                cmdCount++;
+            } catch (Exception e) {
+                addLog(MaredLang.format("mared.log.cmd.error", cmd, e.getMessage()));
+            }
+        }
+
+        if (braceDepth > 0) addLog(MaredLang.get("mared.log.warn.block_not_closed"));
+        addLog(MaredLang.format("mared.log.run.done", cmdCount, blockCount));
+    }
+
+    private static int countChar(String s, char c) {
+        int n = 0;
+        boolean inString = false;
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            if (ch == '"') inString = !inString;
+            if (!inString && ch == c) n++;
+        }
+        return n;
+    }
+
+    private void runMaredBlock(List<String> blockLines, int startLine) {
+        String text = String.join("\n", blockLines);
+        Minecraft mc = Minecraft.getInstance();
+        MinecraftServer server = mc.getSingleplayerServer();
+        if (server == null) { addLog(MaredLang.get("mared.log.error.server_unavailable")); return; }
+        ServerPlayer initiator = mc.player != null
+            ? server.getPlayerList().getPlayer(mc.player.getUUID())
+            : null;
+
+        List<MaredScriptCommand> commands;
+        try { commands = MaredScriptParser.parse(text); }
+        catch (MaredScriptParser.ParseException e) {
+            addLog(MaredLang.format("mared.log.mared.parse_error", e.getMessage()));
+            return;
+        }
+        if (commands.isEmpty()) {
+            addLog(MaredLang.format("mared.log.mared.empty", startLine));
+            return;
+        }
+
+        addLog(MaredLang.format("mared.log.mared.block_ready", startLine, commands.size()));
+        MaredScriptContext ctx = new MaredScriptContext(initiator, server, this::addLog);
+        MaredScriptRunner.start(new MaredScriptExecutor(ctx, commands));
     }
 
     private void addLog(String line) {
         logLines.add(line);
         if (logLines.size() > 500) logLines.remove(0);
-        logScrollOffset = 0;
+        logScroll.offset = 0;
     }
 
-    // ---- Geometry ----
-
-    private int currentLogHeight() { return logCollapsed ? LOG_HEIGHT_COLLAPSED : LOG_HEIGHT; }
-    private int logTop() { return this.height - currentLogHeight(); }
+    private int logHeight() { return logCollapsed ? LOG_H_COLLAPSED : LOG_H; }
+    private int logTop() { return this.height - logHeight(); }
     private int sidebarBottom() { return logTop(); }
     private int editorBottom() { return logTop() - GAP_EDITOR_LOG; }
-
-    private int infoPanelX() {
-        return infoPanelCollapsed ? this.width - INFO_COLLAPSED_WIDTH : this.width - INFO_WIDTH;
-    }
-
+    private int infoPanelX() { return infoPanelCollapsed ? this.width - INFO_COLLAPSED_W : this.width - INFO_W; }
     private int infoWidth() {
         if (selectedCommandInfo == null || !isCommands()) return 0;
-        return infoPanelCollapsed ? INFO_COLLAPSED_WIDTH : INFO_WIDTH;
+        return infoPanelCollapsed ? INFO_COLLAPSED_W : INFO_W;
     }
-
-    /** Y-координата фильтра аргументов (для EditBox). */
     private int infoArgFilterBoxY() {
         if (selectedCommandInfo == null) return 0;
-        int infoY = TOOLBAR_HEIGHT + PADDING * 2;
-        int y = infoY + 22;
-        y += 14 + 12 + 16 + 12;
-        y = advanceWrappedHeight(selectedCommandInfo.description, INFO_WIDTH - 16, y);
-        y += 6 + 12;
-        y = advanceWrappedHeight(selectedCommandInfo.example, INFO_WIDTH - 16, y);
-        y += 10;
-        y += 12;
+        int y = TOOLBAR_H + PAD * 2 + 22 + 14 + 12 + 16 + 12;
+        y += MaredUi.wrappedHeight(this.font, selectedCommandInfo.description, INFO_W - 16) + 6 + 12;
+        y += MaredUi.wrappedHeight(this.font, selectedCommandInfo.example, INFO_W - 16) + 10 + 12;
         return y;
     }
+    private int infoBodyTop() { return infoArgFilterBoxY() + FILTER_H + 4; }
+    private int logToggleX() { return this.width - 24; }
+    private int logToggleY() { return this.height - 18; }
+    private int arrowY() { return PAD + 1; }
+    private int sidebarWidth() {
+        if (!isScripts() && !isCommands()) return 0;
+        return switch (sidebarState) {
+            case STRIP -> STRIP_W;
+            case FULL -> FULL_W;
+            default -> 0;
+        };
+    }
+    private int itemW(int listW) { return listW - SCROLLBAR_W - 2; }
+    private int fitHeight(int h, int itemHeight) { return (h / itemHeight) * itemHeight; }
 
-    /** Y-координата начала скроллируемой части панели информации. */
-    private int infoBodyTop() {
-        return infoArgFilterBoxY() + FILTER_HEIGHT + 4;
+    private MaredUi.Content buildInfoContent() {
+        MaredUi.Content c = new MaredUi.Content();
+        MaredCommandRegistry.CommandInfo info = selectedCommandInfo;
+        if (info == null) return c;
+
+        int argColor = isMaredInfo() ? MRED_COLOR : accentTop();
+
+        for (int i = 0; i < info.arguments.size(); i++) {
+            MaredCommandRegistry.Argument arg = info.arguments.get(i);
+            if (!argFilter.isEmpty()) {
+                String q = argFilter.toLowerCase();
+                if (!arg.value.toLowerCase().contains(q) && !arg.description.toLowerCase().contains(q)) continue;
+            }
+            boolean expanded = expandedArgs.contains(i);
+            c.text((expanded ? "▾ " : "▸ ") + arg.value, TEXT);
+            c.wrapped(arg.description, TEXT_DIM);
+            if (expanded) {
+                c.gap(6);
+                c.text(MaredLang.get("mared.ui.examples"), TEXT_WARN);
+                c.gap(2);
+                for (String ex : arg.examples) {
+                    c.wrapped("• " + ex, argColor);
+                    c.gap(2);
+                }
+                c.gap(4);
+            }
+            c.gap(4);
+        }
+        if (!info.arguments.isEmpty()) c.gap(4);
+
+        if (!info.nbtHints.isEmpty()) {
+            c.text(MaredLang.get("mared.ui.nbt_components"), TEXT_WARN);
+            c.gap(4);
+            for (MaredCommandRegistry.NbtHint hint : info.nbtHints) {
+                c.text(hint.tag, argColor);
+                c.text(MaredLang.get("mared.ui.what") + " " + hint.what, TEXT_DIM);
+                c.wrapped(MaredLang.get("mared.ui.why") + " " + hint.why, TEXT_DIM);
+                if (hint.example != null && !hint.example.isEmpty()) {
+                    c.wrapped(MaredLang.get("mared.ui.example") + " " + hint.example, argColor);
+                }
+                c.gap(6);
+            }
+        }
+        return c;
     }
 
-    private int infoScrollTrackY() { return infoBodyTop(); }
-    private int infoScrollTrackH() { return (editorBottom() - PADDING) - infoBodyTop(); }
+    private int hitArg(double mx, double my) {
+        if (selectedCommandInfo == null) return -1;
+        if (my < infoBodyTop() || my > editorBottom() - PAD) return -1;
+        if (mx < infoPanelX() || mx > infoPanelX() + INFO_W) return -1;
 
-    // ---- Mouse ----
+        int innerW = INFO_W - 16 - 10;
+        int y = infoBodyTop() - infoScroll.offset;
+        for (int i = 0; i < selectedCommandInfo.arguments.size(); i++) {
+            MaredCommandRegistry.Argument arg = selectedCommandInfo.arguments.get(i);
+            if (!argFilter.isEmpty()) {
+                String q = argFilter.toLowerCase();
+                if (!arg.value.toLowerCase().contains(q) && !arg.description.toLowerCase().contains(q)) continue;
+            }
+            if (my >= y && my < y + 10) return i;
+            y += 10 + MaredUi.wrappedHeight(this.font, arg.description, innerW);
+            if (expandedArgs.contains(i)) {
+                y += 6 + 12;
+                for (String ex : arg.examples) y += MaredUi.wrappedHeight(this.font, "• " + ex, innerW) + 2;
+                y += 4;
+            }
+            y += 4;
+        }
+        return -1;
+    }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        // ---- 1. Log toggle — САМЫМ ПЕРВЫМ, чтобы info-панель не перехватывала клик ----
-        int logToggleX = this.width - 24;
-        int logToggleY = this.height - 18;
-        if (mx >= logToggleX && mx < logToggleX + 18 && my >= logToggleY && my < logToggleY + 16) {
+        if (!logCollapsed) {
+            setupLogScrollArea();
+            if (logScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.LOG_SCROLL))
+                return true;
+        }
+        if (MaredUi.hovered(mx, my, logToggleX(), logToggleY(), 18, 16)) {
             logCollapsed = !logCollapsed;
             recreateEditor();
             return true;
         }
 
-        // ---- 2. Info panel ----
-        if (selectedCommandInfo != null && isCommands()) {
-            int infoX = infoPanelX();
-
-            int toggleX = infoX + 4;
-            int toggleY = TOOLBAR_HEIGHT + PADDING * 2 + 4;
-            if (mx >= toggleX && mx < toggleX + 14 && my >= toggleY && my < toggleY + 14) {
-                infoPanelCollapsed = !infoPanelCollapsed;
-                infoScrollOffset = 0;
-                recreateEditor();
-                return true;
-            }
-
-            if (!infoPanelCollapsed && mx >= infoX) {
-                int argBoxY = infoArgFilterBoxY();
-                int argBoxBottom = argBoxY + FILTER_HEIGHT;
-                boolean overFilterBox = my >= argBoxY - 1 && my < argBoxBottom + 1;
-
-                if (!overFilterBox) {
-                    int hitArg = hitTestArgument(mx, my);
-                    if (hitArg >= 0) {
-                        if (expandedArgs.contains(hitArg)) expandedArgs.remove(hitArg);
-                        else expandedArgs.add(hitArg);
-                        return true;
-                    }
-                }
-
-                int trackX = infoX + INFO_WIDTH - SCROLLBAR_WIDTH - 2;
-                int trackY = infoScrollTrackY();
-                int trackH = infoScrollTrackH();
-                if (!overFilterBox && mx >= trackX && mx < trackX + SCROLLBAR_WIDTH
-                    && my >= trackY && my < trackY + trackH) {
-                    dragTarget = DragTarget.INFO;
-                    dragStartY = my;
-                    dragStartScroll = infoScrollOffset;
-                    return true;
-                }
-
-                if (!overFilterBox) return true;
-            }
+        if (!logCollapsed && mx >= this.width - ACTIVE_BINDS_W && my >= logTop()) {
+            if (handleActiveBindsClick(mx, my)) return true;
         }
 
-        // ---- 3. Виджеты ----
+        if (my >= logTop()) return true;
+
+        if (selectedCommandInfo != null && isCommands() && my >= TOOLBAR_H + PAD) {
+            if (handleInfoClick(mx, my)) return true;
+        }
         if (super.mouseClicked(mx, my, button)) return true;
-
-        // ---- 4. Tabs ----
-        if (mx < TAB_WIDTH) {
-            int idx = (int) (my / TAB_HEIGHT);
-            String[] tabs = {"scripts", "commands", "npc", "events", "quests"};
-            if (idx >= 0 && idx < tabs.length) {
-                String clicked = tabs[idx];
-                boolean supported = "scripts".equals(clicked) || "commands".equals(clicked);
-                if (clicked.equals(openTab) && sidebarWidth() > 0) sidebarState = SidebarState.CLOSED;
-                else {
-                    openTab = clicked;
-                    sidebarState = supported ? SidebarState.STRIP : SidebarState.CLOSED;
-                    selectedFile = null;
-                    selectedCommandInfo = null;
-                    expandedArgs.clear();
-                }
-                updateToolButtonsVisibility();
-                recreateEditor();
-                reloadFiles();
-                refreshCommands();
-                return true;
-            }
-        }
-
-        // ---- 5. STRIP ----
-        if ((isScripts() || isCommands()) && sidebarState == SidebarState.STRIP) {
-            int ax = TAB_WIDTH + (STRIP_WIDTH - BTN_SIZE) / 2;
-            int ay = arrowY();
-            if (mx >= ax && mx < ax + BTN_SIZE && my >= ay && my < ay + BTN_SIZE) {
-                sidebarState = SidebarState.FULL;
-                recreateEditor();
-                return true;
-            }
-        }
-
-        // ---- 6. FULL ----
-        if ((isScripts() || isCommands()) && sidebarState == SidebarState.FULL) {
-            int sx = TAB_WIDTH;
-            int ay = arrowY();
-            int arrowX = sx + FULL_WIDTH - BTN_SIZE - 4;
-            int plusX = arrowX - BTN_SIZE - 4;
-
-            if (mx >= arrowX && mx < arrowX + BTN_SIZE && my >= ay && my < ay + BTN_SIZE) {
-                sidebarState = SidebarState.STRIP;
-                recreateEditor();
-                return true;
-            }
-            if (mx >= plusX && mx < plusX + BTN_SIZE && my >= ay && my < ay + BTN_SIZE) {
-                onNew();
-                return true;
-            }
-
-            int listX = sx + 6;
-            int listW = FULL_WIDTH - 12 - SCROLLBAR_WIDTH;
-            int listY = ay + BTN_SIZE + 8;
-            int filesH = Math.min(FILE_SECTION_HEIGHT, sidebarBottom() - listY - 6);
-            int filesListY = listY + 12;
-            int filesListH = filesH - 12;
-
-            int filesScrollX = sx + FULL_WIDTH - SCROLLBAR_WIDTH - 2;
-            if (fileNames.size() > filesListH / ITEM_HEIGHT) {
-                int maxVisible = filesListH / ITEM_HEIGHT;
-                int maxScroll = Math.max(0, fileNames.size() - maxVisible);
-                int thumbH = Math.max(10, filesListH * maxVisible / fileNames.size());
-                int thumbY = filesListY + (filesListH - thumbH) * fileScrollOffset / Math.max(1, maxScroll);
-                if (mx >= filesScrollX && mx < filesScrollX + SCROLLBAR_WIDTH
-                    && my >= filesListY && my < filesListY + filesListH) {
-                    if (my >= thumbY && my < thumbY + thumbH) {
-                        dragTarget = DragTarget.FILES;
-                        dragStartY = my;
-                        dragStartScroll = fileScrollOffset;
-                    } else {
-                        int rel = (int) ((my - filesListY) / Math.max(1, filesListH) * maxScroll);
-                        fileScrollOffset = Math.max(0, Math.min(maxScroll, rel));
-                    }
-                    return true;
-                }
-            }
-
-            if (mx >= listX && mx < listX + listW && my >= filesListY && my < filesListY + filesListH) {
-                int idx = ((int) my - filesListY) / ITEM_HEIGHT + fileScrollOffset;
-                if (idx >= 0 && idx < fileNames.size()) {
-                    selectedFile = fileNames.get(idx);
-                    addLog("Selected: " + selectedFile);
-                    if (editor != null) {
-                        String val = isScripts() ? MaredScriptStorage.readScript(selectedFile) : MaredCommandStorage.readCommand(selectedFile);
-                        editor.setValue(val);
-                        lastSavedText = val;
-                        editor.setEditable(true);
-                    }
-                }
-                return true;
-            }
-
-            if (isCommands()) {
-                int commandsY = listY + filesH + 4;
-                int filterY = commandsY + 14;
-                int commandsListY = filterY + 16;
-                int commandsH = sidebarBottom() - 6 - commandsListY;
-
-                int cmdScrollX = sx + FULL_WIDTH - SCROLLBAR_WIDTH - 2;
-                if (filteredCommands.size() > commandsH / ITEM_HEIGHT) {
-                    int maxVisible = commandsH / ITEM_HEIGHT;
-                    int maxScroll = Math.max(0, filteredCommands.size() - maxVisible);
-                    int thumbH = Math.max(10, commandsH * maxVisible / filteredCommands.size());
-                    int thumbY = commandsListY + (commandsH - thumbH) * commandScrollOffset / Math.max(1, maxScroll);
-                    if (mx >= cmdScrollX && mx < cmdScrollX + SCROLLBAR_WIDTH
-                        && my >= commandsListY && my < commandsListY + commandsH) {
-                        if (my >= thumbY && my < thumbY + thumbH) {
-                            dragTarget = DragTarget.COMMANDS;
-                            dragStartY = my;
-                            dragStartScroll = commandScrollOffset;
-                        } else {
-                            int rel = (int) ((my - commandsListY) / Math.max(1, commandsH) * maxScroll);
-                            commandScrollOffset = Math.max(0, Math.min(maxScroll, rel));
-                        }
-                        return true;
-                    }
-                }
-
-                if (mx >= listX && mx < listX + listW && my >= commandsListY && my < commandsListY + commandsH) {
-                    int idx = ((int) my - commandsListY) / ITEM_HEIGHT + commandScrollOffset;
-                    if (idx >= 0 && idx < filteredCommands.size()) {
-                        selectedCommandInfo = filteredCommands.get(idx);
-                        infoScrollOffset = 0;
-                        infoPanelCollapsed = false;
-                        expandedArgs.clear();
-                        argFilter = "";
-                        addLog("[info] " + selectedCommandInfo.name);
-                        recreateEditor();
-                    }
-                    return true;
-                }
-            }
-        }
-
-        // ---- 7. Log scroll ----
-        if (my >= logTop() && !logCollapsed) {
-            if (logLines.size() > (LOG_HEIGHT - LOG_HEADER - PADDING) / LOG_LINE_HEIGHT) {
-                int visibleLines = (LOG_HEIGHT - LOG_HEADER - PADDING) / LOG_LINE_HEIGHT;
-                int trackX = this.width - SCROLLBAR_WIDTH - 24;
-                int trackY = logTop() + LOG_HEADER;
-                int trackH = LOG_HEIGHT - LOG_HEADER - PADDING;
-                int maxScroll = Math.max(0, logLines.size() - visibleLines);
-                int thumbH = Math.max(8, trackH * visibleLines / logLines.size());
-                int thumbY = trackY + (trackH - thumbH) * (maxScroll - logScrollOffset) / Math.max(1, maxScroll);
-                if (mx >= trackX && mx < trackX + SCROLLBAR_WIDTH && my >= trackY && my < trackY + trackH) {
-                    if (my >= thumbY && my < thumbY + thumbH) {
-                        dragTarget = DragTarget.LOG;
-                        dragStartY = my;
-                        dragStartScroll = logScrollOffset;
-                    } else {
-                        int rel = (int) ((my - trackY) / Math.max(1, trackH) * maxScroll);
-                        logScrollOffset = Math.max(0, Math.min(maxScroll, maxScroll - rel));
-                    }
-                    return true;
-                }
-            }
+        if (handleTabClick(mx, my)) return true;
+        if (handleStripClick(mx, my)) return true;
+        if ((isScripts() || isCommands()) && sidebarState == SidebarState.FULL && handleSidebarClick(mx, my))
             return true;
-        }
 
         return false;
     }
 
-    private int hitTestArgument(double mx, double my) {
-        if (selectedCommandInfo == null || selectedCommandInfo.arguments.isEmpty()) return -1;
-        int infoX = infoPanelX();
-        int x = infoX + 8;
-        int bodyTop = infoBodyTop();
-        int contentY = bodyTop - infoScrollOffset;
+    private boolean handleActiveBindsClick(double mx, double my) {
+        int logTop = logTop();
 
-        for (int i = 0; i < selectedCommandInfo.arguments.size(); i++) {
-            MaredCommandRegistry.Argument arg = selectedCommandInfo.arguments.get(i);
-            if (!argFilter.isEmpty()) {
-                String q = argFilter.toLowerCase();
-                if (!arg.value.toLowerCase().contains(q) && !arg.description.toLowerCase().contains(q)) continue;
-            }
-            int rowY = contentY;
-            int rowH = 10;
-            if (my >= rowY && my < rowY + rowH && mx >= x && mx < x + INFO_WIDTH - 16) return i;
-            contentY += 10;
-            contentY = advanceWrappedHeight(arg.description, INFO_WIDTH - 16 - 10, contentY);
-            contentY += 4;
-            if (expandedArgs.contains(i)) {
-                contentY += 12;
-                for (String ex : arg.examples) {
-                    contentY = advanceWrappedHeight("• " + ex, INFO_WIDTH - 16 - 10, contentY);
-                    contentY += 2;
-                }
-                contentY += 4;
+        int clearW = 70;
+        int clearX = this.width - PAD - clearW;
+        int clearY = logTop + 2;
+        if (MaredUi.hovered(mx, my, clearX, clearY, clearW, 12)) {
+            MaredBindRegistry.clearAll();
+            activeBindsScrollOffset = 0;
+            addLog(MaredLang.get("mared.log.bind.all_cleared"));
+            return true;
+        }
+
+        int listY = logTop + LOG_HEADER + 4;
+        List<String> keys = MaredBindRegistry.keys();
+        int visible = Math.max(1, (this.height - listY - PAD) / ITEM_H);
+        for (int i = 0; i < visible; i++) {
+            int idx = i + activeBindsScrollOffset;
+            if (idx >= keys.size()) break;
+            String key = keys.get(idx);
+            int itemY = listY + i * ITEM_H;
+            int delX = this.width - PAD - BIND_DEL_SZ;
+            int delY = itemY + (ITEM_H - 2 - BIND_DEL_SZ) / 2;
+            if (MaredUi.hovered(mx, my, delX, delY, BIND_DEL_SZ, BIND_DEL_SZ)) {
+                MaredBindRegistry.clear(key);
+                addLog(MaredLang.format("mared.log.bind.removed", key));
+                return true;
             }
         }
-        return -1;
+        return true;
     }
 
-    private int advanceWrappedHeight(String text, int maxWidth, int y) {
-        if (text == null || text.isEmpty()) return y;
-        String[] words = text.split(" ");
-        StringBuilder line = new StringBuilder();
-        for (String word : words) {
-            String test = line.length() == 0 ? word : line + " " + word;
-            if (this.font.width(test) > maxWidth) { y += 10; line = new StringBuilder(word); }
-            else line = new StringBuilder(test);
+    private boolean handleInfoClick(double mx, double my) {
+        int infoX = infoPanelX();
+        int toggleX = infoX + 4;
+        int toggleY = TOOLBAR_H + PAD * 2 + 4;
+        if (MaredUi.hovered(mx, my, toggleX, toggleY, 14, 14)) {
+            infoPanelCollapsed = !infoPanelCollapsed;
+            infoScroll.offset = 0;
+            recreateEditor();
+            return true;
         }
-        if (line.length() > 0) y += 10;
-        return y;
+        if (infoPanelCollapsed || mx < infoX) return false;
+
+        int argBoxY = infoArgFilterBoxY();
+        boolean overFilter = my >= argBoxY - 1 && my < argBoxY + FILTER_H + 1;
+        if (!overFilter) {
+            int hit = hitArg(mx, my);
+            if (hit >= 0) {
+                if (expandedArgs.contains(hit)) expandedArgs.remove(hit);
+                else expandedArgs.add(hit);
+                return true;
+            }
+        }
+
+        int bodyTop = infoBodyTop();
+        int bodyH = (editorBottom() - PAD) - bodyTop;
+        infoScroll.set(infoX, bodyTop, INFO_W, bodyH);
+        infoScroll.content(buildInfoContent().height(this.font, INFO_W - 16));
+        if (!overFilter
+            && infoScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.INFO_SCROLL))
+            return true;
+        return !overFilter;
+    }
+
+    private boolean handleTabClick(double mx, double my) {
+        if (mx >= TAB_W) return false;
+        int idx = (int) (my / TAB_H);
+        String[] tabs = {"scripts", "commands", "npc", "events", "quests"};
+        if (idx < 0 || idx >= tabs.length) return false;
+
+        String clicked = tabs[idx];
+        boolean supported = "scripts".equals(clicked) || "commands".equals(clicked);
+        if (clicked.equals(openTab) && sidebarWidth() > 0) sidebarState = SidebarState.CLOSED;
+        else {
+            openTab = clicked;
+            sidebarState = supported ? SidebarState.STRIP : SidebarState.CLOSED;
+            selectedFile = null;
+            selectedCommandInfo = null;
+            expandedArgs.clear();
+        }
+        updateToolButtonsVisibility();
+        recreateEditor();
+        reloadFiles();
+        refreshCommands();
+        return true;
+    }
+
+    private boolean handleStripClick(double mx, double my) {
+        if (!(isScripts() || isCommands()) || sidebarState != SidebarState.STRIP) return false;
+        int ax = TAB_W + (STRIP_W - BTN_SZ) / 2;
+        int ay = arrowY();
+        if (MaredUi.hovered(mx, my, ax, ay, BTN_SZ, BTN_SZ)) {
+            sidebarState = SidebarState.FULL;
+            recreateEditor();
+            return true;
+        }
+        return false;
+    }
+
+    private boolean handleSidebarClick(double mx, double my) {
+        int sx = TAB_W, ay = arrowY();
+        int arrowX = sx + FULL_W - BTN_SZ - 4;
+        int plusX = arrowX - BTN_SZ - 4;
+
+        if (MaredUi.hovered(mx, my, arrowX, ay, BTN_SZ, BTN_SZ)) {
+            sidebarState = SidebarState.STRIP;
+            recreateEditor();
+            return true;
+        }
+        if (MaredUi.hovered(mx, my, plusX, ay, BTN_SZ, BTN_SZ)) {
+            onNew();
+            return true;
+        }
+
+        int listX = sx + 6;
+        int listW = FULL_W - 12 - SCROLLBAR_W;
+        int listY = ay + BTN_SZ + 8;
+        int filesH = Math.min(FILE_SECTION_H, sidebarBottom() - listY - 6);
+        int filesListY = listY + 12;
+        int filesListH = fitHeight(filesH - 12, ITEM_H);
+        int itemWidth = itemW(listW);
+
+        fileScroll.set(listX, filesListY, listW, filesListH).items(ITEM_H, fileNames.size());
+        if (fileScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.FILE_SCROLL))
+            return true;
+
+        int visibleFiles = fileScroll.visibleItems();
+        for (int i = 0; i < visibleFiles; i++) {
+            int idx = i + fileScroll.offset;
+            if (idx >= fileNames.size()) break;
+            int itemY = filesListY + i * ITEM_H;
+            int delX = listX + itemWidth - FILE_DEL_SZ;
+            int delY = itemY + (ITEM_H - 2 - FILE_DEL_SZ) / 2;
+            if (MaredUi.hovered(mx, my, delX, delY, FILE_DEL_SZ, FILE_DEL_SZ)) {
+                onDelete(fileNames.get(idx));
+                return true;
+            }
+        }
+
+        int fileIdx = fileScroll.hitItem(mx, my, SCROLLBAR_W);
+        if (fileIdx >= 0) {
+            selectedFile = fileNames.get(fileIdx);
+            addLog(MaredLang.format("mared.log.info.selected", selectedFile));
+            loadIntoEditor();
+            return true;
+        }
+
+        int commandsY = listY + filesH + 4;
+        int toggleX = listX + listW - TOGGLE_W;
+        int toggleY = commandsY + 1;
+        if (MaredUi.hovered(mx, my, toggleX, toggleY, TOGGLE_W, TOGGLE_H)) {
+            showMaredCommands = !showMaredCommands;
+            commandFilter = "";
+            if (commandFilterBox != null) commandFilterBox.setValue("");
+            refreshCommands();
+            return true;
+        }
+
+        if (isCommands()) {
+            int filterY = commandsY + 14;
+            int commandsListY = filterY + 16;
+            int commandsH = fitHeight(sidebarBottom() - 6 - commandsListY, ITEM_H);
+
+            cmdScroll.set(listX, commandsListY, listW, commandsH).items(ITEM_H, filteredCommands.size());
+            if (cmdScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.CMD_SCROLL))
+                return true;
+
+            int cmdIdx = cmdScroll.hitItem(mx, my, SCROLLBAR_W);
+            if (cmdIdx >= 0) {
+                selectedCommandInfo = filteredCommands.get(cmdIdx);
+                infoScroll.offset = 0;
+                infoPanelCollapsed = false;
+                expandedArgs.clear();
+                argFilter = "";
+                addLog("[info] " + selectedCommandInfo.name);
+                recreateEditor();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_DELETE && selectedFile != null) {
+            onDelete();
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (dragTarget == DragTarget.NONE) return super.mouseDragged(mx, my, button, dx, dy);
-        double delta = my - dragStartY;
-
-        if (dragTarget == DragTarget.FILES) {
-            int filesH = Math.min(FILE_SECTION_HEIGHT, sidebarBottom() - arrowY() - BTN_SIZE - 8 - 6) - 12;
-            int maxVisible = Math.max(1, filesH / ITEM_HEIGHT);
-            int maxScroll = Math.max(0, fileNames.size() - maxVisible);
-            double ratio = delta / Math.max(1, filesH);
-            int newOffset = (int) Math.round(dragStartScroll + ratio * maxScroll);
-            fileScrollOffset = Math.max(0, Math.min(maxScroll, newOffset));
-            return true;
+        if (!drag.active()) return super.mouseDragged(mx, my, button, dx, dy);
+        switch (drag.kind) {
+            case FILE_SCROLL -> fileScroll.dragScrollbar(my, drag);
+            case CMD_SCROLL  -> cmdScroll.dragScrollbar(my, drag);
+            case INFO_SCROLL -> infoScroll.dragScrollbar(my, drag);
+            case LOG_SCROLL  -> logScroll.dragScrollbar(my, drag);
+            default -> {}
         }
-        if (dragTarget == DragTarget.COMMANDS) {
-            int listY = arrowY() + BTN_SIZE + 8;
-            int filesH = Math.min(FILE_SECTION_HEIGHT, sidebarBottom() - listY - 6);
-            int commandsY = listY + filesH + 4;
-            int commandsListY = commandsY + 30;
-            int commandsH = sidebarBottom() - 6 - commandsListY;
-            int maxVisible = Math.max(1, commandsH / ITEM_HEIGHT);
-            int maxScroll = Math.max(0, filteredCommands.size() - maxVisible);
-            double ratio = delta / Math.max(1, commandsH);
-            int newOffset = (int) Math.round(dragStartScroll + ratio * maxScroll);
-            commandScrollOffset = Math.max(0, Math.min(maxScroll, newOffset));
-            return true;
-        }
-        if (dragTarget == DragTarget.INFO) {
-            int trackH = infoScrollTrackH();
-            double ratio = delta / Math.max(1, trackH);
-            int maxScroll = Math.max(0, infoContentHeight() - trackH);
-            int newOffset = (int) Math.round(dragStartScroll + ratio * maxScroll);
-            infoScrollOffset = Math.max(0, Math.min(maxScroll, newOffset));
-            return true;
-        }
-        if (dragTarget == DragTarget.LOG) {
-            int trackH = LOG_HEIGHT - LOG_HEADER - PADDING;
-            int visibleLines = Math.max(1, trackH / LOG_LINE_HEIGHT);
-            int maxScroll = Math.max(0, logLines.size() - visibleLines);
-            double ratio = delta / Math.max(1, trackH);
-            int newOffset = (int) Math.round(dragStartScroll - ratio * maxScroll);
-            logScrollOffset = Math.max(0, Math.min(maxScroll, newOffset));
-            return true;
-        }
-        return super.mouseDragged(mx, my, button, dx, dy);
+        return true;
     }
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
-        dragTarget = DragTarget.NONE;
+        drag.clear();
         return super.mouseReleased(mx, my, button);
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double deltaX, double deltaY) {
-        if (selectedCommandInfo != null && isCommands() && !infoPanelCollapsed) {
-            int infoX = infoPanelX();
-            if (mx >= infoX) {
-                int trackH = infoScrollTrackH();
-                int maxScroll = Math.max(0, infoContentHeight() - trackH);
-                if (deltaY < 0) infoScrollOffset = Math.min(maxScroll, infoScrollOffset + 5);
-                else if (deltaY > 0) infoScrollOffset = Math.max(0, infoScrollOffset - 5);
-                return true;
-            }
+        if (!logCollapsed && mx >= this.width - ACTIVE_BINDS_W && my >= logTop()) {
+            List<String> keys = MaredBindRegistry.keys();
+            int listY = logTop() + LOG_HEADER + 4;
+            int visible = Math.max(1, (this.height - listY - PAD) / ITEM_H);
+            int maxOffset = Math.max(0, keys.size() - visible);
+            if (deltaY < 0) activeBindsScrollOffset = Math.min(maxOffset, activeBindsScrollOffset + 1);
+            else if (deltaY > 0) activeBindsScrollOffset = Math.max(0, activeBindsScrollOffset - 1);
+            return true;
+        }
+        if (selectedCommandInfo != null && isCommands() && !infoPanelCollapsed && mx >= infoPanelX()) {
+            infoScroll.wheel(deltaY, 5);
+            return true;
         }
         if (my >= logTop() && !logCollapsed) {
-            int visibleLines = Math.max(1, (LOG_HEIGHT - LOG_HEADER - PADDING) / LOG_LINE_HEIGHT);
-            int maxScroll = Math.max(0, logLines.size() - visibleLines);
-            if (deltaY < 0) logScrollOffset = Math.max(0, logScrollOffset - 1);
-            else if (deltaY > 0) logScrollOffset = Math.min(maxScroll, logScrollOffset + 1);
+            setupLogScrollArea();
+            logScroll.wheelLog(deltaY, 1);
             return true;
         }
         if ((isScripts() || isCommands()) && sidebarState == SidebarState.FULL) {
-            int sx = TAB_WIDTH;
-            int listX = sx + 6;
-            int listW = FULL_WIDTH - 12 - SCROLLBAR_WIDTH;
-            int listY = arrowY() + BTN_SIZE + 8;
-            int filesH = Math.min(FILE_SECTION_HEIGHT, sidebarBottom() - listY - 6);
+            int listX = TAB_W + 6;
+            int listW = FULL_W - 12 - SCROLLBAR_W;
+            int listY = arrowY() + BTN_SZ + 8;
+            int filesH = Math.min(FILE_SECTION_H, sidebarBottom() - listY - 6);
             int filesListY = listY + 12;
-            int filesListH = filesH - 12;
-            if (mx >= listX && mx < listX + listW && my >= filesListY && my < filesListY + filesListH) {
-                int maxVisible = filesListH / ITEM_HEIGHT;
-                int maxScroll = Math.max(0, fileNames.size() - maxVisible);
-                if (deltaY < 0) fileScrollOffset = Math.min(maxScroll, fileScrollOffset + 1);
-                else if (deltaY > 0) fileScrollOffset = Math.max(0, fileScrollOffset - 1);
+            int filesListH = fitHeight(filesH - 12, ITEM_H);
+            if (MaredUi.hovered(mx, my, listX, filesListY, listW, filesListH)) {
+                fileScroll.wheel(deltaY, 1);
                 return true;
             }
             if (isCommands()) {
-                int commandsY = listY + filesH + 4;
-                int commandsListY = commandsY + 30;
-                int commandsH = sidebarBottom() - 6 - commandsListY;
-                if (mx >= listX && mx < listX + listW && my >= commandsListY && my < commandsListY + commandsH) {
-                    int maxVisible = commandsH / ITEM_HEIGHT;
-                    int maxScroll = Math.max(0, filteredCommands.size() - maxVisible);
-                    if (deltaY < 0) commandScrollOffset = Math.min(maxScroll, commandScrollOffset + 1);
-                    else if (deltaY > 0) commandScrollOffset = Math.max(0, commandScrollOffset - 1);
+                int commandsListY = listY + filesH + 4 + 14 + 16;
+                int commandsH = fitHeight(sidebarBottom() - 6 - commandsListY, ITEM_H);
+                if (MaredUi.hovered(mx, my, listX, commandsListY, listW, commandsH)) {
+                    cmdScroll.wheel(deltaY, 1);
                     return true;
                 }
             }
         }
-        if (editor != null && editor.isMouseOver(mx, my)) {
-            if (editor.mouseScrolled(mx, my, deltaX, deltaY)) return true;
-        }
+        if (editor != null && editor.isMouseOver(mx, my) && editor.mouseScrolled(mx, my, deltaX, deltaY))
+            return true;
         return super.mouseScrolled(mx, my, deltaX, deltaY);
     }
 
-    private int infoContentHeight() {
-        if (selectedCommandInfo == null) return 0;
-        int h = 0;
-        for (int i = 0; i < selectedCommandInfo.arguments.size(); i++) {
-            MaredCommandRegistry.Argument arg = selectedCommandInfo.arguments.get(i);
-            if (!argFilter.isEmpty()) {
-                String q = argFilter.toLowerCase();
-                if (!arg.value.toLowerCase().contains(q) && !arg.description.toLowerCase().contains(q)) continue;
-            }
-            h += 10;
-            h += wrappedHeight(arg.description, INFO_WIDTH - 16 - 10);
-            h += 4;
-            if (expandedArgs.contains(i)) {
-                h += 12;
-                for (String ex : arg.examples) { h += wrappedHeight("• " + ex, INFO_WIDTH - 16 - 10); h += 2; }
-                h += 4;
-            }
-        }
-        for (MaredCommandRegistry.NbtHint hint : selectedCommandInfo.nbtHints) {
-            h += 10 + 10;
-            h += wrappedHeight("Why: " + hint.why, INFO_WIDTH - 16 - 10);
-            if (hint.example != null && !hint.example.isEmpty())
-                h += wrappedHeight("Example: " + hint.example, INFO_WIDTH - 16 - 10);
-            h += 6;
-        }
-        h += PADDING * 2;
-        return h;
+    private void setupLogScrollArea() {
+        logScroll.set(0, logTop() + LOG_HEADER, this.width - (logCollapsed ? 0 : ACTIVE_BINDS_W), LOG_H - LOG_HEADER - PAD)
+                 .inverted(true)
+                 .items(LOG_LINE, logLines.size());
     }
-
-    private int wrappedHeight(String text, int maxWidth) {
-        if (text == null || text.isEmpty()) return 10;
-        String[] words = text.split(" ");
-        StringBuilder line = new StringBuilder();
-        int lines = 0;
-        for (String word : words) {
-            String test = line.length() == 0 ? word : line + " " + word;
-            if (this.font.width(test) > maxWidth) { lines++; line = new StringBuilder(word); }
-            else line = new StringBuilder(test);
-        }
-        if (line.length() > 0) lines++;
-        return Math.max(1, lines) * 10;
-    }
-
-    // ---- Render ----
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, this.width, this.height, COLOR_BACKGROUND);
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        MaredUi.rect(g, 0, 0, this.width, this.height, BG);
         int sbW = sidebarWidth();
-        int logTop = logTop();
-        int accent = accentColor();
 
-        drawLog(graphics, mouseX, mouseY, logTop);
+        drawLog(g, mouseX, mouseY);
 
         if (sbW > 0) {
-            int bgColor = (sidebarState == SidebarState.STRIP) ? COLOR_PANEL_STRIP : COLOR_PANEL;
-            graphics.fill(TAB_WIDTH, 0, TAB_WIDTH + sbW, sidebarBottom(), bgColor);
+            int bg = (sidebarState == SidebarState.STRIP) ? PANEL_STRIP : PANEL;
+            MaredUi.rect(g, TAB_W, 0, TAB_W + sbW, sidebarBottom(), bg);
         }
 
-        int toolbarX = TAB_WIDTH + sbW;
-        graphics.fill(toolbarX, 0, this.width, TOOLBAR_HEIGHT + PADDING, COLOR_TOOLBAR_BG);
-
-        graphics.fill(0, 0, TAB_WIDTH, this.height, COLOR_TAB_STRIP);
-        drawTabs(graphics, mouseX, mouseY);
+        MaredUi.rect(g, TAB_W + sbW, 0, this.width, TOOLBAR_H + PAD, TOOLBAR_BG);
+        MaredUi.rect(g, 0, 0, TAB_W, this.height, TAB_STRIP);
+        drawTabs(g, mouseX, mouseY);
 
         if ((isScripts() || isCommands()) && sidebarState == SidebarState.STRIP)
-            drawArrow(graphics, TAB_WIDTH + (STRIP_WIDTH - BTN_SIZE) / 2, arrowY(), "►", mouseX, mouseY, accent);
+            drawArrow(g, TAB_W + (STRIP_W - BTN_SZ) / 2, arrowY(), "►", mouseX, mouseY);
         if ((isScripts() || isCommands()) && sidebarState == SidebarState.FULL)
-            drawFullSidebar(graphics, mouseX, mouseY, accent);
+            drawFullSidebar(g, mouseX, mouseY);
 
-        if (isScripts() || isCommands()) {
-            int infoW = infoWidth();
-            int frameX = TAB_WIDTH + sbW + PADDING;
-            int frameY = TOOLBAR_HEIGHT + PADDING * 2;
-            int frameW = this.width - frameX - PADDING - infoW;
-            int frameH = editorBottom() - frameY - PADDING;
-            graphics.fill(frameX, frameY, frameX + frameW, frameY + frameH, COLOR_EDITOR_BG);
-            graphics.renderOutline(frameX, frameY, frameW, frameH, accent);
-            String type = isScripts() ? "Script" : "Commands";
-            String title = (selectedFile == null) ? "Editor (no " + type.toLowerCase() + " selected)" : "Editor: " + selectedFile;
-            graphics.drawString(this.font, title, frameX + 6, frameY + 5, COLOR_TEXT, true);
-            drawDashedLine(graphics, frameX + 2, frameY + EDITOR_HEADER, frameX + frameW - 2, accent);
-        } else {
-            int frameX = TAB_WIDTH + sbW + PADDING;
-            int frameY = TOOLBAR_HEIGHT + PADDING * 2;
-            int frameW = this.width - frameX - PADDING;
-            int frameH = editorBottom() - frameY - PADDING;
-            graphics.fill(frameX, frameY, frameX + frameW, frameY + frameH, COLOR_EDITOR_BG);
-            graphics.renderOutline(frameX, frameY, frameW, frameH, COLOR_TEXT_DIM);
-            graphics.drawString(this.font, "Section \"" + tabTitle(openTab) + "\" is under development", frameX + 8, frameY + 8, COLOR_TEXT_DIM, true);
-        }
+        drawEditorFrame(g, sbW);
+        if (selectedCommandInfo != null && isCommands()) drawInfoPanel(g, mouseX, mouseY);
 
-        if (selectedCommandInfo != null && isCommands()) drawInfoPanel(graphics, mouseX, mouseY);
+        int dividerY = logTop() - 1;
+        MaredUi.rect(g, 0, dividerY, this.width, dividerY + 1, EVENTS_TOP);
 
-        int dividerY = logTop - 1;
-        graphics.fill(0, dividerY, this.width, dividerY + 1, COLOR_EVENTS);
-
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.render(g, mouseX, mouseY, partialTick);
     }
 
-    private void drawInfoPanel(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void drawEditorFrame(GuiGraphics g, int sbW) {
+        boolean editable = isScripts() || isCommands();
+        int frameX = TAB_W + sbW + PAD;
+        int frameY = TOOLBAR_H + PAD * 2;
+        int frameW = this.width - frameX - PAD - (editable ? infoWidth() : 0);
+        int frameH = editorBottom() - frameY - PAD;
+
+        if (editable) {
+            MaredUi.panelGradient(g, frameX, frameY, frameW, frameH, EDITOR_BG, accentTop(), accentBottom());
+            String type = isScripts() ? "script" : "commands";
+            String title = (selectedFile == null)
+                ? MaredLang.format("mared.ui.editor_no_selected", type)
+                : MaredLang.format("mared.ui.editor_file", selectedFile);
+            MaredUi.text(g, this.font, title, frameX + 6, frameY + 5, TEXT);
+            MaredUi.dashedLineGradient(g, frameX + 2, frameY + EDITOR_HDR, frameX + frameW - 2, accentTop(), accentBottom());
+        } else {
+            MaredUi.panel(g, frameX, frameY, frameW, frameH, EDITOR_BG, TEXT_DIM);
+            MaredUi.text(g, this.font,
+                MaredLang.format("mared.ui.under_development", tabTitle(openTab)),
+                frameX + 8, frameY + 8, TEXT_DIM);
+        }
+    }
+
+    private void drawInfoPanel(GuiGraphics g, int mouseX, int mouseY) {
         int infoX = infoPanelX();
-        int infoY = TOOLBAR_HEIGHT + PADDING * 2;
-        int infoH = editorBottom() - infoY - PADDING;
+        int infoY = TOOLBAR_H + PAD * 2;
+        int infoH = editorBottom() - infoY - PAD;
 
-        graphics.fill(infoX, infoY, this.width, infoY + infoH, COLOR_INFO_BG);
-        graphics.renderOutline(infoX, infoY, infoWidth(), infoH, COLOR_COMMANDS);
+        int top = accentTop();
+        int bottom = isMaredInfo() ? MRED_COLOR : accentBottom();
 
-        int toggleX = infoX + 4;
-        int toggleY = infoY + 4;
-        boolean hover = mouseX >= toggleX && mouseX < toggleX + 14 && mouseY >= toggleY && mouseY < toggleY + 14;
-        graphics.fill(toggleX, toggleY, toggleX + 14, toggleY + 14, hover ? COLOR_BTN_HOVER : COLOR_BTN_BG);
-        graphics.renderOutline(toggleX, toggleY, 14, 14, COLOR_COMMANDS);
-        String symbol = infoPanelCollapsed ? "◄" : "►";
-        graphics.drawString(this.font, symbol, toggleX + 4, toggleY + 3, COLOR_COMMANDS, true);
+        MaredUi.panelGradient(g, infoX, infoY, infoWidth(), infoH, INFO_BG, top, bottom);
+
+        int toggleX = infoX + 4, toggleY = infoY + 4;
+        boolean toggleHover = MaredUi.hovered(mouseX, mouseY, toggleX, toggleY, 14, 14);
+        MaredUi.buttonGradient(g, this.font, toggleX, toggleY, 14, 14,
+            infoPanelCollapsed ? "◄" : "►",
+            toggleHover ? BTN_HOVER : BTN_BG, top, bottom, TEXT);
 
         if (infoPanelCollapsed) {
-            graphics.drawString(this.font, "INFO", infoX + 7, infoY + 24, COLOR_COMMANDS, true);
+            MaredUi.text(g, this.font, MaredLang.get("mared.ui.info"), infoX + 7, infoY + 24, top);
             return;
         }
 
-        int x = infoX + 8;
-        int maxW = INFO_WIDTH - 16;
+        int x = infoX + 8, maxW = INFO_W - 16;
         MaredCommandRegistry.CommandInfo info = selectedCommandInfo;
 
-        int fixedY = infoY + 22;
-        graphics.drawString(this.font, info.name, x, fixedY, COLOR_COMMANDS, true);
-        fixedY += 14;
-        graphics.drawString(this.font, "Category: " + info.category, x, fixedY, COLOR_TEXT_DIM, true);
-        fixedY += 12;
-        graphics.drawString(this.font, "OP level: " + info.opLevel, x, fixedY, COLOR_TEXT_DIM, true);
-        fixedY += 16;
-        graphics.drawString(this.font, "Description:", x, fixedY, COLOR_TEXT, true);
-        fixedY += 12;
-        fixedY = drawWrapped(graphics, info.description, x, fixedY, maxW, COLOR_TEXT_DIM);
-        fixedY += 6;
-        graphics.drawString(this.font, "Example:", x, fixedY, COLOR_TEXT, true);
-        fixedY += 12;
-        fixedY = drawWrapped(graphics, info.example, x, fixedY, maxW, COLOR_TEXT);
-        fixedY += 10;
-        graphics.drawString(this.font, "Filter arguments:", x, fixedY, COLOR_TEXT_WARN, true);
-        fixedY += 12;
+        int y = infoY + 22;
+        MaredUi.text(g, this.font, info.name, x, y, top);                                              y += 14;
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.category") + " " + info.category, x, y, TEXT_DIM); y += 12;
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.op_level") + " " + info.opLevel, x, y, TEXT_DIM);  y += 16;
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.description"), x, y, TEXT);                  y += 12;
+        y = MaredUi.wrapped(g, this.font, info.description, x, y, maxW, TEXT_DIM);                      y += 6;
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.example"), x, y, TEXT);                      y += 12;
+        y = MaredUi.wrapped(g, this.font, info.example, x, y, maxW, TEXT);                               y += 10;
 
-        // Фон под EditBox — только фон, рамку рисует сам EditBox (без bordered).
-        graphics.fill(infoX + 3, fixedY, infoX + INFO_WIDTH - 3, fixedY + FILTER_HEIGHT, COLOR_FILTER_BG);
-        graphics.renderOutline(infoX + 3, fixedY, INFO_WIDTH - 6, FILTER_HEIGHT, COLOR_COMMANDS);
+        int filterTitleColor = isMaredInfo() ? MRED_COLOR : TEXT_WARN;
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.filter_arguments"), x, y, filterTitleColor); y += 12;
 
-        fixedY += FILTER_HEIGHT + 4;
+        MaredUi.rect(g, infoX + 3, y, infoX + INFO_W - 3, y + FILTER_H, FILTER_BG);
+        MaredUi.outlineGradient(g, infoX + 3, y, INFO_W - 6, FILTER_H, top, bottom);
+        y += FILTER_H + 4;
 
-        graphics.fill(infoX + 2, fixedY, infoX + INFO_WIDTH - 2, fixedY + 1, COLOR_DIVIDER);
-        fixedY += 3;
+        MaredUi.rect(g, infoX + 2, y, infoX + INFO_W - 2, y + 1, DIVIDER);
+        y += 3;
 
-        graphics.enableScissor(infoX + 1, fixedY, infoX + INFO_WIDTH - 1, infoY + infoH - 1);
-        int contentY = fixedY - infoScrollOffset;
+        MaredUi.scissorOn(g, infoX + 1, y, infoX + INFO_W - 1, infoY + infoH - 1);
+        MaredUi.Content content = buildInfoContent();
+        content.render(g, this.font, x, y - infoScroll.offset, maxW);
+        MaredUi.scissorOff(g);
 
-        if (!info.arguments.isEmpty()) {
-            for (int i = 0; i < info.arguments.size(); i++) {
-                MaredCommandRegistry.Argument arg = info.arguments.get(i);
-                if (!argFilter.isEmpty()) {
-                    String q = argFilter.toLowerCase();
-                    if (!arg.value.toLowerCase().contains(q) && !arg.description.toLowerCase().contains(q)) continue;
-                }
-                boolean expanded = expandedArgs.contains(i);
-                String marker = expanded ? "▾ " : "▸ ";
-                graphics.drawString(this.font, marker + arg.value, x + 2, contentY, COLOR_TEXT, true);
-                contentY += 10;
-                contentY = drawWrapped(graphics, arg.description, x + 10, contentY, maxW - 10, COLOR_TEXT_DIM);
-                if (expanded) {
-                    contentY += 6;
-                    graphics.drawString(this.font, "Examples:", x + 10, contentY, COLOR_TEXT_WARN, true);
-                    contentY += 12;
-                    for (String ex : arg.examples) {
-                        contentY = drawWrapped(graphics, "• " + ex, x + 14, contentY, maxW - 14, COLOR_COMMANDS);
-                        contentY += 2;
-                    }
-                    contentY += 4;
-                }
-                contentY += 4;
-            }
-            contentY += 4;
+        int bodyTop = y;
+        int bodyH = (infoY + infoH - PAD) - bodyTop;
+        infoScroll.set(infoX, bodyTop, INFO_W, bodyH);
+        infoScroll.drawScrollbarGradient(g, top, bottom, SCROLLBAR_W);
+    }
+
+    private void drawLog(GuiGraphics g, int mouseX, int mouseY) {
+        int logTop = logTop();
+        MaredUi.rect(g, 0, logTop, this.width, this.height, LOG_BG);
+
+        if (logCollapsed) {
+            MaredUi.text(g, this.font, MaredLang.get("mared.ui.log"), PAD, logTop + 4, EVENTS_TOP);
+            boolean hover = MaredUi.hovered(mouseX, mouseY, logToggleX(), logToggleY(), 18, 16);
+            MaredUi.button(g, this.font, logToggleX(), logToggleY(), 18, 16,
+                "▲", hover ? BTN_HOVER : BTN_BG, EVENTS_TOP, hover, TEXT);
+            return;
         }
 
-        if (!info.nbtHints.isEmpty()) {
-            graphics.drawString(this.font, "NBT / Components:", x, contentY, COLOR_TEXT_WARN, true);
-            contentY += 14;
-            for (MaredCommandRegistry.NbtHint hint : info.nbtHints) {
-                graphics.drawString(this.font, hint.tag, x + 4, contentY, COLOR_COMMANDS, true);
-                contentY += 10;
-                graphics.drawString(this.font, "What: " + hint.what, x + 10, contentY, COLOR_TEXT_DIM, true);
-                contentY += 10;
-                contentY = drawWrapped(graphics, "Why: " + hint.why, x + 10, contentY, maxW - 10, COLOR_TEXT_DIM);
-                if (hint.example != null && !hint.example.isEmpty()) {
-                    contentY = drawWrapped(graphics, "Example: " + hint.example, x + 10, contentY, maxW - 10, COLOR_COMMANDS);
-                }
-                contentY += 6;
-            }
+        int logRight = this.width - ACTIVE_BINDS_W;
+
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.log"), PAD, logTop + 4, EVENTS_TOP);
+        setupLogScrollArea();
+        logScroll.clamp();
+        int visible = logScroll.visibleItems();
+        int end = logLines.size() - logScroll.offset;
+        int start = Math.max(0, end - visible);
+        for (int i = start; i < end && i < logLines.size(); i++) {
+            String line = logLines.get(i);
+            MaredUi.text(g, this.font, line,
+                PAD + 4, logTop + LOG_HEADER + (i - start) * LOG_LINE, logColor(line));
+        }
+        logScroll.drawScrollbar(g, EVENTS_TOP, SCROLLBAR_W);
+
+        MaredUi.rect(g, logRight, logTop, logRight + 1, this.height, DIVIDER);
+
+        drawActiveBinds(g, logRight, logTop, mouseX, mouseY);
+
+        boolean hover = MaredUi.hovered(mouseX, mouseY, logToggleX(), logToggleY(), 18, 16);
+        MaredUi.button(g, this.font, logToggleX(), logToggleY(), 18, 16,
+            "▼", hover ? BTN_HOVER : BTN_BG, EVENTS_TOP, hover, TEXT);
+    }
+
+    private void drawActiveBinds(GuiGraphics g, int x, int logTop, int mouseX, int mouseY) {
+        MaredUi.rect(g, x, logTop, this.width, this.height, LOG_BG);
+
+        int clearW = 70;
+        int clearX = this.width - PAD - clearW;
+        int clearY = logTop + 2;
+
+        String header = MaredLang.get("mared.ui.active_binds")
+            + " (" + MaredBindRegistry.totalCount() + ")";
+        int maxHeaderWidth = (clearX - 4) - (x + PAD);
+        if (maxHeaderWidth > 0 && this.font.width(header) > maxHeaderWidth) {
+            header = this.font.plainSubstrByWidth(header, Math.max(0, maxHeaderWidth - 4)) + "...";
         }
 
-        graphics.disableScissor();
+        MaredUi.text(g, this.font, header, x + PAD, logTop + 4, EVENTS_TOP);
 
-        int trackY = fixedY;
-        int trackH = (infoY + infoH - 4) - trackY;
-        int maxScroll = Math.max(0, infoContentHeight() - trackH);
-        if (infoScrollOffset > maxScroll) infoScrollOffset = maxScroll;
+        boolean clearHover = MaredUi.hovered(mouseX, mouseY, clearX, clearY, clearW, 12);
+        MaredUi.button(g, this.font, clearX, clearY, clearW, 12, MaredLang.get("mared.ui.clear"),
+            clearHover ? BTN_HOVER : BTN_BG, DANGER, clearHover, DANGER);
 
-        if (maxScroll > 0) {
-            int trackX = infoX + INFO_WIDTH - SCROLLBAR_WIDTH - 2;
-            graphics.fill(trackX, trackY, trackX + SCROLLBAR_WIDTH, trackY + trackH, COLOR_SCROLLBAR_BG);
-            int thumbH = Math.max(10, trackH * trackH / Math.max(1, infoContentHeight()));
-            int thumbY = trackY + (trackH - thumbH) * infoScrollOffset / Math.max(1, maxScroll);
-            graphics.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH, COLOR_COMMANDS);
+        int listY = logTop + LOG_HEADER + 4;
+        int listH = this.height - listY - PAD;
+
+        List<String> keys = MaredBindRegistry.keys();
+        if (keys.isEmpty()) {
+            MaredUi.text(g, this.font, MaredLang.get("mared.ui.no_binds"), x + PAD, listY + 2, TEXT_DIM);
+            return;
+        }
+
+        int visible = Math.max(1, listH / ITEM_H);
+        int maxOffset = Math.max(0, keys.size() - visible);
+        activeBindsScrollOffset = Math.max(0, Math.min(maxOffset, activeBindsScrollOffset));
+
+        for (int i = 0; i < visible; i++) {
+            int idx = i + activeBindsScrollOffset;
+            if (idx >= keys.size()) break;
+            String key = keys.get(idx);
+            List<MaredBindRegistry.Entry> entries = MaredBindRegistry.entries(key);
+            boolean blocking = MaredBindRegistry.hasBlocking(key);
+            int itemY = listY + i * ITEM_H;
+
+            boolean hov = MaredUi.hovered(mouseX, mouseY, x, itemY, this.width - x, ITEM_H - 2);
+            MaredUi.rect(g, x, itemY, this.width, itemY + ITEM_H - 2, hov ? ITEM_HOVER : ITEM_NORMAL);
+
+            String label = key + (blocking ? " (block)" : "") + "  [" + entries.size() + "]";
+            MaredUi.text(g, this.font, label, x + PAD, itemY + 2, TEXT);
+
+            int delX = this.width - PAD - BIND_DEL_SZ;
+            int delY = itemY + (ITEM_H - 2 - BIND_DEL_SZ) / 2;
+            boolean delHover = MaredUi.hovered(mouseX, mouseY, delX, delY, BIND_DEL_SZ, BIND_DEL_SZ);
+            MaredUi.rect(g, delX, delY, delX + BIND_DEL_SZ, delY + BIND_DEL_SZ,
+                delHover ? 0xFF663333 : 0xFF3A2020);
+            MaredUi.outline(g, delX, delY, BIND_DEL_SZ, BIND_DEL_SZ, DANGER);
+            MaredUi.text(g, this.font, "✕", delX + 1, delY + 1, DANGER);
+        }
+
+        if (keys.size() > visible) {
+            int trackX = this.width - SCROLLBAR_W - 2;
+            MaredUi.rect(g, trackX, listY, trackX + SCROLLBAR_W, listY + listH, 0xFF15151E);
+            int thumbH = Math.max(10, listH * visible / keys.size());
+            int thumbY = listY + (listH - thumbH) * activeBindsScrollOffset / Math.max(1, maxOffset);
+            MaredUi.rect(g, trackX, thumbY, trackX + SCROLLBAR_W, thumbY + thumbH, EVENTS_TOP);
         }
     }
 
-    private int drawWrapped(GuiGraphics graphics, String text, int x, int y, int maxWidth, int color) {
-        String[] words = text.split(" ");
-        StringBuilder line = new StringBuilder();
-        for (String word : words) {
-            String test = line.length() == 0 ? word : line + " " + word;
-            if (this.font.width(test) > maxWidth) {
-                if (line.length() > 0) { graphics.drawString(this.font, line.toString(), x, y, color, true); y += 10; line = new StringBuilder(word); }
-                else { graphics.drawString(this.font, word, x, y, color, true); y += 10; line = new StringBuilder(); }
-            } else line = new StringBuilder(test);
-        }
-        if (line.length() > 0) { graphics.drawString(this.font, line.toString(), x, y, color, true); y += 10; }
-        return y;
+    private int logColor(String line) {
+        if (line.contains("[error]") || line.contains("[ошибка]")) return 0xFFFF5555;
+        if (line.contains("[warn]") || line.contains("[предупр]"))   return 0xFFFFAA00;
+        if (line.contains("[cmd]"))                                  return 0xFF88DDFF;
+        if (line.contains("[cmd error]"))                            return 0xFFFF5555;
+        if (line.contains("[mared]"))                                return 0xFF55FF88;
+        if (line.contains("[mared parse]"))                          return 0xFFFF5555;
+        if (line.contains("[bind fire]"))                            return 0xFFAA55FF;
+        if (line.contains("[bind]"))                                 return 0xFFFF55FF;
+        if (line.contains("[run]") || line.contains("[запуск]"))     return 0xFFFFD700;
+        if (line.contains("[info]") || line.contains("[инфо]"))      return 0xFFAAAAAA;
+        if (line.contains("[auto-save]") || line.contains("[автосейв]")) return 0xFF88DDFF;
+        return TEXT;
     }
 
-    private void drawDashedLine(GuiGraphics graphics, int x1, int y, int x2, int color) {
-        int dash = 4, gap = 3;
-        int x = x1;
-        while (x < x2) { int end = Math.min(x + dash, x2); graphics.fill(x, y, end, y + 1, color); x += dash + gap; }
+    private void drawArrow(GuiGraphics g, int ax, int ay, String symbol, int mouseX, int mouseY) {
+        boolean hover = MaredUi.hovered(mouseX, mouseY, ax, ay, BTN_SZ, BTN_SZ);
+        MaredUi.buttonGradient(g, this.font, ax, ay, BTN_SZ, BTN_SZ, symbol,
+            hover ? BTN_HOVER : BTN_BG, accentTop(), accentBottom(), TEXT);
     }
 
-    private void drawLog(GuiGraphics graphics, int mouseX, int mouseY, int logTop) {
-        graphics.fill(0, logTop, this.width, this.height, COLOR_LOG_BG);
-        graphics.drawString(this.font, "Log:", PADDING, logTop + 4, COLOR_EVENTS, true);
+    private void drawFullSidebar(GuiGraphics g, int mouseX, int mouseY) {
+        int sx = TAB_W, ay = arrowY();
+        MaredUi.text(g, this.font, tabTitle(openTab), sx + 8, ay + 5, TEXT);
 
-        if (!logCollapsed) {
-            int visibleLines = Math.max(1, (LOG_HEIGHT - LOG_HEADER - PADDING) / LOG_LINE_HEIGHT);
-            int maxScroll = Math.max(0, logLines.size() - visibleLines);
-            if (logScrollOffset > maxScroll) logScrollOffset = maxScroll;
-            int end = logLines.size() - logScrollOffset;
-            int start = Math.max(0, end - visibleLines);
-            for (int i = start; i < end && i < logLines.size(); i++)
-                graphics.drawString(this.font, logLines.get(i), PADDING + 4, logTop + LOG_HEADER + (i - start) * LOG_LINE_HEIGHT, COLOR_TEXT, true);
-            if (logLines.size() > visibleLines) {
-                int trackX = this.width - SCROLLBAR_WIDTH - 24;
-                int trackY = logTop + LOG_HEADER;
-                int trackH = LOG_HEIGHT - LOG_HEADER - PADDING;
-                graphics.fill(trackX, trackY, trackX + SCROLLBAR_WIDTH, trackY + trackH, COLOR_SCROLLBAR_BG);
-                int thumbH = Math.max(8, trackH * visibleLines / logLines.size());
-                int thumbY = trackY + (trackH - thumbH) * (maxScroll - logScrollOffset) / Math.max(1, maxScroll);
-                graphics.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH, COLOR_EVENTS);
-            }
-        }
+        int arrowX = sx + FULL_W - BTN_SZ - 4;
+        int plusX = arrowX - BTN_SZ - 4;
 
-        int toggleX = this.width - 24;
-        int toggleY = this.height - 18;
-        boolean hover = mouseX >= toggleX && mouseX < toggleX + 18 && mouseY >= toggleY && mouseY < toggleY + 16;
-        graphics.fill(toggleX, toggleY, toggleX + 18, toggleY + 16, hover ? COLOR_BTN_HOVER : COLOR_BTN_BG);
-        graphics.renderOutline(toggleX, toggleY, 18, 16, COLOR_EVENTS);
-        String arrow = logCollapsed ? "▲" : "▼";
-        graphics.drawString(this.font, arrow, toggleX + 5, toggleY + 4, COLOR_EVENTS, true);
-    }
+        boolean plusHover = MaredUi.hovered(mouseX, mouseY, plusX, ay, BTN_SZ, BTN_SZ);
+        MaredUi.buttonGradient(g, this.font, plusX, ay, BTN_SZ, BTN_SZ, "+",
+            plusHover ? BTN_HOVER : BTN_BG, accentTop(), accentTop(), TEXT);
 
-    private int arrowY() { return PADDING + 1; }
+        boolean arrowHover = MaredUi.hovered(mouseX, mouseY, arrowX, ay, BTN_SZ, BTN_SZ);
+        MaredUi.buttonGradient(g, this.font, arrowX, ay, BTN_SZ, BTN_SZ, "◄",
+            arrowHover ? BTN_HOVER : BTN_BG, accentBottom(), accentBottom(), TEXT);
 
-    private int sidebarWidth() {
-        if (!isScripts() && !isCommands()) return 0;
-        switch (sidebarState) { case STRIP: return STRIP_WIDTH; case FULL: return FULL_WIDTH; default: return 0; }
-    }
-
-    private void drawArrow(GuiGraphics graphics, int ax, int ay, String symbol, int mouseX, int mouseY, int accent) {
-        boolean hover = mouseX >= ax && mouseX < ax + BTN_SIZE && mouseY >= ay && mouseY < ay + BTN_SIZE;
-        graphics.fill(ax, ay, ax + BTN_SIZE, ay + BTN_SIZE, hover ? COLOR_BTN_HOVER : COLOR_BTN_BG);
-        graphics.renderOutline(ax, ay, BTN_SIZE, BTN_SIZE, accent);
-        graphics.drawString(this.font, symbol, ax + 5, ay + 5, accent, true);
-    }
-
-    private void drawFullSidebar(GuiGraphics graphics, int mouseX, int mouseY, int accent) {
-        int sx = TAB_WIDTH, sw = FULL_WIDTH, ay = arrowY();
-        graphics.drawString(this.font, tabTitle(openTab), sx + 8, ay + 5, COLOR_TEXT, true);
-        int arrowX = sx + sw - BTN_SIZE - 4;
-        int plusX = arrowX - BTN_SIZE - 4;
-        boolean plusHover = mouseX >= plusX && mouseX < plusX + BTN_SIZE && mouseY >= ay && mouseY < ay + BTN_SIZE;
-        graphics.fill(plusX, ay, plusX + BTN_SIZE, ay + BTN_SIZE, plusHover ? COLOR_BTN_HOVER : COLOR_BTN_BG);
-        graphics.renderOutline(plusX, ay, BTN_SIZE, BTN_SIZE, accent);
-        graphics.drawString(this.font, "+", plusX + 6, ay + 5, accent, true);
-        boolean arrowHover = mouseX >= arrowX && mouseX < arrowX + BTN_SIZE && mouseY >= ay && mouseY < ay + BTN_SIZE;
-        graphics.fill(arrowX, ay, arrowX + BTN_SIZE, ay + BTN_SIZE, arrowHover ? COLOR_BTN_HOVER : COLOR_BTN_BG);
-        graphics.renderOutline(arrowX, ay, BTN_SIZE, BTN_SIZE, accent);
-        graphics.drawString(this.font, "◄", arrowX + 5, ay + 5, accent, true);
-
-        int listX = sx + 6, listW = sw - 12 - SCROLLBAR_WIDTH;
-        int listY = ay + BTN_SIZE + 8;
-        int filesH = Math.min(FILE_SECTION_HEIGHT, sidebarBottom() - listY - 6);
-        graphics.drawString(this.font, "Files", listX, listY, COLOR_TEXT_DIM, true);
+        int listX = sx + 6, listW = FULL_W - 12 - SCROLLBAR_W;
+        int listY = ay + BTN_SZ + 8;
+        int filesH = Math.min(FILE_SECTION_H, sidebarBottom() - listY - 6);
         int filesListY = listY + 12;
-        int filesListH = filesH - 12;
+        int filesListH = fitHeight(filesH - 12, ITEM_H);
 
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.files"), listX, listY, TEXT_DIM);
+
+        fileScroll.set(listX, filesListY, listW, filesListH).items(ITEM_H, fileNames.size());
         if (fileNames.isEmpty()) {
-            graphics.drawString(this.font, "No files. Click +", listX + 4, filesListY + 4, COLOR_TEXT_DIM, true);
+            MaredUi.text(g, this.font, MaredLang.get("mared.ui.no_files"), listX + 4, filesListY + 4, TEXT_DIM);
         } else {
-            int maxVisible = filesListH / ITEM_HEIGHT;
-            int maxScroll = Math.max(0, fileNames.size() - maxVisible);
-            if (fileScrollOffset > maxScroll) fileScrollOffset = maxScroll;
-            for (int i = 0; i < maxVisible; i++) {
-                int realIdx = i + fileScrollOffset;
-                if (realIdx >= fileNames.size()) break;
-                String name = fileNames.get(realIdx);
-                int itemY = filesListY + i * ITEM_HEIGHT;
-                boolean hovered = mouseX >= listX && mouseX < listX + listW && mouseY >= itemY && mouseY < itemY + ITEM_HEIGHT - 2;
-                boolean selected = name.equals(selectedFile);
-                if (selected) {
-                    graphics.fill(listX, itemY, listX + listW, itemY + ITEM_HEIGHT - 2, itemSelColor(accent));
-                    graphics.fill(listX, itemY, listX + 2, itemY + ITEM_HEIGHT - 2, accent);
-                    graphics.drawString(this.font, name, listX + 4, itemY + 2, COLOR_TEXT, true);
-                } else {
-                    int bg = hovered ? COLOR_ITEM_HOVER : COLOR_ITEM_NORMAL;
-                    graphics.fill(listX, itemY, listX + listW, itemY + ITEM_HEIGHT - 2, bg);
-                    graphics.drawString(this.font, name, listX + 4, itemY + 2, COLOR_TEXT, true);
-                }
-            }
-            if (fileNames.size() > maxVisible) {
-                int trackX = sx + sw - SCROLLBAR_WIDTH - 2;
-                graphics.fill(trackX, filesListY, trackX + SCROLLBAR_WIDTH, filesListY + filesListH, COLOR_SCROLLBAR_BG);
-                int thumbH = Math.max(10, filesListH * maxVisible / fileNames.size());
-                int thumbY = filesListY + (filesListH - thumbH) * fileScrollOffset / Math.max(1, maxScroll);
-                graphics.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH, accent);
-            }
+            MaredUi.listGradient(g, this.font, fileScroll,
+                fileNames.indexOf(selectedFile), SCROLLBAR_W,
+                accentTop(), accentBottom(),
+                selColor(accentTop()), ITEM_HOVER, ITEM_NORMAL,
+                (gr, f, idx, ix, iy, iw, ih, hov, sel) -> {
+                    MaredUi.text(gr, f, fileNames.get(idx), ix + 4, iy + 2, TEXT);
+                    int delX = ix + iw - FILE_DEL_SZ;
+                    int delY = iy + (ih - FILE_DEL_SZ) / 2;
+                    boolean dHov = MaredUi.hovered(mouseX, mouseY, delX, delY, FILE_DEL_SZ, FILE_DEL_SZ);
+                    MaredUi.rect(gr, delX, delY, delX + FILE_DEL_SZ, delY + FILE_DEL_SZ,
+                        dHov ? 0xFF663333 : 0xFF3A2020);
+                    MaredUi.outline(gr, delX, delY, FILE_DEL_SZ, FILE_DEL_SZ, DANGER);
+                    MaredUi.text(gr, f, "✕", delX + 2, delY + 1, DANGER);
+                }, mouseX, mouseY);
         }
 
         if (isCommands()) {
-            int commandsY = listY + filesH + 4;
-            graphics.fill(sx + 4, commandsY - 2, sx + sw - 4, commandsY, COLOR_SECTION_BG);
-            graphics.drawString(this.font, "Available Commands", listX, commandsY + 2, COLOR_TEXT_DIM, true);
-            int filterY = commandsY + 14;
-
-            graphics.fill(listX, filterY, listX + listW, filterY + FILTER_HEIGHT, COLOR_FILTER_BG);
-            graphics.renderOutline(listX, filterY, listW, FILTER_HEIGHT, accent);
-
-            int commandsListY = filterY + 16;
-            int commandsH = sidebarBottom() - 6 - commandsListY;
-            if (commandsH < 20) return;
-            int maxVisible = commandsH / ITEM_HEIGHT;
-            int maxScroll = Math.max(0, filteredCommands.size() - maxVisible);
-            if (commandScrollOffset > maxScroll) commandScrollOffset = maxScroll;
-            for (int i = 0; i < maxVisible; i++) {
-                int realIdx = i + commandScrollOffset;
-                if (realIdx >= filteredCommands.size()) break;
-                MaredCommandRegistry.CommandInfo info = filteredCommands.get(realIdx);
-                int itemY = commandsListY + i * ITEM_HEIGHT;
-                boolean hovered = mouseX >= listX && mouseX < listX + listW && mouseY >= itemY && mouseY < itemY + ITEM_HEIGHT - 2;
-                boolean selected = info == selectedCommandInfo;
-                if (selected) {
-                    graphics.fill(listX, itemY, listX + listW, itemY + ITEM_HEIGHT - 2, itemSelColor(accent));
-                    graphics.fill(listX, itemY, listX + 2, itemY + ITEM_HEIGHT - 2, accent);
-                    graphics.drawString(this.font, info.name, listX + 4, itemY + 2, COLOR_TEXT, true);
-                } else {
-                    int bg = hovered ? COLOR_ITEM_HOVER : COLOR_ITEM_NORMAL;
-                    graphics.fill(listX, itemY, listX + listW, itemY + ITEM_HEIGHT - 2, bg);
-                    graphics.drawString(this.font, info.name, listX + 4, itemY + 2, COLOR_TEXT, true);
-                }
-            }
-            if (filteredCommands.size() > maxVisible) {
-                int trackX = sx + sw - SCROLLBAR_WIDTH - 2;
-                graphics.fill(trackX, commandsListY, trackX + SCROLLBAR_WIDTH, commandsListY + commandsH, COLOR_SCROLLBAR_BG);
-                int thumbH = Math.max(10, commandsH * maxVisible / filteredCommands.size());
-                int thumbY = commandsListY + (commandsH - thumbH) * commandScrollOffset / Math.max(1, maxScroll);
-                graphics.fill(trackX, thumbY, trackX + SCROLLBAR_WIDTH, thumbY + thumbH, accent);
-            }
+            drawCommandsList(g, mouseX, mouseY, listX, listW, listY, filesH);
         }
     }
 
-    private void drawTabs(GuiGraphics graphics, int mouseX, int mouseY) {
+    private void drawCommandsList(GuiGraphics g, int mouseX, int mouseY,
+                                  int listX, int listW, int listY, int filesH) {
+        int commandsY = listY + filesH + 4;
+        MaredUi.rect(g, TAB_W + 4, commandsY - 2, TAB_W + FULL_W - 4, commandsY, SECTION_BG);
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.available_commands"), listX, commandsY + 2, TEXT_DIM);
+
+        int toggleX = listX + listW - TOGGLE_W;
+        int toggleY = commandsY + 1;
+        boolean toggleHover = MaredUi.hovered(mouseX, mouseY, toggleX, toggleY, TOGGLE_W, TOGGLE_H);
+
+        int top = COMMANDS_TOP;
+        int bottom = showMaredCommands ? MRED_COLOR : COMMANDS_BOT;
+        MaredUi.buttonGradient(g, this.font, toggleX, toggleY, TOGGLE_W, TOGGLE_H,
+            showMaredCommands ? "MR" : "MC",
+            toggleHover ? BTN_HOVER : BTN_BG, top, bottom, TEXT);
+
+        int filterY = commandsY + 14;
+        MaredUi.rect(g, listX, filterY, listX + listW, filterY + FILTER_H, FILTER_BG);
+        MaredUi.outlineGradient(g, listX, filterY, listW, FILTER_H, top, bottom);
+
+        int commandsListY = filterY + 16;
+        int commandsH = fitHeight(sidebarBottom() - 6 - commandsListY, ITEM_H);
+        if (commandsH < ITEM_H) return;
+
+        cmdScroll.set(listX, commandsListY, listW, commandsH).items(ITEM_H, filteredCommands.size());
+        MaredUi.listGradient(g, this.font, cmdScroll,
+            filteredCommands.indexOf(selectedCommandInfo), SCROLLBAR_W,
+            top, bottom,
+            selColor(showMaredCommands ? MRED_COLOR : COMMANDS_TOP), ITEM_HOVER, ITEM_NORMAL,
+            (gr, f, idx, ix, iy, iw, ih, hov, sel) ->
+                MaredUi.text(gr, f, filteredCommands.get(idx).name, ix + 4, iy + 2, TEXT),
+            mouseX, mouseY);
+    }
+
+    private void drawTabs(GuiGraphics g, int mouseX, int mouseY) {
         String[] tabs = {"scripts", "commands", "npc", "events", "quests"};
-        int[] colors = {COLOR_SCRIPTS, COLOR_COMMANDS, COLOR_NPC, COLOR_EVENTS, COLOR_QUESTS};
         String[] letters = {"S", "C", "N", "E", "Q"};
         for (int i = 0; i < tabs.length; i++) {
-            int y = i * TAB_HEIGHT;
-            boolean hovered = mouseX < TAB_WIDTH && mouseY >= y && mouseY < y + TAB_HEIGHT;
+            int y = i * TAB_H;
+            boolean hovered = mouseX < TAB_W && mouseY >= y && mouseY < y + TAB_H;
             boolean active = tabs[i].equals(openTab);
-            int bg = active ? colors[i] : (hovered ? 0xFF3A3A4A : COLOR_ITEM_NORMAL);
-            graphics.fill(2, y + 2, TAB_WIDTH - 2, y + TAB_HEIGHT - 2, bg);
-            int textColor = active ? 0xFF000000 : colors[i];
-            int tw = this.font.width(letters[i]);
-            graphics.drawString(this.font, letters[i], (TAB_WIDTH - tw) / 2, y + (TAB_HEIGHT - 8) / 2 + 1, textColor, false);
+
+            int top, bottom;
+            switch (tabs[i]) {
+                case "scripts"  -> { top = SCRIPTS_TOP;  bottom = SCRIPTS_BOT; }
+                case "commands" -> { top = COMMANDS_TOP; bottom = COMMANDS_BOT; }
+                case "npc"      -> { top = NPC_TOP;      bottom = NPC_BOT; }
+                case "events"   -> { top = EVENTS_TOP;   bottom = EVENTS_BOT; }
+                default         -> { top = QUESTS_TOP;   bottom = QUESTS_BOT; }
+            }
+
+            if (active) {
+                MaredUi.gradientV(g, 2, y + 2, TAB_W - 2, y + TAB_H - 2, top, bottom);
+                MaredUi.centered(g, this.font, letters[i], TAB_W / 2, y + (TAB_H - 8) / 2 + 1, TEXT);
+            } else {
+                int bg = hovered ? 0xFF3A3A4A : ITEM_NORMAL;
+                MaredUi.rect(g, 2, y + 2, TAB_W - 2, y + TAB_H - 2, bg);
+                MaredUi.centered(g, this.font, letters[i], TAB_W / 2, y + (TAB_H - 8) / 2 + 1, top);
+            }
         }
     }
 
     private String tabTitle(String key) {
-        switch (key) {
-            case "scripts": return "Scripts";
-            case "commands": return "Commands";
-            case "npc": return "NPC";
-            case "events": return "Events";
-            case "quests": return "Quests";
-            default: return key;
-        }
+        return switch (key) {
+            case "scripts" -> MaredLang.get("mared.ui.title.scripts");
+            case "commands" -> MaredLang.get("mared.ui.title.commands");
+            case "npc" -> MaredLang.get("mared.ui.title.npc");
+            case "events" -> MaredLang.get("mared.ui.title.events");
+            case "quests" -> MaredLang.get("mared.ui.title.quests");
+            default -> key;
+        };
     }
 
     @Override public boolean isPauseScreen() { return false; }
-    @Override public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) { /* Empty. */ }
+    @Override public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
 }

@@ -1,0 +1,129 @@
+{
+  "commands": [
+    {
+      "name": "ban",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Ban a player from the server",
+      "example": "/ban Notch",
+      "arguments": [
+        { "value": "<player>", "description": "Player name", "examples": ["/ban Notch"] },
+        { "value": "[reason]", "description": "Optional reason", "examples": ["/ban Notch Spamming"] }
+      ]
+    },
+    {
+      "name": "ban-ip",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Ban an IP address",
+      "example": "/ban-ip 192.168.1.1",
+      "arguments": [
+        { "value": "<ip>", "description": "IP address or player name", "examples": ["/ban-ip 192.168.1.1"] },
+        { "value": "[reason]", "description": "Optional reason", "examples": ["/ban-ip 192.168.1.1 Hacking"] }
+      ]
+    },
+    {
+      "name": "banlist",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Show the server ban list",
+      "example": "/banlist",
+      "arguments": [
+        { "value": "players", "description": "Show banned players", "examples": ["/banlist players"] },
+        { "value": "ips", "description": "Show banned IPs", "examples": ["/banlist ips"] }
+      ]
+    },
+    {
+      "name": "pardon",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Unban a player",
+      "example": "/pardon Notch",
+      "arguments": [
+        { "value": "<player>", "description": "Player name", "examples": ["/pardon Notch"] }
+      ]
+    },
+    {
+      "name": "pardon-ip",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Unban an IP address",
+      "example": "/pardon-ip 192.168.1.1",
+      "arguments": [
+        { "value": "<ip>", "description": "IP address", "examples": ["/pardon-ip 192.168.1.1"] }
+      ]
+    },
+    {
+      "name": "op",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Grant operator status to a player",
+      "example": "/op Notch",
+      "arguments": [
+        { "value": "<player>", "description": "Player name", "examples": ["/op Notch"] }
+      ]
+    },
+    {
+      "name": "deop",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Revoke operator status from a player",
+      "example": "/deop Notch",
+      "arguments": [
+        { "value": "<player>", "description": "Player name", "examples": ["/deop Notch"] }
+      ]
+    },
+    {
+      "name": "whitelist",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Manage the server whitelist",
+      "example": "/whitelist add Notch",
+      "arguments": [
+        { "value": "add <player>", "description": "Add player to whitelist", "examples": ["/whitelist add Notch"] },
+        { "value": "remove <player>", "description": "Remove player from whitelist", "examples": ["/whitelist remove Notch"] },
+        { "value": "list", "description": "Show whitelist", "examples": ["/whitelist list"] },
+        { "value": "on", "description": "Enable whitelist", "examples": ["/whitelist on"] },
+        { "value": "off", "description": "Disable whitelist", "examples": ["/whitelist off"] },
+        { "value": "reload", "description": "Reload whitelist", "examples": ["/whitelist reload"] }
+      ]
+    },
+    {
+      "name": "kick",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Kick a player from the server",
+      "example": "/kick Notch",
+      "arguments": [
+        { "value": "<player>", "description": "Player name", "examples": ["/kick Notch"] },
+        { "value": "[reason]", "description": "Optional reason", "examples": ["/kick Notch Spamming"] }
+      ]
+    },
+    {
+      "name": "stop",
+      "category": "Server",
+      "opLevel": 4,
+      "description": "Stop the server",
+      "example": "/stop",
+      "arguments": []
+    },
+    {
+      "name": "save-all",
+      "category": "Server",
+      "opLevel": 4,
+      "description": "Save the server",
+      "example": "/save-all",
+      "arguments": [
+        { "value": "flush", "description": "Force save to disk", "examples": ["/save-all flush"] }
+      ]
+    },
+    {
+      "name": "reload",
+      "category": "Server",
+      "opLevel": 4,
+      "description": "Reload server data (loot tables, advancements, functions)",
+      "example": "/reload",
+      "arguments": []
+    }
+  ]
+}

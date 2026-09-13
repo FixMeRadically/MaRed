@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "name": "function",
+      "category": "Server",
+      "opLevel": 2,
+      "description": "Run a function",
+      "example": "/function mypack:my_function",
+      "arguments": [
+        { "value": "<name>", "description": "Function resource location", "examples": ["/function mypack:my_function"] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "worldborder",
+      "category": "World",
+      "opLevel": 2,
+      "description": "World border alternate syntax",
+      "example": "/worldborder get",
+      "arguments": [
+        { "value": "get", "description": "Show border info", "examples": ["/worldborder get"] },
+        { "value": "set <size> [time]", "description": "Set border size over time", "examples": ["/worldborder set 1000", "/worldborder set 1000 60"] },
+        { "value": "add <distance> [time]", "description": "Grow/shrink border over time", "examples": ["/worldborder add 100", "/worldborder add -100 60"] }
+      ]
+    }
+  ]
+}

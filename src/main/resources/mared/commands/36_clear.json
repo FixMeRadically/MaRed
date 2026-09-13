@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "clear",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Clear items from inventory",
+      "example": "/clear @s",
+      "arguments": [
+        { "value": "<target>", "description": "Who to clear", "examples": ["/clear @s", "/clear @a", "/clear Notch"] },
+        { "value": "[item]", "description": "Specific item", "examples": ["/clear @s minecraft:diamond"] },
+        { "value": "[maxCount]", "description": "Max to clear", "examples": ["/clear @s minecraft:diamond 5"] }
+      ]
+    }
+  ]
+}

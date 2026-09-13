@@ -1,0 +1,22 @@
+{
+  "commands": [
+    {
+      "name": "fillbiome",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Fill an area with a biome",
+      "example": "/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:plains",
+      "arguments": [
+        { "value": "<from>", "description": "First corner", "examples": ["/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:plains"] },
+        { "value": "<to>", "description": "Second corner", "examples": ["/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:plains"] },
+        { "value": "<biome>", "description": "Biome ID", "examples": ["/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:desert", "/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:jungle"] },
+        { "value": "minecraft:plains", "description": "Plains biome", "examples": ["/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:plains"] },
+        { "value": "minecraft:desert", "description": "Desert biome", "examples": ["/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:desert"] },
+        { "value": "minecraft:jungle", "description": "Jungle biome", "examples": ["/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:jungle"] },
+        { "value": "minecraft:ocean", "description": "Ocean biome", "examples": ["/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:ocean"] },
+        { "value": "minecraft:cherry_grove", "description": "Cherry grove biome", "examples": ["/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:cherry_grove"] },
+        { "value": "minecraft:nether_wastes", "description": "Nether biome", "examples": ["/fillbiome ~ ~ ~ ~10 ~10 ~10 minecraft:nether_wastes"] }
+      ]
+    }
+  ]
+}

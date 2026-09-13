@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "name": "clear",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Clear inventory alternative syntax",
+      "example": "/clear",
+      "arguments": [
+        { "value": "", "description": "Clear own inventory", "examples": ["/clear"] }
+      ]
+    }
+  ]
+}

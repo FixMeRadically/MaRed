@@ -1,107 +1,116 @@
 package com.fixmer.mared.gui;
 
-import java.util.function.Consumer;
-
-import com.fixmer.mared.script.MaredScriptStorage;
-import com.fixmer.mared.storage.MaredCommandStorage;
-
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+import com.fixmer.mared.script.MaredLang;
+
+import java.util.function.Consumer;
+
 public class MaredNameDialog extends Screen {
 
-    private static final int COLOR_SCREEN_BG = 0xFF0E0E14;
-    private static final int COLOR_BG        = 0xFF1E1E2A;
-    private static final int COLOR_TEXT      = 0xFFFFFFFF;
-    private static final int COLOR_ERROR     = 0xFFFF5555;
-    private static final int COLOR_SHADOW    = 0x80000000;
+    private static final int PANEL      = 0xFF1E1E2A;
+    private static final int TEXT_DIM   = 0xFFAAAAAA;
 
     private final Screen parent;
     private final String title;
-    private final Consumer<String> onConfirm;
+    private final Consumer<String> onAccept;
     private final int accentColor;
-    private final boolean isCommandMode;
+    private final boolean allowSlash;
 
-    private EditBox input;
-    private String error = null;
+    private EditBox nameBox;
+    private AbstractWidget okBtn;
+    private AbstractWidget cancelBtn;
 
-    /** Script mode (default). */
-    public MaredNameDialog(Screen parent, String title, Consumer<String> onConfirm) {
-        this(parent, title, onConfirm, 0xFFFF55FF, false);
-    }
-
-    /** Generic. */
-    public MaredNameDialog(Screen parent, String title, Consumer<String> onConfirm, int accentColor, boolean isCommandMode) {
+    public MaredNameDialog(Screen parent, String title, Consumer<String> onAccept,
+                           int accentColor, boolean allowSlash) {
         super(Component.literal(title));
         this.parent = parent;
         this.title = title;
-        this.onConfirm = onConfirm;
+        this.onAccept = onAccept;
         this.accentColor = accentColor;
-        this.isCommandMode = isCommandMode;
+        this.allowSlash = allowSlash;
     }
 
     @Override
     protected void init() {
-        int w = 240;
-        int h = 100;
-        int x = (this.width - w) / 2;
-        int y = (this.height - h) / 2;
+        super.init();
 
-        input = new EditBox(this.font, x + 10, y + 30, w - 20, 18, Component.literal("Name"));
-        input.setMaxLength(32);
-        input.setFocused(true);
-        this.addRenderableWidget(input);
+        MaredLang.reload();
 
-        this.addRenderableWidget(new MaredCompactButton(
-            x + 10, y + h - 28, 105, 18,
-            Component.literal("Create"), accentColor, this::confirm));
-        this.addRenderableWidget(new MaredCompactButton(
-            x + w - 115, y + h - 28, 105, 18,
-            Component.literal("Cancel"), 0xFFAAAAAA,
-            () -> this.minecraft.setScreen(parent)));
+        int panelW = 300;
+        int panelH = 140;
+        int panelX = (this.width - panelW) / 2;
+        int panelY = (this.height - panelH) / 2;
+
+        int inputX = panelX + 20;
+        int inputY = panelY + 50;
+        int inputW = panelW - 40;
+
+        nameBox = new EditBox(this.font, inputX, inputY, inputW, 18, Component.literal("Name"));
+        nameBox.setMaxLength(64);
+        nameBox.setBordered(true);
+        nameBox.setFocused(true);
+        addRenderableWidget(nameBox);
+
+        int btnW = 120;
+        int btnY = panelY + panelH - 40;
+        int btnGap = 20;
+
+        okBtn = addRenderableWidget(new MaredCompactButton(
+            panelX + panelW / 2 - btnW - btnGap / 2, btnY, btnW, 20,
+            Component.literal(MaredLang.get("mared.dialog.create")), 0xFF55FF88, this::onOk));
+
+        cancelBtn = addRenderableWidget(new MaredCompactButton(
+            panelX + panelW / 2 + btnGap / 2, btnY, btnW, 20,
+            Component.literal(MaredLang.get("mared.dialog.cancel")), 0xFFFF5555, this::onCancel));
     }
 
-    private void confirm() {
-        String name = input.getValue().trim();
-        boolean valid = isCommandMode
-            ? MaredCommandStorage.isValidName(name)
-            : MaredScriptStorage.isValidName(name);
-        if (!valid) { error = "Only a-z, A-Z, 0-9, _ and -"; return; }
-        boolean exists = isCommandMode
-            ? MaredCommandStorage.listCommands().contains(name)
-            : MaredScriptStorage.listScripts().contains(name);
-        if (exists) { error = "File with this name already exists"; return; }
-        onConfirm.accept(name);
-        this.minecraft.setScreen(parent);
+    private void onOk() {
+        String name = nameBox.getValue().trim();
+        if (name.isEmpty()) return;
+        if (!allowSlash && name.contains("/")) return;
+        onAccept.accept(name);
+        onClose();
+    }
+
+    private void onCancel() { onClose(); }
+
+    @Override
+    public void onClose() {
+        if (this.minecraft != null) this.minecraft.setScreen(parent);
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, this.width, this.height, COLOR_SCREEN_BG);
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        g.fill(0, 0, this.width, this.height, 0x80000000);
 
-        int w = 240;
-        int h = 100;
-        int x = (this.width - w) / 2;
-        int y = (this.height - h) / 2;
+        int panelW = 300;
+        int panelH = 140;
+        int panelX = (this.width - panelW) / 2;
+        int panelY = (this.height - panelH) / 2;
 
-        graphics.fill(x + 3, y + 3, x + w + 3, y + h + 3, COLOR_SHADOW);
-        graphics.fill(x, y, x + w, y + h, COLOR_BG);
-        graphics.renderOutline(x, y, w, h, accentColor);
-        graphics.drawString(this.font, title, x + 10, y + 10, COLOR_TEXT, true);
+        MaredUi.panel(g, panelX, panelY, panelW, panelH, PANEL, accentColor);
 
-        if (error != null) {
-            graphics.drawString(this.font, error, x + 10, y + 52, COLOR_ERROR, true);
-        }
+        MaredUi.text(g, this.font, title, panelX + 20, panelY + 20, accentColor);
+        MaredUi.text(g, this.font, MaredLang.get("mared.dialog.name_label"), panelX + 20, panelY + 38, TEXT_DIM);
 
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.render(g, mouseX, mouseY, partialTick);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 257 || keyCode == 335) { confirm(); return true; }
-        if (keyCode == 256) { this.minecraft.setScreen(parent); return true; }
+        if (keyCode == 257 || keyCode == 335) {
+            onOk();
+            return true;
+        }
+        if (keyCode == 256) {
+            onCancel();
+            return true;
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
@@ -109,5 +118,5 @@ public class MaredNameDialog extends Screen {
     public boolean isPauseScreen() { return false; }
 
     @Override
-    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) { /* Empty. */ }
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
 }

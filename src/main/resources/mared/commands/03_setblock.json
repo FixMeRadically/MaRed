@@ -1,0 +1,58 @@
+{
+  "commands": [
+    {
+      "name": "setblock",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Place a single block",
+      "example": "/setblock ~ ~1 ~ minecraft:diamond_block",
+      "arguments": [
+        { "value": "<pos>", "description": "Block position", "examples": ["/setblock ~ ~1 ~ minecraft:diamond_block"] },
+        { "value": "<block>", "description": "Block ID", "examples": ["/setblock ~ ~1 ~ minecraft:chest"] },
+        { "value": "replace", "description": "Replace existing block (default)", "examples": ["/setblock ~ ~1 ~ minecraft:stone replace"] },
+        { "value": "destroy", "description": "Destroy and drop old block", "examples": ["/setblock ~ ~1 ~ minecraft:stone destroy"] },
+        { "value": "keep", "description": "Only place if air", "examples": ["/setblock ~ ~1 ~ minecraft:stone keep"] }
+      ],
+      "nbt": [
+        { "tag": "CustomName", "what": "Custom display name (JSON)", "why": "For chests, signs, containers", "example": "/setblock ~ ~1 ~ chest{CustomName:'{\"text\":\"My Chest\"}'}" },
+        { "tag": "Items", "what": "Container contents", "why": "Pre-fill chests, barrels, shulkers", "example": "/setblock ~ ~1 ~ chest{Items:[{Slot:0b,id:\"minecraft:diamond\",Count:64b}]}" },
+        { "tag": "Lock", "what": "Container lock code", "why": "Requires matching item to open", "example": "/setblock ~ ~1 ~ chest{Lock:\"my_key\"}" },
+        { "tag": "Command", "what": "Command block command", "why": "Executed by command block", "example": "/setblock ~ ~1 ~ command_block{Command:\"say hi\",auto:1b}" },
+        { "tag": "auto", "what": "Always active (0b/1b)", "why": "Command block runs without redstone", "example": "/setblock ~ ~1 ~ command_block{Command:\"say hi\",auto:1b}" },
+        { "tag": "powered", "what": "Powered (0b/1b)", "why": "Command block is powered", "example": "/setblock ~ ~1 ~ command_block{Command:\"say hi\",powered:1b}" },
+        { "tag": "TrackOutput", "what": "Track output (0b/1b)", "why": "Save last command output", "example": "/setblock ~ ~1 ~ command_block{Command:\"say hi\",TrackOutput:1b}" },
+        { "tag": "ConditionMet", "what": "Condition met (0b/1b)", "why": "For conditional command blocks", "example": "/setblock ~ ~1 ~ command_block{Command:\"say hi\",ConditionMet:1b}" },
+        { "tag": "SpawnData", "what": "Spawner entity data", "why": "What entity spawner spawns", "example": "/setblock ~ ~1 ~ spawner{SpawnData:{entity:{id:\"minecraft:zombie\"}}}" },
+        { "tag": "SpawnCount", "what": "Spawn count (short)", "why": "How many mobs per spawn", "example": "/setblock ~ ~1 ~ spawner{SpawnCount:4}" },
+        { "tag": "SpawnRange", "what": "Spawn range (short)", "why": "Radius for spawning", "example": "/setblock ~ ~1 ~ spawner{SpawnRange:4}" },
+        { "tag": "RequiredPlayerRange", "what": "Required player range (short)", "why": "Distance to activate", "example": "/setblock ~ ~1 ~ spawner{RequiredPlayerRange:16}" },
+        { "tag": "MinSpawnDelay", "what": "Min spawn delay (short)", "why": "Ticks between spawns", "example": "/setblock ~ ~1 ~ spawner{MinSpawnDelay:200}" },
+        { "tag": "MaxSpawnDelay", "what": "Max spawn delay (short)", "why": "Ticks between spawns", "example": "/setblock ~ ~1 ~ spawner{MaxSpawnDelay:800}" },
+        { "tag": "MaxNearbyEntities", "what": "Max nearby entities (short)", "why": "Limit of same mobs", "example": "/setblock ~ ~1 ~ spawner{MaxNearbyEntities:6}" },
+        { "tag": "SpawnPotentials", "what": "Multiple spawn options", "why": "Random entity per spawn", "example": "/setblock ~ ~1 ~ spawner{SpawnPotentials:[{data:{entity:{id:\"minecraft:skeleton\"}},weight:1}]}" },
+        { "tag": "Text1", "what": "Sign line 1 (JSON)", "why": "Sign text", "example": "/setblock ~ ~1 ~ oak_sign{Text1:'{\"text\":\"Hello\"}'}" },
+        { "tag": "Text2", "what": "Sign line 2 (JSON)", "why": "Sign text", "example": "/setblock ~ ~1 ~ oak_sign{Text2:'{\"text\":\"World\"}'}" },
+        { "tag": "Text3", "what": "Sign line 3 (JSON)", "why": "Sign text", "example": "/setblock ~ ~1 ~ oak_sign{Text3:'{\"text\":\"Line 3\"}'}" },
+        { "tag": "Text4", "what": "Sign line 4 (JSON)", "why": "Sign text", "example": "/setblock ~ ~1 ~ oak_sign{Text4:'{\"text\":\"Line 4\"}'}" },
+        { "tag": "GlowingText", "what": "Glowing text (0b/1b)", "why": "Sign text glows", "example": "/setblock ~ ~1 ~ oak_sign{GlowingText:1b}" },
+        { "tag": "Color", "what": "Sign text color", "why": "dye color name", "example": "/setblock ~ ~1 ~ oak_sign{Color:\"red\"}" },
+        { "tag": "Primary", "what": "Beacon primary effect (int)", "why": "Effect ID", "example": "/setblock ~ ~1 ~ beacon{Primary:1}" },
+        { "tag": "Secondary", "what": "Beacon secondary effect (int)", "why": "Effect ID", "example": "/setblock ~ ~1 ~ beacon{Secondary:1}" },
+        { "tag": "Levels", "what": "Beacon levels (int)", "why": "Pyramid level", "example": "/setblock ~ ~1 ~ beacon{Levels:4}" },
+        { "tag": "RecordItem", "what": "Jukebox record (item)", "why": "Currently playing disc", "example": "/setblock ~ ~1 ~ jukebox{RecordItem:{id:\"minecraft:music_disc_pigstep\",Count:1b}}" },
+        { "tag": "note", "what": "Note block pitch (byte)", "why": "0-24 pitch", "example": "/setblock ~ ~1 ~ note_block{note:12b}" },
+        { "tag": "powered", "what": "Note block powered (0b/1b)", "why": "Whether triggered", "example": "/setblock ~ ~1 ~ note_block{powered:1b}" },
+        { "tag": "instrument", "what": "Note block instrument", "why": "Sound type", "example": "/setblock ~ ~1 ~ note_block{instrument:\"harp\"}" },
+        { "tag": "SkullOwner", "what": "Player head owner", "why": "For player heads", "example": "/setblock ~ ~1 ~ player_head{SkullOwner:\"Notch\"}" },
+        { "tag": "Rotation", "what": "Rotation (byte)", "why": "For banners, signs, skulls", "example": "/setblock ~ ~1 ~ player_head{Rotation:8b}" },
+        { "tag": "Base", "what": "Banner base color (int)", "why": "For banners", "example": "/setblock ~ ~1 ~ white_banner{Base:15}" },
+        { "tag": "Patterns", "what": "Banner patterns", "why": "List of patterns", "example": "/setblock ~ ~1 ~ white_banner{Patterns:[{Pattern:\"creeper\",Color:1}]}" },
+        { "tag": "Items", "what": "Shulker box contents", "why": "Items in shulker", "example": "/setblock ~ ~1 ~ shulker_box{Items:[{Slot:0b,id:\"minecraft:diamond\",Count:1b}]}" },
+        { "tag": "id", "what": "Block entity ID", "why": "For container/sign/spawner", "example": "/setblock ~ ~1 ~ chest{id:\"minecraft:chest\",Items:[]}" },
+        { "tag": "x", "what": "X coordinate", "why": "Block entity position", "example": "/setblock ~ ~1 ~ chest{x:0,y:0,z:0}" },
+        { "tag": "y", "what": "Y coordinate", "why": "Block entity position", "example": "/setblock ~ ~1 ~ chest{x:0,y:0,z:0}" },
+        { "tag": "z", "what": "Z coordinate", "why": "Block entity position", "example": "/setblock ~ ~1 ~ chest{x:0,y:0,z:0}" }
+      ]
+    }
+  ]
+}

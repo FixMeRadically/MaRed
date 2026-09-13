@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "name": "kill",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Kill entities",
+      "example": "/kill @e[type=zombie]",
+      "arguments": [
+        { "value": "<target>", "description": "Who to kill", "examples": ["/kill @s", "/kill @e[type=zombie]", "/kill @a"] }
+      ]
+    }
+  ]
+}

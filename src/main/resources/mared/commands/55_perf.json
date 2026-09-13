@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "perf",
+      "category": "Server",
+      "opLevel": 4,
+      "description": "Start/stop performance profiling",
+      "example": "/perf start",
+      "arguments": [
+        { "value": "start", "description": "Start profiling", "examples": ["/perf start"] },
+        { "value": "stop", "description": "Stop profiling", "examples": ["/perf stop"] }
+      ]
+    }
+  ]
+}

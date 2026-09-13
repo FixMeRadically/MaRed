@@ -1,0 +1,23 @@
+{
+  "commands": [
+    {
+      "name": "scoreboard",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Manage scoreboard objectives, players and teams",
+      "example": "/scoreboard objectives add kills minecraft.player_kill_count",
+      "arguments": [
+        { "value": "objectives add <name> <criteria>", "description": "Add objective", "examples": ["/scoreboard objectives add kills minecraft.player_kill_count"] },
+        { "value": "objectives remove <name>", "description": "Remove objective", "examples": ["/scoreboard objectives remove kills"] },
+        { "value": "objectives list", "description": "List objectives", "examples": ["/scoreboard objectives list"] },
+        { "value": "objectives setdisplay <slot> <name>", "description": "Set display slot", "examples": ["/scoreboard objectives setdisplay sidebar kills"] },
+        { "value": "objectives modify <name> displayname <json>", "description": "Change display name", "examples": ["/scoreboard objectives modify kills displayname {\"text\":\"Kills\"}"] },
+        { "value": "players set <target> <objective> <score>", "description": "Set player score", "examples": ["/scoreboard players set @s kills 10"] },
+        { "value": "players add <target> <objective> <score>", "description": "Add to player score", "examples": ["/scoreboard players add @s kills 1"] },
+        { "value": "players remove <target> <objective> <score>", "description": "Subtract from score", "examples": ["/scoreboard players remove @s kills 1"] },
+        { "value": "players reset <target> <objective>", "description": "Reset score", "examples": ["/scoreboard players reset @s kills"] },
+        { "value": "players get <target> <objective>", "description": "Get player score", "examples": ["/scoreboard players get @s kills"] }
+      ]
+    }
+  ]
+}

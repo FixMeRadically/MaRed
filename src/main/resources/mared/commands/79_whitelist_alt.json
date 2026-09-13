@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "whitelist",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Whitelist alternate syntax",
+      "example": "/whitelist add @p",
+      "arguments": [
+        { "value": "add @p", "description": "Add nearest player", "examples": ["/whitelist add @p"] },
+        { "value": "add @a", "description": "Add all players", "examples": ["/whitelist add @a"] }
+      ]
+    }
+  ]
+}

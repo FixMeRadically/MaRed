@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "locate",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Locate a structure, biome or poi",
+      "example": "/locate structure minecraft:village_plains",
+      "arguments": [
+        { "value": "structure <id>", "description": "Find a structure", "examples": ["/locate structure minecraft:village_plains", "/locate structure minecraft:stronghold"] },
+        { "value": "biome <id>", "description": "Find a biome", "examples": ["/locate biome minecraft:desert", "/locate biome minecraft:cherry_grove"] },
+        { "value": "poi <id>", "description": "Find a point of interest", "examples": ["/locate poi minecraft:nether_portal"] }
+      ]
+    }
+  ]
+}

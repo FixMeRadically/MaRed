@@ -1,0 +1,32 @@
+{
+  "commands": [
+    {
+      "name": "tellraw",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Send a JSON message to players",
+      "example": "/tellraw @s {\"text\":\"Hello\",\"color\":\"gold\"}",
+      "arguments": [
+        { "value": "<targets>", "description": "Who receives", "examples": ["/tellraw @s {\"text\":\"Hello\"}"] },
+        { "value": "<json>", "description": "JSON text component", "examples": ["/tellraw @s {\"text\":\"Hello\",\"color\":\"gold\"}"] }
+      ],
+      "nbt": [
+        { "tag": "text", "what": "Plain text", "why": "Simplest form", "example": "/tellraw @s {\"text\":\"Hello\"}" },
+        { "tag": "color", "what": "Text color", "why": "red, gold, #FF5500", "example": "/tellraw @s {\"text\":\"Hello\",\"color\":\"gold\"}" },
+        { "tag": "bold", "what": "Bold text", "why": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"bold\":true}" },
+        { "tag": "italic", "what": "Italic text", "why": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"italic\":true}" },
+        { "tag": "underlined", "what": "Underlined text", "why": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"underlined\":true}" },
+        { "tag": "strikethrough", "what": "Strikethrough", "why": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"strikethrough\":true}" },
+        { "tag": "obfuscated", "what": "Obfuscated text", "why": "Random characters", "example": "/tellraw @s {\"text\":\"Hi\",\"obfuscated\":true}" },
+        { "tag": "clickEvent", "what": "Click action", "why": "run_command, open_url, suggest_command, copy_to_clipboard", "example": "/tellraw @s {\"text\":\"Click\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/say Hi\"}}" },
+        { "tag": "hoverEvent", "what": "Hover tooltip", "why": "show_text, show_item, show_entity", "example": "/tellraw @s {\"text\":\"Hover\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":\"Tooltip\"}}" },
+        { "tag": "extra", "what": "Multiple parts", "why": "Array of components", "example": "/tellraw @s {\"text\":\"A\",\"extra\":[{\"text\":\"B\",\"color\":\"red\"}]}" },
+        { "tag": "selector", "what": "Entity selector", "why": "Renders entity name", "example": "/tellraw @s {\"selector\":\"@p\"}" },
+        { "tag": "score", "what": "Scoreboard value", "why": "Display score", "example": "/tellraw @s {\"score\":{\"name\":\"@s\",\"objective\":\"kills\"}}" },
+        { "tag": "translate", "what": "Translation key", "why": "Localized text", "example": "/tellraw @s {\"translate\":\"item.minecraft.diamond\"}" },
+        { "tag": "keybind", "what": "Keybind name", "why": "Show key name", "example": "/tellraw @s {\"keybind\":\"key.jump\"}" },
+        { "tag": "nbt", "what": "NBT value", "why": "Display NBT", "example": "/tellraw @s {\"nbt\":\"Health\",\"entity\":\"@s\"}" }
+      ]
+    }
+  ]
+}

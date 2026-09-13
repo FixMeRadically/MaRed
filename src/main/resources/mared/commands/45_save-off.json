@@ -1,0 +1,20 @@
+{
+  "commands": [
+    {
+      "name": "save-off",
+      "category": "Server",
+      "opLevel": 4,
+      "description": "Disable automatic world saving",
+      "example": "/save-off",
+      "arguments": []
+    },
+    {
+      "name": "save-on",
+      "category": "Server",
+      "opLevel": 4,
+      "description": "Enable automatic world saving",
+      "example": "/save-on",
+      "arguments": []
+    }
+  ]
+}

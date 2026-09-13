@@ -1,0 +1,25 @@
+{
+  "commands": [
+    {
+      "name": "title",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Display title, subtitle or actionbar",
+      "example": "/title @s title {\"text\":\"Hello\"}",
+      "arguments": [
+        { "value": "title <json>", "description": "Big title text", "examples": ["/title @s title {\"text\":\"Hello\"}"] },
+        { "value": "subtitle <json>", "description": "Subtitle text", "examples": ["/title @s subtitle {\"text\":\"Sub\"}"] },
+        { "value": "actionbar <json>", "description": "Actionbar text", "examples": ["/title @s actionbar {\"text\":\"Hi\"}"] },
+        { "value": "times <fade> <stay> <fadeOut>", "description": "Timing in ticks", "examples": ["/title @s times 10 70 20"] },
+        { "value": "clear", "description": "Clear title", "examples": ["/title @s clear"] },
+        { "value": "reset", "description": "Reset title", "examples": ["/title @s reset"] }
+      ],
+      "nbt": [
+        { "tag": "text", "what": "Plain text", "why": "Simplest form", "example": "/title @s title {\"text\":\"Hello\"}" },
+        { "tag": "color", "what": "Text color", "why": "red, gold, #FF5500", "example": "/title @s title {\"text\":\"Hi\",\"color\":\"gold\"}" },
+        { "tag": "bold / italic / underlined", "what": "Formatting", "why": "true/false", "example": "/title @s title {\"text\":\"Hi\",\"bold\":true}" },
+        { "tag": "extra", "what": "Multiple parts", "why": "Array of components", "example": "/title @s title {\"text\":\"A\",\"extra\":[{\"text\":\"B\",\"color\":\"red\"}]}" }
+      ]
+    }
+  ]
+}

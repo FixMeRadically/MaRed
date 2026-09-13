@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "trigger",
+      "category": "Basic",
+      "opLevel": 0,
+      "description": "Trigger alternate syntax",
+      "example": "/trigger myObjective set 5",
+      "arguments": [
+        { "value": "<objective> add <n>", "description": "Add to trigger", "examples": ["/trigger myObjective add 5"] },
+        { "value": "<objective> set <n>", "description": "Set trigger", "examples": ["/trigger myObjective set 5"] }
+      ]
+    }
+  ]
+}

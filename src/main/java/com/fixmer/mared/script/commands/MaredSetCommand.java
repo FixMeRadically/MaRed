@@ -1,39 +1,31 @@
 package com.fixmer.mared.script.commands;
 
+import com.fixmer.mared.script.MaredExpr;
 import com.fixmer.mared.script.MaredScriptContext;
 
 public class MaredSetCommand extends MaredScriptCommand {
 
     private final String name;
-    private final String value;
+    private final String valueExpr;
 
-    public MaredSetCommand(String name, String value) {
+    public MaredSetCommand(String name, String valueExpr) {
         this.name = name;
-        this.value = value;
+        this.valueExpr = valueExpr;
     }
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        Object parsed = parseValue(value, ctx);
-        ctx.setVariable(name, parsed);
+        try {
+            Object v = MaredExpr.eval(valueExpr, ctx);
+            ctx.setVariable(name, v);
+        } catch (Exception e) {
+            // fallback: старое поведение — подстановка + запись строки
+            ctx.setVariable(name, ctx.substitute(valueExpr));
+        }
         return true;
     }
 
-    private Object parseValue(String raw, MaredScriptContext ctx) {
-        String substituted = ctx.substitute(raw);
-        try {
-            if (substituted.contains(".")) {
-                return Double.parseDouble(substituted);
-            }
-            return Long.parseLong(substituted);
-        } catch (NumberFormatException ignored) {
-            // not a number
-        }
-        return substituted;
-    }
+    @Override public int getDelayTicks() { return 0; }
 
-    @Override
-    public String describe() {
-        return "set " + name + " = " + value;
-    }
+    @Override public String describe() { return "set " + name + " = " + valueExpr; }
 }

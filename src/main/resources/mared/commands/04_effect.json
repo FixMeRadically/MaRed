@@ -1,0 +1,56 @@
+{
+  "commands": [
+    {
+      "name": "effect",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Apply or clear status effects",
+      "example": "/effect give @s speed 10 2",
+      "arguments": [
+        { "value": "give", "description": "Apply effect", "examples": ["/effect give @s speed 10 2"] },
+        { "value": "clear", "description": "Remove effect(s)", "examples": ["/effect clear @s", "/effect clear @s speed"] },
+        { "value": "minecraft:speed", "description": "Speed boost", "examples": ["/effect give @s minecraft:speed 30 2"] },
+        { "value": "minecraft:slowness", "description": "Slow down", "examples": ["/effect give @s minecraft:slowness 30 1"] },
+        { "value": "minecraft:haste", "description": "Faster mining", "examples": ["/effect give @s minecraft:haste 60 2"] },
+        { "value": "minecraft:mining_fatigue", "description": "Slower mining", "examples": ["/effect give @s minecraft:mining_fatigue 30 1"] },
+        { "value": "minecraft:strength", "description": "More melee damage", "examples": ["/effect give @s minecraft:strength 60 3"] },
+        { "value": "minecraft:instant_health", "description": "Heal instantly", "examples": ["/effect give @s minecraft:instant_health 1 4"] },
+        { "value": "minecraft:instant_damage", "description": "Damage instantly", "examples": ["/effect give @e[type=zombie] minecraft:instant_damage 1 4"] },
+        { "value": "minecraft:jump_boost", "description": "Higher jumps", "examples": ["/effect give @s minecraft:jump_boost 60 2"] },
+        { "value": "minecraft:nausea", "description": "Warp vision", "examples": ["/effect give @s minecraft:nausea 10 0"] },
+        { "value": "minecraft:regeneration", "description": "Health regen", "examples": ["/effect give @s minecraft:regeneration 20 5"] },
+        { "value": "minecraft:resistance", "description": "Damage reduction", "examples": ["/effect give @s minecraft:resistance 60 3"] },
+        { "value": "minecraft:fire_resistance", "description": "Immune to fire", "examples": ["/effect give @s minecraft:fire_resistance 60 0"] },
+        { "value": "minecraft:water_breathing", "description": "Breathe underwater", "examples": ["/effect give @s minecraft:water_breathing 60 0"] },
+        { "value": "minecraft:invisibility", "description": "Invisible", "examples": ["/effect give @s minecraft:invisibility 60 0"] },
+        { "value": "minecraft:blindness", "description": "Blind", "examples": ["/effect give @s minecraft:blindness 10 0"] },
+        { "value": "minecraft:night_vision", "description": "See in the dark", "examples": ["/effect give @s minecraft:night_vision 600 0"] },
+        { "value": "minecraft:hunger", "description": "Hunger drain", "examples": ["/effect give @s minecraft:hunger 30 2"] },
+        { "value": "minecraft:weakness", "description": "Less melee damage", "examples": ["/effect give @s minecraft:weakness 30 1"] },
+        { "value": "minecraft:poison", "description": "Poison damage", "examples": ["/effect give @e[type=zombie] minecraft:poison 10 2"] },
+        { "value": "minecraft:wither", "description": "Wither damage", "examples": ["/effect give @e[type=zombie] minecraft:wither 10 2"] },
+        { "value": "minecraft:health_boost", "description": "Extra hearts", "examples": ["/effect give @s minecraft:health_boost 60 4"] },
+        { "value": "minecraft:absorption", "description": "Absorption hearts", "examples": ["/effect give @s minecraft:absorption 60 4"] },
+        { "value": "minecraft:saturation", "description": "Restore hunger", "examples": ["/effect give @s minecraft:saturation 1 4"] },
+        { "value": "minecraft:glowing", "description": "Glow outline", "examples": ["/effect give @e[type=zombie] minecraft:glowing 60 0"] },
+        { "value": "minecraft:levitation", "description": "Float upward", "examples": ["/effect give @s minecraft:levitation 10 0"] },
+        { "value": "minecraft:luck", "description": "Better loot", "examples": ["/effect give @s minecraft:luck 600 4"] },
+        { "value": "minecraft:unluck", "description": "Worse loot", "examples": ["/effect give @s minecraft:unluck 600 4"] },
+        { "value": "minecraft:slow_falling", "description": "Slow fall", "examples": ["/effect give @s minecraft:slow_falling 60 0"] },
+        { "value": "minecraft:conduit_power", "description": "Conduit power", "examples": ["/effect give @s minecraft:conduit_power 60 0"] },
+        { "value": "minecraft:dolphins_grace", "description": "Faster swimming", "examples": ["/effect give @s minecraft:dolphins_grace 60 0"] },
+        { "value": "minecraft:bad_omen", "description": "Trigger raid", "examples": ["/effect give @s minecraft:bad_omen 60 0"] },
+        { "value": "minecraft:hero_of_the_village", "description": "Village hero", "examples": ["/effect give @s minecraft:hero_of_the_village 60 0"] },
+        { "value": "minecraft:darkness", "description": "Dark screen", "examples": ["/effect give @s minecraft:darkness 10 0"] },
+        { "value": "[duration]", "description": "Seconds", "examples": ["/effect give @s speed 30 0"] },
+        { "value": "[amplifier]", "description": "Level (0 = I)", "examples": ["/effect give @s speed 10 4"] },
+        { "value": "[hideParticles]", "description": "Hide particles", "examples": ["/effect give @s speed 10 2 true"] }
+      ],
+      "nbt": [
+        { "tag": "[duration]", "what": "Time in seconds", "why": "How long the effect lasts", "example": "/effect give @s speed 30 0" },
+        { "tag": "[amplifier]", "what": "Effect strength (0=I)", "why": "Higher = stronger", "example": "/effect give @s speed 10 4" },
+        { "tag": "[hideParticles]", "what": "Hide particles (true/false)", "why": "Invisible effect", "example": "/effect give @s speed 10 2 true" }
+      ]
+    }
+  ]
+}

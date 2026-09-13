@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "name": "banlist",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Ban list alternate syntax",
+      "example": "/banlist ips",
+      "arguments": [
+        { "value": "ips", "description": "Show banned IPs", "examples": ["/banlist ips"] }
+      ]
+    }
+  ]
+}

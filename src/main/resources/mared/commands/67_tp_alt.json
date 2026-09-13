@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "tp",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Teleport alternate syntax",
+      "example": "/tp 100 64 100",
+      "arguments": [
+        { "value": "<x> <y> <z>", "description": "Teleport self to coords", "examples": ["/tp 100 64 100"] },
+        { "value": "<target>", "description": "Teleport to entity", "examples": ["/tp Notch"] }
+      ]
+    }
+  ]
+}

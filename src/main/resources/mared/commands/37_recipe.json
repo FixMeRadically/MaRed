@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "recipe",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Give or take recipes from players",
+      "example": "/recipe give @s *",
+      "arguments": [
+        { "value": "give <target> <recipe>", "description": "Unlock recipe", "examples": ["/recipe give @s minecraft:crafting_table", "/recipe give @s *"] },
+        { "value": "take <target> <recipe>", "description": "Lock recipe", "examples": ["/recipe take @s minecraft:crafting_table"] }
+      ]
+    }
+  ]
+}

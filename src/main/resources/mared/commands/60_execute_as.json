@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "execute",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Execute as target",
+      "example": "/execute as @a run say Hi",
+      "arguments": [
+        { "value": "as <target>", "description": "Execute as entity", "examples": ["/execute as @a run say Hi"] },
+        { "value": "as <target> at @s", "description": "Execute at entity", "examples": ["/execute as @a at @s run say Hi"] }
+      ]
+    }
+  ]
+}

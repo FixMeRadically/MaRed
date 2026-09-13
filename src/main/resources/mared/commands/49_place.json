@@ -1,0 +1,17 @@
+{
+  "commands": [
+    {
+      "name": "place",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Place a feature, jigsaw or structure",
+      "example": "/place feature minecraft:village_plains ~ ~ ~",
+      "arguments": [
+        { "value": "feature <id>", "description": "Place a feature", "examples": ["/place feature minecraft:oak ~ ~ ~"] },
+        { "value": "jigsaw <id>", "description": "Place a jigsaw structure", "examples": ["/place jigsaw minecraft:village_plains ~ ~ ~"] },
+        { "value": "structure <id>", "description": "Place a structure", "examples": ["/place structure minecraft:village_plains ~ ~ ~"] },
+        { "value": "<pos>", "description": "Where to place", "examples": ["/place feature minecraft:oak 100 64 100"] }
+      ]
+    }
+  ]
+}

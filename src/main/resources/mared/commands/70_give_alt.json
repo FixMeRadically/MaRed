@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "name": "give",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Give alternate syntax",
+      "example": "/give @s minecraft:diamond",
+      "arguments": [
+        { "value": "<item> [count]", "description": "Give without explicit target", "examples": ["/give @s minecraft:diamond 64"] }
+      ]
+    }
+  ]
+}

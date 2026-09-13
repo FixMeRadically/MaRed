@@ -1,0 +1,20 @@
+{
+  "commands": [
+    {
+      "name": "particle",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Spawn particles",
+      "example": "/particle minecraft:flame ~ ~1 ~ 1 1 1 0 10",
+      "arguments": [
+        { "value": "<name>", "description": "Particle ID", "examples": ["/particle minecraft:flame ~ ~1 ~"] },
+        { "value": "<pos>", "description": "Center position", "examples": ["/particle minecraft:flame ~ ~1 ~"] },
+        { "value": "<delta>", "description": "Spread (x y z)", "examples": ["/particle minecraft:flame ~ ~1 ~ 1 1 1 0 10"] },
+        { "value": "<speed>", "description": "Speed", "examples": ["/particle minecraft:flame ~ ~1 ~ 0 0 0 0.1 10"] },
+        { "value": "<count>", "description": "Number of particles", "examples": ["/particle minecraft:flame ~ ~1 ~ 0 0 0 0 50"] },
+        { "value": "force", "description": "Force display (ignore settings)", "examples": ["/particle minecraft:flame ~ ~1 ~ 0 0 0 0 10 force"] },
+        { "value": "normal", "description": "Default display", "examples": ["/particle minecraft:flame ~ ~1 ~ 0 0 0 0 10 normal"] }
+      ]
+    }
+  ]
+}

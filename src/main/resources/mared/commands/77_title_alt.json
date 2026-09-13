@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "title",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Title alternate syntax",
+      "example": "/title @a title {\"text\":\"Hello\"}",
+      "arguments": [
+        { "value": "@a", "description": "All players", "examples": ["/title @a title {\"text\":\"Hello\"}"] },
+        { "value": "@p", "description": "Nearest player", "examples": ["/title @p title {\"text\":\"Hi\"}"] },
+        { "value": "@r", "description": "Random player", "examples": ["/title @r title {\"text\":\"Random\"}"] }
+      ]
+    }
+  ]
+}

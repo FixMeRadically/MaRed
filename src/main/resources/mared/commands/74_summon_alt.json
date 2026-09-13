@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "summon",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Summon alternate syntax",
+      "example": "/summon zombie",
+      "arguments": [
+        { "value": "zombie", "description": "Summon zombie (short id)", "examples": ["/summon zombie"] },
+        { "value": "skeleton", "description": "Summon skeleton", "examples": ["/summon skeleton"] },
+        { "value": "creeper", "description": "Summon creeper", "examples": ["/summon creeper"] }
+      ]
+    }
+  ]
+}

@@ -2,9 +2,6 @@ package com.fixmer.mared.script.commands;
 
 import com.fixmer.mared.script.MaredScriptContext;
 
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.server.MinecraftServer;
-
 public class MaredGiveCommand extends MaredScriptCommand {
 
     private final String target;
@@ -19,34 +16,26 @@ public class MaredGiveCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        MinecraftServer server = ctx.getServer();
-        if (server == null) return false;
+        String t = ctx.substitute(target);
+        String it = ctx.substitute(item);
+        String cmd = "give " + t + " " + it + " " + count;
 
-        String resolvedTarget = target;
-        if ("@s".equals(target)) {
-            if (ctx.getInitiator() != null) {
-                resolvedTarget = ctx.getInitiator().getName().getString();
-            } else {
-                ctx.log("[give] no player for @s");
-                return false;
-            }
-        }
+        if (ctx.getServer() == null) return false;
 
-        String command = "give " + resolvedTarget + " " + item + " " + count;
-        CommandSourceStack source = server.createCommandSourceStack().withSuppressedOutput();
+        var dispatcher = ctx.getServer().getCommands().getDispatcher();
+        var source = ctx.getServer().createCommandSourceStack();
 
         try {
-            server.getCommands().performPrefixedCommand(source, command);
-            ctx.log("[give] " + resolvedTarget + " ← " + count + " × " + item);
+            // В новых версиях MC нужно передавать строку, а не ParseResults.
+            dispatcher.execute(cmd, source);
             return true;
         } catch (Exception e) {
-            ctx.log("[give] error: " + e.getMessage());
+            ctx.log("[error] give: " + e.getMessage());
             return false;
         }
     }
 
-    @Override
-    public String describe() {
-        return "give " + target + " " + item + " " + count;
-    }
+    @Override public int getDelayTicks() { return 0; }
+
+    @Override public String describe() { return "give " + target + " " + item + " " + count; }
 }

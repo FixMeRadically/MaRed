@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "name": "tellraw",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Tellraw alternate syntax",
+      "example": "/tellraw @a [{\"text\":\"A\"},{\"text\":\"B\"}]",
+      "arguments": [
+        { "value": "<json array>", "description": "Array of text components", "examples": ["/tellraw @a [{\"text\":\"A\"},{\"text\":\"B\"}]"] }
+      ]
+    }
+  ]
+}

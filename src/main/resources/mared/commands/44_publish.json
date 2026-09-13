@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "publish",
+      "category": "Server",
+      "opLevel": 4,
+      "description": "Open a singleplayer world to LAN",
+      "example": "/publish",
+      "arguments": [
+        { "value": "[port]", "description": "Port number", "examples": ["/publish 25565"] },
+        { "value": "[allowCommands]", "description": "Allow cheats", "examples": ["/publish 25565 true"] },
+        { "value": "[gamemode]", "description": "Game mode", "examples": ["/publish 25565 false creative"] }
+      ]
+    }
+  ]
+}

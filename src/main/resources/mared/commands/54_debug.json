@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "debug",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Start/stop debugging sessions",
+      "example": "/debug start",
+      "arguments": [
+        { "value": "start", "description": "Start debug", "examples": ["/debug start"] },
+        { "value": "stop", "description": "Stop debug", "examples": ["/debug stop"] },
+        { "value": "function <name>", "description": "Debug a function", "examples": ["/debug function mypack:my_function"] }
+      ]
+    }
+  ]
+}

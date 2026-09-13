@@ -3,6 +3,8 @@ package com.fixmer.mared.gui;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fixmer.mared.MaredSettings;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -68,6 +70,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     }
 
     public void setValue(String text) {
+        if (text != null) text = text.replace("\r", "");
         lines.clear();
         String[] parts = text.split("\n", -1);
         for (String p : parts) lines.add(new StringBuilder(p));
@@ -135,14 +138,11 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         int sl = s[0], sc = s[1], el = e[0], ec = e[1];
 
         StringBuilder first = lines.get(sl);
-        // Берём "хвост" последней строки ДО модификации.
         String tail = lines.get(el).substring(ec);
 
-        // Удаляем у первой строки всё после sc и приклеиваем хвост.
         first.delete(sc, first.length());
         first.append(tail);
 
-        // Удаляем строки между sl и el (включительно el).
         for (int i = el; i > sl; i--) {
             lines.remove(i);
         }
@@ -157,9 +157,17 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (!isFocused() || !editable) return false;
+        if (codePoint == '\r') return true;
         if (codePoint == '\t') return false;
         if (codePoint < 32) return false;
+
         if (hasSelection()) deleteSelection();
+
+        if (codePoint == '{' && shouldAutoIndentOnBrace()) {
+            insertBraceBlock();
+            return true;
+        }
+
         lines.get(cursorLine).insert(cursorCol, codePoint);
         cursorCol++;
         notifyChanged();
@@ -211,6 +219,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     private void pasteFromClipboard() {
         String clip = Minecraft.getInstance().keyboardHandler.getClipboard();
         if (clip == null || clip.isEmpty()) return;
+        clip = clip.replace("\r", "");
         if (hasSelection()) deleteSelection();
 
         String[] pasted = clip.split("\n", -1);
@@ -245,16 +254,49 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         if (hasSelection()) deleteSelection();
         StringBuilder line = lines.get(cursorLine);
         String rest = line.substring(cursorCol);
+
+        String indent = "";
+        if (shouldAutoIndentOnEnter()) {
+            indent = computeIndentAtCursor();
+        }
+
         line.delete(cursorCol, line.length());
-        lines.add(cursorLine + 1, new StringBuilder(rest));
+        lines.add(cursorLine + 1, new StringBuilder(indent + rest));
         cursorLine++;
-        cursorCol = 0;
+        cursorCol = indent.length();
         ensureCursorVisible();
         notifyChanged();
     }
 
     private void backspace() {
         if (hasSelection()) { deleteSelection(); notifyChanged(); return; }
+
+        if (cursorCol > 0 && MaredSettings.isBackspaceRemovesIndent()) {
+            String line = lines.get(cursorLine).toString();
+            String upToCursor = line.substring(0, cursorCol);
+            if (isIndentOnly(upToCursor)) {
+                String unit = MaredSettings.indentUnit();
+                int removeLen = 0;
+                if (upToCursor.endsWith(unit)) removeLen = unit.length();
+                else if (upToCursor.endsWith("\t")) removeLen = 1;
+                else if (upToCursor.length() > 0 && upToCursor.charAt(upToCursor.length() - 1) == ' ') {
+                    int end = upToCursor.length();
+                    int start = end;
+                    while (start > 0 && upToCursor.charAt(start - 1) == ' ') start--;
+                    int maxLen = Math.min(unit.length(), end - start);
+                    removeLen = maxLen > 0 ? maxLen : 1;
+                } else {
+                    removeLen = 1;
+                }
+                if (removeLen > 0) {
+                    lines.get(cursorLine).delete(cursorCol - removeLen, cursorCol);
+                    cursorCol -= removeLen;
+                    notifyChanged();
+                    return;
+                }
+            }
+        }
+
         if (cursorCol > 0) {
             lines.get(cursorLine).deleteCharAt(cursorCol - 1);
             cursorCol--;
@@ -326,6 +368,75 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         if (cursorLine < scrollLine) scrollLine = cursorLine;
         if (cursorLine >= scrollLine + visibleLines) scrollLine = cursorLine - visibleLines + 1;
         if (scrollLine < 0) scrollLine = 0;
+    }
+
+    // ============================================================
+    //  АВТО-ФОРМАТ
+    // ============================================================
+
+    private boolean shouldAutoIndentOnBrace() {
+        MaredSettings.AutoIndent m = MaredSettings.getAutoIndent();
+        return m == MaredSettings.AutoIndent.SIMPLE || m == MaredSettings.AutoIndent.FULL;
+    }
+
+    private boolean shouldAutoIndentOnEnter() {
+        MaredSettings.AutoIndent m = MaredSettings.getAutoIndent();
+        return m == MaredSettings.AutoIndent.SMART || m == MaredSettings.AutoIndent.FULL;
+    }
+
+    private void insertBraceBlock() {
+        String unit = MaredSettings.indentUnit();
+        StringBuilder line = lines.get(cursorLine);
+        String tail = line.substring(cursorCol);
+        line.delete(cursorCol, line.length());
+        line.append('{').append(tail);
+
+        String currentIndent = extractIndent(line.toString());
+        String bodyIndent = currentIndent + unit;
+
+        cursorLine++;
+        lines.add(cursorLine, new StringBuilder(bodyIndent));
+        cursorCol = bodyIndent.length();
+
+        cursorLine++;
+        lines.add(cursorLine, new StringBuilder(currentIndent + "}"));
+        cursorLine--;
+        cursorCol = bodyIndent.length();
+
+        ensureCursorVisible();
+        notifyChanged();
+    }
+
+    private String computeIndentAtCursor() {
+        if (cursorLine < 0 || cursorLine >= lines.size()) return "";
+        String currentLine = lines.get(cursorLine).toString();
+        String currentIndent = extractIndent(currentLine);
+        String unit = MaredSettings.indentUnit();
+
+        String restAfterCursor = currentLine.substring(cursorCol).trim();
+        String beforeCursor = currentLine.substring(0, cursorCol);
+
+        if (beforeCursor.trim().endsWith("{")) {
+            return currentIndent + unit;
+        }
+        if (restAfterCursor.startsWith("}")) {
+            return currentIndent;
+        }
+        return currentIndent;
+    }
+
+    private String extractIndent(String line) {
+        int i = 0;
+        while (i < line.length() && (line.charAt(i) == ' ' || line.charAt(i) == '\t')) i++;
+        return line.substring(0, i);
+    }
+
+    private boolean isIndentOnly(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c != ' ' && c != '\t') return false;
+        }
+        return true;
     }
 
     // ---- Mouse ----
@@ -422,7 +533,8 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             int curY = lineY;
 
             for (int c = 0; c < lineText.length(); c++) {
-                String ch = String.valueOf(lineText.charAt(c));
+                char rawChar = lineText.charAt(c);
+                String ch = rawChar == '\t' ? "    " : String.valueOf(rawChar);
                 int chWidth = mc.font.width(ch);
 
                 if (curX + chWidth - textX > availableWidth) {
@@ -483,7 +595,8 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         int curY = getY() + PADDING + visualRow * LINE_HEIGHT;
 
         for (int c = 0; c < before.length(); c++) {
-            String ch = String.valueOf(before.charAt(c));
+            char rawChar = before.charAt(c);
+            String ch = rawChar == '\t' ? "    " : String.valueOf(rawChar);
             int chWidth = mc.font.width(ch);
             if (curX + chWidth - textX > availableWidth) {
                 curX = textX;

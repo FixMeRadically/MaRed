@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "name": "help",
+      "category": "Basic",
+      "opLevel": 0,
+      "description": "Help alternate syntax",
+      "example": "/help 2",
+      "arguments": [
+        { "value": "<page>", "description": "Page number", "examples": ["/help 1", "/help 2"] }
+      ]
+    }
+  ]
+}

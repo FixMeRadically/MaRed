@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "msg",
+      "category": "Basic",
+      "opLevel": 0,
+      "description": "Message alternate syntax",
+      "example": "/msg @a Hello",
+      "arguments": [
+        { "value": "@a", "description": "All players", "examples": ["/msg @a Hello"] },
+        { "value": "@p", "description": "Nearest player", "examples": ["/msg @p Hello"] },
+        { "value": "@r", "description": "Random player", "examples": ["/msg @r Hi"] }
+      ]
+    }
+  ]
+}

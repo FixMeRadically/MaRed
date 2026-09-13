@@ -1,0 +1,19 @@
+{
+  "commands": [
+    {
+      "name": "attribute",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Attribute alternate syntax",
+      "example": "/attribute @s minecraft:generic.max_health get",
+      "arguments": [
+        { "value": "get", "description": "Get value", "examples": ["/attribute @s minecraft:generic.max_health get"] },
+        { "value": "base get", "description": "Get base value", "examples": ["/attribute @s minecraft:generic.max_health base get"] },
+        { "value": "base set <n>", "description": "Set base value", "examples": ["/attribute @s minecraft:generic.max_health base set 40"] },
+        { "value": "modifier add <id> <value> <operation>", "description": "Add modifier", "examples": ["/attribute @s minecraft:generic.max_health modifier add my:id 10 add_value"] },
+        { "value": "modifier remove <id>", "description": "Remove modifier", "examples": ["/attribute @s minecraft:generic.max_health modifier remove my:id"] },
+        { "value": "modifier value get <id>", "description": "Get modifier value", "examples": ["/attribute @s minecraft:generic.max_health modifier value get my:id"] }
+      ]
+    }
+  ]
+}

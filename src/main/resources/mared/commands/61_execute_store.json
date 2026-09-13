@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "execute",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Execute store syntax",
+      "example": "/execute store result score @s kills run kill @e[type=zombie,limit=1]",
+      "arguments": [
+        { "value": "store result score <target> <objective>", "description": "Store result as score", "examples": ["/execute store result score @s kills run kill @e[type=zombie,limit=1]"] },
+        { "value": "store success score <target> <objective>", "description": "Store success flag", "examples": ["/execute store success score @s flag run say Hi"] }
+      ]
+    }
+  ]
+}

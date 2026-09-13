@@ -1,0 +1,98 @@
+{
+  "commands": [
+    {
+      "name": "help",
+      "category": "Basic",
+      "opLevel": 0,
+      "description": "Show command help",
+      "example": "/help",
+      "arguments": [
+        { "value": "[command]", "description": "Command name to get help for", "examples": ["/help", "/help give", "/help execute"] }
+      ]
+    },
+    {
+      "name": "list",
+      "category": "Basic",
+      "opLevel": 0,
+      "description": "List players online",
+      "example": "/list",
+      "arguments": [
+        { "value": "uuids", "description": "Show UUIDs", "examples": ["/list uuids"] }
+      ]
+    },
+    {
+      "name": "me",
+      "category": "Basic",
+      "opLevel": 0,
+      "description": "Emote message from yourself",
+      "example": "/me waves",
+      "arguments": [
+        { "value": "<action>", "description": "Emote text", "examples": ["/me waves"] }
+      ]
+    },
+    {
+      "name": "msg",
+      "category": "Basic",
+      "opLevel": 0,
+      "description": "Send a private message",
+      "example": "/msg Notch Hi",
+      "arguments": [
+        { "value": "<target>", "description": "Recipient", "examples": ["/msg Notch Hi"] },
+        { "value": "<message>", "description": "Message", "examples": ["/msg Notch Hi"] }
+      ]
+    },
+    {
+      "name": "tell",
+      "category": "Basic",
+      "opLevel": 0,
+      "description": "Alias for /msg",
+      "example": "/tell Notch Hi",
+      "arguments": [
+        { "value": "<target>", "description": "Recipient", "examples": ["/tell Notch Hi"] },
+        { "value": "<message>", "description": "Message", "examples": ["/tell Notch Hi"] }
+      ]
+    },
+    {
+      "name": "w",
+      "category": "Basic",
+      "opLevel": 0,
+      "description": "Alias for /msg",
+      "example": "/w Notch Hi",
+      "arguments": [
+        { "value": "<target>", "description": "Recipient", "examples": ["/w Notch Hi"] },
+        { "value": "<message>", "description": "Message", "examples": ["/w Notch Hi"] }
+      ]
+    },
+    {
+      "name": "say",
+      "category": "Basic",
+      "opLevel": 2,
+      "description": "Broadcast a message to all players",
+      "example": "/say Hello everyone",
+      "arguments": [
+        { "value": "<message>", "description": "Message", "examples": ["/say Hello everyone"] }
+      ]
+    },
+    {
+      "name": "seed",
+      "category": "World",
+      "opLevel": 0,
+      "description": "Show world seed",
+      "example": "/seed",
+      "arguments": [
+        { "value": "[dimension]", "description": "Dimension seed", "examples": ["/seed minecraft:overworld", "/seed minecraft:the_nether"] }
+      ]
+    },
+    {
+      "name": "trigger",
+      "category": "Basic",
+      "opLevel": 0,
+      "description": "Activate a scoreboard trigger",
+      "example": "/trigger myObjective",
+      "arguments": [
+        { "value": "<objective>", "description": "Trigger name", "examples": ["/trigger myObjective"] },
+        { "value": "[value]", "description": "Value to set", "examples": ["/trigger myObjective set 1", "/trigger myObjective add 5"] }
+      ]
+    }
+  ]
+}

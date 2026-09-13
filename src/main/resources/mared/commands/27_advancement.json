@@ -1,0 +1,20 @@
+{
+  "commands": [
+    {
+      "name": "advancement",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Grant or revoke advancements",
+      "example": "/advancement grant @s only minecraft:story/root",
+      "arguments": [
+        { "value": "grant", "description": "Give an advancement", "examples": ["/advancement grant @s only minecraft:story/root", "/advancement grant @a everything"] },
+        { "value": "revoke", "description": "Remove an advancement", "examples": ["/advancement revoke @s only minecraft:story/root"] },
+        { "value": "only <id>", "description": "Single advancement", "examples": ["/advancement grant @s only minecraft:story/smelt_iron"] },
+        { "value": "everything", "description": "All advancements", "examples": ["/advancement grant @s everything"] },
+        { "value": "from <id>", "description": "From advancement tree", "examples": ["/advancement grant @s from minecraft:story/root"] },
+        { "value": "through <id>", "description": "This and all children", "examples": ["/advancement grant @s through minecraft:story/root"] },
+        { "value": "until <id>", "description": "All parents up to this", "examples": ["/advancement grant @s until minecraft:story/root"] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "commands": [
+    {
+      "name": "fill",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Fill a region with a block",
+      "example": "/fill ~ ~ ~ ~5 ~5 ~5 minecraft:stone",
+      "arguments": [
+        { "value": "<from>", "description": "First corner", "examples": ["/fill ~ ~ ~ ~5 ~5 ~5 minecraft:stone"] },
+        { "value": "<to>", "description": "Second corner", "examples": ["/fill ~ ~ ~ ~5 ~5 ~5 minecraft:stone"] },
+        { "value": "<block>", "description": "Block ID", "examples": ["/fill ~ ~ ~ ~5 ~5 ~5 minecraft:diamond_block"] },
+        { "value": "replace", "description": "Replace all (default)", "examples": ["/fill ~ ~ ~ ~5 ~5 ~5 minecraft:stone replace"] },
+        { "value": "keep", "description": "Only air blocks", "examples": ["/fill ~ ~ ~ ~5 ~5 ~5 minecraft:stone keep"] },
+        { "value": "hollow", "description": "Only edges", "examples": ["/fill ~ ~ ~ ~10 ~10 ~10 minecraft:stone hollow"] },
+        { "value": "outline", "description": "Only outer shell", "examples": ["/fill ~ ~ ~ ~10 ~10 ~10 minecraft:stone outline"] },
+        { "value": "replace <filter>", "description": "Only matching blocks", "examples": ["/fill ~ ~ ~ ~5 ~5 ~5 minecraft:stone replace minecraft:dirt"] }
+      ],
+      "nbt": [
+        { "tag": "Block NBT", "what": "Extra NBT data", "why": "Adds properties to placed block", "example": "/fill ~ ~ ~ ~1 ~1 ~1 chest{Items:[{Slot:0b,id:\"diamond\",Count:1b}]}" },
+        { "tag": "replace", "what": "Replace mode", "why": "Replace all blocks including air", "example": "/fill ~ ~ ~ ~5 ~5 ~5 stone replace" },
+        { "tag": "keep", "what": "Keep mode", "why": "Only fill air blocks", "example": "/fill ~ ~ ~ ~5 ~5 ~5 stone keep" },
+        { "tag": "hollow", "what": "Hollow mode", "why": "Only replace edges of region", "example": "/fill ~ ~ ~ ~10 ~10 ~10 stone hollow" },
+        { "tag": "outline", "what": "Outline mode", "why": "Only outer shell, inner stays", "example": "/fill ~ ~ ~ ~10 ~10 ~10 stone outline" },
+        { "tag": "replace <filter>", "what": "Replace filtered", "why": "Only replace blocks matching filter", "example": "/fill ~ ~ ~ ~5 ~5 ~5 stone replace minecraft:dirt" }
+      ]
+    }
+  ]
+}

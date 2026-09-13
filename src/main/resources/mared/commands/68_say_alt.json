@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "name": "say",
+      "category": "Basic",
+      "opLevel": 2,
+      "description": "Say alternate syntax",
+      "example": "/say Hello",
+      "arguments": [
+        { "value": "<message>", "description": "Message text", "examples": ["/say Hello"] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "commands": [
+    {
+      "name": "gamemode",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Gamemode alternate syntax",
+      "example": "/gamemode 1",
+      "arguments": [
+        { "value": "0", "description": "Survival", "examples": ["/gamemode 0"] },
+        { "value": "1", "description": "Creative", "examples": ["/gamemode 1"] },
+        { "value": "2", "description": "Adventure", "examples": ["/gamemode 2"] },
+        { "value": "3", "description": "Spectator", "examples": ["/gamemode 3"] },
+        { "value": "s", "description": "Survival shortcut", "examples": ["/gamemode s"] },
+        { "value": "c", "description": "Creative shortcut", "examples": ["/gamemode c"] },
+        { "value": "a", "description": "Adventure shortcut", "examples": ["/gamemode a"] },
+        { "value": "sp", "description": "Spectator shortcut", "examples": ["/gamemode sp"] }
+      ]
+    }
+  ]
+}

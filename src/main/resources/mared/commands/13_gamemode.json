@@ -1,0 +1,18 @@
+{
+  "commands": [
+    {
+      "name": "gamemode",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Change game mode",
+      "example": "/gamemode creative @s",
+      "arguments": [
+        { "value": "survival", "description": "Normal mode — health, hunger, blocks drop", "examples": ["/gamemode survival @s"] },
+        { "value": "creative", "description": "Creative mode — fly, infinite blocks, invulnerable", "examples": ["/gamemode creative @s"] },
+        { "value": "adventure", "description": "Adventure mode — can't break/place blocks", "examples": ["/gamemode adventure @s"] },
+        { "value": "spectator", "description": "Spectator mode — fly through blocks, invisible", "examples": ["/gamemode spectator @s"] },
+        { "value": "[target]", "description": "Who to change (default: self)", "examples": ["/gamemode creative @a", "/gamemode creative Notch"] }
+      ]
+    }
+  ]
+}

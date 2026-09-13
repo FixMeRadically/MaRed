@@ -1,0 +1,18 @@
+{
+  "commands": [
+    {
+      "name": "spreadplayers",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Spread players around an area",
+      "example": "/spreadplayers 0 0 10 20 false @a",
+      "arguments": [
+        { "value": "<x> <z>", "description": "Center coordinates", "examples": ["/spreadplayers 0 0 10 20 false @a"] },
+        { "value": "<spreadDistance>", "description": "Min distance between players", "examples": ["/spreadplayers 0 0 10 20 false @a"] },
+        { "value": "<maxRange>", "description": "Max distance from center", "examples": ["/spreadplayers 0 0 10 20 false @a"] },
+        { "value": "<respectTeams>", "description": "Keep teams together (true/false)", "examples": ["/spreadplayers 0 0 10 20 true @a"] },
+        { "value": "<targets>", "description": "Who to spread", "examples": ["/spreadplayers 0 0 10 20 false @a"] }
+      ]
+    }
+  ]
+}

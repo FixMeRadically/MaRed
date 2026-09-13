@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "ride",
+      "category": "Entity",
+      "opLevel": 2,
+      "description": "Make entities ride other entities",
+      "example": "/ride @s mount @e[type=pig,limit=1]",
+      "arguments": [
+        { "value": "<target>", "description": "Who will ride", "examples": ["/ride @s mount @e[type=pig,limit=1]"] },
+        { "value": "mount <vehicle>", "description": "Entity to ride", "examples": ["/ride @s mount @e[type=pig,limit=1]"] },
+        { "value": "dismount", "description": "Stop riding", "examples": ["/ride @s dismount"] }
+      ]
+    }
+  ]
+}

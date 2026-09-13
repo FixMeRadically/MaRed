@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "stopsound",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Stop sounds for players",
+      "example": "/stopsound @a",
+      "arguments": [
+        { "value": "<targets>", "description": "Who to stop sounds for", "examples": ["/stopsound @a"] },
+        { "value": "<source>", "description": "Sound source", "examples": ["/stopsound @a master"] },
+        { "value": "<sound>", "description": "Specific sound", "examples": ["/stopsound @a master minecraft:entity.player.levelup"] }
+      ]
+    }
+  ]
+}

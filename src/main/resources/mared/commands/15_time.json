@@ -1,0 +1,32 @@
+{
+  "commands": [
+    {
+      "name": "time",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Change or query world time",
+      "example": "/time set day",
+      "arguments": [
+        { "value": "set day", "description": "Day (1000 ticks)", "examples": ["/time set day"] },
+        { "value": "set noon", "description": "Noon (6000 ticks)", "examples": ["/time set noon"] },
+        { "value": "set night", "description": "Night (13000 ticks)", "examples": ["/time set night"] },
+        { "value": "set midnight", "description": "Midnight (18000 ticks)", "examples": ["/time set midnight"] },
+        { "value": "set <ticks>", "description": "Set exact ticks", "examples": ["/time set 6000"] },
+        { "value": "add <ticks>", "description": "Add ticks", "examples": ["/time add 1000", "/time add 24000"] },
+        { "value": "query daytime", "description": "Show current daytime", "examples": ["/time query daytime"] },
+        { "value": "query gametime", "description": "Show total game time", "examples": ["/time query gametime"] },
+        { "value": "query day", "description": "Show current day number", "examples": ["/time query day"] }
+      ],
+      "nbt": [
+        { "tag": "set day", "what": "Set to day", "why": "Time = 1000 ticks", "example": "/time set day" },
+        { "tag": "set noon", "what": "Set to noon", "why": "Time = 6000 ticks", "example": "/time set noon" },
+        { "tag": "set night", "what": "Set to night", "why": "Time = 13000 ticks", "example": "/time set night" },
+        { "tag": "set midnight", "what": "Set to midnight", "why": "Time = 18000 ticks", "example": "/time set midnight" },
+        { "tag": "add <ticks>", "what": "Advance time", "why": "Add to current time", "example": "/time add 1000" },
+        { "tag": "query daytime", "what": "Show daytime", "why": "Current day time in ticks", "example": "/time query daytime" },
+        { "tag": "query gametime", "what": "Show game time", "why": "Total ticks since world creation", "example": "/time query gametime" },
+        { "tag": "query day", "what": "Show day number", "why": "How many in-game days passed", "example": "/time query day" }
+      ]
+    }
+  ]
+}

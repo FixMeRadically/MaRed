@@ -1,0 +1,17 @@
+{
+  "commands": [
+    {
+      "name": "forceload",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Force chunks to load",
+      "example": "/forceload add 0 0",
+      "arguments": [
+        { "value": "add <from> [to]", "description": "Force load chunks", "examples": ["/forceload add 0 0", "/forceload add 0 0 10 10"] },
+        { "value": "remove <from> [to]", "description": "Stop force loading", "examples": ["/forceload remove 0 0"] },
+        { "value": "remove all", "description": "Remove all force-loaded chunks", "examples": ["/forceload remove all"] },
+        { "value": "query [pos]", "description": "Show force-loaded chunks", "examples": ["/forceload query", "/forceload query 0 0"] }
+      ]
+    }
+  ]
+}

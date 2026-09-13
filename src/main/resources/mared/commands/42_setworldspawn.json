@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "setworldspawn",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Set the world spawn point",
+      "example": "/setworldspawn 0 64 0",
+      "arguments": [
+        { "value": "[pos]", "description": "Spawn coordinates", "examples": ["/setworldspawn 0 64 0"] },
+        { "value": "[angle]", "description": "Spawn angle", "examples": ["/setworldspawn 0 64 0 90"] }
+      ]
+    }
+  ]
+}

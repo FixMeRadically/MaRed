@@ -4,35 +4,31 @@ import com.fixmer.mared.script.MaredScriptContext;
 
 public class MaredWaitCommand extends MaredScriptCommand {
 
-    private final int ticks;
+    private final double amount;
+    private final String unit;
 
     public MaredWaitCommand(double amount, String unit) {
-        this.ticks = convertToTicks(amount, unit);
-    }
-
-    private static int convertToTicks(double amount, String unit) {
-        if (unit == null) unit = "seconds";
-        switch (unit.toLowerCase()) {
-            case "ticks":        return (int) Math.max(1, amount);
-            case "milliseconds": return (int) Math.max(1, Math.round(amount / 50.0));
-            case "seconds":      return (int) Math.max(1, Math.round(amount * 20.0));
-            case "minutes":      return (int) Math.max(1, Math.round(amount * 1200.0));
-            default:             return (int) Math.max(1, Math.round(amount * 20.0));
-        }
+        this.amount = amount;
+        this.unit = unit == null ? "seconds" : unit;
     }
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
+        // сама задержка выполняется через getDelayTicks()
         return true;
     }
 
     @Override
     public int getDelayTicks() {
-        return ticks;
+        double seconds = switch (unit.toLowerCase()) {
+            case "ticks", "t"          -> amount / 20.0;
+            case "ms", "milliseconds"  -> amount / 1000.0;
+            case "minutes", "m"        -> amount * 60.0;
+            case "seconds", "s", ""    -> amount;
+            default -> amount;
+        };
+        return (int) Math.round(seconds * 20);
     }
 
-    @Override
-    public String describe() {
-        return "wait " + ticks + " ticks";
-    }
+    @Override public String describe() { return "wait " + amount + " " + unit; }
 }

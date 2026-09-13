@@ -1,0 +1,20 @@
+{
+  "commands": [
+    {
+      "name": "tick",
+      "category": "Server",
+      "opLevel": 3,
+      "description": "Control the game tick loop",
+      "example": "/tick freeze",
+      "arguments": [
+        { "value": "freeze", "description": "Freeze the game", "examples": ["/tick freeze"] },
+        { "value": "unfreeze", "description": "Unfreeze the game", "examples": ["/tick unfreeze"] },
+        { "value": "sprint", "description": "Sprint ticks", "examples": ["/tick sprint 100"] },
+        { "value": "sprint stop", "description": "Stop sprinting", "examples": ["/tick sprint stop"] },
+        { "value": "rate <n>", "description": "Set tick rate", "examples": ["/tick rate 20"] },
+        { "value": "step <n>", "description": "Step N ticks", "examples": ["/tick step 10"] },
+        { "value": "query", "description": "Query tick info", "examples": ["/tick query"] }
+      ]
+    }
+  ]
+}

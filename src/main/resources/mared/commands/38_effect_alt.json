@@ -1,0 +1,14 @@
+{
+  "commands": [
+    {
+      "name": "effect",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Alternative effect command form",
+      "example": "/effect @s speed 30 2",
+      "arguments": [
+        { "value": "<target> <effect> [duration] [amplifier] [hideParticles]", "description": "Apply effect (old syntax)", "examples": ["/effect @s speed 30 2", "/effect @s speed 30 2 true"] }
+      ]
+    }
+  ]
+}

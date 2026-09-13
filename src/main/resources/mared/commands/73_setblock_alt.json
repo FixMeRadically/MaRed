@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "setblock",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Setblock alternate syntax",
+      "example": "/setblock ~ ~1 ~ air",
+      "arguments": [
+        { "value": "air", "description": "Remove block", "examples": ["/setblock ~ ~1 ~ air"] },
+        { "value": "destroy", "description": "Destroy with drops", "examples": ["/setblock ~ ~1 ~ stone destroy"] }
+      ]
+    }
+  ]
+}

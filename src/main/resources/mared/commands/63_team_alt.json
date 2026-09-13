@@ -1,0 +1,17 @@
+{
+  "commands": [
+    {
+      "name": "team",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Team alternate syntax",
+      "example": "/team modify red displayName {\"text\":\"Red Team\"}",
+      "arguments": [
+        { "value": "modify <name> displayName <json>", "description": "Display name", "examples": ["/team modify red displayName {\"text\":\"Red Team\"}"] },
+        { "value": "modify <name> color <color>", "description": "Color", "examples": ["/team modify red color red"] },
+        { "value": "modify <name> prefix <json>", "description": "Prefix", "examples": ["/team modify red prefix {\"text\":\"[R]\"}"] },
+        { "value": "modify <name> suffix <json>", "description": "Suffix", "examples": ["/team modify red suffix {\"text\":\"[R]\"}"] }
+      ]
+    }
+  ]
+}

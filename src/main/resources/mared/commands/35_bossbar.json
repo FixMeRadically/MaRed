@@ -1,0 +1,32 @@
+{
+  "commands": [
+    {
+      "name": "bossbar",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Manage boss bars",
+      "example": "/bossbar add my:bar {\"text\":\"Boss\"}",
+      "arguments": [
+        { "value": "add <id> <name>", "description": "Create boss bar", "examples": ["/bossbar add my:bar {\"text\":\"Boss\"}"] },
+        { "value": "remove <id>", "description": "Delete boss bar", "examples": ["/bossbar remove my:bar"] },
+        { "value": "list", "description": "List all boss bars", "examples": ["/bossbar list"] },
+        { "value": "get <id> <property>", "description": "Read property", "examples": ["/bossbar get my:bar value", "/bossbar get my:bar max", "/bossbar get my:bar players"] },
+        { "value": "set <id> color <color>", "description": "Set color", "examples": ["/bossbar set my:bar color red"] },
+        { "value": "set <id> style <style>", "description": "Set style", "examples": ["/bossbar set my:bar style notched_10"] },
+        { "value": "set <id> value <n>", "description": "Set current value", "examples": ["/bossbar set my:bar value 50"] },
+        { "value": "set <id> max <n>", "description": "Set max value", "examples": ["/bossbar set my:bar max 100"] },
+        { "value": "set <id> players <targets>", "description": "Set visible players", "examples": ["/bossbar set my:bar players @a"] },
+        { "value": "set <id> visible <true|false>", "description": "Show/hide", "examples": ["/bossbar set my:bar visible true"] },
+        { "value": "set <id> name <json>", "description": "Change name", "examples": ["/bossbar set my:bar name {\"text\":\"New\"}"] }
+      ],
+      "nbt": [
+        { "tag": "color", "what": "Bar color", "why": "blue, green, pink, purple, red, white, yellow", "example": "/bossbar set my:bar color blue" },
+        { "tag": "style", "what": "Bar style", "why": "progress, notched_6, notched_10, notched_12, notched_20", "example": "/bossbar set my:bar style notched_10" },
+        { "tag": "value", "what": "Current value", "why": "Fill amount", "example": "/bossbar set my:bar value 50" },
+        { "tag": "max", "what": "Max value", "why": "Full bar value", "example": "/bossbar set my:bar max 100" },
+        { "tag": "players", "what": "Visible players", "why": "Who sees the bar", "example": "/bossbar set my:bar players @a" },
+        { "tag": "visible", "what": "Visibility", "why": "Show or hide", "example": "/bossbar set my:bar visible true" }
+      ]
+    }
+  ]
+}

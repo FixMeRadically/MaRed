@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "jigsaw",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Generate a jigsaw structure",
+      "example": "/jigsaw generate minecraft:village_plains ~ ~ ~",
+      "arguments": [
+        { "value": "generate <id>", "description": "Generate a structure", "examples": ["/jigsaw generate minecraft:village_plains ~ ~ ~"] },
+        { "value": "<pos>", "description": "Starting position", "examples": ["/jigsaw generate minecraft:village_plains 0 64 0"] }
+      ]
+    }
+  ]
+}

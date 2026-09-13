@@ -1,0 +1,15 @@
+{
+  "commands": [
+    {
+      "name": "spectate",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Enter spectator mode from another entity",
+      "example": "/spectate @e[type=zombie,limit=1]",
+      "arguments": [
+        { "value": "<target>", "description": "Who to spectate", "examples": ["/spectate @e[type=zombie,limit=1]"] },
+        { "value": "[player]", "description": "Who will spectate", "examples": ["/spectate @e[type=zombie,limit=1] @s"] }
+      ]
+    }
+  ]
+}

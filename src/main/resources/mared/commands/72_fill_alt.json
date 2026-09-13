@@ -1,0 +1,16 @@
+{
+  "commands": [
+    {
+      "name": "fill",
+      "category": "World",
+      "opLevel": 2,
+      "description": "Fill alternate syntax",
+      "example": "/fill ~ ~ ~ ~5 ~5 ~5 air",
+      "arguments": [
+        { "value": "air", "description": "Fill with air", "examples": ["/fill ~ ~ ~ ~5 ~5 ~5 air"] },
+        { "value": "water", "description": "Fill with water", "examples": ["/fill ~ ~ ~ ~5 ~5 ~5 water"] },
+        { "value": "lava", "description": "Fill with lava", "examples": ["/fill ~ ~ ~ ~5 ~5 ~5 lava"] }
+      ]
+    }
+  ]
+}

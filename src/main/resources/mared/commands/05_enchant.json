@@ -1,0 +1,52 @@
+{
+  "commands": [
+    {
+      "name": "enchant",
+      "category": "Player",
+      "opLevel": 2,
+      "description": "Enchant held item",
+      "example": "/enchant @s sharpness 5",
+      "arguments": [
+        { "value": "<target>", "description": "Who holds", "examples": ["/enchant @s sharpness 5"] },
+        { "value": "minecraft:sharpness", "description": "More melee damage", "examples": ["/enchant @s minecraft:sharpness 5"] },
+        { "value": "minecraft:smite", "description": "Extra damage to undead", "examples": ["/enchant @s minecraft:smite 5"] },
+        { "value": "minecraft:bane_of_arthropods", "description": "Extra damage to arthropods", "examples": ["/enchant @s minecraft:bane_of_arthropods 5"] },
+        { "value": "minecraft:knockback", "description": "More knockback", "examples": ["/enchant @s minecraft:knockback 2"] },
+        { "value": "minecraft:fire_aspect", "description": "Set target on fire", "examples": ["/enchant @s minecraft:fire_aspect 2"] },
+        { "value": "minecraft:looting", "description": "More mob drops", "examples": ["/enchant @s minecraft:looting 3"] },
+        { "value": "minecraft:sweeping_edge", "description": "Sweeping damage", "examples": ["/enchant @s minecraft:sweeping_edge 3"] },
+        { "value": "minecraft:efficiency", "description": "Faster mining", "examples": ["/enchant @s minecraft:efficiency 5"] },
+        { "value": "minecraft:silk_touch", "description": "Blocks drop as-is", "examples": ["/enchant @s minecraft:silk_touch 1"] },
+        { "value": "minecraft:unbreaking", "description": "Longer durability", "examples": ["/enchant @s minecraft:unbreaking 3"] },
+        { "value": "minecraft:fortune", "description": "More drops", "examples": ["/enchant @s minecraft:fortune 3"] },
+        { "value": "minecraft:power", "description": "More arrow damage", "examples": ["/enchant @s minecraft:power 5"] },
+        { "value": "minecraft:punch", "description": "More arrow knockback", "examples": ["/enchant @s minecraft:punch 2"] },
+        { "value": "minecraft:flame", "description": "Flaming arrows", "examples": ["/enchant @s minecraft:flame 1"] },
+        { "value": "minecraft:infinity", "description": "Infinite arrows", "examples": ["/enchant @s minecraft:infinity 1"] },
+        { "value": "minecraft:protection", "description": "Reduces all damage", "examples": ["/enchant @s minecraft:protection 4"] },
+        { "value": "minecraft:fire_protection", "description": "Less fire damage", "examples": ["/enchant @s minecraft:fire_protection 4"] },
+        { "value": "minecraft:feather_falling", "description": "Less fall damage", "examples": ["/enchant @s minecraft:feather_falling 4"] },
+        { "value": "minecraft:blast_protection", "description": "Less explosion damage", "examples": ["/enchant @s minecraft:blast_protection 4"] },
+        { "value": "minecraft:projectile_protection", "description": "Less projectile damage", "examples": ["/enchant @s minecraft:projectile_protection 4"] },
+        { "value": "minecraft:respiration", "description": "Longer underwater breathing", "examples": ["/enchant @s minecraft:respiration 3"] },
+        { "value": "minecraft:aqua_affinity", "description": "Faster underwater mining", "examples": ["/enchant @s minecraft:aqua_affinity 1"] },
+        { "value": "minecraft:thorns", "description": "Reflect damage", "examples": ["/enchant @s minecraft:thorns 3"] },
+        { "value": "minecraft:depth_strider", "description": "Faster underwater walking", "examples": ["/enchant @s minecraft:depth_strider 3"] },
+        { "value": "minecraft:frost_walker", "description": "Frozen water walking", "examples": ["/enchant @s minecraft:frost_walker 2"] },
+        { "value": "minecraft:binding_curse", "description": "Cannot remove armor", "examples": ["/enchant @s minecraft:binding_curse 1"] },
+        { "value": "minecraft:soul_speed", "description": "Faster on soul sand", "examples": ["/enchant @s minecraft:soul_speed 3"] },
+        { "value": "minecraft:swift_sneak", "description": "Faster sneaking", "examples": ["/enchant @s minecraft:swift_sneak 3"] },
+        { "value": "minecraft:mending", "description": "XP repair", "examples": ["/enchant @s minecraft:mending 1"] },
+        { "value": "minecraft:vanishing_curse", "description": "Item destroyed on death", "examples": ["/enchant @s minecraft:vanishing_curse 1"] },
+        { "value": "minecraft:loyalty", "description": "Trident returns", "examples": ["/enchant @s minecraft:loyalty 3"] },
+        { "value": "minecraft:impaling", "description": "Extra damage to aquatic", "examples": ["/enchant @s minecraft:impaling 5"] },
+        { "value": "minecraft:riptide", "description": "Launch with trident", "examples": ["/enchant @s minecraft:riptide 3"] },
+        { "value": "minecraft:channeling", "description": "Summon lightning", "examples": ["/enchant @s minecraft:channeling 1"] },
+        { "value": "minecraft:multishot", "description": "Shoot 3 arrows", "examples": ["/enchant @s minecraft:multishot 1"] },
+        { "value": "minecraft:quick_charge", "description": "Faster crossbow reload", "examples": ["/enchant @s minecraft:quick_charge 3"] },
+        { "value": "minecraft:piercing", "description": "Arrows pierce mobs", "examples": ["/enchant @s minecraft:piercing 4"] },
+        { "value": "[level]", "description": "Enchant level", "examples": ["/enchant @s sharpness 5"] }
+      ]
+    }
+  ]
+}
