@@ -1,38 +1,29 @@
-# Mared — mod metadata file for NeoForge.
-# Формат — TOML v0.5.0. Подробнее: https://github.com/toml-lang/toml
-
-modLoader="javafml"
-loaderVersion="${loader_version_range}"
-
-# Лицензия. Оставьте "All Rights Reserved", пока не решите иначе.
-license="${mod_license}"
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/fixmer/mared/issues"
 
 [[mods]]
-modId="${mod_id}"
-version="${mod_version}"
-displayName="${mod_name}"
-description='''
-Mared — мод для создания сценариев, квестов и визуального программирования прямо в мире.
+modId = "mared"
+version = "0.2.0"
+displayName = "Mared"
+authors = "fixmer"
+description = '''
+Mared — мощный скриптовый движок для Minecraft с гибридным синтаксисом,
+биндами на клавиши, событиями, persistent-скриптами и редактором в игре.
 '''
+logoFile = "mared_logo.png"
 
-# Раскомментируйте, если позже добавите mixins.
-#[[mixins]]
-#config="${mod_id}.mixins.json"
+[[dependencies.mared]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1.235,)"
+ordering = "NONE"
+side = "BOTH"
 
-# Раскомментируйте, если позже добавите access transformers.
-#[[accessTransformers]]
-#file="META-INF/accesstransformer.cfg"
-
-[[dependencies.${mod_id}]]
-    modId="neoforge"
-    type="required"
-    versionRange="[${neo_version},)"
-    ordering="NONE"
-    side="BOTH"
-
-[[dependencies.${mod_id}]]
-    modId="minecraft"
-    type="required"
-    versionRange="${minecraft_version_range}"
-    ordering="NONE"
-    side="BOTH"
+[[dependencies.mared]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,1.22)"
+ordering = "NONE"
+side = "BOTH"

@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import com.fixmer.mared.script.commands.MaredScriptCommand;
 
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
 public class MaredScriptContext {
@@ -21,7 +22,7 @@ public class MaredScriptContext {
         }
     }
 
-    private final ServerPlayer initiator;
+    private ServerPlayer initiator;
     private final MinecraftServer server;
     private final Map<String, Object> variables = new HashMap<>();
     private final Consumer<String> logger;
@@ -38,13 +39,36 @@ public class MaredScriptContext {
     }
 
     public ServerPlayer getInitiator() { return initiator; }
+
+    /** Установить актуального игрока-инициатора (используется при fire). */
+    public void setInitiator(ServerPlayer player) { this.initiator = player; }
+
     public MinecraftServer getServer() { return server; }
 
     public void log(String line) { if (logger != null) logger.accept(line); }
 
-    public void setVariable(String name, Object value) { variables.put(name, value); }
+    // ============================================================
+    //  Переменные
+    // ============================================================
+
+    public void setVariable(String name, Object value) {
+        if (name != null && name.startsWith("global.")) {
+            MaredGlobalStorage.set(name, value);
+        } else {
+            variables.put(name, value);
+        }
+    }
 
     public Object getVariable(String name) {
+        if (name == null) return null;
+
+        Object local = variables.get(name);
+        if (local != null) return local;
+
+        if (name.startsWith("global.")) {
+            return MaredGlobalStorage.get(name);
+        }
+
         if ("self".equals(name)) {
             return initiator != null ? initiator.getName().getString() : "console";
         }
@@ -54,19 +78,224 @@ public class MaredScriptContext {
             }
             return "unknown";
         }
-        return variables.get(name);
+
+        return null;
+    }
+
+    public boolean hasVariable(String name) {
+        if (name == null) return false;
+        if (variables.containsKey(name)) return true;
+        if (name.startsWith("global.")) return MaredGlobalStorage.has(name);
+        return false;
     }
 
     public Map<String, Object> getAllVariables() { return variables; }
 
-    /**
-     * Подстановка в строку:
-     *   $name          — значение переменной (строка)
-     *   ${выражение}   — вычислить выражение и вставить результат
-     *
-     * Внутри ${...} кавычки не экранируются — они просто кавычки.
-     * То есть если внутри ${} есть "..." — это строковый литерал.
-     */
+    // ============================================================
+    //  Встроенные данные: игрок + мир
+    // ============================================================
+
+    public void refreshPlayerData() {
+        ServerPlayer player = initiator;
+        if (player == null) {
+            setVariable("mared_version", "0.1.5");
+            setVariable("mc_version", "1.21.1");
+            return;
+        }
+
+        // ---- A. Игрок ----
+        setVariable("player", player.getName().getString());
+        setVariable("self", player.getName().getString());
+        setVariable("uuid", player.getUUID().toString());
+
+        setVariable("x", (long) Math.floor(player.getX()));
+        setVariable("y", (long) Math.floor(player.getY()));
+        setVariable("z", (long) Math.floor(player.getZ()));
+
+        setVariable("x_exact", player.getX());
+        setVariable("y_exact", player.getY());
+        setVariable("z_exact", player.getZ());
+
+        setVariable("yaw", (long) player.getYRot());
+        setVariable("pitch", (long) player.getXRot());
+
+        setVariable("hp", (long) player.getHealth());
+        setVariable("max_hp", (long) player.getMaxHealth());
+        setVariable("food", (long) player.getFoodData().getFoodLevel());
+        setVariable("saturation", (double) player.getFoodData().getSaturationLevel());
+        setVariable("air", (long) player.getAirSupply());
+
+        setVariable("xp", (long) player.totalExperience);
+        setVariable("xp_level", (long) player.experienceLevel);
+        setVariable("xp_total", (long) player.totalExperience);
+
+        String gamemode;
+        try {
+            gamemode = player.gameMode.getGameModeForPlayer().getName();
+        } catch (Throwable t) {
+            gamemode = "unknown";
+        }
+        setVariable("gamemode", gamemode);
+
+        if (player.level() != null) {
+            String dim = player.level().dimension().location().getPath();
+            setVariable("dimension", dim);
+            setVariable("dimension_full", player.level().dimension().location().toString());
+        } else {
+            setVariable("dimension", "unknown");
+            setVariable("dimension_full", "unknown");
+        }
+
+        setVariable("is_sneaking", player.isShiftKeyDown());
+        setVariable("is_sprinting", player.isSprinting());
+        setVariable("is_on_ground", player.onGround());
+        setVariable("is_in_water", player.isInWater());
+        setVariable("is_in_lava", player.isInLava());
+        setVariable("is_on_fire", player.isOnFire());
+        setVariable("is_flying", player.getAbilities().flying);
+        setVariable("is_alive", player.isAlive());
+        setVariable("is_swimming", player.isSwimming());
+        setVariable("is_using_item", player.isUsingItem());
+        setVariable("is_blocking", player.isBlocking());
+
+        try {
+            var main = player.getMainHandItem();
+            if (!main.isEmpty()) {
+                setVariable("held_item", main.getItem().toString());
+                setVariable("held_count", (long) main.getCount());
+                setVariable("held_name", main.getHoverName().getString());
+            } else {
+                setVariable("held_item", "");
+                setVariable("held_count", 0L);
+                setVariable("held_name", "");
+            }
+
+            var off = player.getOffhandItem();
+            if (!off.isEmpty()) {
+                setVariable("offhand_item", off.getItem().toString());
+                setVariable("offhand_count", (long) off.getCount());
+            } else {
+                setVariable("offhand_item", "");
+                setVariable("offhand_count", 0L);
+            }
+
+            var inv = player.getInventory();
+            setVariable("armor_helm", inv.getArmor(3).isEmpty() ? "" : inv.getArmor(3).getItem().toString());
+            setVariable("armor_chest", inv.getArmor(2).isEmpty() ? "" : inv.getArmor(2).getItem().toString());
+            setVariable("armor_legs", inv.getArmor(1).isEmpty() ? "" : inv.getArmor(1).getItem().toString());
+            setVariable("armor_boots", inv.getArmor(0).isEmpty() ? "" : inv.getArmor(0).getItem().toString());
+        } catch (Throwable t) {
+            setVariable("held_item", "");
+            setVariable("held_count", 0L);
+            setVariable("held_name", "");
+            setVariable("offhand_item", "");
+            setVariable("offhand_count", 0L);
+            setVariable("armor_helm", "");
+            setVariable("armor_chest", "");
+            setVariable("armor_legs", "");
+            setVariable("armor_boots", "");
+        }
+
+        try {
+            var effects = new java.util.ArrayList<String>();
+            for (var effect : player.getActiveEffects()) {
+                effects.add(effect.getEffect().getKey().location().getPath());
+            }
+            setVariable("effects", effects);
+            setVariable("effect_count", (long) effects.size());
+        } catch (Throwable t) {
+            setVariable("effects", new java.util.ArrayList<String>());
+            setVariable("effect_count", 0L);
+        }
+
+        try {
+            var team = player.getTeam();
+            setVariable("team", team != null ? team.getName() : "");
+        } catch (Throwable t) {
+            setVariable("team", "");
+        }
+
+        // ---- B. Мир ----
+        if (player.level() != null) {
+            long timeOfDay = player.level().getDayTime() % 24000L;
+            setVariable("time", timeOfDay);
+            setVariable("day_count", player.level().getDayTime() / 24000L);
+            setVariable("is_day", timeOfDay >= 0 && timeOfDay < 12000);
+            setVariable("is_night", timeOfDay >= 12000);
+            setVariable("is_raining", player.level().isRaining());
+            setVariable("is_thundering", player.level().isThundering());
+
+            String weather;
+            if (player.level().isThundering()) weather = "thunder";
+            else if (player.level().isRaining()) weather = "rain";
+            else weather = "clear";
+            setVariable("weather", weather);
+
+            setVariable("moon_phase", (long) (player.level().getDayTime() / 24000L % 8));
+
+            try {
+                if (player.level() instanceof ServerLevel sl) {
+                    setVariable("seed", sl.getSeed());
+                } else {
+                    setVariable("seed", 0L);
+                }
+            } catch (Throwable t) {
+                setVariable("seed", 0L);
+            }
+        } else {
+            setVariable("time", 0L);
+            setVariable("day_count", 0L);
+            setVariable("is_day", true);
+            setVariable("is_night", false);
+            setVariable("is_raining", false);
+            setVariable("is_thundering", false);
+            setVariable("weather", "clear");
+            setVariable("moon_phase", 0L);
+            setVariable("seed", 0L);
+        }
+
+        if (player.level() != null) {
+            setVariable("world", player.level().dimension().location().toString());
+            setVariable("world_name", player.level().dimension().location().getPath());
+        } else {
+            setVariable("world", "unknown");
+            setVariable("world_name", "unknown");
+        }
+
+        if (server != null) {
+            try {
+                setVariable("player_count", (long) server.getPlayerCount());
+                setVariable("difficulty", server.getWorldData().getDifficulty().getKey());
+                setVariable("is_hardcore", server.getWorldData().isHardcore());
+            } catch (Throwable t) {
+                setVariable("player_count", 1L);
+                setVariable("difficulty", "normal");
+                setVariable("is_hardcore", false);
+            }
+        } else {
+            setVariable("player_count", 1L);
+            setVariable("difficulty", "normal");
+            setVariable("is_hardcore", false);
+        }
+
+        setVariable("tick", MaredTicks.get());
+        setVariable("now_ms", System.currentTimeMillis());
+
+        setVariable("mared_version", "0.1.5");
+        setVariable("mc_version", "1.21.1");
+    }
+
+    public void refreshEventData(Map<String, Object> data) {
+        if (data == null) return;
+        for (Map.Entry<String, Object> kv : data.entrySet()) {
+            setVariable(kv.getKey(), kv.getValue());
+        }
+    }
+
+    // ============================================================
+    //  substitute
+    // ============================================================
+
     public String substitute(String input) {
         if (input == null || input.isEmpty()) return input;
 
@@ -138,7 +367,9 @@ public class MaredScriptContext {
         return Character.isLetterOrDigit(c) || c == '_' || c == '.';
     }
 
-    // ---- break / continue ----
+    // ============================================================
+    //  break / continue
+    // ============================================================
 
     public void requestBreak() { breakRequested = true; }
     public void requestContinue() { continueRequested = true; }
@@ -146,7 +377,9 @@ public class MaredScriptContext {
     public boolean isContinueRequested() { return continueRequested; }
     public void clearBreakContinue() { breakRequested = false; continueRequested = false; }
 
-    // ---- функции ----
+    // ============================================================
+    //  Функции
+    // ============================================================
 
     public void registerFunction(String name, List<String> params, List<MaredScriptCommand> body) {
         functions.put(name, new Func(params, body));

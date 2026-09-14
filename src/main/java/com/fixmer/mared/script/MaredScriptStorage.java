@@ -10,101 +10,94 @@ import java.util.stream.Stream;
 
 import com.fixmer.mared.Mared;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.storage.LevelResource;
+import net.neoforged.fml.loading.FMLPaths;
 
-public class MaredScriptStorage {
+/**
+ * Хранилище скриптов (.mared файлы).
+ * Путь: .minecraft/config/mared/scripts/
+ */
+public final class MaredScriptStorage {
 
-    private static final String SUBDIR = "mared/scripts";
+    private MaredScriptStorage() {}
 
-    public static Path getScriptsDir() {
-        Minecraft mc = Minecraft.getInstance();
-        MinecraftServer server = mc.getSingleplayerServer();
-        if (server == null) return null;
-
-        Path worldPath = server.getWorldPath(LevelResource.ROOT);
-        Path dir = worldPath.resolve(SUBDIR);
-
+    private static Path scriptsDir() {
+        Path dir = FMLPaths.CONFIGDIR.get().resolve("mared").resolve("scripts");
         try {
             if (!Files.exists(dir)) {
                 Files.createDirectories(dir);
             }
         } catch (IOException e) {
-            Mared.LOGGER.error("Failed to create scripts dir: {}", dir, e);
-            return null;
+            Mared.LOGGER.warn("[Mared] Failed to create scripts dir: {}", e.getMessage());
         }
         return dir;
     }
 
+    /** Список имён скриптов (без расширения). */
     public static List<String> listScripts() {
         List<String> result = new ArrayList<>();
-        Path dir = getScriptsDir();
-        if (dir == null) return result;
+        Path dir = scriptsDir();
+        if (dir == null || !Files.exists(dir)) return result;
 
         try (Stream<Path> stream = Files.list(dir)) {
             stream.filter(Files::isRegularFile)
                   .map(p -> p.getFileName().toString())
-                  .filter(n -> n.endsWith(".js"))
-                  .map(n -> n.substring(0, n.length() - 3))
+                  .filter(n -> n.endsWith(".mared"))
+                  .map(n -> n.substring(0, n.length() - ".mared".length()))
                   .sorted()
                   .forEach(result::add);
         } catch (IOException e) {
-            Mared.LOGGER.error("Failed to read scripts list", e);
+            Mared.LOGGER.warn("[Mared] Failed to list scripts: {}", e.getMessage());
         }
         return result;
     }
 
+    /** Читает содержимое скрипта. */
     public static String readScript(String name) {
-        Path dir = getScriptsDir();
-        if (dir == null) return "";
+        if (name == null) return "";
+        Path file = scriptsDir().resolve(name + ".mared");
+        if (!Files.exists(file)) return "";
         try {
-            return Files.readString(dir.resolve(name + ".js"), StandardCharsets.UTF_8);
+            return Files.readString(file, StandardCharsets.UTF_8);
         } catch (IOException e) {
+            Mared.LOGGER.warn("[Mared] Failed to read script '{}': {}", name, e.getMessage());
             return "";
         }
     }
 
+    /** Записывает содержимое. */
     public static boolean writeScript(String name, String content) {
-        Path dir = getScriptsDir();
-        if (dir == null) return false;
+        if (name == null) return false;
         try {
-            Files.writeString(dir.resolve(name + ".js"), content, StandardCharsets.UTF_8);
+            Files.writeString(scriptsDir().resolve(name + ".mared"), content, StandardCharsets.UTF_8);
             return true;
         } catch (IOException e) {
-            Mared.LOGGER.error("Failed to save script {}", name, e);
+            Mared.LOGGER.warn("[Mared] Failed to write script '{}': {}", name, e.getMessage());
             return false;
         }
     }
 
-    public static boolean deleteScript(String name) {
-        Path dir = getScriptsDir();
-        if (dir == null) return false;
-        try {
-            return Files.deleteIfExists(dir.resolve(name + ".js"));
-        } catch (IOException e) {
-            Mared.LOGGER.error("Failed to delete script {}", name, e);
-            return false;
-        }
-    }
-
+    /** Создаёт пустой скрипт. */
     public static boolean createScript(String name) {
-        Path dir = getScriptsDir();
-        if (dir == null) return false;
-        Path file = dir.resolve(name + ".js");
+        if (name == null || name.isEmpty()) return false;
+        Path file = scriptsDir().resolve(name + ".mared");
         if (Files.exists(file)) return false;
         try {
-            Files.writeString(file, "// Mared script\n", StandardCharsets.UTF_8);
+            Files.writeString(file, "{\n    \n}\n", StandardCharsets.UTF_8);
             return true;
         } catch (IOException e) {
-            Mared.LOGGER.error("Failed to create script {}", name, e);
+            Mared.LOGGER.warn("[Mared] Failed to create script '{}': {}", name, e.getMessage());
             return false;
         }
     }
 
-    public static boolean isValidName(String name) {
-        return name != null && !name.isEmpty()
-            && name.matches("[a-zA-Z0-9_\\-]+")
-            && !name.equals(".");
+    /** Удаляет скрипт. */
+    public static boolean deleteScript(String name) {
+        if (name == null) return false;
+        try {
+            return Files.deleteIfExists(scriptsDir().resolve(name + ".mared"));
+        } catch (IOException e) {
+            Mared.LOGGER.warn("[Mared] Failed to delete script '{}': {}", name, e.getMessage());
+            return false;
+        }
     }
 }

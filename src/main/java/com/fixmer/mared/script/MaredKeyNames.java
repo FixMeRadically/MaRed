@@ -2,18 +2,14 @@ package com.fixmer.mared.script;
 
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Сопоставление имён клавиш (R, F5, Ctrl+S) с GLFW-кодами и модификаторами.
- */
 public final class MaredKeyNames {
 
     private MaredKeyNames() {}
 
-    /** Разобранная клавиша. */
     public static final class ParsedKey {
         public final int keyCode;
-        public final int modifiers;   // битовая маска GLFW_MOD_*
-        public final String raw;      // как было записано в bind
+        public final int modifiers;
+        public final String raw;
 
         public ParsedKey(int keyCode, int modifiers, String raw) {
             this.keyCode = keyCode;
@@ -22,13 +18,20 @@ public final class MaredKeyNames {
         }
     }
 
-    /** Разобрать строку вроде "Ctrl+Shift+S", "F5", "Space". null — если не распознано. */
+    // ---- Мышь (специальные коды) ----
+
+    public static final int MOUSE_LEFT   = -1001;
+    public static final int MOUSE_RIGHT  = -1002;
+    public static final int MOUSE_MIDDLE = -1003;
+    public static final int MOUSE_MOVE   = -1004;
+
+    // ---- Клавиатура ----
+
     public static ParsedKey parse(String name) {
         if (name == null || name.isEmpty()) return null;
         String raw = name;
         int mods = 0;
 
-        // Разбиваем по '+'
         String[] parts = name.split("\\+");
         for (int i = 0; i < parts.length - 1; i++) {
             String m = parts[i].trim().toLowerCase();
@@ -46,19 +49,16 @@ public final class MaredKeyNames {
         return new ParsedKey(code, mods, raw);
     }
 
-    /** Код GLFW по имени. -1 — если не найдено. */
     public static int keyCode(String name) {
         if (name == null || name.isEmpty()) return -1;
         String n = name.trim();
 
-        // Одна буква
         if (n.length() == 1) {
             char c = Character.toUpperCase(n.charAt(0));
             if (c >= 'A' && c <= 'Z') return GLFW.GLFW_KEY_A + (c - 'A');
             if (c >= '0' && c <= '9') return GLFW.GLFW_KEY_0 + (c - '0');
         }
 
-        // Специальные
         switch (n.toLowerCase()) {
             case "space":      return GLFW.GLFW_KEY_SPACE;
             case "enter":      return GLFW.GLFW_KEY_ENTER;
@@ -86,13 +86,11 @@ public final class MaredKeyNames {
             case "quote":      return GLFW.GLFW_KEY_APOSTROPHE;
         }
 
-        // F1..F12
         if (n.matches("[Ff][0-9]{1,2}")) {
             int num = Integer.parseInt(n.substring(1));
             if (num >= 1 && num <= 25) return GLFW.GLFW_KEY_F1 + (num - 1);
         }
 
-        // Numpad0..9
         if (n.matches("[Nn]umpad[0-9]")) {
             int num = n.charAt(6) - '0';
             return GLFW.GLFW_KEY_KP_0 + num;
@@ -101,7 +99,6 @@ public final class MaredKeyNames {
         return -1;
     }
 
-    /** Человекочитаемое имя для отображения в панели. */
     public static String display(ParsedKey k) {
         StringBuilder sb = new StringBuilder();
         if ((k.modifiers & GLFW.GLFW_MOD_CONTROL) != 0) sb.append("Ctrl+");
@@ -112,7 +109,6 @@ public final class MaredKeyNames {
         return sb.toString();
     }
 
-    /** Имя по коду GLFW. */
     public static String nameForKeyCode(int code) {
         if (code >= GLFW.GLFW_KEY_A && code <= GLFW.GLFW_KEY_Z) {
             return String.valueOf((char) ('A' + (code - GLFW.GLFW_KEY_A)));
@@ -126,23 +122,48 @@ public final class MaredKeyNames {
         if (code >= GLFW.GLFW_KEY_KP_0 && code <= GLFW.GLFW_KEY_KP_9) {
             return "Numpad" + (code - GLFW.GLFW_KEY_KP_0);
         }
-        return switch (code) {
-            case GLFW.GLFW_KEY_SPACE      -> "Space";
-            case GLFW.GLFW_KEY_ENTER      -> "Enter";
-            case GLFW.GLFW_KEY_ESCAPE     -> "Escape";
-            case GLFW.GLFW_KEY_TAB        -> "Tab";
-            case GLFW.GLFW_KEY_BACKSPACE  -> "Backspace";
-            case GLFW.GLFW_KEY_DELETE     -> "Delete";
-            case GLFW.GLFW_KEY_INSERT     -> "Insert";
-            case GLFW.GLFW_KEY_HOME       -> "Home";
-            case GLFW.GLFW_KEY_END        -> "End";
-            case GLFW.GLFW_KEY_PAGE_UP    -> "PageUp";
-            case GLFW.GLFW_KEY_PAGE_DOWN  -> "PageDown";
-            case GLFW.GLFW_KEY_UP         -> "Up";
-            case GLFW.GLFW_KEY_DOWN       -> "Down";
-            case GLFW.GLFW_KEY_LEFT       -> "Left";
-            case GLFW.GLFW_KEY_RIGHT      -> "Right";
-            default -> "Key#" + code;
-        };
+        switch (code) {
+            case GLFW.GLFW_KEY_SPACE:      return "Space";
+            case GLFW.GLFW_KEY_ENTER:      return "Enter";
+            case GLFW.GLFW_KEY_ESCAPE:     return "Escape";
+            case GLFW.GLFW_KEY_TAB:        return "Tab";
+            case GLFW.GLFW_KEY_BACKSPACE:  return "Backspace";
+            case GLFW.GLFW_KEY_DELETE:     return "Delete";
+            case GLFW.GLFW_KEY_INSERT:     return "Insert";
+            case GLFW.GLFW_KEY_HOME:       return "Home";
+            case GLFW.GLFW_KEY_END:        return "End";
+            case GLFW.GLFW_KEY_PAGE_UP:    return "PageUp";
+            case GLFW.GLFW_KEY_PAGE_DOWN:  return "PageDown";
+            case GLFW.GLFW_KEY_UP:         return "Up";
+            case GLFW.GLFW_KEY_DOWN:       return "Down";
+            case GLFW.GLFW_KEY_LEFT:       return "Left";
+            case GLFW.GLFW_KEY_RIGHT:      return "Right";
+            case MOUSE_LEFT:               return "LeftClick";
+            case MOUSE_RIGHT:              return "RightClick";
+            case MOUSE_MIDDLE:             return "MiddleClick";
+            case MOUSE_MOVE:               return "MouseMove";
+            default:                       return "Key#" + code;
+        }
+    }
+
+    // ---- Мышь ----
+
+    public static ParsedKey parseMouse(String name) {
+        if (name == null) return null;
+        switch (name.toLowerCase()) {
+            case "leftclick":   return new ParsedKey(MOUSE_LEFT, 0, name);
+            case "rightclick":  return new ParsedKey(MOUSE_RIGHT, 0, name);
+            case "middleclick": return new ParsedKey(MOUSE_MIDDLE, 0, name);
+            case "mousemove":   return new ParsedKey(MOUSE_MOVE, 0, name);
+            case "mousemotion": return new ParsedKey(MOUSE_MOVE, 0, name);
+            default: return null;
+        }
+    }
+
+    /** Универсальный парсинг: клавиатура или мышь. */
+    public static ParsedKey parseAny(String name) {
+        ParsedKey key = parse(name);
+        if (key != null) return key;
+        return parseMouse(name);
     }
 }

@@ -1,19 +1,27 @@
 package com.fixmer.mared.script.commands;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.fixmer.mared.script.MaredExpr;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
 import com.fixmer.mared.script.MaredScriptExecutor.Frame;
 
 /**
  * call name(arg1, arg2) — вызов функции.
- * Толкает тело функции кадром. Параметры заменяют переменные в контексте.
+ * Толкает тело функции кадром с меткой functionCall.
  *
- * Когда тело заканчивается — переменные восстанавливаются (см. FuncFrameOwner).
+ * Аргументы передаются как ОБЪЕКТЫ:
+ *   $items       → значение переменной items (List, число, строка)
+ *   "строка"     → строка без кавычек
+ *   123          → Long
+ *   1.5          → Double
+ *   ${expr}      → вычисленное выражение
+ *
+ * ВАЖНО: числа возвращаются как Long / Double, потому что MaredExpr
+ * работает только с этими типами.
  */
 public class MaredCallCommand extends MaredScriptCommand {
 
@@ -25,6 +33,9 @@ public class MaredCallCommand extends MaredScriptCommand {
         this.args = args;
     }
 
+    public String getName() { return name; }
+    public List<String> getArgs() { return args; }
+
     @Override
     public void execute(MaredScriptContext ctx, MaredScriptExecutor exec) {
         MaredScriptContext.Func fn = ctx.getFunction(name);
@@ -33,42 +44,88 @@ public class MaredCallCommand extends MaredScriptCommand {
             return;
         }
 
-        // Сохраняем текущие значения параметров (могут перезаписаться)
         Map<String, Object> backup = new HashMap<>();
-        for (int i = 0; i < fn.params.size(); i++) {
-            String p = fn.params.get(i);
+        for (String p : fn.params) {
             backup.put(p, ctx.getVariable(p));
         }
 
-        // Устанавливаем новые значения
         for (int i = 0; i < fn.params.size(); i++) {
             String p = fn.params.get(i);
-            String v = i < args.size() ? ctx.substitute(args.get(i)) : "";
-            ctx.setVariable(p, v);
+            Object value = (i < args.size()) ? resolveArg(args.get(i), ctx) : null;
+            ctx.setVariable(p, value);
         }
 
-        // Толкаем тело функции; после завершения — восстановим переменные
         List<MaredScriptCommand> body = fn.body;
         final Map<String, Object> backupFinal = backup;
-        final MaredScriptContext ctxFinal = ctx;
+        final String fnName = name;
 
-        // Оборачиваем через пустой кадр-родитель, чтобы поймать конец тела.
-        // Проще: добавим на дно нового кадра спец-команду "restore".
-        // Но у нас нет такой команды — сделаем через LoopOwner с одним прогоном.
         MaredScriptExecutor.LoopOwner owner = new MaredScriptExecutor.LoopOwner() {
             @Override
             public boolean onBodyFinished(MaredScriptContext c, MaredScriptExecutor e, Frame bodyFrame) {
                 for (Map.Entry<String, Object> en : backupFinal.entrySet()) {
                     c.setVariable(en.getKey(), en.getValue());
                 }
+
+                if (e.hasReturnValue()) {
+                    c.setVariable("__last_return", e.getReturnValue());
+                    e.clearReturnValue();
+                }
+
                 return false;
             }
 
             @Override
-            public String describe() { return "call " + name; }
+            public String describe() { return "call " + fnName; }
         };
 
-        exec.pushLoopBody(body, owner);
+        exec.pushFunctionBody(body, owner);
+    }
+
+    /**
+     * Определяет значение аргумента:
+     *   $var        → значение переменной (любой тип: число, строка, List)
+     *   ${expr}     → вычисленное выражение
+     *   "строка"    → строка без кавычек
+     *   число       → Long или Double (как в MaredExpr)
+     *   выражение   → вычисленное MaredExpr.eval
+     */
+    public static Object resolveArg(String arg, MaredScriptContext ctx) {
+        if (arg == null) return null;
+        String s = arg.trim();
+
+        if (s.isEmpty()) return "";
+
+        // $var → значение переменной
+        if (s.startsWith("$") && !s.startsWith("${")) {
+            String varName = s.substring(1);
+            Object v = ctx.getVariable(varName);
+            if (v != null) return v;
+            return s;
+        }
+
+        // ${expr} → вычислить выражение
+        if (s.startsWith("${") && s.endsWith("}")) {
+            String expr = s.substring(2, s.length() - 1);
+            try { return MaredExpr.eval(expr, ctx); }
+            catch (Exception e) { return s; }
+        }
+
+        // "строка" → снять кавычки
+        if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"")) {
+            return s.substring(1, s.length() - 1);
+        }
+
+        // число → Long или Double (как в MaredExpr)
+        try {
+            if (s.contains(".") || s.contains("e") || s.contains("E")) {
+                return Double.parseDouble(s);
+            }
+            return Long.parseLong(s);
+        } catch (NumberFormatException ignored) {}
+
+        // выражение без $ → вычислить
+        try { return MaredExpr.eval(s, ctx); }
+        catch (Exception e) { return s; }
     }
 
     @Override public int getDelayTicks() { return 0; }

@@ -1,7 +1,6 @@
 package com.fixmer.mared.script;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import net.minecraft.server.MinecraftServer;
@@ -11,31 +10,49 @@ public class MaredScriptRunner {
     private static final List<MaredScriptExecutor> ACTIVE = new ArrayList<>();
 
     public static void start(MaredScriptExecutor executor) {
-        ACTIVE.add(executor);
+        synchronized (ACTIVE) {
+            ACTIVE.add(executor);
+        }
     }
 
     public static void stopAll() {
-        ACTIVE.clear();
+        synchronized (ACTIVE) {
+            ACTIVE.clear();
+        }
     }
 
     public static void tick(MinecraftServer server) {
-        Iterator<MaredScriptExecutor> it = ACTIVE.iterator();
-        while (it.hasNext()) {
-            MaredScriptExecutor executor = it.next();
+        // Снимаем копию, чтобы не было ConcurrentModificationException.
+        List<MaredScriptExecutor> snapshot;
+        synchronized (ACTIVE) {
+            snapshot = new ArrayList<>(ACTIVE);
+        }
+
+        List<MaredScriptExecutor> toRemove = new ArrayList<>();
+
+        for (MaredScriptExecutor executor : snapshot) {
             try {
                 executor.tick();
             } catch (Exception e) {
                 executor.getContext().log("[error] " + e.getMessage());
-                it.remove();
+                toRemove.add(executor);
                 continue;
             }
             if (executor.isFinished()) {
-                it.remove();
+                toRemove.add(executor);
+            }
+        }
+
+        if (!toRemove.isEmpty()) {
+            synchronized (ACTIVE) {
+                ACTIVE.removeAll(toRemove);
             }
         }
     }
 
     public static int getActiveCount() {
-        return ACTIVE.size();
+        synchronized (ACTIVE) {
+            return ACTIVE.size();
+        }
     }
 }

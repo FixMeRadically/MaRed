@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.fixmer.mared.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "mared.refmap.json",
+  "mixins": [],
+  "client": [
+    "MouseHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

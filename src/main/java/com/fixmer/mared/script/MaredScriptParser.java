@@ -5,20 +5,28 @@ import java.util.List;
 
 import com.fixmer.mared.script.commands.MaredAssertCommand;
 import com.fixmer.mared.script.commands.MaredBindCommand;
+import com.fixmer.mared.script.commands.MaredBlockCommand;
 import com.fixmer.mared.script.commands.MaredBreakCommand;
 import com.fixmer.mared.script.commands.MaredCallCommand;
 import com.fixmer.mared.script.commands.MaredContinueCommand;
 import com.fixmer.mared.script.commands.MaredDebugCommand;
 import com.fixmer.mared.script.commands.MaredEvalCommand;
 import com.fixmer.mared.script.commands.MaredForCommand;
+import com.fixmer.mared.script.commands.MaredForInCommand;
 import com.fixmer.mared.script.commands.MaredFuncCommand;
 import com.fixmer.mared.script.commands.MaredGiveCommand;
 import com.fixmer.mared.script.commands.MaredIfCommand;
 import com.fixmer.mared.script.commands.MaredLogCommand;
+import com.fixmer.mared.script.commands.MaredMcCommand;
+import com.fixmer.mared.script.commands.MaredOnCommand;
 import com.fixmer.mared.script.commands.MaredRepeatCommand;
+import com.fixmer.mared.script.commands.MaredReturnCommand;
 import com.fixmer.mared.script.commands.MaredSayCommand;
 import com.fixmer.mared.script.commands.MaredScriptCommand;
 import com.fixmer.mared.script.commands.MaredSetCommand;
+import com.fixmer.mared.script.commands.MaredSetFromCallCommand;
+import com.fixmer.mared.script.commands.MaredToggleCommand;
+import com.fixmer.mared.script.commands.MaredUnblockCommand;
 import com.fixmer.mared.script.commands.MaredWaitCommand;
 import com.fixmer.mared.script.commands.MaredWhileCommand;
 
@@ -32,195 +40,199 @@ public class MaredScriptParser {
         }
     }
 
+    // ============================================================
+    //  Входная точка
+    // ============================================================
+
     public static List<MaredScriptCommand> parse(String text) {
         if (text == null) return new ArrayList<>();
         text = text.replace("\r", "");
         text = text.replace("\\\"", "\"").replace("\\'", "'");
-        String trimmed = text.trim();
 
-        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+        String trimmed = text.trim();
+        if (trimmed.startsWith("{") && trimmed.endsWith("}") && coversWhole(trimmed)) {
             trimmed = trimmed.substring(1, trimmed.length() - 1);
         }
 
-        String[] lines = trimmed.split("\n");
-        int[] pos = {0};
-        List<MaredScriptCommand> result = parseBlock(lines, pos, 1, false);
-        if (pos[0] < lines.length) {
-            String rest = lines[pos[0]].trim();
-            if (!rest.isEmpty() && !rest.equals("}")) {
-                throw new ParseException(pos[0] + 1, "unexpected text after block close: " + rest);
-            }
+        Cursor cur = new Cursor(trimmed);
+        List<MaredScriptCommand> result = parseStatements(cur, 1);
+        cur.skipWhitespaceAndNewlines();
+        if (!cur.eof()) {
+            throw new ParseException(cur.line(), "unexpected text: " + cur.peekChar());
         }
         return result;
     }
 
-    private static List<MaredScriptCommand> parseBlock(String[] lines, int[] pos, int baseLine, boolean insideBlock) {
-        List<MaredScriptCommand> commands = new ArrayList<>();
-
-        while (pos[0] < lines.length) {
-            String rawLine = lines[pos[0]];
-            int lineNumber = pos[0] + 1;
-            String line = stripComment(rawLine).trim();
-
-            if (line.isEmpty()) { pos[0]++; continue; }
-
-            if (line.equals("}")) {
-                if (!insideBlock) throw new ParseException(lineNumber, "'}' without opening '{'");
-                pos[0]++;
-                return commands;
-            }
-
-            String head = line;
-            String tail = "";
-            int braceIdx = findBraceAfter(line);
-            if (braceIdx >= 0) {
-                head = line.substring(0, braceIdx).trim();
-                tail = line.substring(braceIdx + 1).trim();
-            }
-
-            List<String> tokens = tokenize(head);
-            if (tokens.isEmpty()) { pos[0]++; continue; }
-            String cmd = tokens.get(0);
-
-            switch (cmd) {
-                case "if" -> {
-                    pos[0]++;
-                    commands.add(parseIfChain(tokens, lines, pos, lineNumber));
-                    if (!tail.isEmpty()) throw new ParseException(lineNumber, "'if' requires newline after '{'");
-                }
-                case "repeat" -> {
-                    pos[0]++;
-                    commands.add(parseRepeat(tokens, lines, pos, lineNumber));
-                    if (!tail.isEmpty()) throw new ParseException(lineNumber, "'repeat' requires newline after '{'");
-                }
-                case "for" -> {
-                    pos[0]++;
-                    commands.add(parseFor(tokens, lines, pos, lineNumber));
-                    if (!tail.isEmpty()) throw new ParseException(lineNumber, "'for' requires newline after '{'");
-                }
-                case "while" -> {
-                    pos[0]++;
-                    commands.add(parseWhile(tokens, lines, pos, lineNumber));
-                    if (!tail.isEmpty()) throw new ParseException(lineNumber, "'while' requires newline after '{'");
-                }
-                case "func" -> {
-                    pos[0]++;
-                    commands.add(parseFunc(tokens, lines, pos, lineNumber));
-                    if (!tail.isEmpty()) throw new ParseException(lineNumber, "'func' requires newline after '{'");
-                }
-                case "bind" -> {
-                    pos[0]++;
-                    commands.add(parseBind(tokens, lines, pos, lineNumber));
-                    if (!tail.isEmpty()) throw new ParseException(lineNumber, "'bind' requires newline after '{'");
-                }
-                case "break" -> {
-                    pos[0]++;
-                    commands.add(new MaredBreakCommand());
-                }
-                case "continue" -> {
-                    pos[0]++;
-                    commands.add(new MaredContinueCommand());
-                }
-                default -> {
-                    if (braceIdx >= 0) throw new ParseException(lineNumber, "command '" + cmd + "' does not accept { }");
-                    commands.add(parseLine(tokens, lineNumber));
-                    pos[0]++;
+    private static boolean coversWhole(String s) {
+        int depth = 0;
+        boolean inString = false;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"' && (i == 0 || s.charAt(i - 1) != '\\')) inString = !inString;
+            if (inString) continue;
+            if (c == '{') depth++;
+            else if (c == '}') {
+                depth--;
+                if (depth == 0 && i < s.length() - 1) {
+                    String rest = s.substring(i + 1).trim();
+                    if (!rest.isEmpty()) return false;
                 }
             }
         }
+        return depth == 0;
+    }
 
-        if (insideBlock) throw new ParseException(baseLine, "block '{' not closed");
+    // ============================================================
+    //  Парсинг последовательности команд
+    // ============================================================
+
+    private static List<MaredScriptCommand> parseStatements(Cursor cur, int line) {
+        List<MaredScriptCommand> commands = new ArrayList<>();
+
+        while (true) {
+            cur.skipSeparators();
+            if (cur.eof()) break;
+            if (cur.peekChar() == '}') break;
+
+            MaredScriptCommand cmd = parseStatement(cur);
+            if (cmd != null) commands.add(cmd);
+        }
+
         return commands;
     }
 
-    private static MaredScriptCommand parseIfChain(List<String> tokens, String[] lines, int[] pos, int lineNumber) {
-        if (tokens.size() < 2) throw new ParseException(lineNumber, "if: missing condition");
-        if (findBraceAfter(lines[pos[0] - 1]) < 0) {
-            throw new ParseException(lineNumber, "if: expected '{' after condition");
+    private static MaredScriptCommand parseStatement(Cursor cur) {
+        int startLine = cur.line();
+
+        String head = cur.readHead();
+        String headTrim = head.trim();
+        if (headTrim.isEmpty()) {
+            return null;
         }
+
+        List<String> tokens = tokenize(headTrim);
+        if (tokens.isEmpty()) return null;
+
+        String cmd = tokens.get(0);
+
+        switch (cmd) {
+            case "if":     return parseIfChain(cur, tokens, startLine);
+            case "repeat": return parseRepeat(cur, tokens, startLine);
+            case "for":    return parseFor(cur, tokens, startLine);
+            case "while":  return parseWhile(cur, tokens, startLine);
+            case "func":   return parseFunc(cur, tokens, startLine);
+            case "bind":   return parseBind(cur, tokens, startLine);
+            case "on":     return parseOn(cur, tokens, startLine);
+            case "break":  return new MaredBreakCommand();
+            case "continue": return new MaredContinueCommand();
+            case "return": return parseReturn(tokens, startLine);
+            default:
+                return parseLine(tokens, startLine);
+        }
+    }
+
+    // ============================================================
+    //  Разбор команд с телами
+    // ============================================================
+
+    private static MaredScriptCommand parseIfChain(Cursor cur, List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "if: missing condition");
         String condition = join(tokens.subList(1, tokens.size()));
-        List<MaredScriptCommand> thenBody = parseBlock(lines, pos, lineNumber, true);
+
+        List<MaredScriptCommand> thenBody = parseBody(cur, line);
 
         List<String> elifConds = new ArrayList<>();
         List<List<MaredScriptCommand>> elifBodies = new ArrayList<>();
         List<MaredScriptCommand> elseBody = null;
 
-        while (pos[0] < lines.length) {
-            String nextRaw = lines[pos[0]].trim();
-            String next = stripComment(nextRaw).trim();
-            if (next.isEmpty()) { pos[0]++; continue; }
+        while (true) {
+            cur.skipSeparators();
+            if (cur.eof()) break;
+            if (cur.peekChar() == '}') break;
 
-            String head = next;
-            int braceIdx = findBraceAfter(next);
-            if (braceIdx >= 0) head = next.substring(0, braceIdx).trim();
-            List<String> t = tokenize(head);
-            if (t.isEmpty()) break;
-            String kw = t.get(0);
+            int saveLine = cur.line();
+            String saveHead = cur.readHead();
+            String saveTrim = saveHead.trim();
+            if (saveTrim.isEmpty()) break;
+
+            List<String> saveTokens = tokenize(saveTrim);
+            if (saveTokens.isEmpty()) break;
+
+            String kw = saveTokens.get(0);
 
             if ("elif".equals(kw)) {
-                if (t.size() < 2) throw new ParseException(pos[0] + 1, "elif: missing condition");
-                if (braceIdx < 0) throw new ParseException(pos[0] + 1, "elif: expected '{' after condition");
-                String cond = join(t.subList(1, t.size()));
-                pos[0]++;
-                List<MaredScriptCommand> body = parseBlock(lines, pos, pos[0], true);
+                if (saveTokens.size() < 2) throw new ParseException(saveLine, "elif: missing condition");
+                String cond = join(saveTokens.subList(1, saveTokens.size()));
+                List<MaredScriptCommand> body = parseBody(cur, saveLine);
                 elifConds.add(cond);
                 elifBodies.add(body);
                 continue;
             }
             if ("else".equals(kw)) {
-                if (braceIdx < 0) throw new ParseException(pos[0] + 1, "else: expected '{'");
-                pos[0]++;
-                elseBody = parseBlock(lines, pos, pos[0], true);
+                elseBody = parseBody(cur, saveLine);
                 break;
             }
+            cur.rewindHead(saveHead);
             break;
         }
 
         return new MaredIfCommand(condition, thenBody, elifConds, elifBodies, elseBody);
     }
 
-    private static MaredScriptCommand parseRepeat(List<String> tokens, String[] lines, int[] pos, int lineNumber) {
-        if (tokens.size() < 2) throw new ParseException(lineNumber, "repeat: missing count");
-        if (findBraceAfter(lines[pos[0] - 1]) < 0) {
-            throw new ParseException(lineNumber, "repeat: expected '{' after count");
-        }
+    private static MaredScriptCommand parseRepeat(Cursor cur, List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "repeat: missing count");
         String countStr = tokens.get(1);
         if (tokens.size() >= 3 && !"times".equalsIgnoreCase(tokens.get(2))) {
-            throw new ParseException(lineNumber, "repeat: expected 'times' or end of line");
+            throw new ParseException(line, "repeat: expected 'times' or end of line");
         }
         int count;
         try { count = Integer.parseInt(countStr); }
-        catch (NumberFormatException e) { throw new ParseException(lineNumber, "repeat: '" + countStr + "' is not a number"); }
+        catch (NumberFormatException e) { throw new ParseException(line, "repeat: '" + countStr + "' is not a number"); }
 
-        List<MaredScriptCommand> body = parseBlock(lines, pos, lineNumber, true);
+        List<MaredScriptCommand> body = parseBody(cur, line);
         return new MaredRepeatCommand(count, body);
     }
 
-    private static MaredScriptCommand parseFor(List<String> tokens, String[] lines, int[] pos, int lineNumber) {
-        if (tokens.size() < 6) throw new ParseException(lineNumber, "for: expected 'for $i = a to b {'");
-        if (!tokens.get(2).equals("=")) throw new ParseException(lineNumber, "for: expected '=' after name");
-        if (!tokens.get(4).equalsIgnoreCase("to")) throw new ParseException(lineNumber, "for: expected 'to'");
-        if (findBraceAfter(lines[pos[0] - 1]) < 0) throw new ParseException(lineNumber, "for: expected '{'");
+    private static MaredScriptCommand parseFor(Cursor cur, List<String> tokens, int line) {
+        if (tokens.size() < 4) {
+            throw new ParseException(line,
+                "for: expected 'for $i = a to b' or 'for $item in $items'");
+        }
 
         String var = tokens.get(1);
         if (var.startsWith("$")) var = var.substring(1);
+
+        if (tokens.get(2).equalsIgnoreCase("in")) {
+            if (tokens.size() < 4) throw new ParseException(line, "for-in: missing array name");
+            String arrName = tokens.get(3);
+            if (arrName.startsWith("$")) arrName = arrName.substring(1);
+
+            List<MaredScriptCommand> body = parseBody(cur, line);
+            return new MaredForInCommand(var, arrName, body);
+        }
+
+        if (tokens.size() < 6) {
+            throw new ParseException(line, "for: expected 'for $i = a to b {'");
+        }
+        if (!tokens.get(2).equals("=")) throw new ParseException(line, "for: expected '=' after name");
+        if (!tokens.get(4).equalsIgnoreCase("to")) throw new ParseException(line, "for: expected 'to'");
+
         String from = tokens.get(3);
         String to = tokens.get(5);
 
-        List<MaredScriptCommand> body = parseBlock(lines, pos, lineNumber, true);
+        List<MaredScriptCommand> body = parseBody(cur, line);
         return new MaredForCommand(var, from, to, body);
     }
 
-    private static MaredScriptCommand parseWhile(List<String> tokens, String[] lines, int[] pos, int lineNumber) {
-        if (tokens.size() < 2) throw new ParseException(lineNumber, "while: missing condition");
-        if (findBraceAfter(lines[pos[0] - 1]) < 0) throw new ParseException(lineNumber, "while: expected '{'");
+    private static MaredScriptCommand parseWhile(Cursor cur, List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "while: missing condition");
         String condition = join(tokens.subList(1, tokens.size()));
-        List<MaredScriptCommand> body = parseBlock(lines, pos, lineNumber, true);
+        List<MaredScriptCommand> body = parseBody(cur, line);
         return new MaredWhileCommand(condition, body);
     }
 
-    private static MaredScriptCommand parseFunc(List<String> tokens, String[] lines, int[] pos, int lineNumber) {
-        if (tokens.size() < 2) throw new ParseException(lineNumber, "func: missing name");
+    private static MaredScriptCommand parseFunc(Cursor cur, List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "func: missing name");
         String nameToken = tokens.get(1);
         String name;
         List<String> params = new ArrayList<>();
@@ -238,13 +250,12 @@ public class MaredScriptParser {
         } else {
             name = nameToken;
         }
-        if (findBraceAfter(lines[pos[0] - 1]) < 0) throw new ParseException(lineNumber, "func: expected '{'");
-        List<MaredScriptCommand> body = parseBlock(lines, pos, lineNumber, true);
+        List<MaredScriptCommand> body = parseBody(cur, line);
         return new MaredFuncCommand(name, params, body);
     }
 
-    private static MaredScriptCommand parseBind(List<String> tokens, String[] lines, int[] pos, int lineNumber) {
-        if (tokens.size() < 2) throw new ParseException(lineNumber, "bind: missing key");
+    private static MaredScriptCommand parseBind(Cursor cur, List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "bind: missing key");
 
         String keyRaw = null;
         MaredBindCommand.Mode mode = MaredBindCommand.Mode.DEFAULT;
@@ -258,41 +269,154 @@ public class MaredScriptParser {
                 case "replace" -> mode = MaredBindCommand.Mode.REPLACE;
                 case "clear"   -> mode = MaredBindCommand.Mode.CLEAR;
                 case "block"   -> blockVanilla = true;
+                case "hold"    -> mode = MaredBindCommand.Mode.HOLD;
+                case "release" -> mode = MaredBindCommand.Mode.RELEASE;
                 default -> {
                     if (keyRaw == null) keyRaw = t;
-                    else throw new ParseException(lineNumber, "bind: extra argument: " + t);
+                    else throw new ParseException(line, "bind: extra argument: " + t);
                 }
             }
         }
-        if (keyRaw == null) throw new ParseException(lineNumber, "bind: missing key");
+        if (keyRaw == null) throw new ParseException(line, "bind: missing key");
 
-        MaredKeyNames.ParsedKey key = MaredKeyNames.parse(keyRaw);
-        if (key == null) throw new ParseException(lineNumber, "bind: unknown key: " + keyRaw);
+        MaredKeyNames.ParsedKey key = MaredKeyNames.parseAny(keyRaw);
+        if (key == null) throw new ParseException(line, "bind: unknown key: " + keyRaw);
 
-        if (findBraceAfter(lines[pos[0] - 1]) < 0) {
-            throw new ParseException(lineNumber, "bind: expected '{' after arguments");
+        cur.skipWhitespaceAndNewlines();
+        boolean hasBrace = !cur.eof() && cur.peekChar() == '{';
+
+        List<MaredScriptCommand> body;
+        if (!hasBrace) {
+            if (mode == MaredBindCommand.Mode.CLEAR || blockVanilla) {
+                body = new ArrayList<>();
+            } else {
+                throw new ParseException(line,
+                    "bind: expected '{' after arguments (or use 'block'/'clear')");
+            }
+        } else {
+            body = parseBody(cur, line);
         }
 
-        List<MaredScriptCommand> body = parseBlock(lines, pos, lineNumber, true);
         if (mode == MaredBindCommand.Mode.CLEAR && !body.isEmpty()) {
-            throw new ParseException(lineNumber, "bind clear: body must be empty");
+            throw new ParseException(line, "bind clear: body must be empty");
         }
         return new MaredBindCommand(keyRaw, key, mode, blockVanilla, body);
     }
 
+    // ============================================================
+    //  on <event> [add|replace] { ... }
+    // ============================================================
+
+    private static MaredScriptCommand parseOn(Cursor cur, List<String> tokens, int line) {
+        if (tokens.size() < 2) {
+            throw new ParseException(line, "on: missing event type");
+        }
+        String eventType = tokens.get(1).toLowerCase();
+
+        if (!isKnownEvent(eventType)) {
+            throw new ParseException(line, "on: unknown event: " + eventType);
+        }
+
+        // on <event>           → replace (по умолчанию)
+        // on <event> add       → add
+        // on <event> replace   → replace (явно)
+        boolean replace = true;
+        if (tokens.size() >= 3) {
+            String mode = tokens.get(2).toLowerCase();
+            if ("add".equals(mode)) {
+                replace = false;
+            } else if ("replace".equals(mode)) {
+                replace = true;
+            } else {
+                throw new ParseException(line, "on: unknown mode: " + mode + " (use 'add' or 'replace')");
+            }
+        }
+
+        if (tokens.size() > 3) {
+            throw new ParseException(line, "on: extra arguments after event type");
+        }
+
+        List<MaredScriptCommand> body = parseBody(cur, line);
+        return new MaredOnCommand(eventType, body, replace);
+    }
+
+    private static boolean isKnownEvent(String type) {
+        switch (type) {
+            case "right_click":
+            case "left_click":
+            case "middle_click":
+            case "scroll_up":
+            case "scroll_down":
+            case "key_press":
+            case "key_release":
+            case "chat":
+            case "tick_client":
+            case "join":
+            case "leave":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    // ============================================================
+    //  return
+    // ============================================================
+
+    private static MaredScriptCommand parseReturn(List<String> tokens, int lineNumber) {
+        if (tokens.size() < 2) {
+            return new MaredReturnCommand("");
+        }
+        StringBuilder expr = new StringBuilder();
+        for (int i = 1; i < tokens.size(); i++) {
+            if (i > 1) expr.append(' ');
+            expr.append(tokens.get(i));
+        }
+        return new MaredReturnCommand(expr.toString());
+    }
+
+    // ============================================================
+    //  Тело блока { ... }
+    // ============================================================
+
+    private static List<MaredScriptCommand> parseBody(Cursor cur, int line) {
+        cur.skipWhitespaceAndNewlines();
+        if (cur.eof() || cur.peekChar() != '{') {
+            return new ArrayList<>();
+        }
+        cur.next();
+
+        List<MaredScriptCommand> body = parseStatements(cur, line);
+
+        cur.skipSeparators();
+        if (cur.eof() || cur.peekChar() != '}') {
+            throw new ParseException(line, "block '{' not closed");
+        }
+        cur.next();
+        return body;
+    }
+
+    // ============================================================
+    //  Разбор простой команды
+    // ============================================================
+
     private static MaredScriptCommand parseLine(List<String> tokens, int lineNumber) {
         String command = tokens.get(0);
         switch (command) {
-            case "say":    return parseSay(tokens, lineNumber);
-            case "wait":   return parseWait(tokens, lineNumber);
-            case "delay":  return parseWait(tokens, lineNumber);
-            case "give":   return parseGive(tokens, lineNumber);
-            case "set":    return parseSet(tokens, lineNumber);
-            case "array":  return parseArray(tokens, lineNumber);
-            case "call":   return parseCall(tokens, lineNumber);
-            case "log":    return parseLog(tokens, lineNumber);
-            case "debug":  return parseDebug(tokens, lineNumber);
-            case "assert": return parseAssert(tokens, lineNumber);
+            case "say":     return parseSay(tokens, lineNumber);
+            case "wait":    return parseWait(tokens, lineNumber);
+            case "delay":   return parseWait(tokens, lineNumber);
+            case "give":    return parseGive(tokens, lineNumber);
+            case "set":     return parseSet(tokens, lineNumber);
+            case "array":   return parseArray(tokens, lineNumber);
+            case "call":    return parseCall(tokens, lineNumber);
+            case "log":     return parseLog(tokens, lineNumber);
+            case "debug":   return parseDebug(tokens, lineNumber);
+            case "assert":  return parseAssert(tokens, lineNumber);
+            case "unblock": return parseUnblock(tokens, lineNumber);
+            case "block":   return parseBlockCmd(tokens, lineNumber);
+            case "toggle":  return parseToggle(tokens, lineNumber);
+            case "mc":      return parseMc(tokens, lineNumber);
             default:
                 String fullLine = join(tokens);
                 return new MaredEvalCommand(fullLine);
@@ -345,6 +469,22 @@ public class MaredScriptParser {
         if (!tokens.get(2).equals("=")) {
             throw new ParseException(lineNumber, "set: expected '=' after name");
         }
+
+        if (tokens.size() >= 5 && "call".equalsIgnoreCase(tokens.get(3))) {
+            String callPart = join(tokens.subList(4, tokens.size()));
+            int paren = callPart.indexOf('(');
+            if (paren < 0 || !callPart.endsWith(")")) {
+                throw new ParseException(lineNumber, "set: expected 'call func(args)'");
+            }
+            String funcName = callPart.substring(0, paren).trim();
+            String inside = callPart.substring(paren + 1, callPart.length() - 1).trim();
+            List<String> callArgs = new ArrayList<>();
+            if (!inside.isEmpty()) {
+                for (String a : inside.split(",")) callArgs.add(a.trim());
+            }
+            return new MaredSetFromCallCommand(name, funcName, callArgs);
+        }
+
         StringBuilder value = new StringBuilder();
         for (int i = 3; i < tokens.size(); i++) {
             if (i > 3) value.append(' ');
@@ -414,22 +554,42 @@ public class MaredScriptParser {
         return new MaredAssertCommand(cond, message);
     }
 
-    private static int findBraceAfter(String line) {
-        boolean inString = false;
-        int braceDepth = 0;
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (!inString && c == '$' && i + 1 < line.length() && line.charAt(i + 1) == '{') {
-                braceDepth++;
-                i++;
-                continue;
-            }
-            if (!inString && c == '}' && braceDepth > 0) { braceDepth--; continue; }
-            if (c == '"' && braceDepth == 0) inString = !inString;
-            if (!inString && braceDepth == 0 && c == '{') return i;
+    private static MaredScriptCommand parseUnblock(List<String> tokens, int lineNumber) {
+        if (tokens.size() < 2) throw new ParseException(lineNumber, "unblock: missing key");
+        String keyRaw = tokens.get(1);
+        if (MaredKeyNames.parseAny(keyRaw) == null) {
+            throw new ParseException(lineNumber, "unblock: unknown key: " + keyRaw);
         }
-        return -1;
+        return new MaredUnblockCommand(keyRaw);
     }
+
+    private static MaredScriptCommand parseBlockCmd(List<String> tokens, int lineNumber) {
+        if (tokens.size() < 2) throw new ParseException(lineNumber, "block: missing key");
+        String keyRaw = tokens.get(1);
+        if (MaredKeyNames.parseAny(keyRaw) == null) {
+            throw new ParseException(lineNumber, "block: unknown key: " + keyRaw);
+        }
+        return new MaredBlockCommand(keyRaw);
+    }
+
+    private static MaredScriptCommand parseToggle(List<String> tokens, int lineNumber) {
+        if (tokens.size() < 2) throw new ParseException(lineNumber, "toggle: missing key");
+        String keyRaw = tokens.get(1);
+        if (MaredKeyNames.parseAny(keyRaw) == null) {
+            throw new ParseException(lineNumber, "toggle: unknown key: " + keyRaw);
+        }
+        return new MaredToggleCommand(keyRaw);
+    }
+
+    private static MaredScriptCommand parseMc(List<String> tokens, int lineNumber) {
+        if (tokens.size() < 2) throw new ParseException(lineNumber, "mc: missing command");
+        String cmd = join(tokens.subList(1, tokens.size()));
+        return new MaredMcCommand(cmd);
+    }
+
+    // ============================================================
+    //  Tokenizer
+    // ============================================================
 
     private static List<String> tokenize(String line) {
         List<String> tokens = new ArrayList<>();
@@ -459,7 +619,7 @@ public class MaredScriptParser {
             }
             if (c == '(' && !inString && braceDepth == 0) { paren++; current.append(c); continue; }
             if (c == ')' && !inString && braceDepth == 0) { paren--; current.append(c); continue; }
-            if (c == ' ' && !inString && paren == 0 && braceDepth == 0) {
+            if ((c == ' ' || c == '\t') && !inString && paren == 0 && braceDepth == 0) {
                 if (current.length() > 0) {
                     tokens.add(current.toString());
                     current.setLength(0);
@@ -470,25 +630,6 @@ public class MaredScriptParser {
         }
         if (current.length() > 0) tokens.add(current.toString());
         return tokens;
-    }
-
-    private static String stripComment(String line) {
-        boolean inString = false;
-        int braceDepth = 0;
-        for (int i = 0; i < line.length() - 1; i++) {
-            char c = line.charAt(i);
-            if (!inString && c == '$' && i + 1 < line.length() && line.charAt(i + 1) == '{') {
-                braceDepth++;
-                i++;
-                continue;
-            }
-            if (!inString && c == '}' && braceDepth > 0) { braceDepth--; continue; }
-            if (c == '"' && braceDepth == 0) inString = !inString;
-            if (!inString && braceDepth == 0 && c == '/' && line.charAt(i + 1) == '/') {
-                return line.substring(0, i);
-            }
-        }
-        return line;
     }
 
     private static String stripQuotes(String s) {
@@ -505,5 +646,99 @@ public class MaredScriptParser {
             sb.append(tokens.get(i));
         }
         return sb.toString();
+    }
+
+    // ============================================================
+    //  Cursor
+    // ============================================================
+
+    private static final class Cursor {
+        private final String text;
+        private int pos;
+        private int line;
+        private int lastHeadStart;
+
+        Cursor(String text) {
+            this.text = text;
+            this.pos = 0;
+            this.line = 1;
+            this.lastHeadStart = 0;
+        }
+
+        boolean eof() { return pos >= text.length(); }
+        int line() { return line; }
+        char peekChar() { return text.charAt(pos); }
+
+        char next() {
+            char c = text.charAt(pos++);
+            if (c == '\n') line++;
+            return c;
+        }
+
+        void skipWhitespaceAndNewlines() {
+            while (!eof()) {
+                char c = peekChar();
+                if (c == ' ' || c == '\t' || c == '\n') next();
+                else break;
+            }
+        }
+
+        void skipSeparators() {
+            while (!eof()) {
+                char c = peekChar();
+                if (c == ' ' || c == '\t' || c == '\n' || c == ';') {
+                    next();
+                    continue;
+                }
+                if (c == '/' && pos + 1 < text.length() && text.charAt(pos + 1) == '/') {
+                    while (!eof() && peekChar() != '\n') next();
+                    continue;
+                }
+                break;
+            }
+        }
+
+        String readHead() {
+            lastHeadStart = pos;
+            StringBuilder sb = new StringBuilder();
+            boolean inString = false;
+            int braceDepth = 0;
+
+            while (!eof()) {
+                char c = peekChar();
+
+                if (!inString && c == '$' && pos + 1 < text.length() && text.charAt(pos + 1) == '{') {
+                    braceDepth++;
+                    sb.append(next());
+                    sb.append(next());
+                    continue;
+                }
+                if (!inString && c == '}' && braceDepth > 0) {
+                    braceDepth--;
+                    sb.append(next());
+                    continue;
+                }
+                if (c == '"' && braceDepth == 0) {
+                    inString = !inString;
+                    sb.append(next());
+                    continue;
+                }
+                if (!inString && braceDepth == 0) {
+                    if (c == '{' || c == '}' || c == ';' || c == '\n') break;
+                    if (c == '/' && pos + 1 < text.length() && text.charAt(pos + 1) == '/') break;
+                }
+                sb.append(next());
+            }
+            return sb.toString();
+        }
+
+        void rewindHead(String head) {
+            for (int i = 0; i < head.length(); i++) {
+                if (pos > 0) {
+                    pos--;
+                    if (text.charAt(pos) == '\n') line--;
+                }
+            }
+        }
     }
 }

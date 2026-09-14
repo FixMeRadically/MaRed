@@ -55,6 +55,8 @@
   "mared.dialog.create": "Create",
   "mared.dialog.cancel": "Cancel",
   "mared.dialog.delete": "Delete",
+  "mared.dialog.persistent": "Persistent",
+  "mared.dialog.persistent_hint": "Auto-load on client start",
 
   "mared.log.info.selected": "[info] selected: %s",
   "mared.log.info.created_script": "[info] created script: %s",
@@ -90,11 +92,31 @@
   "mared.log.bind.replaced": "[bind] replaced: %s (%d commands)",
   "mared.log.bind.cleared": "[bind] cleared: %s",
   "mared.log.bind.fire": "[bind fire] %s",
+  "mared.log.bind.unblocked": "[bind] unblocked: %s",
+  "mared.log.bind.hold": "[bind] hold: %s (%d commands)",
+  "mared.log.bind.release": "[bind] release: %s (%d commands)",
+
+  "mared.log.block.unknown_key": "[block] unknown key: %s",
+  "mared.log.block.done": "[block] blocked: %s",
+  "mared.log.unblock.unknown_key": "[unblock] unknown key: %s",
+  "mared.log.unblock.done": "[unblock] done: %s",
+  "mared.log.toggle.unknown_key": "[toggle] unknown key: %s",
+  "mared.log.toggle.on": "[toggle] on: %s",
+  "mared.log.toggle.off": "[toggle] off: %s",
+
+  "mared.log.mc.no_player": "[mc] player not available",
+  "mared.log.mc.sent": "[mc] /%s",
+  "mared.log.mc.error": "[mc error] /%s — %s",
+
+  "mared.log.give.no_player": "[give] player not available",
+  "mared.log.give.sent": "[give] /%s",
+  "mared.log.give.error": "[give error] /%s — %s",
 
   "mared.log.mared.command": "[mared] → %s",
   "mared.log.mared.pause": "[mared] pause %d ticks",
   "mared.log.mared.pause_done": "[mared] pause finished",
   "mared.log.mared.all_done": "[mared] all commands executed",
+  "mared.log.mared.aborted": "[mared] script stopped",
   "mared.log.mared.break": "[mared] break",
   "mared.log.mared.break_out": "[mared] break — exiting %s",
   "mared.log.mared.continue": "[mared] continue",
@@ -106,6 +128,9 @@
   "mared.log.mared.call": "[mared] call %s",
   "mared.log.mared.while_limit": "[warn] while: iteration limit %d reached",
   "mared.log.mared.for_limit": "[warn] for: iteration limit %d reached",
+  "mared.log.mared.for_in_start": "[mared] for-in: $%s over $%s (%d items)",
+  "mared.log.mared.for_in_empty": "[mared] for-in: array $%s is empty",
+  "mared.log.mared.for_in_not_array": "[error] for-in: $%s is not an array",
   "mared.log.debug": "[debug] %s = %s",
   "mared.log.assert.ok": "[assert ok] %s",
   "mared.log.assert.fail": "[assert fail] %s — %s",
@@ -120,6 +145,7 @@
 
   "mared.help.set.desc": "Assign a variable",
   "mared.help.set.arg.name": "Assigns a value. Value may be a number, string, expression.",
+  "mared.help.set.arg.global": "Global variable — persists between script runs. Read with $global.name.",
 
   "mared.help.array.desc": "Declare an array",
   "mared.help.array.arg.name": "Creates a list. Elements may be numbers or strings.",
@@ -135,6 +161,26 @@
   "mared.help.bind.arg.replace": "Replace all handlers",
   "mared.help.bind.arg.clear": "Remove all handlers for key",
   "mared.help.bind.arg.block": "Block vanilla key action",
+  "mared.help.bind.arg.hold": "Execute every tick while key is held",
+  "mared.help.bind.arg.release": "Execute once when key is released",
+
+  "mared.help.on.desc": "Register an event handler",
+  "mared.help.on.arg.type": "Event type",
+  "mared.help.on.arg.add": "Add handler to existing (keeps previous)",
+  "mared.help.on.arg.replace": "Replace all previous handlers (default)",
+  "mared.help.on.arg.events": "right_click, left_click, middle_click, scroll_up, scroll_down, key_press, key_release, chat, tick_client, join, leave",
+
+  "mared.help.block_cmd.desc": "Block a key (adds to registry without a bind)",
+  "mared.help.block_cmd.arg.key": "Key name: W, Space, LeftClick, MouseMove, ...",
+
+  "mared.help.unblock.desc": "Remove block flag from a key (keeps the bind)",
+  "mared.help.unblock.arg.key": "Key name: W, Space, LeftClick, MouseMove, ...",
+
+  "mared.help.toggle.desc": "Toggle the block flag of a key on/off",
+  "mared.help.toggle.arg.key": "Key name: W, Space, LeftClick, MouseMove, ...",
+
+  "mared.help.mc.desc": "Run a vanilla Minecraft command from inside a Mared block",
+  "mared.help.mc.arg.cmd": "Any Minecraft command: time, weather, effect, summon, fill, ...",
 
   "mared.help.if.desc": "Conditional execution",
   "mared.help.if.arg.condition": "Comparison: == != > < >= <= contains.",
@@ -147,6 +193,7 @@
 
   "mared.help.for.desc": "For loop",
   "mared.help.for.arg.range": "Counter with inclusive bounds.",
+  "mared.help.for.arg.in": "Iterate over array elements: 'for $item in $items { ... }'",
 
   "mared.help.while.desc": "While loop",
   "mared.help.while.arg.condition": "Repeats while condition is true.",
@@ -162,6 +209,10 @@
 
   "mared.help.call.desc": "Call a function",
   "mared.help.call.arg.name": "Invokes a declared function.",
+  "mared.help.call.arg.return": "Assign return value: 'set x = call func(args)'",
+
+  "mared.help.return.desc": "Return a value from a function",
+  "mared.help.return.arg.expr": "Value to return. If empty — returns null.",
 
   "mared.help.debug.desc": "Print value to log",
   "mared.help.debug.arg.expr": "Logs the value of the expression.",
@@ -180,16 +231,24 @@
   "mared.help.world.desc": "Special variable — world name",
   "mared.help.world.arg.empty": "Substitutes the world name.",
 
+  "mared.help.global.desc": "Global variables — persist between runs",
+  "mared.help.global.arg.use": "Set with 'set global.name = value', read with '$global.name'",
+
   "mared.help.help.desc": "Mared syntax reference",
   "mared.help.help.arg.hybrid": "Outside { } — Minecraft commands. Inside { } — Mared commands.",
   "mared.help.help.arg.variables": "set name = value — declaration. Use $name in commands.",
   "mared.help.help.arg.special": "$self — player, $world — world name.",
   "mared.help.help.arg.conditions": "if <left> <op> <right> { ... } elif { ... } else { ... }.",
-  "mared.help.help.arg.loops": "repeat <N> { ... } / for $i = a to b { ... } / while <cond> { ... }",
-  "mared.help.help.arg.binds": "bind <key> [add|replace|clear|block] { ... }",
+  "mared.help.help.arg.loops": "repeat <N> { ... } / for $i = a to b { ... } / for $x in $items { ... } / while <cond> { ... }",
+  "mared.help.help.arg.binds": "bind <key> [add|replace|clear|block|hold|release] { ... } / block <key> / unblock <key> / toggle <key>",
   "mared.help.help.arg.expr": "Arithmetic, strings, lists, methods.",
-  "mared.help.help.arg.funcs": "func name($a) { ... } / call name(arg)",
+  "mared.help.help.arg.funcs": "func name($a) { ... } / call name(arg) / set x = call name(arg)",
   "mared.help.help.arg.arrays": "array items = [1,2,3]. Methods: push/pop/get/size/sort/map/filter.",
   "mared.help.help.arg.strings": "Methods: upper/lower/sub/find/replace/split/len.",
-  "mared.help.help.arg.hotkeys": "Ctrl+S — save. Delete — delete file."
+  "mared.help.help.arg.hotkeys": "Ctrl+S — save. Delete — delete file.",
+  "mared.help.help.arg.mc": "Use 'mc <command>' inside a Mared block to run vanilla Minecraft commands.",
+  "mared.help.help.arg.return": "return <expr> — exit function with value.",
+  "mared.help.help.arg.global": "set global.name = value — persists between script runs.",
+  "mared.help.help.arg.events": "on <event> { ... } — event handlers: right_click, block_break, kill, chat, ...",
+  "mared.help.help.arg.playervars": "Player vars: $hp, $x, $y, $z, $xp_level, $gamemode, $held_item, $dimension, $time, $weather, ..."
 }

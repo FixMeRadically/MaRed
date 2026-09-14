@@ -18,6 +18,9 @@ public class MaredScriptExecutor {
         public boolean breakRequested = false;
         public boolean continueRequested = false;
 
+        /** true, если этот кадр — тело функции, запущенное через call. */
+        public boolean functionCall = false;
+
         public Frame(List<MaredScriptCommand> commands) {
             this.commands = commands;
         }
@@ -35,6 +38,11 @@ public class MaredScriptExecutor {
     private final MaredScriptContext context;
     private final Deque<Frame> stack = new ArrayDeque<>();
     private boolean finished = false;
+    private boolean aborted = false;
+
+    /** Значение, установленное через return. null = нет возврата. */
+    private Object returnValue = null;
+    private boolean hasReturnValue = false;
 
     public MaredScriptExecutor(MaredScriptContext context, List<MaredScriptCommand> commands) {
         this.context = context;
@@ -65,7 +73,78 @@ public class MaredScriptExecutor {
         return f;
     }
 
+    public Frame pushFunctionBody(List<MaredScriptCommand> body, LoopOwner owner) {
+        Frame f = new Frame(body);
+        f.loopBody = true;
+        f.loopOwner = owner;
+        f.functionCall = true;
+        stack.push(f);
+        return f;
+    }
+
+    public Frame findEnclosingLoop() {
+        for (Frame f : stack) {
+            if (f.loopBody) return f;
+        }
+        return null;
+    }
+
+    /** Ближайший кадр-функция (тело вызова). */
+    public Frame findEnclosingFunction() {
+        for (Frame f : stack) {
+            if (f.functionCall) return f;
+        }
+        return null;
+    }
+
+    public void abortFramesUpTo(Frame target) {
+        while (!stack.isEmpty()) {
+            Frame top = stack.peek();
+            if (top == target) {
+                top.index = top.commands.size();
+                return;
+            }
+            stack.pop();
+        }
+    }
+
+    /**
+     * Прерывает все кадры до функции включительно.
+     * Используется return.
+     */
+    public void abortToFunction(Frame fnFrame) {
+        while (!stack.isEmpty()) {
+            Frame top = stack.peek();
+            if (top == fnFrame) {
+                top.index = top.commands.size();
+                return;
+            }
+            stack.pop();
+        }
+    }
+
+    // ---- Return value ----
+
+    public void setReturnValue(Object value) {
+        this.returnValue = value;
+        this.hasReturnValue = true;
+    }
+
+    public Object getReturnValue() {
+        return returnValue;
+    }
+
+    public boolean hasReturnValue() {
+        return hasReturnValue;
+    }
+
+    public void clearReturnValue() {
+        this.returnValue = null;
+        this.hasReturnValue = false;
+    }
+
     public void stopAll() {
+        aborted = true;
         while (!stack.isEmpty()) stack.pop().stop = true;
         finished = true;
     }
@@ -108,6 +187,8 @@ public class MaredScriptExecutor {
                 return;
             }
 
+            if (finished) return;
+
             if (f.stop) {
                 stack.pop();
                 continue;
@@ -126,7 +207,11 @@ public class MaredScriptExecutor {
         }
 
         if (stack.isEmpty()) {
-            context.log(MaredLang.get("mared.log.mared.all_done"));
+            if (aborted) {
+                context.log(MaredLang.get("mared.log.mared.aborted"));
+            } else {
+                context.log(MaredLang.get("mared.log.mared.all_done"));
+            }
             finished = true;
         }
     }

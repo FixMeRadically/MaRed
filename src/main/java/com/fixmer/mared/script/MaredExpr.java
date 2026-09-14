@@ -16,6 +16,9 @@ import java.util.List;
  *   - арифметика, сравнения, логика
  *   - скобки
  *   - функции: abs(x), len(s), random(1, 10), ...
+ *
+ * ВАЖНО: все числа приводятся к Long (целые) или Double (дробные).
+ * Integer / int / Short / Byte / Float автоматически конвертируются.
  */
 public final class MaredExpr {
 
@@ -76,15 +79,28 @@ public final class MaredExpr {
     //  Типы
     // -------------------------------------------------------------------
 
-    public static boolean isInt(Object v) { return v instanceof Long; }
-    public static boolean isFloat(Object v) { return v instanceof Double; }
-    public static boolean isNumber(Object v) { return v instanceof Long || v instanceof Double; }
+    public static boolean isInt(Object v) {
+        return v instanceof Long || v instanceof Integer
+            || v instanceof Short || v instanceof Byte;
+    }
+
+    public static boolean isFloat(Object v) {
+        return v instanceof Double || v instanceof Float;
+    }
+
+    public static boolean isNumber(Object v) {
+        return v instanceof Number;
+    }
+
     public static boolean isList(Object v) { return v instanceof List; }
 
+    /**
+     * Приводит любое число к double.
+     * null → 0, строка "123" → 123, Integer → double, ...
+     */
     public static double toNumber(Object v) {
         if (v == null) return 0;
-        if (v instanceof Long l) return l.doubleValue();
-        if (v instanceof Double d) return d;
+        if (v instanceof Number n) return n.doubleValue();
         if (v instanceof Boolean b) return b ? 1 : 0;
         if (v instanceof String s) {
             try {
@@ -95,10 +111,12 @@ public final class MaredExpr {
         return 0;
     }
 
+    /**
+     * Приводит любое число к long.
+     */
     public static long toLong(Object v) {
         if (v == null) return 0;
-        if (v instanceof Long l) return l;
-        if (v instanceof Double d) return d.longValue();
+        if (v instanceof Number n) return n.longValue();
         if (v instanceof Boolean b) return b ? 1 : 0;
         if (v instanceof String s) {
             try {
@@ -109,6 +127,10 @@ public final class MaredExpr {
         return 0;
     }
 
+    /**
+     * Оборачивает double в Long, если это целое число.
+     * 5.0 → 5L, 3.14 → 3.14
+     */
     public static Object num(double d) {
         if (d == Math.floor(d) && !Double.isInfinite(d)
             && d >= Long.MIN_VALUE && d <= Long.MAX_VALUE) {
@@ -120,7 +142,9 @@ public final class MaredExpr {
     public static String stringify(Object v) {
         if (v == null) return "";
         if (v instanceof Long l) return l.toString();
+        if (v instanceof Integer i) return i.toString();
         if (v instanceof Double d) return String.valueOf(d);
+        if (v instanceof Float f) return String.valueOf(f);
         if (v instanceof Boolean b) return b ? "true" : "false";
         if (v instanceof List<?> list) {
             StringBuilder sb = new StringBuilder("[");
@@ -142,8 +166,7 @@ public final class MaredExpr {
     public static boolean truthy(Object v) {
         if (v == null) return false;
         if (v instanceof Boolean b) return b;
-        if (v instanceof Long l) return l != 0;
-        if (v instanceof Double d) return d != 0;
+        if (v instanceof Number n) return n.doubleValue() != 0;
         if (v instanceof String s) return !s.isEmpty() && !s.equals("0")
             && !s.equalsIgnoreCase("false");
         if (v instanceof List<?> list) return !list.isEmpty();
@@ -218,29 +241,23 @@ public final class MaredExpr {
             if (c == '$') {
                 i++;
                 int start = i;
-                // Читаем буквы/цифры/_ как имя
                 while (i < n && (Character.isLetterOrDigit(src.charAt(i))
                     || src.charAt(i) == '_')) i++;
 
-                // Смотрим — идёт ли ".", за которым либо "method(" либо ".prop"
                 while (i < n && src.charAt(i) == '.' && i + 1 < n) {
-                    // Найти конец следующего идентификатора
                     int j = i + 1;
                     while (j < n && (Character.isLetterOrDigit(src.charAt(j))
                         || src.charAt(j) == '_')) j++;
 
-                    if (j == i + 1) break; // после "." ничего нет — выходим
+                    if (j == i + 1) break;
 
-                    // Пропустить пробелы, посмотреть: ( — значит метод
                     int k = j;
                     while (k < n && Character.isWhitespace(src.charAt(k))) k++;
 
                     if (k < n && src.charAt(k) == '(') {
-                        // Метод: закрываем имя переменной здесь
                         break;
                     }
 
-                    // Иначе — часть имени переменной
                     i = j;
                 }
 
@@ -443,7 +460,6 @@ public final class MaredExpr {
             return parsePostfix();
         }
 
-        /** После primary идут: [i] — индекс, .method(args) — метод. */
         Object parsePostfix() {
             Object value = parsePrimary();
             while (true) {
@@ -452,7 +468,6 @@ public final class MaredExpr {
                     expect(TokType.RBRACKET);
                     value = indexValue(value, idx);
                 } else if (match(TokType.DOT)) {
-                    // Метод: .name(args)
                     Token nameTok = next();
                     if (nameTok.type != TokType.IDENT) {
                         throw new RuntimeException("expr: expected method name after '.'");
@@ -544,6 +559,14 @@ public final class MaredExpr {
     //  Арифметика с типами
     // -------------------------------------------------------------------
 
+    /**
+     * a + b.
+     * Правила:
+     *   list + list    → merge
+     *   string + x     → конкатенация
+     *   number + number → сложение (Long если оба целые, иначе Double)
+     *   null + number  → number
+     */
     private static Object addValues(Object a, Object b) {
         if (a instanceof List<?> la && b instanceof List<?> lb) {
             List<Object> merged = new ArrayList<>(la);
@@ -553,26 +576,64 @@ public final class MaredExpr {
         if (a instanceof String || b instanceof String) {
             return stringify(a) + stringify(b);
         }
+        if (a == null) return b;
+        if (b == null) return a;
         if (a instanceof Long la && b instanceof Long lb) {
             return la + lb;
+        }
+        if (a instanceof Number na && b instanceof Number nb) {
+            // Оба — числа. Если одно Double — результат Double.
+            if (a instanceof Double || b instanceof Double) {
+                return na.doubleValue() + nb.doubleValue();
+            }
+            // Оба целые (Long, Integer, ...) → Long
+            return na.longValue() + nb.longValue();
         }
         return toNumber(a) + toNumber(b);
     }
 
     private static Object subValues(Object a, Object b) {
+        if (a == null) a = 0L;
+        if (b == null) b = 0L;
         if (a instanceof Long la && b instanceof Long lb) return la - lb;
+        if (a instanceof Number na && b instanceof Number nb) {
+            if (a instanceof Double || b instanceof Double) {
+                return na.doubleValue() - nb.doubleValue();
+            }
+            return na.longValue() - nb.longValue();
+        }
         return toNumber(a) - toNumber(b);
     }
 
     private static Object mulValues(Object a, Object b) {
+        if (a == null) a = 0L;
+        if (b == null) b = 0L;
         if (a instanceof Long la && b instanceof Long lb) return la * lb;
+        if (a instanceof Number na && b instanceof Number nb) {
+            if (a instanceof Double || b instanceof Double) {
+                return na.doubleValue() * nb.doubleValue();
+            }
+            return na.longValue() * nb.longValue();
+        }
         return toNumber(a) * toNumber(b);
     }
 
     private static Object divValues(Object a, Object b) {
+        if (a == null) a = 0L;
+        if (b == null) b = 0L;
         if (a instanceof Long la && b instanceof Long lb) {
             if (lb == 0) return 0L;
             return la / lb;
+        }
+        if (a instanceof Number na && b instanceof Number nb) {
+            if (a instanceof Double || b instanceof Double) {
+                double d = nb.doubleValue();
+                if (d == 0) return 0.0;
+                return na.doubleValue() / d;
+            }
+            long lb2 = nb.longValue();
+            if (lb2 == 0) return 0L;
+            return na.longValue() / lb2;
         }
         double d = toNumber(b);
         if (d == 0) return 0.0;
@@ -580,9 +641,21 @@ public final class MaredExpr {
     }
 
     private static Object modValues(Object a, Object b) {
+        if (a == null) a = 0L;
+        if (b == null) b = 0L;
         if (a instanceof Long la && b instanceof Long lb) {
             if (lb == 0) return 0L;
             return la % lb;
+        }
+        if (a instanceof Number na && b instanceof Number nb) {
+            if (a instanceof Double || b instanceof Double) {
+                double d = nb.doubleValue();
+                if (d == 0) return 0.0;
+                return na.doubleValue() % d;
+            }
+            long lb2 = nb.longValue();
+            if (lb2 == 0) return 0L;
+            return na.longValue() % lb2;
         }
         double d = toNumber(b);
         if (d == 0) return 0.0;

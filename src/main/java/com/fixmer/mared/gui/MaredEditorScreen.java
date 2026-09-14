@@ -9,7 +9,10 @@ import org.lwjgl.glfw.GLFW;
 
 import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.script.MaredBindRegistry;
+import com.fixmer.mared.script.MaredEventRegistry;
 import com.fixmer.mared.script.MaredLang;
+import com.fixmer.mared.script.MaredPersistentLoader;
+import com.fixmer.mared.script.MaredPersistentStorage;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
 import com.fixmer.mared.script.MaredScriptParser;
@@ -49,6 +52,7 @@ public class MaredEditorScreen extends Screen {
     private static final int BTN_HOVER   = 0xFF3E3E42;
     private static final int FILTER_BG   = 0xFF0A0A10;
     private static final int DANGER      = 0xFFFF4444;
+    private static final int PERSISTENT_COLOR = 0xFF55FF88;
 
     private static final int SCRIPTS_TOP  = 0xFFFF55FF;
     private static final int SCRIPTS_BOT  = 0xFFDD33DD;
@@ -73,6 +77,7 @@ public class MaredEditorScreen extends Screen {
     private static final int TOGGLE_W = 22, TOGGLE_H = 12;
     private static final int ACTIVE_BINDS_W = 220;
     private static final int BIND_DEL_SZ = 10;
+    private static final int PERSISTENT_STRIPE_W = 4;
 
     private enum SidebarState { CLOSED, STRIP, FULL }
 
@@ -109,10 +114,8 @@ public class MaredEditorScreen extends Screen {
     private final List<AbstractWidget> toolButtons = new ArrayList<>();
     private MaredMultiLineEditBox editor;
 
-    /** Ленивая инициализация — заполняется при первом обращении. */
     private static List<MaredCommandRegistry.CommandInfo> MRED_COMMANDS = null;
 
-    /** Заполнить список Mared-команд с локализованными описаниями. */
     private static void ensureMredCommands() {
         if (MRED_COMMANDS != null) return;
         MRED_COMMANDS = new ArrayList<>();
@@ -130,7 +133,9 @@ public class MaredEditorScreen extends Screen {
         MRED_COMMANDS.add(mk("set",
             MaredLang.get("mared.help.set.desc"),
             "set count = 5",
-            args("name = value", MaredLang.get("mared.help.set.arg.name"), "set count = 5", "set name = \"Steve\"")));
+            args("name = value", MaredLang.get("mared.help.set.arg.name"), "set count = 5", "set name = \"Steve\""),
+            args("global.name", MaredLang.get("mared.help.set.arg.global"),
+                "set global.hp = 20", "set global.count = $global.count + 1")));
 
         MRED_COMMANDS.add(mk("array",
             MaredLang.get("mared.help.array.desc"),
@@ -152,7 +157,42 @@ public class MaredEditorScreen extends Screen {
             args("add", MaredLang.get("mared.help.bind.arg.add"), "bind R add { say \"second\" }"),
             args("replace", MaredLang.get("mared.help.bind.arg.replace"), "bind R replace { say \"new\" }"),
             args("clear", MaredLang.get("mared.help.bind.arg.clear"), "bind Q clear"),
-            args("block", MaredLang.get("mared.help.bind.arg.block"), "bind W block { say \"locked\" }")));
+            args("block", MaredLang.get("mared.help.bind.arg.block"), "bind W block { say \"locked\" }"),
+            args("hold", MaredLang.get("mared.help.bind.arg.hold"), "bind W hold { say \"held\" }"),
+            args("release", MaredLang.get("mared.help.bind.arg.release"), "bind W release { say \"released\" }")));
+
+        MRED_COMMANDS.add(mk("on",
+            MaredLang.get("mared.help.on.desc"),
+            "on right_click { say \"clicked\" }",
+            args("event", MaredLang.get("mared.help.on.arg.type"),
+                "on right_click { say \"clicked\" }"),
+            args("add", MaredLang.get("mared.help.on.arg.add"),
+                "on right_click add { say \"second\" }"),
+            args("replace", MaredLang.get("mared.help.on.arg.replace"),
+                "on right_click replace { say \"only\" }"),
+            args("events", MaredLang.get("mared.help.on.arg.events"),
+                "on block_break { ... }", "on kill { ... }", "on chat { ... }")));
+
+        MRED_COMMANDS.add(mk("block",
+            MaredLang.get("mared.help.block_cmd.desc"),
+            "block W",
+            args("key", MaredLang.get("mared.help.block_cmd.arg.key"), "block W", "block Space")));
+
+        MRED_COMMANDS.add(mk("unblock",
+            MaredLang.get("mared.help.unblock.desc"),
+            "unblock W",
+            args("key", MaredLang.get("mared.help.unblock.arg.key"), "unblock W", "unblock Space")));
+
+        MRED_COMMANDS.add(mk("toggle",
+            MaredLang.get("mared.help.toggle.desc"),
+            "toggle W",
+            args("key", MaredLang.get("mared.help.toggle.arg.key"), "toggle W", "toggle MouseMove")));
+
+        MRED_COMMANDS.add(mk("mc",
+            MaredLang.get("mared.help.mc.desc"),
+            "mc time set day",
+            args("command", MaredLang.get("mared.help.mc.arg.cmd"),
+                "mc time set day", "mc weather clear", "mc effect give @s speed 10 1")));
 
         MRED_COMMANDS.add(mk("if",
             MaredLang.get("mared.help.if.desc"),
@@ -170,7 +210,9 @@ public class MaredEditorScreen extends Screen {
         MRED_COMMANDS.add(mk("for",
             MaredLang.get("mared.help.for.desc"),
             "for $i = 1 to 5 { say $i }",
-            args("var = from to to", MaredLang.get("mared.help.for.arg.range"), "for $i = 1 to 5 { say $i }")));
+            args("var = from to to", MaredLang.get("mared.help.for.arg.range"), "for $i = 1 to 5 { say $i }"),
+            args("var in array", MaredLang.get("mared.help.for.arg.in"),
+                "for $item in $items { say $item }", "for $name in $names { give @s $name 1 }")));
 
         MRED_COMMANDS.add(mk("while",
             MaredLang.get("mared.help.while.desc"),
@@ -195,7 +237,14 @@ public class MaredEditorScreen extends Screen {
         MRED_COMMANDS.add(mk("call",
             MaredLang.get("mared.help.call.desc"),
             "call greet(\"Steve\")",
-            args("name(args)", MaredLang.get("mared.help.call.arg.name"), "call greet(\"Steve\")")));
+            args("name(args)", MaredLang.get("mared.help.call.arg.name"), "call greet(\"Steve\")"),
+            args("return", MaredLang.get("mared.help.call.arg.return"),
+                "set x = call add(2, 3)", "set msg = call greet(\"Steve\")")));
+
+        MRED_COMMANDS.add(mk("return",
+            MaredLang.get("mared.help.return.desc"),
+            "return $a + $b",
+            args("expression", MaredLang.get("mared.help.return.arg.expr"), "return 5", "return $x + $y")));
 
         MRED_COMMANDS.add(mk("debug",
             MaredLang.get("mared.help.debug.desc"),
@@ -224,6 +273,12 @@ public class MaredEditorScreen extends Screen {
             "say \"World: $world\"",
             args("", MaredLang.get("mared.help.world.arg.empty"), "say \"World: $world\"")));
 
+        MRED_COMMANDS.add(mk("global",
+            MaredLang.get("mared.help.global.desc"),
+            "set global.hp = 20",
+            args("set/get", MaredLang.get("mared.help.global.arg.use"),
+                "set global.hp = 20", "say \"HP: $global.hp\"", "set global.n = $global.n + 1")));
+
         MRED_COMMANDS.add(mk("help",
             MaredLang.get("mared.help.help.desc"),
             "help",
@@ -237,7 +292,13 @@ public class MaredEditorScreen extends Screen {
             args("functions", MaredLang.get("mared.help.help.arg.funcs"), "func hi($n) { say $n }"),
             args("arrays", MaredLang.get("mared.help.help.arg.arrays"), "$items.push(4)"),
             args("strings", MaredLang.get("mared.help.help.arg.strings"), "$name.upper()"),
-            args("hotkeys", MaredLang.get("mared.help.help.arg.hotkeys"), "Ctrl+S")));
+            args("hotkeys", MaredLang.get("mared.help.help.arg.hotkeys"), "Ctrl+S"),
+            args("mc", MaredLang.get("mared.help.help.arg.mc"), "mc time set day", "mc weather clear"),
+            args("return", MaredLang.get("mared.help.help.arg.return"), "return $a + $b"),
+            args("global", MaredLang.get("mared.help.help.arg.global"), "set global.hp = 20"),
+            args("events", MaredLang.get("mared.help.help.arg.events"), "on right_click { say \"clicked\" }"),
+            args("player vars", MaredLang.get("mared.help.help.arg.playervars"),
+                "$hp, $x, $y, $z, $xp_level, $gamemode, $held_item, ...")));
     }
 
     private static MaredCommandRegistry.Argument args(String value, String desc, String... examples) {
@@ -273,17 +334,18 @@ public class MaredEditorScreen extends Screen {
         int right = this.width - PAD;
 
         String[][] defs = {
-            {MaredLang.get("mared.ui.close"),    "50", "FF5555"},
-            {MaredLang.get("mared.ui.run"),      "40", "55FF55"},
-            {MaredLang.get("mared.ui.save"),     "60", "55AAFF"},
-            {MaredLang.get("mared.ui.delete"),   "60", "FF4444"},
-            {MaredLang.get("mared.ui.import"),   "60", "FFAA00"},
-            {MaredLang.get("mared.ui.settings"), "70", "AAAAFF"},
-            {MaredLang.get("mared.ui.new"),      "50", "FF55FF"}
+            {MaredLang.get("mared.ui.close"),             "50", "FF5555"},
+            {MaredLang.get("mared.ui.run"),               "40", "55FF55"},
+            {MaredLang.get("mared.ui.save"),              "60", "55AAFF"},
+            {MaredLang.get("mared.ui.delete"),            "60", "FF4444"},
+            {MaredLang.get("mared.ui.import"),            "60", "FFAA00"},
+            {MaredLang.get("mared.ui.settings"),          "70", "AAAAFF"},
+            {MaredLang.get("mared.ui.reload_persistent"), "80", "55FF88"},
+            {MaredLang.get("mared.ui.new"),               "50", "FF55FF"}
         };
         Runnable[] actions = {
             this::onClose, this::onRun, this::onSave, this::onDelete,
-            this::onImport, this::onSettings, this::onNew
+            this::onImport, this::onSettings, this::onReloadPersistent, this::onNew
         };
 
         for (int i = 0; i < defs.length; i++) {
@@ -425,23 +487,38 @@ public class MaredEditorScreen extends Screen {
 
     private void onNew() {
         if (isScripts()) {
-            Minecraft.getInstance().setScreen(new MaredNameDialog(this, "New script", name -> {
-                if (MaredScriptStorage.createScript(name)) {
-                    addLog(MaredLang.format("mared.log.info.created_script", name));
-                    selectedFile = name;
-                    reloadFiles();
-                    loadIntoEditor();
-                } else addLog(MaredLang.format("mared.log.error.failed_create", name));
-            }, SCRIPTS_TOP, false));
+            Minecraft.getInstance().setScreen(new MaredNameDialog(this, "New script",
+                (name, persistent) -> {
+                    if (MaredScriptStorage.createScript(name)) {
+                        addLog(MaredLang.format("mared.log.info.created_script", name));
+                        selectedFile = name;
+                        reloadFiles();
+                        loadIntoEditor();
+                    } else addLog(MaredLang.format("mared.log.error.failed_create", name));
+                },
+                SCRIPTS_TOP, false));
         } else if (isCommands()) {
-            Minecraft.getInstance().setScreen(new MaredNameDialog(this, "New command file", name -> {
-                if (MaredCommandStorage.createCommand(name)) {
-                    addLog(MaredLang.format("mared.log.info.created_command", name));
-                    selectedFile = name;
-                    reloadFiles();
-                    loadIntoEditor();
-                } else addLog(MaredLang.format("mared.log.error.failed_create", name));
-            }, COMMANDS_TOP, true));
+            Minecraft.getInstance().setScreen(new MaredNameDialog(this, "New command file",
+                (name, persistent) -> {
+                    if (MaredCommandStorage.createCommand(name)) {
+                        if (persistent) {
+                            String content = MaredCommandStorage.readCommand(name);
+                            if (content == null) content = "";
+                            if (!content.startsWith("#persistent")) {
+                                content = "#persistent\n" + content;
+                                MaredCommandStorage.writeCommand(name, content);
+                            }
+                            MaredPersistentStorage.add(name);
+                            addLog("[mared] created persistent: " + name);
+                        } else {
+                            addLog(MaredLang.format("mared.log.info.created_command", name));
+                        }
+                        selectedFile = name;
+                        reloadFiles();
+                        loadIntoEditor();
+                    } else addLog(MaredLang.format("mared.log.error.failed_create", name));
+                },
+                COMMANDS_TOP, true));
         }
     }
 
@@ -450,6 +527,13 @@ public class MaredEditorScreen extends Screen {
 
     private void onSettings() {
         Minecraft.getInstance().setScreen(new MaredSettingsScreen(this));
+    }
+
+    private void onReloadPersistent() {
+        MaredEventRegistry.clearAllPersistent();
+        MaredPersistentLoader.reset();
+        MaredPersistentLoader.loadAll();
+        addLog("[mared] persistent scripts reloaded");
     }
 
     private void onDelete(String fileName) {
@@ -462,6 +546,7 @@ public class MaredEditorScreen extends Screen {
                     ? MaredScriptStorage.deleteScript(fileName)
                     : MaredCommandStorage.deleteCommand(fileName);
                 if (ok) {
+                    MaredPersistentStorage.remove(fileName);
                     addLog(MaredLang.format("mared.log.info.deleted", fileName));
                     if (fileName.equals(selectedFile)) selectedFile = null;
                     reloadFiles();
@@ -504,6 +589,12 @@ public class MaredEditorScreen extends Screen {
     private void runScript() {
         String text = editor.getValue();
         if (text == null || text.trim().isEmpty()) { addLog(MaredLang.get("mared.log.warn.script_empty")); return; }
+
+        if (text.startsWith("#persistent")) {
+            int nl = text.indexOf('\n');
+            text = (nl >= 0) ? text.substring(nl + 1) : "";
+        }
+
         Minecraft mc = Minecraft.getInstance();
         MinecraftServer server = mc.getSingleplayerServer();
         if (server == null) { addLog(MaredLang.get("mared.log.error.server_unavailable")); return; }
@@ -519,12 +610,19 @@ public class MaredEditorScreen extends Screen {
         if (commands.isEmpty()) { addLog(MaredLang.get("mared.log.warn.script_empty")); return; }
         addLog(MaredLang.format("mared.log.run.script", selectedFile, commands.size()));
         MaredScriptContext ctx = new MaredScriptContext(initiator, server, this::addLog);
+        ctx.refreshPlayerData();
         MaredScriptRunner.start(new MaredScriptExecutor(ctx, commands));
     }
 
     private void runCommandFile() {
         String text = editor.getValue();
         if (text == null || text.trim().isEmpty()) { addLog(MaredLang.get("mared.log.warn.file_empty")); return; }
+
+        if (text.startsWith("#persistent")) {
+            int nl = text.indexOf('\n');
+            text = (nl >= 0) ? text.substring(nl + 1) : "";
+        }
+
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.player.connection == null) {
             addLog(MaredLang.get("mared.log.error.player_unavailable"));
@@ -598,6 +696,12 @@ public class MaredEditorScreen extends Screen {
 
     private void runMaredBlock(List<String> blockLines, int startLine) {
         String text = String.join("\n", blockLines);
+
+        if (text.startsWith("#persistent")) {
+            int nl = text.indexOf('\n');
+            text = (nl >= 0) ? text.substring(nl + 1) : "";
+        }
+
         Minecraft mc = Minecraft.getInstance();
         MinecraftServer server = mc.getSingleplayerServer();
         if (server == null) { addLog(MaredLang.get("mared.log.error.server_unavailable")); return; }
@@ -618,6 +722,7 @@ public class MaredEditorScreen extends Screen {
 
         addLog(MaredLang.format("mared.log.mared.block_ready", startLine, commands.size()));
         MaredScriptContext ctx = new MaredScriptContext(initiator, server, this::addLog);
+        ctx.refreshPlayerData();
         MaredScriptRunner.start(new MaredScriptExecutor(ctx, commands));
     }
 
@@ -783,6 +888,17 @@ public class MaredEditorScreen extends Screen {
             int itemY = listY + i * ITEM_H;
             int delX = this.width - PAD - BIND_DEL_SZ;
             int delY = itemY + (ITEM_H - 2 - BIND_DEL_SZ) / 2;
+
+            if (MaredBindRegistry.hasBlocking(key)) {
+                int unlockX = delX - BIND_DEL_SZ - 4;
+                int unlockY = delY;
+                if (MaredUi.hovered(mx, my, unlockX, unlockY, BIND_DEL_SZ, BIND_DEL_SZ)) {
+                    MaredBindRegistry.unblock(key);
+                    addLog(MaredLang.format("mared.log.bind.unblocked", key));
+                    return true;
+                }
+            }
+
             if (MaredUi.hovered(mx, my, delX, delY, BIND_DEL_SZ, BIND_DEL_SZ)) {
                 MaredBindRegistry.clear(key);
                 addLog(MaredLang.format("mared.log.bind.removed", key));
@@ -1219,6 +1335,16 @@ public class MaredEditorScreen extends Screen {
                 delHover ? 0xFF663333 : 0xFF3A2020);
             MaredUi.outline(g, delX, delY, BIND_DEL_SZ, BIND_DEL_SZ, DANGER);
             MaredUi.text(g, this.font, "✕", delX + 1, delY + 1, DANGER);
+
+            if (blocking) {
+                int unlockX = delX - BIND_DEL_SZ - 4;
+                int unlockY = delY;
+                boolean unlockHover = MaredUi.hovered(mouseX, mouseY, unlockX, unlockY, BIND_DEL_SZ, BIND_DEL_SZ);
+                MaredUi.rect(g, unlockX, unlockY, unlockX + BIND_DEL_SZ, unlockY + BIND_DEL_SZ,
+                    unlockHover ? 0xFF336633 : 0xFF203A20);
+                MaredUi.outline(g, unlockX, unlockY, BIND_DEL_SZ, BIND_DEL_SZ, 0xFF55FF55);
+                MaredUi.text(g, this.font, "U", unlockX + 2, unlockY + 1, 0xFF55FF55);
+            }
         }
 
         if (keys.size() > visible) {
@@ -1233,12 +1359,21 @@ public class MaredEditorScreen extends Screen {
     private int logColor(String line) {
         if (line.contains("[error]") || line.contains("[ошибка]")) return 0xFFFF5555;
         if (line.contains("[warn]") || line.contains("[предупр]"))   return 0xFFFFAA00;
+        if (line.contains("[give error]"))                           return 0xFFFF5555;
+        if (line.contains("[give]"))                                 return 0xFF55FF88;
+        if (line.contains("[mc error]"))                             return 0xFFFF5555;
+        if (line.contains("[mc]"))                                   return 0xFF88DDFF;
         if (line.contains("[cmd]"))                                  return 0xFF88DDFF;
         if (line.contains("[cmd error]"))                            return 0xFFFF5555;
-        if (line.contains("[mared]"))                                return 0xFF55FF88;
         if (line.contains("[mared parse]"))                          return 0xFFFF5555;
+        if (line.contains("[mared]"))                                return 0xFF55FF88;
         if (line.contains("[bind fire]"))                            return 0xFFAA55FF;
         if (line.contains("[bind]"))                                 return 0xFFFF55FF;
+        if (line.contains("[unblock]"))                              return 0xFF55FF55;
+        if (line.contains("[block]"))                                return 0xFFFFAA00;
+        if (line.contains("[toggle]"))                               return 0xFF55AAFF;
+        if (line.contains("[assert fail]"))                          return 0xFFFF5555;
+        if (line.contains("[assert ok]"))                            return 0xFF55FF88;
         if (line.contains("[run]") || line.contains("[запуск]"))     return 0xFFFFD700;
         if (line.contains("[info]") || line.contains("[инфо]"))      return 0xFFAAAAAA;
         if (line.contains("[auto-save]") || line.contains("[автосейв]")) return 0xFF88DDFF;
@@ -1283,7 +1418,14 @@ public class MaredEditorScreen extends Screen {
                 accentTop(), accentBottom(),
                 selColor(accentTop()), ITEM_HOVER, ITEM_NORMAL,
                 (gr, f, idx, ix, iy, iw, ih, hov, sel) -> {
-                    MaredUi.text(gr, f, fileNames.get(idx), ix + 4, iy + 2, TEXT);
+                    String fname = fileNames.get(idx);
+
+                    // Полоска persistent (только для Commands) — на всю высоту строки
+                    if (isCommands() && MaredPersistentStorage.isPersistent(fname)) {
+                        MaredUi.rect(gr, ix, iy, ix + PERSISTENT_STRIPE_W, iy + ih, PERSISTENT_COLOR);
+                    }
+
+                    MaredUi.text(gr, f, fname, ix + 4, iy + 2, TEXT);
                     int delX = ix + iw - FILE_DEL_SZ;
                     int delY = iy + (ih - FILE_DEL_SZ) / 2;
                     boolean dHov = MaredUi.hovered(mouseX, mouseY, delX, delY, FILE_DEL_SZ, FILE_DEL_SZ);

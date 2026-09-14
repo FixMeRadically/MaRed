@@ -55,6 +55,8 @@
   "mared.dialog.create": "Создать",
   "mared.dialog.cancel": "Отмена",
   "mared.dialog.delete": "Удалить",
+  "mared.dialog.persistent": "Persistent",
+  "mared.dialog.persistent_hint": "Автозагрузка при старте клиента",
 
   "mared.log.info.selected": "[инфо] выбран: %s",
   "mared.log.info.created_script": "[инфо] создан скрипт: %s",
@@ -90,11 +92,31 @@
   "mared.log.bind.replaced": "[bind] заменено: %s (%d команд)",
   "mared.log.bind.cleared": "[bind] снято: %s",
   "mared.log.bind.fire": "[bind fire] %s",
+  "mared.log.bind.unblocked": "[bind] разблокировано: %s",
+  "mared.log.bind.hold": "[bind] удержание: %s (%d команд)",
+  "mared.log.bind.release": "[bind] отпускание: %s (%d команд)",
+
+  "mared.log.block.unknown_key": "[block] неизвестная клавиша: %s",
+  "mared.log.block.done": "[block] заблокировано: %s",
+  "mared.log.unblock.unknown_key": "[unblock] неизвестная клавиша: %s",
+  "mared.log.unblock.done": "[unblock] снято: %s",
+  "mared.log.toggle.unknown_key": "[toggle] неизвестная клавиша: %s",
+  "mared.log.toggle.on": "[toggle] включено: %s",
+  "mared.log.toggle.off": "[toggle] выключено: %s",
+
+  "mared.log.mc.no_player": "[mc] игрок недоступен",
+  "mared.log.mc.sent": "[mc] /%s",
+  "mared.log.mc.error": "[mc error] /%s — %s",
+
+  "mared.log.give.no_player": "[give] игрок недоступен",
+  "mared.log.give.sent": "[give] /%s",
+  "mared.log.give.error": "[give error] /%s — %s",
 
   "mared.log.mared.command": "[mared] → %s",
   "mared.log.mared.pause": "[mared] пауза %d тиков",
   "mared.log.mared.pause_done": "[mared] пауза завершена",
   "mared.log.mared.all_done": "[mared] все команды выполнены",
+  "mared.log.mared.aborted": "[mared] скрипт остановлен",
   "mared.log.mared.break": "[mared] break",
   "mared.log.mared.break_out": "[mared] break — выход из %s",
   "mared.log.mared.continue": "[mared] continue",
@@ -106,6 +128,9 @@
   "mared.log.mared.call": "[mared] вызов %s",
   "mared.log.mared.while_limit": "[предупр] while: превышен лимит %d итераций",
   "mared.log.mared.for_limit": "[предупр] for: превышен лимит %d итераций",
+  "mared.log.mared.for_in_start": "[mared] for-in: $%s по $%s (%d элементов)",
+  "mared.log.mared.for_in_empty": "[mared] for-in: массив $%s пуст",
+  "mared.log.mared.for_in_not_array": "[ошибка] for-in: $%s не является массивом",
   "mared.log.debug": "[debug] %s = %s",
   "mared.log.assert.ok": "[assert ok] %s",
   "mared.log.assert.fail": "[assert fail] %s — %s",
@@ -120,6 +145,7 @@
 
   "mared.help.set.desc": "Установить переменную",
   "mared.help.set.arg.name": "Присваивает значение. Может быть число, строка, выражение.",
+  "mared.help.set.arg.global": "Глобальная переменная — сохраняется между запусками. Читать как $global.name.",
 
   "mared.help.array.desc": "Объявить массив",
   "mared.help.array.arg.name": "Создаёт список. Элементы — числа или строки.",
@@ -135,6 +161,26 @@
   "mared.help.bind.arg.replace": "Заменить все обработчики",
   "mared.help.bind.arg.clear": "Удалить все обработчики для клавиши",
   "mared.help.bind.arg.block": "Заблокировать стандартное действие клавиши",
+  "mared.help.bind.arg.hold": "Выполнять каждый tick, пока клавиша удерживается",
+  "mared.help.bind.arg.release": "Выполнять один раз при отпускании клавиши",
+
+  "mared.help.on.desc": "Зарегистрировать обработчик события",
+  "mared.help.on.arg.type": "Тип события",
+  "mared.help.on.arg.add": "Добавить обработчик (предыдущие остаются)",
+  "mared.help.on.arg.replace": "Заменить все предыдущие обработчики (по умолчанию)",
+  "mared.help.on.arg.events": "right_click, left_click, middle_click, scroll_up, scroll_down, key_press, key_release, chat, tick_client, join, leave",
+
+  "mared.help.block_cmd.desc": "Заблокировать клавишу (без бинда)",
+  "mared.help.block_cmd.arg.key": "Имя клавиши: W, Space, LeftClick, MouseMove, ...",
+
+  "mared.help.unblock.desc": "Снять блокировку с клавиши (бинд остаётся)",
+  "mared.help.unblock.arg.key": "Имя клавиши: W, Space, LeftClick, MouseMove, ...",
+
+  "mared.help.toggle.desc": "Переключить блокировку клавиши вкл/выкл",
+  "mared.help.toggle.arg.key": "Имя клавиши: W, Space, LeftClick, MouseMove, ...",
+
+  "mared.help.mc.desc": "Выполнить ванильную команду Minecraft внутри Mared-блока",
+  "mared.help.mc.arg.cmd": "Любая команда Minecraft: time, weather, effect, summon, fill, ...",
 
   "mared.help.if.desc": "Условное выполнение",
   "mared.help.if.arg.condition": "Сравнение: == != > < >= <= contains.",
@@ -147,6 +193,7 @@
 
   "mared.help.for.desc": "Цикл for",
   "mared.help.for.arg.range": "Счётчик с включительными границами.",
+  "mared.help.for.arg.in": "Итерация по элементам массива: 'for $item in $items { ... }'",
 
   "mared.help.while.desc": "Цикл while",
   "mared.help.while.arg.condition": "Повторяет, пока условие истинно.",
@@ -162,6 +209,10 @@
 
   "mared.help.call.desc": "Вызвать функцию",
   "mared.help.call.arg.name": "Вызывает объявленную функцию.",
+  "mared.help.call.arg.return": "Присвоить результат: 'set x = call func(args)'",
+
+  "mared.help.return.desc": "Вернуть значение из функции",
+  "mared.help.return.arg.expr": "Значение возврата. Если пусто — вернёт null.",
 
   "mared.help.debug.desc": "Вывести значение в лог",
   "mared.help.debug.arg.expr": "Записывает значение выражения в лог.",
@@ -180,16 +231,24 @@
   "mared.help.world.desc": "Спецпеременная — имя мира",
   "mared.help.world.arg.empty": "Подставляет имя мира.",
 
+  "mared.help.global.desc": "Глобальные переменные — сохраняются между запусками",
+  "mared.help.global.arg.use": "Запись: 'set global.name = value'. Чтение: '$global.name'",
+
   "mared.help.help.desc": "Справка по синтаксису Mared",
   "mared.help.help.arg.hybrid": "Вне { } — команды Minecraft. Внутри { } — команды Mared.",
   "mared.help.help.arg.variables": "set name = value — объявление. Используй $name в командах.",
   "mared.help.help.arg.special": "$self — игрок, $world — имя мира.",
   "mared.help.help.arg.conditions": "if <левое> <op> <правое> { ... } elif { ... } else { ... }.",
-  "mared.help.help.arg.loops": "repeat <N> { ... } / for $i = a to b { ... } / while <cond> { ... }",
-  "mared.help.help.arg.binds": "bind <клавиша> [add|replace|clear|block] { ... }",
+  "mared.help.help.arg.loops": "repeat <N> { ... } / for $i = a to b { ... } / for $x in $items { ... } / while <cond> { ... }",
+  "mared.help.help.arg.binds": "bind <клавиша> [add|replace|clear|block|hold|release] { ... } / block <клавиша> / unblock <клавиша> / toggle <клавиша>",
   "mared.help.help.arg.expr": "Арифметика, строки, списки, методы.",
-  "mared.help.help.arg.funcs": "func name($a) { ... } / call name(arg)",
+  "mared.help.help.arg.funcs": "func name($a) { ... } / call name(arg) / set x = call name(arg)",
   "mared.help.help.arg.arrays": "array items = [1,2,3]. Методы: push/pop/get/size/sort/map/filter.",
   "mared.help.help.arg.strings": "Методы: upper/lower/sub/find/replace/split/len.",
-  "mared.help.help.arg.hotkeys": "Ctrl+S — сохранить. Delete — удалить файл."
+  "mared.help.help.arg.hotkeys": "Ctrl+S — сохранить. Delete — удалить файл.",
+  "mared.help.help.arg.mc": "Используй 'mc <команда>' внутри Mared-блока для ванильных команд Minecraft.",
+  "mared.help.help.arg.return": "return <expr> — выход из функции со значением.",
+  "mared.help.help.arg.global": "set global.name = value — сохраняется между запусками.",
+  "mared.help.help.arg.events": "on <event> { ... } — обработчики событий: right_click, block_break, kill, chat, ...",
+  "mared.help.help.arg.playervars": "Переменные игрока: $hp, $x, $y, $z, $xp_level, $gamemode, $held_item, $dimension, $time, $weather, ..."
 }
