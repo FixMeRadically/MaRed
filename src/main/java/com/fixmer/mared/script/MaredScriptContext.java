@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import com.fixmer.mared.Mared;
 import com.fixmer.mared.script.commands.MaredScriptCommand;
 
 import net.minecraft.server.MinecraftServer;
@@ -39,10 +40,7 @@ public class MaredScriptContext {
     }
 
     public ServerPlayer getInitiator() { return initiator; }
-
-    /** Установить актуального игрока-инициатора (используется при fire). */
     public void setInitiator(ServerPlayer player) { this.initiator = player; }
-
     public MinecraftServer getServer() { return server; }
 
     public void log(String line) { if (logger != null) logger.accept(line); }
@@ -92,18 +90,17 @@ public class MaredScriptContext {
     public Map<String, Object> getAllVariables() { return variables; }
 
     // ============================================================
-    //  Встроенные данные: игрок + мир
+    //  Встроенные данные
     // ============================================================
 
     public void refreshPlayerData() {
         ServerPlayer player = initiator;
         if (player == null) {
-            setVariable("mared_version", "0.1.5");
+            setVariable("mared_version", Mared.VERSION);
             setVariable("mc_version", "1.21.1");
             return;
         }
 
-        // ---- A. Игрок ----
         setVariable("player", player.getName().getString());
         setVariable("self", player.getName().getString());
         setVariable("uuid", player.getUUID().toString());
@@ -215,7 +212,6 @@ public class MaredScriptContext {
             setVariable("team", "");
         }
 
-        // ---- B. Мир ----
         if (player.level() != null) {
             long timeOfDay = player.level().getDayTime() % 24000L;
             setVariable("time", timeOfDay);
@@ -281,7 +277,7 @@ public class MaredScriptContext {
         setVariable("tick", MaredTicks.get());
         setVariable("now_ms", System.currentTimeMillis());
 
-        setVariable("mared_version", "0.1.5");
+        setVariable("mared_version", Mared.VERSION);
         setVariable("mc_version", "1.21.1");
     }
 
@@ -316,6 +312,7 @@ public class MaredScriptContext {
                 while (end < n && depth > 0) {
                     char ch = input.charAt(end);
                     if (inString) {
+                        if (ch == '\\' && end + 1 < n) { end += 2; continue; }
                         if (ch == quote) inString = false;
                     } else {
                         if (ch == '"' || ch == '\'') { inString = true; quote = ch; }
@@ -351,6 +348,40 @@ public class MaredScriptContext {
                 if (end > start) {
                     String varName = input.substring(start, end);
                     Object value = getVariable(varName);
+
+                    if (value == null) {
+                        int exprEnd = end;
+                        int depth = 0;
+                        boolean inStr = false;
+                        char q = 0;
+                        while (exprEnd < n) {
+                            char ch = input.charAt(exprEnd);
+                            if (inStr) {
+                                if (ch == '\\' && exprEnd + 1 < n) { exprEnd += 2; continue; }
+                                if (ch == q) inStr = false;
+                            } else {
+                                if (ch == '"' || ch == '\'') { inStr = true; q = ch; }
+                                else if (ch == '(' || ch == '[') depth++;
+                                else if (ch == ')' || ch == ']') {
+                                    if (depth == 0) break;
+                                    depth--;
+                                } else if (depth == 0 && (ch == ' ' || ch == ',')) {
+                                    break;
+                                }
+                            }
+                            exprEnd++;
+                        }
+                        if (exprEnd > end) {
+                            String fullExpr = input.substring(i + 1, exprEnd);
+                            try {
+                                Object v = MaredExpr.eval("$" + fullExpr, this);
+                                result.append(MaredExpr.stringify(v));
+                                i = exprEnd;
+                                continue;
+                            } catch (Exception ignored) {}
+                        }
+                    }
+
                     result.append(value != null ? MaredExpr.stringify(value) : "$" + varName);
                     i = end;
                     continue;
@@ -360,16 +391,37 @@ public class MaredScriptContext {
             result.append(c);
             i++;
         }
-        return result.toString();
+        return unescape(result.toString());
     }
 
     private boolean isVarChar(char c) {
         return Character.isLetterOrDigit(c) || c == '_' || c == '.';
     }
 
-    // ============================================================
-    //  break / continue
-    // ============================================================
+    private static String unescape(String s) {
+        if (s == null) return null;
+        if (s.indexOf('\\') < 0) return s;
+
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '\\' && i + 1 < s.length()) {
+                char next = s.charAt(i + 1);
+                switch (next) {
+                    case 'n' -> { out.append('\n'); i++; }
+                    case 't' -> { out.append('\t'); i++; }
+                    case 'r' -> { out.append('\r'); i++; }
+                    case '\\' -> { out.append('\\'); i++; }
+                    case '"' -> { out.append('"'); i++; }
+                    case '\'' -> { out.append('\''); i++; }
+                    default -> out.append(c);
+                }
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
 
     public void requestBreak() { breakRequested = true; }
     public void requestContinue() { continueRequested = true; }
@@ -377,15 +429,10 @@ public class MaredScriptContext {
     public boolean isContinueRequested() { return continueRequested; }
     public void clearBreakContinue() { breakRequested = false; continueRequested = false; }
 
-    // ============================================================
-    //  Функции
-    // ============================================================
-
     public void registerFunction(String name, List<String> params, List<MaredScriptCommand> body) {
         functions.put(name, new Func(params, body));
     }
 
     public boolean hasFunction(String name) { return functions.containsKey(name); }
-
     public Func getFunction(String name) { return functions.get(name); }
 }

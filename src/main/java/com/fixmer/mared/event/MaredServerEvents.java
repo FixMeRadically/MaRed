@@ -27,11 +27,6 @@ public class MaredServerEvents {
         MaredScriptRunner.tick(event.getServer());
     }
 
-    /**
-     * on join — срабатывает КАЖДЫЙ заход игрока в мир.
-     * Идёт по игровой шине (не MOD), поэтому виден на серверной стороне.
-     * В одиночке сервер встроен в клиент, поэтому событие вызывается.
-     */
     @SubscribeEvent
     public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!MaredEventRegistry.has("join")) {
@@ -43,10 +38,6 @@ public class MaredServerEvents {
             event.getEntity().getName().getString());
 
         MinecraftServer server = event.getEntity().getServer();
-        if (server == null) {
-            server = event.getEntity().getServer();
-        }
-
         Map<String, Object> data = new HashMap<>();
         data.put("player", event.getEntity().getName().getString());
         data.put("self", event.getEntity().getName().getString());
@@ -59,7 +50,7 @@ public class MaredServerEvents {
     public static void onServerStopped(ServerStoppedEvent event) {
         MaredScriptRunner.stopAll();
         MaredGlobalStorage.clear();
-        MaredEventRegistry.clearAll();   // удаляет только НЕ-persistent
+        MaredEventRegistry.clearAll();
         MaredBindRegistry.clearAll();
         MaredKeyBlocker.clear();
         MaredTicks.reset();

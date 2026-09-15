@@ -3,30 +3,9 @@ package com.fixmer.mared.script;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Парсер и вычислитель выражений Mared.
- *
- * Поддержка:
- *   - числа (int / float как в Python)
- *   - строки ("...")
- *   - переменные ($name, $name.prop)
- *   - массивы ([a, b, c])
- *   - доступ по индексу: $items[0]
- *   - методы: $items.push(4), $name.upper()
- *   - арифметика, сравнения, логика
- *   - скобки
- *   - функции: abs(x), len(s), random(1, 10), ...
- *
- * ВАЖНО: все числа приводятся к Long (целые) или Double (дробные).
- * Integer / int / Short / Byte / Float автоматически конвертируются.
- */
 public final class MaredExpr {
 
     private MaredExpr() {}
-
-    // -------------------------------------------------------------------
-    //  Токены
-    // -------------------------------------------------------------------
 
     private enum TokType {
         INT, FLOAT, STRING, IDENT, VAR,
@@ -50,10 +29,6 @@ public final class MaredExpr {
         }
     }
 
-    // -------------------------------------------------------------------
-    //  Публичный API
-    // -------------------------------------------------------------------
-
     public static Object eval(String expr, MaredScriptContext ctx) {
         if (expr == null || expr.trim().isEmpty()) return "";
         List<Token> tokens = tokenize(expr);
@@ -75,10 +50,6 @@ public final class MaredExpr {
         return toNumber(eval(expr, ctx));
     }
 
-    // -------------------------------------------------------------------
-    //  Типы
-    // -------------------------------------------------------------------
-
     public static boolean isInt(Object v) {
         return v instanceof Long || v instanceof Integer
             || v instanceof Short || v instanceof Byte;
@@ -94,10 +65,6 @@ public final class MaredExpr {
 
     public static boolean isList(Object v) { return v instanceof List; }
 
-    /**
-     * Приводит любое число к double.
-     * null → 0, строка "123" → 123, Integer → double, ...
-     */
     public static double toNumber(Object v) {
         if (v == null) return 0;
         if (v instanceof Number n) return n.doubleValue();
@@ -111,9 +78,6 @@ public final class MaredExpr {
         return 0;
     }
 
-    /**
-     * Приводит любое число к long.
-     */
     public static long toLong(Object v) {
         if (v == null) return 0;
         if (v instanceof Number n) return n.longValue();
@@ -127,10 +91,6 @@ public final class MaredExpr {
         return 0;
     }
 
-    /**
-     * Оборачивает double в Long, если это целое число.
-     * 5.0 → 5L, 3.14 → 3.14
-     */
     public static Object num(double d) {
         if (d == Math.floor(d) && !Double.isInfinite(d)
             && d >= Long.MIN_VALUE && d <= Long.MAX_VALUE) {
@@ -173,10 +133,6 @@ public final class MaredExpr {
         return true;
     }
 
-    // -------------------------------------------------------------------
-    //  Токенизация
-    // -------------------------------------------------------------------
-
     private static List<Token> tokenize(String src) {
         List<Token> out = new ArrayList<>();
         int i = 0;
@@ -187,7 +143,6 @@ public final class MaredExpr {
 
             if (Character.isWhitespace(c)) { i++; continue; }
 
-            // Число
             if (Character.isDigit(c) || (c == '.' && i + 1 < n && Character.isDigit(src.charAt(i + 1)))) {
                 int start = i;
                 boolean isFloat = false;
@@ -210,7 +165,6 @@ public final class MaredExpr {
                 continue;
             }
 
-            // Строка
             if (c == '"' || c == '\'') {
                 char quote = c;
                 i++;
@@ -237,7 +191,6 @@ public final class MaredExpr {
                 continue;
             }
 
-            // Переменная $name[.prop]* или $name.method
             if (c == '$') {
                 i++;
                 int start = i;
@@ -265,7 +218,6 @@ public final class MaredExpr {
                 continue;
             }
 
-            // Идентификатор
             if (Character.isLetter(c) || c == '_') {
                 int start = i;
                 while (i < n && (Character.isLetterOrDigit(src.charAt(i))
@@ -274,7 +226,6 @@ public final class MaredExpr {
                 continue;
             }
 
-            // Операторы
             switch (c) {
                 case '+' -> { out.add(new Token(TokType.PLUS, "+", 0, 0)); i++; }
                 case '-' -> { out.add(new Token(TokType.MINUS, "-", 0, 0)); i++; }
@@ -331,10 +282,6 @@ public final class MaredExpr {
         out.add(new Token(TokType.EOF, "", 0, 0));
         return out;
     }
-
-    // -------------------------------------------------------------------
-    //  Парсер
-    // -------------------------------------------------------------------
 
     private static final class Parser {
         final List<Token> tokens;
@@ -526,6 +473,9 @@ public final class MaredExpr {
                         expect(TokType.RPAREN);
                         return MaredBuiltins.call(t.text, args, ctx);
                     }
+                    if ("true".equals(t.text)) return Boolean.TRUE;
+                    if ("false".equals(t.text)) return Boolean.FALSE;
+                    if ("null".equals(t.text)) return null;
                     return t.text;
                 }
                 default:
@@ -533,10 +483,6 @@ public final class MaredExpr {
             }
         }
     }
-
-    // -------------------------------------------------------------------
-    //  Доступ по индексу
-    // -------------------------------------------------------------------
 
     private static Object indexValue(Object container, Object idx) {
         if (container == null) return null;
@@ -555,18 +501,6 @@ public final class MaredExpr {
         return null;
     }
 
-    // -------------------------------------------------------------------
-    //  Арифметика с типами
-    // -------------------------------------------------------------------
-
-    /**
-     * a + b.
-     * Правила:
-     *   list + list    → merge
-     *   string + x     → конкатенация
-     *   number + number → сложение (Long если оба целые, иначе Double)
-     *   null + number  → number
-     */
     private static Object addValues(Object a, Object b) {
         if (a instanceof List<?> la && b instanceof List<?> lb) {
             List<Object> merged = new ArrayList<>(la);
@@ -582,11 +516,9 @@ public final class MaredExpr {
             return la + lb;
         }
         if (a instanceof Number na && b instanceof Number nb) {
-            // Оба — числа. Если одно Double — результат Double.
             if (a instanceof Double || b instanceof Double) {
                 return na.doubleValue() + nb.doubleValue();
             }
-            // Оба целые (Long, Integer, ...) → Long
             return na.longValue() + nb.longValue();
         }
         return toNumber(a) + toNumber(b);

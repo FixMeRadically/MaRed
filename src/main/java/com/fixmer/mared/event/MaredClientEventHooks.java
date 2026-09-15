@@ -8,6 +8,7 @@ import com.fixmer.mared.script.MaredEventRegistry;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.phys.BlockHitResult;
@@ -21,20 +22,10 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Клиентские хуки событий.
- *
- * ВАЖНО: 'join' здесь НЕТ — он идёт через MaredServerEvents.onPlayerLogin,
- * потому что PlayerLoggedInEvent — серверное событие.
- */
 @EventBusSubscriber(modid = Mared.MOD_ID, value = Dist.CLIENT)
 public final class MaredClientEventHooks {
 
     private MaredClientEventHooks() {}
-
-    // ============================================================
-    //  Мышь — клики
-    // ============================================================
 
     @SubscribeEvent
     public static void onMouseButton(InputEvent.MouseButton.Pre event) {
@@ -56,21 +47,18 @@ public final class MaredClientEventHooks {
 
         MinecraftServer server = mc.getSingleplayerServer();
         Map<String, Object> data = buildClickData(mc);
-
         MaredEventRegistry.fire(type, server, data);
     }
 
     private static Map<String, Object> buildClickData(Minecraft mc) {
         Map<String, Object> data = new HashMap<>();
-
         LocalPlayer player = mc.player;
         if (player == null) return data;
 
         data.put("player", player.getName().getString());
         data.put("self", player.getName().getString());
         data.put("world", player.level() != null
-            ? player.level().dimension().location().toString()
-            : "unknown");
+            ? player.level().dimension().location().toString() : "unknown");
 
         HitResult hit = mc.hitResult;
         if (hit instanceof BlockHitResult bhr) {
@@ -87,17 +75,13 @@ public final class MaredClientEventHooks {
             try {
                 if (player.level() != null) {
                     var state = player.level().getBlockState(bhr.getBlockPos());
-                    data.put("click_block", state.getBlock().toString());
+                    var key = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+                    data.put("click_block", key.toString());
                 }
             } catch (Throwable ignored) {}
         }
-
         return data;
     }
-
-    // ============================================================
-    //  Мышь — прокрутка
-    // ============================================================
 
     @SubscribeEvent
     public static void onScroll(InputEvent.MouseScrollingEvent event) {
@@ -111,13 +95,8 @@ public final class MaredClientEventHooks {
         MinecraftServer server = mc.getSingleplayerServer();
         Map<String, Object> data = new HashMap<>();
         data.put("player", mc.player.getName().getString());
-
         MaredEventRegistry.fire(type, server, data);
     }
-
-    // ============================================================
-    //  Клавиатура
-    // ============================================================
 
     @SubscribeEvent
     public static void onKey(InputEvent.Key event) {
@@ -126,13 +105,9 @@ public final class MaredClientEventHooks {
         if (mc.player == null) return;
 
         String type;
-        if (event.getAction() == GLFW.GLFW_PRESS) {
-            type = "key_press";
-        } else if (event.getAction() == GLFW.GLFW_RELEASE) {
-            type = "key_release";
-        } else {
-            return;
-        }
+        if (event.getAction() == GLFW.GLFW_PRESS) type = "key_press";
+        else if (event.getAction() == GLFW.GLFW_RELEASE) type = "key_release";
+        else return;
 
         if (!MaredEventRegistry.has(type)) return;
 
@@ -141,17 +116,14 @@ public final class MaredClientEventHooks {
         data.put("player", mc.player.getName().getString());
         data.put("key_code", event.getKey());
         data.put("key_name", nameForKey(event.getKey()));
-
         MaredEventRegistry.fire(type, server, data);
     }
 
     private static String nameForKey(int code) {
-        if (code >= GLFW.GLFW_KEY_A && code <= GLFW.GLFW_KEY_Z) {
+        if (code >= GLFW.GLFW_KEY_A && code <= GLFW.GLFW_KEY_Z)
             return String.valueOf((char) ('A' + (code - GLFW.GLFW_KEY_A)));
-        }
-        if (code >= GLFW.GLFW_KEY_0 && code <= GLFW.GLFW_KEY_9) {
+        if (code >= GLFW.GLFW_KEY_0 && code <= GLFW.GLFW_KEY_9)
             return String.valueOf((char) ('0' + (code - GLFW.GLFW_KEY_0)));
-        }
         switch (code) {
             case GLFW.GLFW_KEY_SPACE: return "Space";
             case GLFW.GLFW_KEY_ENTER: return "Enter";
@@ -161,10 +133,6 @@ public final class MaredClientEventHooks {
         }
     }
 
-    // ============================================================
-    //  Чат — фильтр через suppression
-    // ============================================================
-
     @SubscribeEvent
     public static void onChat(ClientChatReceivedEvent event) {
         if (!MaredEventRegistry.has("chat")) return;
@@ -172,50 +140,31 @@ public final class MaredClientEventHooks {
 
         Minecraft mc = Minecraft.getInstance();
         MinecraftServer server = mc.getSingleplayerServer();
-
         Map<String, Object> data = new HashMap<>();
         Component msg = event.getMessage();
         data.put("message", msg.getString());
-
         MaredEventRegistry.fire("chat", server, data);
     }
-
-    // ============================================================
-    //  Client tick
-    // ============================================================
 
     @SubscribeEvent
     public static void onTick(ClientTickEvent.Post event) {
         if (!MaredEventRegistry.has("tick_client")) return;
-
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         MinecraftServer server = mc.getSingleplayerServer();
-
         Map<String, Object> data = new HashMap<>();
         data.put("player", mc.player.getName().getString());
-
         MaredEventRegistry.fire("tick_client", server, data);
     }
-
-    // ============================================================
-    //  Leave — через клиентское LoggingOut
-    // ============================================================
 
     @SubscribeEvent
     public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         if (!MaredEventRegistry.has("leave")) return;
-
         Minecraft mc = Minecraft.getInstance();
         MinecraftServer server = mc.getSingleplayerServer();
-
         Map<String, Object> data = new HashMap<>();
-        if (event.getPlayer() != null) {
-            data.put("player", event.getPlayer().getName().getString());
-        } else {
-            data.put("player", "unknown");
-        }
-
+        if (event.getPlayer() != null) data.put("player", event.getPlayer().getName().getString());
+        else data.put("player", "unknown");
         MaredEventRegistry.fire("leave", server, data);
     }
 }

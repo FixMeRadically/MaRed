@@ -473,9 +473,9 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     private int[] pixelToPos(double mx, double my) {
         int relX = (int) mx - getX() - PADDING - LINE_NUM_WIDTH;
         int relY = (int) my - getY() - PADDING;
-        int clickedLine = relY / LINE_HEIGHT + scrollLine;
-        clickedLine = Mth.clamp(clickedLine, 0, lines.size() - 1);
-        String lineText = lines.get(clickedLine).toString();
+        int clickedVisualRow = relY / LINE_HEIGHT + scrollLine;
+        clickedVisualRow = Mth.clamp(clickedVisualRow, 0, Math.max(0, lines.size() - 1));
+        String lineText = lines.get(clickedVisualRow).toString();
         Minecraft mc = Minecraft.getInstance();
         int col = lineText.length();
         for (int i = 0; i <= lineText.length(); i++) {
@@ -483,7 +483,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             if (w >= relX) { col = i; break; }
         }
         col = Mth.clamp(col, 0, lineText.length());
-        return new int[]{clickedLine, col};
+        return new int[]{clickedVisualRow, col};
     }
 
     @Override
@@ -506,8 +506,10 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
         graphics.enableScissor(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1);
 
-        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
+        int visibleVisualRows = (height - PADDING * 2) / LINE_HEIGHT;
         int availableWidth = width - PADDING * 2 - LINE_NUM_WIDTH;
+        int textX0 = getX() + PADDING + LINE_NUM_WIDTH;
+        int lineNumX = getX() + PADDING;
 
         int selStartL = -1, selStartC = -1, selEndL = -1, selEndC = -1;
         if (hasSelection()) {
@@ -517,53 +519,132 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             selEndL = e[0]; selEndC = e[1];
         }
 
-        for (int i = 0; i < visibleLines; i++) {
-            int lineIdx = i + scrollLine;
-            if (lineIdx >= lines.size()) break;
-            String lineText = lines.get(lineIdx).toString();
-            int lineY = getY() + PADDING + i * LINE_HEIGHT;
+        // Счётчик отрисованных физических строк
+        int visualRow = 0;
+        int lineIdx = 0;
 
-            if (!lineText.isEmpty()) {
-                String num = String.valueOf(lineIdx + 1);
-                graphics.drawString(mc.font, num, getX() + PADDING, lineY, COLOR_NUMBERS, false);
+        // Курсор — на какой физической строке и в какой X
+        Integer cursorVisualRow = null;
+        int cursorX = textX0;
+        int cursorBaseVisualRow = 0;
+
+        // Идём по логическим строкам, начиная с scrollLine (по логике)
+        // НО scrollLine теперь означает номер логической строки — оставим так.
+        // Однако для корректного скролла удобно считать «физические строки» scroll.
+        // Оставим scrollLine как логический индекс — этого достаточно.
+
+        // Собираем физические строки для видимых логических
+        List<int[]> wrapRanges = new ArrayList<>(); // [lineIdx, visualRowStart]
+
+        for (int li = 0; li < lines.size(); li++) {
+            String lineText = lines.get(li).toString();
+            List<String> physical = MaredUi.wrapLines(mc.font, lineText, availableWidth);
+            if (physical.isEmpty()) physical.add("");
+
+            wrapRanges.add(new int[]{li, visualRow});
+
+            // Если эта логическая строка не видна — пропускаем отрисовку, но считаем физические
+            if (visualRow + physical.size() <= scrollLine) {
+                visualRow += physical.size();
+                continue;
             }
 
-            int textX = getX() + PADDING + LINE_NUM_WIDTH;
-            int curX = textX;
-            int curY = lineY;
+            // Отрисовка физических строк
+            for (int pIdx = 0; pIdx < physical.size(); pIdx++) {
+                int currentVisual = visualRow;
+                visualRow++;
 
-            for (int c = 0; c < lineText.length(); c++) {
-                char rawChar = lineText.charAt(c);
-                String ch = rawChar == '\t' ? "    " : String.valueOf(rawChar);
-                int chWidth = mc.font.width(ch);
-
-                if (curX + chWidth - textX > availableWidth) {
-                    curX = textX;
-                    curY += LINE_HEIGHT;
+                if (currentVisual < scrollLine) continue;
+                int drawRow = currentVisual - scrollLine;
+                if (drawRow >= visibleVisualRows) {
+                    // дальше не рисуем, но счётчик уже увеличили — это ок для курсора
                 }
 
-                if (hasSelection() && isCharSelected(lineIdx, c, selStartL, selStartC, selEndL, selEndC)) {
-                    graphics.fill(curX, curY, curX + chWidth, curY + LINE_HEIGHT - 1, COLOR_SELECT);
+                int lineY = getY() + PADDING + drawRow * LINE_HEIGHT;
+                if (lineY >= getY() + height - PADDING) continue;
+
+                String physicalText = physical.get(pIdx);
+
+                // Номер строки — только у первой физической строки
+                if (pIdx == 0) {
+                    String num = String.valueOf(li + 1);
+                    graphics.drawString(mc.font, num, lineNumX, lineY, COLOR_NUMBERS, false);
                 }
 
-                graphics.drawString(mc.font, ch, curX, curY, COLOR_TEXT, false);
-                curX += chWidth;
+                // Отрисовка символов + выделение
+                int curX = textX0;
+                // Реальный индекс символа в логической строке:
+                // учитываем, что переносы "съели" пробелы — упрощённо:
+                // считаем, что символы идут по порядку physicalText без учёта обрезанных пробелов.
+                // Для выделения это даёт небольшую неточность, но визуально корректно.
+                int physCharStart = 0;
+                // найдём смещение physicalText в lineText
+                // (грубый поиск подстроки — для корректного выделения)
+                if (pIdx > 0) {
+                    int searchFrom = 0;
+                    for (int q = 0; q < pIdx; q++) {
+                        int found = lineText.indexOf(physical.get(q), searchFrom);
+                        if (found >= 0) searchFrom = found + physical.get(q).length();
+                    }
+                    // пропускаем ведущий пробел
+                    while (searchFrom < lineText.length() && lineText.charAt(searchFrom) == ' ') {
+                        searchFrom++;
+                    }
+                    physCharStart = searchFrom;
+                }
+
+                for (int c = 0; c < physicalText.length(); c++) {
+                    char rawChar = physicalText.charAt(c);
+                    String ch = rawChar == '\t' ? "    " : String.valueOf(rawChar);
+                    int chWidth = mc.font.width(ch);
+
+                    int logicalCol = physCharStart + c;
+
+                    if (hasSelection() && isCharSelected(li, logicalCol, selStartL, selStartC, selEndL, selEndC)) {
+                        graphics.fill(curX, lineY, curX + chWidth, lineY + LINE_HEIGHT - 1, COLOR_SELECT);
+                    }
+
+                    graphics.drawString(mc.font, ch, curX, lineY, COLOR_TEXT, false);
+                    curX += chWidth;
+
+                    // Курсор — запоминаем позицию
+                    if (cursorLine == li && cursorCol == logicalCol) {
+                        cursorVisualRow = currentVisual;
+                        cursorX = curX - chWidth;
+                        cursorBaseVisualRow = currentVisual;
+                    }
+                }
+
+                // Курсор в конце строки
+                if (cursorLine == li && cursorCol == physCharStart + physicalText.length()) {
+                    cursorVisualRow = currentVisual;
+                    cursorX = curX;
+                    cursorBaseVisualRow = currentVisual;
+                }
+            }
+
+            // Обработка случая "курсор в конце логической строки, но после последнего физического куска"
+            if (cursorLine == li && cursorCol == lineText.length()) {
+                int lastPhysRow = visualRow - 1;
+                cursorVisualRow = lastPhysRow;
+                // X — в конце последнего куска
+                // (уже установлено выше, но перезапишем на всякий случай)
             }
         }
 
-        if (editable && isFocused()) {
+        // Отрисовка курсора
+        if (editable && isFocused() && cursorVisualRow != null) {
             long now = System.currentTimeMillis();
             if (now - lastBlink > CURSOR_BLINK) {
                 cursorVisible = !cursorVisible;
                 lastBlink = now;
             }
             if (cursorVisible) {
-                int[] cursorPix = getCursorPixelPos(availableWidth);
-                if (cursorPix != null) {
-                    int cx = cursorPix[0];
-                    int cy = cursorPix[1];
+                int drawRow = cursorVisualRow - scrollLine;
+                if (drawRow >= 0 && drawRow < visibleVisualRows) {
+                    int cy = getY() + PADDING + drawRow * LINE_HEIGHT;
                     if (cy >= getY() && cy < getY() + height) {
-                        graphics.fill(cx, cy + 1, cx + 1, cy + LINE_HEIGHT - 1, accentColor);
+                        graphics.fill(cursorX, cy + 1, cursorX + 1, cy + LINE_HEIGHT - 1, accentColor);
                     }
                 }
             }
@@ -578,33 +659,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         if (line == sl) return col >= sc;
         if (line == el) return col < ec;
         return true;
-    }
-
-    private int[] getCursorPixelPos(int availableWidth) {
-        Minecraft mc = Minecraft.getInstance();
-        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
-        if (cursorLine < scrollLine || cursorLine >= scrollLine + visibleLines) {
-            return null;
-        }
-        int visualRow = cursorLine - scrollLine;
-        String lineText = lines.get(cursorLine).toString();
-        String before = lineText.substring(0, cursorCol);
-
-        int textX = getX() + PADDING + LINE_NUM_WIDTH;
-        int curX = textX;
-        int curY = getY() + PADDING + visualRow * LINE_HEIGHT;
-
-        for (int c = 0; c < before.length(); c++) {
-            char rawChar = before.charAt(c);
-            String ch = rawChar == '\t' ? "    " : String.valueOf(rawChar);
-            int chWidth = mc.font.width(ch);
-            if (curX + chWidth - textX > availableWidth) {
-                curX = textX;
-                curY += LINE_HEIGHT;
-            }
-            curX += chWidth;
-        }
-        return new int[]{curX, curY};
     }
 
     @Override

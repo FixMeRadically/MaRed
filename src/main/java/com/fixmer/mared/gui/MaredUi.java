@@ -129,6 +129,72 @@ public final class MaredUi {
         return Math.max(1, lines) * 10;
     }
 
+    /**
+     * Разбивает строку на физические куски по ширине maxW.
+     * Не разрывает слова, если возможно — переносит по пробелам.
+     * Если слово длиннее maxW — режет его посимвольно.
+     */
+    public static List<String> wrapLines(Font f, String text, int maxW) {
+        List<String> result = new ArrayList<>();
+        if (text == null) text = "";
+        if (maxW <= 0) {
+            result.add(text);
+            return result;
+        }
+        if (text.isEmpty()) {
+            result.add("");
+            return result;
+        }
+        if (f.width(text) <= maxW) {
+            result.add(text);
+            return result;
+        }
+
+        StringBuilder current = new StringBuilder();
+        int i = 0;
+        int n = text.length();
+
+        while (i < n) {
+            int wordEnd = i;
+            while (wordEnd < n && text.charAt(wordEnd) != ' ') wordEnd++;
+            String word = text.substring(i, wordEnd);
+            String space = (wordEnd < n) ? " " : "";
+
+            while (f.width(word) > maxW) {
+                int cut = 1;
+                while (cut < word.length()
+                       && f.width(word.substring(0, cut + 1)) <= maxW) {
+                    cut++;
+                }
+                if (current.length() > 0) {
+                    result.add(current.toString());
+                    current.setLength(0);
+                }
+                result.add(word.substring(0, cut));
+                word = word.substring(cut);
+            }
+
+            String test = current.length() == 0 ? word : current + " " + word;
+            if (f.width(test) > maxW) {
+                if (current.length() > 0) {
+                    result.add(current.toString());
+                    current.setLength(0);
+                }
+                current.append(word);
+            } else {
+                current = new StringBuilder(test);
+            }
+
+            i = wordEnd + space.length();
+        }
+
+        if (current.length() > 0) {
+            result.add(current.toString());
+        }
+        if (result.isEmpty()) result.add("");
+        return result;
+    }
+
     public static void button(GuiGraphics g, Font f, int x, int y, int w, int h, String label,
                               int bg, int border, boolean hovered, int textColor) {
         g.fill(x, y, x + w, y + h, bg);
@@ -199,7 +265,6 @@ public final class MaredUi {
         public int x, y, w, h;
         public int offset;
         public int itemHeight, itemCount;
-        /** true — для логов: offset=0 = низ (свежие), offset=max = верх. */
         public boolean inverted = false;
 
         public ScrollArea set(int x, int y, int w, int h) {
@@ -296,13 +361,11 @@ public final class MaredUi {
             offset = Math.max(0, Math.min(max, newOffset));
         }
 
-        /** Обычное колесо: для списков. deltaY<0 (вниз) → offset++. */
         public void wheel(double deltaY, int step) {
             if (deltaY < 0) offset = Math.min(maxScroll(), offset + step);
             else if (deltaY > 0) offset = Math.max(0, offset - step);
         }
 
-        /** Лог: deltaY>0 (вверх) → offset++ (к старым). deltaY<0 → offset-- (к свежим). */
         public void wheelLog(double deltaY, int step) {
             if (deltaY < 0) offset = Math.max(0, offset - step);
             else if (deltaY > 0) offset = Math.min(maxScroll(), offset + step);

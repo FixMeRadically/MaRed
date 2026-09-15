@@ -19,42 +19,34 @@ public final class MaredInputHandler {
 
     private MaredInputHandler() {}
 
-    // ============================================================
-    //  Клавиатура
-    // ============================================================
+    private static final int MOD_MASK =
+        GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_SHIFT
+      | GLFW.GLFW_MOD_ALT     | GLFW.GLFW_MOD_SUPER;
 
     @SubscribeEvent
     public static void onKey(InputEvent.Key event) {
         int key = event.getKey();
         int action = event.getAction();
-
         if (key == GLFW.GLFW_KEY_ESCAPE) return;
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen != null) return;
 
-        if (action == GLFW.GLFW_PRESS) {
-            handleKeyPress(key, mc);
-        } else if (action == GLFW.GLFW_RELEASE) {
-            handleKeyRelease(key, mc);
-        }
+        if (action == GLFW.GLFW_PRESS) handleKeyPress(key, mc);
+        else if (action == GLFW.GLFW_RELEASE) handleKeyRelease(key, mc);
     }
 
     private static void handleKeyPress(int key, Minecraft mc) {
-        int mods = currentMods();
+        int mods = currentMods() & MOD_MASK;
 
         for (String keyStr : MaredBindRegistry.keys()) {
             MaredKeyNames.ParsedKey pk = MaredKeyNames.parseAny(keyStr);
             if (pk == null) continue;
             if (pk.keyCode != key) continue;
-            if ((pk.modifiers & mods) != pk.modifiers) continue;
+            if ((pk.modifiers & MOD_MASK) != mods) continue;
 
             MinecraftServer server = mc.getSingleplayerServer();
-
-            // Обычные PRESS-бинды
             MaredBindRegistry.fire(keyStr, server);
-
-            // HOLD-бинды — запускаем первую итерацию и помечаем активными
             MaredBindRegistry.startHold(keyStr, server);
 
             if (MaredBindRegistry.hasBlocking(keyStr)) {
@@ -64,33 +56,24 @@ public final class MaredInputHandler {
     }
 
     private static void handleKeyRelease(int key, Minecraft mc) {
-        int mods = currentMods();
+        int mods = currentMods() & MOD_MASK;
 
         for (String keyStr : MaredBindRegistry.keys()) {
             MaredKeyNames.ParsedKey pk = MaredKeyNames.parseAny(keyStr);
             if (pk == null) continue;
             if (pk.keyCode != key) continue;
-            if ((pk.modifiers & mods) != pk.modifiers) continue;
+            if ((pk.modifiers & MOD_MASK) != mods) continue;
 
             MinecraftServer server = mc.getSingleplayerServer();
-
-            // Останавливаем HOLD
             MaredBindRegistry.stopHold(keyStr);
-
-            // Fire RELEASE-биндов
             MaredBindRegistry.fireRelease(keyStr, server);
         }
     }
-
-    // ============================================================
-    //  Мышь — клики
-    // ============================================================
 
     @SubscribeEvent
     public static void onMouseButton(InputEvent.MouseButton.Pre event) {
         int button = event.getButton();
         int action = event.getAction();
-
         if (action != GLFW.GLFW_PRESS) return;
 
         Minecraft mc = Minecraft.getInstance();
@@ -124,35 +107,20 @@ public final class MaredInputHandler {
         }
     }
 
-    // ============================================================
-    //  Client tick — Pre
-    // ============================================================
-
     @SubscribeEvent
     public static void onClientTickPre(ClientTickEvent.Pre event) {
         MaredKeyBlocker.tick();
-
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
         MinecraftServer server = mc.getSingleplayerServer();
         if (server == null) return;
-
-        // Каждый tick — перезапускаем тело HOLD-биндов, если клавиша ещё нажата.
         MaredBindRegistry.tickHolds(server);
     }
-
-    // ============================================================
-    //  Client tick — Post
-    // ============================================================
 
     @SubscribeEvent
     public static void onClientTickPost(ClientTickEvent.Post event) {
         MaredKeyBlocker.tick();
     }
-
-    // ============================================================
-    //  Модификаторы
-    // ============================================================
 
     private static int currentMods() {
         long window = Minecraft.getInstance().getWindow().getWindow();

@@ -32,14 +32,12 @@ import net.minecraft.server.level.ServerPlayer;
 
 public class MaredEditorScreen extends Screen {
 
-    // ---- Palette ----
     private static final int BG          = 0xFF0E0E14;
     private static final int TAB_STRIP   = 0xFF181822;
     private static final int TOOLBAR_BG  = 0xFF20202C;
     private static final int PANEL       = 0xFF1E1E2A;
     private static final int PANEL_STRIP = 0xFF252530;
     private static final int EDITOR_BG   = 0xFF141420;
-    private static final int LOG_BG      = 0xFF1A1A24;
     private static final int INFO_BG     = 0xFF1A1A26;
     private static final int TEXT        = 0xFFFFFFFF;
     private static final int TEXT_DIM    = 0xFFAAAAAA;
@@ -68,7 +66,6 @@ public class MaredEditorScreen extends Screen {
     private static final int MRED_COLOR = 0xFFFF3333;
 
     private static final int TAB_W = 30, TAB_H = 30, TOOLBAR_H = 22, PAD = 6;
-    private static final int LOG_H = 110, LOG_H_COLLAPSED = 20, LOG_HEADER = 16, LOG_LINE = 10;
     private static final int STRIP_W = 36, FULL_W = 220;
     private static final int INFO_W = 280, INFO_COLLAPSED_W = 24;
     private static final int BTN_SZ = 18, ITEM_H = 14, SCROLLBAR_W = 6;
@@ -77,7 +74,7 @@ public class MaredEditorScreen extends Screen {
     private static final int TOGGLE_W = 22, TOGGLE_H = 12;
     private static final int ACTIVE_BINDS_W = 220;
     private static final int BIND_DEL_SZ = 10;
-    private static final int PERSISTENT_STRIPE_W = 4;
+    private static final int PERSISTENT_STRIPE_W = 2;
 
     private enum SidebarState { CLOSED, STRIP, FULL }
 
@@ -86,7 +83,7 @@ public class MaredEditorScreen extends Screen {
 
     private final List<String> fileNames = new ArrayList<>();
     private final List<MaredCommandRegistry.CommandInfo> filteredCommands = new ArrayList<>();
-    private final List<String> logLines = new ArrayList<>();
+    private final MaredLogPanel logPanel = new MaredLogPanel();
     private String selectedFile = null;
     private MaredCommandRegistry.CommandInfo selectedCommandInfo = null;
     private final Set<Integer> expandedArgs = new HashSet<>();
@@ -104,7 +101,6 @@ public class MaredEditorScreen extends Screen {
     private final MaredUi.ScrollArea fileScroll = new MaredUi.ScrollArea();
     private final MaredUi.ScrollArea cmdScroll  = new MaredUi.ScrollArea();
     private final MaredUi.PixelScroll infoScroll = new MaredUi.PixelScroll();
-    private final MaredUi.ScrollArea logScroll  = new MaredUi.ScrollArea();
     private final MaredUi.DragState drag = new MaredUi.DragState();
 
     private int activeBindsScrollOffset = 0;
@@ -120,39 +116,22 @@ public class MaredEditorScreen extends Screen {
         if (MRED_COMMANDS != null) return;
         MRED_COMMANDS = new ArrayList<>();
 
-        MRED_COMMANDS.add(mk("say",
-            MaredLang.get("mared.help.say.desc"),
-            "say \"Hello, $self\"",
+        MRED_COMMANDS.add(mk("say", MaredLang.get("mared.help.say.desc"), "say \"Hello, $self\"",
             args("text", MaredLang.get("mared.help.say.arg.text"), "say \"Hello!\"", "say $greeting")));
-
-        MRED_COMMANDS.add(mk("wait",
-            MaredLang.get("mared.help.wait.desc"),
-            "wait 3 seconds",
+        MRED_COMMANDS.add(mk("wait", MaredLang.get("mared.help.wait.desc"), "wait 3 seconds",
             args("time", MaredLang.get("mared.help.wait.arg.time"), "wait 3 seconds", "wait 100 ticks")));
-
-        MRED_COMMANDS.add(mk("set",
-            MaredLang.get("mared.help.set.desc"),
-            "set count = 5",
+        MRED_COMMANDS.add(mk("set", MaredLang.get("mared.help.set.desc"), "set count = 5",
             args("name = value", MaredLang.get("mared.help.set.arg.name"), "set count = 5", "set name = \"Steve\""),
             args("global.name", MaredLang.get("mared.help.set.arg.global"),
                 "set global.hp = 20", "set global.count = $global.count + 1")));
-
-        MRED_COMMANDS.add(mk("array",
-            MaredLang.get("mared.help.array.desc"),
-            "array items = [1, 2, 3]",
+        MRED_COMMANDS.add(mk("array", MaredLang.get("mared.help.array.desc"), "array items = [1, 2, 3]",
             args("name = [values]", MaredLang.get("mared.help.array.arg.name"),
                 "array items = [1, 2, 3]", "array names = [\"a\", \"b\"]")));
-
-        MRED_COMMANDS.add(mk("give",
-            MaredLang.get("mared.help.give.desc"),
-            "give @s diamond 5",
+        MRED_COMMANDS.add(mk("give", MaredLang.get("mared.help.give.desc"), "give @s diamond 5",
             args("target", MaredLang.get("mared.help.give.arg.target"), "give @s diamond 5"),
             args("item", MaredLang.get("mared.help.give.arg.item"), "give @s minecraft:diamond 5"),
             args("count", MaredLang.get("mared.help.give.arg.count"), "give @s diamond 64")));
-
-        MRED_COMMANDS.add(mk("bind",
-            MaredLang.get("mared.help.bind.desc"),
-            "bind R { say \"Hi\" }",
+        MRED_COMMANDS.add(mk("bind", MaredLang.get("mared.help.bind.desc"), "bind R { say \"Hi\" }",
             args("key", MaredLang.get("mared.help.bind.arg.key"), "bind R { say \"Hi\" }"),
             args("add", MaredLang.get("mared.help.bind.arg.add"), "bind R add { say \"second\" }"),
             args("replace", MaredLang.get("mared.help.bind.arg.replace"), "bind R replace { say \"new\" }"),
@@ -160,145 +139,61 @@ public class MaredEditorScreen extends Screen {
             args("block", MaredLang.get("mared.help.bind.arg.block"), "bind W block { say \"locked\" }"),
             args("hold", MaredLang.get("mared.help.bind.arg.hold"), "bind W hold { say \"held\" }"),
             args("release", MaredLang.get("mared.help.bind.arg.release"), "bind W release { say \"released\" }")));
-
-        MRED_COMMANDS.add(mk("on",
-            MaredLang.get("mared.help.on.desc"),
-            "on right_click { say \"clicked\" }",
-            args("event", MaredLang.get("mared.help.on.arg.type"),
-                "on right_click { say \"clicked\" }"),
-            args("add", MaredLang.get("mared.help.on.arg.add"),
-                "on right_click add { say \"second\" }"),
-            args("replace", MaredLang.get("mared.help.on.arg.replace"),
-                "on right_click replace { say \"only\" }"),
+        MRED_COMMANDS.add(mk("on", MaredLang.get("mared.help.on.desc"), "on right_click { say \"clicked\" }",
+            args("event", MaredLang.get("mared.help.on.arg.type"), "on right_click { say \"clicked\" }"),
+            args("add", MaredLang.get("mared.help.on.arg.add"), "on right_click add { say \"second\" }"),
+            args("replace", MaredLang.get("mared.help.on.arg.replace"), "on right_click replace { say \"only\" }"),
             args("events", MaredLang.get("mared.help.on.arg.events"),
                 "on block_break { ... }", "on kill { ... }", "on chat { ... }")));
-
-        MRED_COMMANDS.add(mk("block",
-            MaredLang.get("mared.help.block_cmd.desc"),
-            "block W",
+        MRED_COMMANDS.add(mk("block", MaredLang.get("mared.help.block_cmd.desc"), "block W",
             args("key", MaredLang.get("mared.help.block_cmd.arg.key"), "block W", "block Space")));
-
-        MRED_COMMANDS.add(mk("unblock",
-            MaredLang.get("mared.help.unblock.desc"),
-            "unblock W",
+        MRED_COMMANDS.add(mk("unblock", MaredLang.get("mared.help.unblock.desc"), "unblock W",
             args("key", MaredLang.get("mared.help.unblock.arg.key"), "unblock W", "unblock Space")));
-
-        MRED_COMMANDS.add(mk("toggle",
-            MaredLang.get("mared.help.toggle.desc"),
-            "toggle W",
+        MRED_COMMANDS.add(mk("toggle", MaredLang.get("mared.help.toggle.desc"), "toggle W",
             args("key", MaredLang.get("mared.help.toggle.arg.key"), "toggle W", "toggle MouseMove")));
-
-        MRED_COMMANDS.add(mk("mc",
-            MaredLang.get("mared.help.mc.desc"),
-            "mc time set day",
+        MRED_COMMANDS.add(mk("mc", MaredLang.get("mared.help.mc.desc"), "mc time set day",
             args("command", MaredLang.get("mared.help.mc.arg.cmd"),
                 "mc time set day", "mc weather clear", "mc effect give @s speed 10 1")));
-
-        MRED_COMMANDS.add(mk("if",
-            MaredLang.get("mared.help.if.desc"),
-            "if $count > 5 { say \"Many\" }",
+        MRED_COMMANDS.add(mk("if", MaredLang.get("mared.help.if.desc"), "if $count > 5 { say \"Many\" }",
             args("condition", MaredLang.get("mared.help.if.arg.condition"), "if $count > 5 { say \"Many\" }"),
             args("block", MaredLang.get("mared.help.if.arg.block"), "if $name == \"Steve\" { say \"Hi\" }"),
             args("elif / else", MaredLang.get("mared.help.if.arg.elif"), "elif $count == 5 { say \"Equal\" } else { say \"Less\" }")));
-
-        MRED_COMMANDS.add(mk("repeat",
-            MaredLang.get("mared.help.repeat.desc"),
-            "repeat 3 { say \"Tick\" }",
+        MRED_COMMANDS.add(mk("repeat", MaredLang.get("mared.help.repeat.desc"), "repeat 3 { say \"Tick\" }",
             args("N", MaredLang.get("mared.help.repeat.arg.n"), "repeat 5 { say \"Tick\" }"),
             args("block", MaredLang.get("mared.help.repeat.arg.block"), "repeat 3 { wait 1 second }")));
-
-        MRED_COMMANDS.add(mk("for",
-            MaredLang.get("mared.help.for.desc"),
-            "for $i = 1 to 5 { say $i }",
+        MRED_COMMANDS.add(mk("for", MaredLang.get("mared.help.for.desc"), "for $i = 1 to 5 { say $i }",
             args("var = from to to", MaredLang.get("mared.help.for.arg.range"), "for $i = 1 to 5 { say $i }"),
             args("var in array", MaredLang.get("mared.help.for.arg.in"),
                 "for $item in $items { say $item }", "for $name in $names { give @s $name 1 }")));
-
-        MRED_COMMANDS.add(mk("while",
-            MaredLang.get("mared.help.while.desc"),
-            "while $n < 3 { set n = $n + 1 }",
+        MRED_COMMANDS.add(mk("while", MaredLang.get("mared.help.while.desc"), "while $n < 3 { set n = $n + 1 }",
             args("condition", MaredLang.get("mared.help.while.arg.condition"), "while $n < 3 { set n = $n + 1 }")));
-
-        MRED_COMMANDS.add(mk("break",
-            MaredLang.get("mared.help.break.desc"),
-            "break",
+        MRED_COMMANDS.add(mk("break", MaredLang.get("mared.help.break.desc"), "break",
             args("", MaredLang.get("mared.help.break.arg.empty"), "repeat 10 { break }")));
-
-        MRED_COMMANDS.add(mk("continue",
-            MaredLang.get("mared.help.continue.desc"),
-            "continue",
+        MRED_COMMANDS.add(mk("continue", MaredLang.get("mared.help.continue.desc"), "continue",
             args("", MaredLang.get("mared.help.continue.arg.empty"), "if $i == 3 { continue }")));
-
-        MRED_COMMANDS.add(mk("func",
-            MaredLang.get("mared.help.func.desc"),
-            "func greet($name) { say \"Hi, $name\" }",
+        MRED_COMMANDS.add(mk("func", MaredLang.get("mared.help.func.desc"), "func greet($name) { say \"Hi, $name\" }",
             args("name(params)", MaredLang.get("mared.help.func.arg.name"), "func greet($name) { say \"Hi\" }")));
-
-        MRED_COMMANDS.add(mk("call",
-            MaredLang.get("mared.help.call.desc"),
-            "call greet(\"Steve\")",
+        MRED_COMMANDS.add(mk("call", MaredLang.get("mared.help.call.desc"), "call greet(\"Steve\")",
             args("name(args)", MaredLang.get("mared.help.call.arg.name"), "call greet(\"Steve\")"),
             args("return", MaredLang.get("mared.help.call.arg.return"),
                 "set x = call add(2, 3)", "set msg = call greet(\"Steve\")")));
-
-        MRED_COMMANDS.add(mk("return",
-            MaredLang.get("mared.help.return.desc"),
-            "return $a + $b",
+        MRED_COMMANDS.add(mk("return", MaredLang.get("mared.help.return.desc"), "return $a + $b",
             args("expression", MaredLang.get("mared.help.return.arg.expr"), "return 5", "return $x + $y")));
-
-        MRED_COMMANDS.add(mk("debug",
-            MaredLang.get("mared.help.debug.desc"),
-            "debug $x",
+        MRED_COMMANDS.add(mk("debug", MaredLang.get("mared.help.debug.desc"), "debug $x",
             args("expression", MaredLang.get("mared.help.debug.arg.expr"), "debug $x")));
-
-        MRED_COMMANDS.add(mk("assert",
-            MaredLang.get("mared.help.assert.desc"),
-            "assert $x > 10 \"must be big\"",
+        MRED_COMMANDS.add(mk("assert", MaredLang.get("mared.help.assert.desc"), "assert $x > 10 \"must be big\"",
             args("condition [message]", MaredLang.get("mared.help.assert.arg.condition"), "assert $x > 10 \"x too small\"")));
-
-        MRED_COMMANDS.add(mk("{}",
-            MaredLang.get("mared.help.block.desc"),
-            "{ say \"Hello\" }",
+        MRED_COMMANDS.add(mk("{}", MaredLang.get("mared.help.block.desc"), "{ say \"Hello\" }",
             args("open", MaredLang.get("mared.help.block.arg.open"), "{"),
             args("close", MaredLang.get("mared.help.block.arg.close"), "}"),
             args("inside", MaredLang.get("mared.help.block.arg.inside"), "say \"Hi\"")));
-
-        MRED_COMMANDS.add(mk("$self",
-            MaredLang.get("mared.help.self.desc"),
-            "say \"Hello, $self\"",
+        MRED_COMMANDS.add(mk("$self", MaredLang.get("mared.help.self.desc"), "say \"Hello, $self\"",
             args("", MaredLang.get("mared.help.self.arg.empty"), "say \"Hello, $self\"")));
-
-        MRED_COMMANDS.add(mk("$world",
-            MaredLang.get("mared.help.world.desc"),
-            "say \"World: $world\"",
+        MRED_COMMANDS.add(mk("$world", MaredLang.get("mared.help.world.desc"), "say \"World: $world\"",
             args("", MaredLang.get("mared.help.world.arg.empty"), "say \"World: $world\"")));
-
-        MRED_COMMANDS.add(mk("global",
-            MaredLang.get("mared.help.global.desc"),
-            "set global.hp = 20",
+        MRED_COMMANDS.add(mk("global", MaredLang.get("mared.help.global.desc"), "set global.hp = 20",
             args("set/get", MaredLang.get("mared.help.global.arg.use"),
                 "set global.hp = 20", "say \"HP: $global.hp\"", "set global.n = $global.n + 1")));
-
-        MRED_COMMANDS.add(mk("help",
-            MaredLang.get("mared.help.help.desc"),
-            "help",
-            args("hybrid mode", MaredLang.get("mared.help.help.arg.hybrid"), "/give @s diamond 5", "{ say \"Hi\" }"),
-            args("variables", MaredLang.get("mared.help.help.arg.variables"), "set count = 5"),
-            args("special vars", MaredLang.get("mared.help.help.arg.special"), "say \"Hi, $self\""),
-            args("conditions", MaredLang.get("mared.help.help.arg.conditions"), "if $count > 5 { say \"5+\" }"),
-            args("loops", MaredLang.get("mared.help.help.arg.loops"), "repeat 3 { say \"Tick\" }"),
-            args("binds", MaredLang.get("mared.help.help.arg.binds"), "bind R { say \"Hi\" }"),
-            args("expressions", MaredLang.get("mared.help.help.arg.expr"), "${2 + 3}"),
-            args("functions", MaredLang.get("mared.help.help.arg.funcs"), "func hi($n) { say $n }"),
-            args("arrays", MaredLang.get("mared.help.help.arg.arrays"), "$items.push(4)"),
-            args("strings", MaredLang.get("mared.help.help.arg.strings"), "$name.upper()"),
-            args("hotkeys", MaredLang.get("mared.help.help.arg.hotkeys"), "Ctrl+S"),
-            args("mc", MaredLang.get("mared.help.help.arg.mc"), "mc time set day", "mc weather clear"),
-            args("return", MaredLang.get("mared.help.help.arg.return"), "return $a + $b"),
-            args("global", MaredLang.get("mared.help.help.arg.global"), "set global.hp = 20"),
-            args("events", MaredLang.get("mared.help.help.arg.events"), "on right_click { say \"clicked\" }"),
-            args("player vars", MaredLang.get("mared.help.help.arg.playervars"),
-                "$hp, $x, $y, $z, $xp_level, $gamemode, $held_item, ...")));
     }
 
     private static MaredCommandRegistry.Argument args(String value, String desc, String... examples) {
@@ -320,57 +215,53 @@ public class MaredEditorScreen extends Screen {
         MaredSettings.load();
         MaredLang.reload();
         ensureMredCommands();
-        toolButtons.clear();
         reloadFiles();
         refreshCommands();
         buildToolButtons();
         createEditor();
         createFilterBoxes();
-        updateToolButtonsVisibility();
+
+        // Toggle лога — через logPanel
+        logPanel.setOnToggle(() -> {
+            logCollapsed = !logCollapsed;
+            recreateEditor();
+        });
     }
 
     private void buildToolButtons() {
+        for (AbstractWidget w : toolButtons) removeWidget(w);
+        toolButtons.clear();
+
         int y = PAD + 1;
         int right = this.width - PAD;
+        boolean commands = isCommands();
 
-        String[][] defs = {
-            {MaredLang.get("mared.ui.close"),             "50", "FF5555"},
-            {MaredLang.get("mared.ui.run"),               "40", "55FF55"},
-            {MaredLang.get("mared.ui.save"),              "60", "55AAFF"},
-            {MaredLang.get("mared.ui.delete"),            "60", "FF4444"},
-            {MaredLang.get("mared.ui.import"),            "60", "FFAA00"},
-            {MaredLang.get("mared.ui.settings"),          "70", "AAAAFF"},
-            {MaredLang.get("mared.ui.reload_persistent"), "80", "55FF88"},
-            {MaredLang.get("mared.ui.new"),               "50", "FF55FF"}
+        Object[][] defs = {
+            {MaredLang.get("mared.ui.close"),             "60", "FF5555", Boolean.FALSE},
+            {MaredLang.get("mared.ui.run"),               "50", "55FF55", Boolean.FALSE},
+            {MaredLang.get("mared.ui.save"),              "70", "55AAFF", Boolean.FALSE},
+            {MaredLang.get("mared.ui.delete"),            "70", "FF4444", Boolean.FALSE},
+            {MaredLang.get("mared.ui.import"),            "70", "FFAA00", Boolean.FALSE},
+            {MaredLang.get("mared.ui.settings"),          "80", "AAAAFF", Boolean.TRUE},
+            {MaredLang.get("mared.ui.reload_persistent"), "80", "55FF88", Boolean.TRUE},
+            {MaredLang.get("mared.ui.new"),               "60", "FF55FF", Boolean.FALSE}
         };
         Runnable[] actions = {
             this::onClose, this::onRun, this::onSave, this::onDelete,
             this::onImport, this::onSettings, this::onReloadPersistent, this::onNew
         };
 
-        for (int i = 0; i < defs.length; i++) {
-            int w = Integer.parseInt(defs[i][1]);
-            int color = 0xFF000000 | Integer.parseInt(defs[i][2], 16);
+        for (int i = defs.length - 1; i >= 0; i--) {
+            boolean onlyCommands = (Boolean) defs[i][3];
+            if (onlyCommands && !commands) continue;
+
+            int w = Integer.parseInt((String) defs[i][1]);
+            int color = 0xFF000000 | Integer.parseInt((String) defs[i][2], 16);
             right -= w;
             Runnable action = actions[i];
             toolButtons.add(addRenderableWidget(new MaredCompactButton(
-                right, y, w, 18, Component.literal(defs[i][0]), color, action)));
+                right, y, w, 18, Component.literal((String) defs[i][0]), color, action)));
             right -= 4;
-        }
-    }
-
-    private void updateToolButtonsVisibility() {
-        boolean active = isScripts() || isCommands();
-        boolean commands = isCommands();
-        for (int i = 0; i < toolButtons.size(); i++) {
-            AbstractWidget w = toolButtons.get(i);
-            boolean alwaysVisible = (i == 0);
-            boolean onlyCommands  = (i == 5);
-            if (onlyCommands) {
-                w.visible = w.active = commands;
-            } else {
-                w.visible = w.active = alwaysVisible || active;
-            }
         }
     }
 
@@ -589,23 +480,19 @@ public class MaredEditorScreen extends Screen {
     private void runScript() {
         String text = editor.getValue();
         if (text == null || text.trim().isEmpty()) { addLog(MaredLang.get("mared.log.warn.script_empty")); return; }
-
         if (text.startsWith("#persistent")) {
             int nl = text.indexOf('\n');
             text = (nl >= 0) ? text.substring(nl + 1) : "";
         }
-
         Minecraft mc = Minecraft.getInstance();
         MinecraftServer server = mc.getSingleplayerServer();
         if (server == null) { addLog(MaredLang.get("mared.log.error.server_unavailable")); return; }
         ServerPlayer initiator = mc.player != null
-            ? server.getPlayerList().getPlayer(mc.player.getUUID())
-            : null;
+            ? server.getPlayerList().getPlayer(mc.player.getUUID()) : null;
         List<MaredScriptCommand> commands;
         try { commands = MaredScriptParser.parse(text); }
         catch (MaredScriptParser.ParseException e) {
-            addLog(MaredLang.format("mared.log.mared.parse_error", e.getMessage()));
-            return;
+            addLog(MaredLang.format("mared.log.mared.parse_error", e.getMessage())); return;
         }
         if (commands.isEmpty()) { addLog(MaredLang.get("mared.log.warn.script_empty")); return; }
         addLog(MaredLang.format("mared.log.run.script", selectedFile, commands.size()));
@@ -617,58 +504,42 @@ public class MaredEditorScreen extends Screen {
     private void runCommandFile() {
         String text = editor.getValue();
         if (text == null || text.trim().isEmpty()) { addLog(MaredLang.get("mared.log.warn.file_empty")); return; }
-
         if (text.startsWith("#persistent")) {
             int nl = text.indexOf('\n');
             text = (nl >= 0) ? text.substring(nl + 1) : "";
         }
-
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.player.connection == null) {
-            addLog(MaredLang.get("mared.log.error.player_unavailable"));
-            return;
+            addLog(MaredLang.get("mared.log.error.player_unavailable")); return;
         }
-
         addLog(MaredLang.format("mared.log.run.file", selectedFile));
-
         List<String> blockBuffer = new ArrayList<>();
-        int braceDepth = 0;
-        int cmdCount = 0, blockCount = 0;
-        int blockStartLine = 0;
-
+        int braceDepth = 0, cmdCount = 0, blockCount = 0, blockStartLine = 0;
         String[] lines = text.split("\n");
         for (int i = 0; i < lines.length; i++) {
             String raw = lines[i];
             String trimmed = raw.trim();
             int ln = i + 1;
-
             if (trimmed.isEmpty() || trimmed.startsWith("//")) {
                 if (braceDepth > 0) blockBuffer.add(raw);
                 continue;
             }
-
             int opens = countChar(trimmed, '{');
             int closes = countChar(trimmed, '}');
-
             if (braceDepth == 0 && opens > 0) {
                 blockStartLine = ln;
                 addLog(MaredLang.format("mared.log.mared.block_start", ln));
             }
-
             if (braceDepth > 0 || opens > 0) {
                 blockBuffer.add(raw);
                 braceDepth += opens - closes;
-
-                if (braceDepth == 0) {
-                    if (!blockBuffer.isEmpty()) {
-                        runMaredBlock(blockBuffer, blockStartLine);
-                        blockCount++;
-                        blockBuffer.clear();
-                    }
+                if (braceDepth == 0 && !blockBuffer.isEmpty()) {
+                    runMaredBlock(blockBuffer, blockStartLine);
+                    blockCount++;
+                    blockBuffer.clear();
                 }
                 continue;
             }
-
             String cmd = trimmed.startsWith("/") ? trimmed.substring(1) : trimmed;
             try {
                 mc.player.connection.sendCommand(cmd);
@@ -678,7 +549,6 @@ public class MaredEditorScreen extends Screen {
                 addLog(MaredLang.format("mared.log.cmd.error", cmd, e.getMessage()));
             }
         }
-
         if (braceDepth > 0) addLog(MaredLang.get("mared.log.warn.block_not_closed"));
         addLog(MaredLang.format("mared.log.run.done", cmdCount, blockCount));
     }
@@ -696,30 +566,23 @@ public class MaredEditorScreen extends Screen {
 
     private void runMaredBlock(List<String> blockLines, int startLine) {
         String text = String.join("\n", blockLines);
-
         if (text.startsWith("#persistent")) {
             int nl = text.indexOf('\n');
             text = (nl >= 0) ? text.substring(nl + 1) : "";
         }
-
         Minecraft mc = Minecraft.getInstance();
         MinecraftServer server = mc.getSingleplayerServer();
         if (server == null) { addLog(MaredLang.get("mared.log.error.server_unavailable")); return; }
         ServerPlayer initiator = mc.player != null
-            ? server.getPlayerList().getPlayer(mc.player.getUUID())
-            : null;
-
+            ? server.getPlayerList().getPlayer(mc.player.getUUID()) : null;
         List<MaredScriptCommand> commands;
         try { commands = MaredScriptParser.parse(text); }
         catch (MaredScriptParser.ParseException e) {
-            addLog(MaredLang.format("mared.log.mared.parse_error", e.getMessage()));
-            return;
+            addLog(MaredLang.format("mared.log.mared.parse_error", e.getMessage())); return;
         }
         if (commands.isEmpty()) {
-            addLog(MaredLang.format("mared.log.mared.empty", startLine));
-            return;
+            addLog(MaredLang.format("mared.log.mared.empty", startLine)); return;
         }
-
         addLog(MaredLang.format("mared.log.mared.block_ready", startLine, commands.size()));
         MaredScriptContext ctx = new MaredScriptContext(initiator, server, this::addLog);
         ctx.refreshPlayerData();
@@ -727,15 +590,15 @@ public class MaredEditorScreen extends Screen {
     }
 
     private void addLog(String line) {
-        logLines.add(line);
-        if (logLines.size() > 500) logLines.remove(0);
-        logScroll.offset = 0;
+        logPanel.add(line);
     }
 
-    private int logHeight() { return logCollapsed ? LOG_H_COLLAPSED : LOG_H; }
-    private int logTop() { return this.height - logHeight(); }
+    // ---- Размеры ----
+    private int logWidth()  { return this.width - ACTIVE_BINDS_W - 1; }
+    private int logHeight() { return logCollapsed ? MaredLogPanel.LOG_HEADER : MaredLogPanel.PANEL_H; }
+    private int logTop()    { return this.height - logHeight(); }
     private int sidebarBottom() { return logTop(); }
-    private int editorBottom() { return logTop() - GAP_EDITOR_LOG; }
+    private int editorBottom()  { return logTop() - GAP_EDITOR_LOG; }
     private int infoPanelX() { return infoPanelCollapsed ? this.width - INFO_COLLAPSED_W : this.width - INFO_W; }
     private int infoWidth() {
         if (selectedCommandInfo == null || !isCommands()) return 0;
@@ -749,8 +612,6 @@ public class MaredEditorScreen extends Screen {
         return y;
     }
     private int infoBodyTop() { return infoArgFilterBoxY() + FILTER_H + 4; }
-    private int logToggleX() { return this.width - 24; }
-    private int logToggleY() { return this.height - 18; }
     private int arrowY() { return PAD + 1; }
     private int sidebarWidth() {
         if (!isScripts() && !isCommands()) return 0;
@@ -767,9 +628,7 @@ public class MaredEditorScreen extends Screen {
         MaredUi.Content c = new MaredUi.Content();
         MaredCommandRegistry.CommandInfo info = selectedCommandInfo;
         if (info == null) return c;
-
         int argColor = isMaredInfo() ? MRED_COLOR : accentTop();
-
         for (int i = 0; i < info.arguments.size(); i++) {
             MaredCommandRegistry.Argument arg = info.arguments.get(i);
             if (!argFilter.isEmpty()) {
@@ -783,16 +642,12 @@ public class MaredEditorScreen extends Screen {
                 c.gap(6);
                 c.text(MaredLang.get("mared.ui.examples"), TEXT_WARN);
                 c.gap(2);
-                for (String ex : arg.examples) {
-                    c.wrapped("• " + ex, argColor);
-                    c.gap(2);
-                }
+                for (String ex : arg.examples) { c.wrapped("• " + ex, argColor); c.gap(2); }
                 c.gap(4);
             }
             c.gap(4);
         }
         if (!info.arguments.isEmpty()) c.gap(4);
-
         if (!info.nbtHints.isEmpty()) {
             c.text(MaredLang.get("mared.ui.nbt_components"), TEXT_WARN);
             c.gap(4);
@@ -813,7 +668,6 @@ public class MaredEditorScreen extends Screen {
         if (selectedCommandInfo == null) return -1;
         if (my < infoBodyTop() || my > editorBottom() - PAD) return -1;
         if (mx < infoPanelX() || mx > infoPanelX() + INFO_W) return -1;
-
         int innerW = INFO_W - 16 - 10;
         int y = infoBodyTop() - infoScroll.offset;
         for (int i = 0; i < selectedCommandInfo.arguments.size(); i++) {
@@ -836,22 +690,17 @@ public class MaredEditorScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (!logCollapsed) {
-            setupLogScrollArea();
-            if (logScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.LOG_SCROLL))
+        // Панель биндов (справа) — только если клик по бинду
+        if (my >= logTop() && mx >= logWidth()) {
+            return handleActiveBindsClick(mx, my);
+        }
+
+        // Лог-панель (слева) — toggle, кнопки, выделение
+        if (my >= logTop() && mx < logWidth()) {
+            if (logPanel.mouseClicked(mx, my, button, 0, logTop(), logWidth(), logHeight())) {
                 return true;
+            }
         }
-        if (MaredUi.hovered(mx, my, logToggleX(), logToggleY(), 18, 16)) {
-            logCollapsed = !logCollapsed;
-            recreateEditor();
-            return true;
-        }
-
-        if (!logCollapsed && mx >= this.width - ACTIVE_BINDS_W && my >= logTop()) {
-            if (handleActiveBindsClick(mx, my)) return true;
-        }
-
-        if (my >= logTop()) return true;
 
         if (selectedCommandInfo != null && isCommands() && my >= TOOLBAR_H + PAD) {
             if (handleInfoClick(mx, my)) return true;
@@ -859,15 +708,12 @@ public class MaredEditorScreen extends Screen {
         if (super.mouseClicked(mx, my, button)) return true;
         if (handleTabClick(mx, my)) return true;
         if (handleStripClick(mx, my)) return true;
-        if ((isScripts() || isCommands()) && sidebarState == SidebarState.FULL && handleSidebarClick(mx, my))
-            return true;
-
+        if ((isScripts() || isCommands()) && sidebarState == SidebarState.FULL && handleSidebarClick(mx, my)) return true;
         return false;
     }
 
     private boolean handleActiveBindsClick(double mx, double my) {
         int logTop = logTop();
-
         int clearW = 70;
         int clearX = this.width - PAD - clearW;
         int clearY = logTop + 2;
@@ -877,8 +723,7 @@ public class MaredEditorScreen extends Screen {
             addLog(MaredLang.get("mared.log.bind.all_cleared"));
             return true;
         }
-
-        int listY = logTop + LOG_HEADER + 4;
+        int listY = logTop + MaredLogPanel.LOG_HEADER + 4;
         List<String> keys = MaredBindRegistry.keys();
         int visible = Math.max(1, (this.height - listY - PAD) / ITEM_H);
         for (int i = 0; i < visible; i++) {
@@ -888,7 +733,6 @@ public class MaredEditorScreen extends Screen {
             int itemY = listY + i * ITEM_H;
             int delX = this.width - PAD - BIND_DEL_SZ;
             int delY = itemY + (ITEM_H - 2 - BIND_DEL_SZ) / 2;
-
             if (MaredBindRegistry.hasBlocking(key)) {
                 int unlockX = delX - BIND_DEL_SZ - 4;
                 int unlockY = delY;
@@ -898,14 +742,14 @@ public class MaredEditorScreen extends Screen {
                     return true;
                 }
             }
-
             if (MaredUi.hovered(mx, my, delX, delY, BIND_DEL_SZ, BIND_DEL_SZ)) {
                 MaredBindRegistry.clear(key);
                 addLog(MaredLang.format("mared.log.bind.removed", key));
                 return true;
             }
         }
-        return true;
+        // Клик по пустой области биндов — не поглощаем
+        return false;
     }
 
     private boolean handleInfoClick(double mx, double my) {
@@ -919,7 +763,6 @@ public class MaredEditorScreen extends Screen {
             return true;
         }
         if (infoPanelCollapsed || mx < infoX) return false;
-
         int argBoxY = infoArgFilterBoxY();
         boolean overFilter = my >= argBoxY - 1 && my < argBoxY + FILTER_H + 1;
         if (!overFilter) {
@@ -930,14 +773,11 @@ public class MaredEditorScreen extends Screen {
                 return true;
             }
         }
-
         int bodyTop = infoBodyTop();
         int bodyH = (editorBottom() - PAD) - bodyTop;
         infoScroll.set(infoX, bodyTop, INFO_W, bodyH);
         infoScroll.content(buildInfoContent().height(this.font, INFO_W - 16));
-        if (!overFilter
-            && infoScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.INFO_SCROLL))
-            return true;
+        if (!overFilter && infoScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.INFO_SCROLL)) return true;
         return !overFilter;
     }
 
@@ -946,7 +786,6 @@ public class MaredEditorScreen extends Screen {
         int idx = (int) (my / TAB_H);
         String[] tabs = {"scripts", "commands", "npc", "events", "quests"};
         if (idx < 0 || idx >= tabs.length) return false;
-
         String clicked = tabs[idx];
         boolean supported = "scripts".equals(clicked) || "commands".equals(clicked);
         if (clicked.equals(openTab) && sidebarWidth() > 0) sidebarState = SidebarState.CLOSED;
@@ -957,7 +796,7 @@ public class MaredEditorScreen extends Screen {
             selectedCommandInfo = null;
             expandedArgs.clear();
         }
-        updateToolButtonsVisibility();
+        buildToolButtons();
         recreateEditor();
         reloadFiles();
         refreshCommands();
@@ -980,16 +819,10 @@ public class MaredEditorScreen extends Screen {
         int sx = TAB_W, ay = arrowY();
         int arrowX = sx + FULL_W - BTN_SZ - 4;
         int plusX = arrowX - BTN_SZ - 4;
-
         if (MaredUi.hovered(mx, my, arrowX, ay, BTN_SZ, BTN_SZ)) {
-            sidebarState = SidebarState.STRIP;
-            recreateEditor();
-            return true;
+            sidebarState = SidebarState.STRIP; recreateEditor(); return true;
         }
-        if (MaredUi.hovered(mx, my, plusX, ay, BTN_SZ, BTN_SZ)) {
-            onNew();
-            return true;
-        }
+        if (MaredUi.hovered(mx, my, plusX, ay, BTN_SZ, BTN_SZ)) { onNew(); return true; }
 
         int listX = sx + 6;
         int listW = FULL_W - 12 - SCROLLBAR_W;
@@ -1000,8 +833,7 @@ public class MaredEditorScreen extends Screen {
         int itemWidth = itemW(listW);
 
         fileScroll.set(listX, filesListY, listW, filesListH).items(ITEM_H, fileNames.size());
-        if (fileScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.FILE_SCROLL))
-            return true;
+        if (fileScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.FILE_SCROLL)) return true;
 
         int visibleFiles = fileScroll.visibleItems();
         for (int i = 0; i < visibleFiles; i++) {
@@ -1011,11 +843,9 @@ public class MaredEditorScreen extends Screen {
             int delX = listX + itemWidth - FILE_DEL_SZ;
             int delY = itemY + (ITEM_H - 2 - FILE_DEL_SZ) / 2;
             if (MaredUi.hovered(mx, my, delX, delY, FILE_DEL_SZ, FILE_DEL_SZ)) {
-                onDelete(fileNames.get(idx));
-                return true;
+                onDelete(fileNames.get(idx)); return true;
             }
         }
-
         int fileIdx = fileScroll.hitItem(mx, my, SCROLLBAR_W);
         if (fileIdx >= 0) {
             selectedFile = fileNames.get(fileIdx);
@@ -1023,7 +853,6 @@ public class MaredEditorScreen extends Screen {
             loadIntoEditor();
             return true;
         }
-
         int commandsY = listY + filesH + 4;
         int toggleX = listX + listW - TOGGLE_W;
         int toggleY = commandsY + 1;
@@ -1034,16 +863,12 @@ public class MaredEditorScreen extends Screen {
             refreshCommands();
             return true;
         }
-
         if (isCommands()) {
             int filterY = commandsY + 14;
             int commandsListY = filterY + 16;
             int commandsH = fitHeight(sidebarBottom() - 6 - commandsListY, ITEM_H);
-
             cmdScroll.set(listX, commandsListY, listW, commandsH).items(ITEM_H, filteredCommands.size());
-            if (cmdScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.CMD_SCROLL))
-                return true;
-
+            if (cmdScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.CMD_SCROLL)) return true;
             int cmdIdx = cmdScroll.hitItem(mx, my, SCROLLBAR_W);
             if (cmdIdx >= 0) {
                 selectedCommandInfo = filteredCommands.get(cmdIdx);
@@ -1061,21 +886,29 @@ public class MaredEditorScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_DELETE && selectedFile != null) {
-            onDelete();
-            return true;
+        boolean ctrl = (modifiers & 2) != 0;
+        boolean editorFocused = editor != null && editor.isFocused();
+
+        if (ctrl && keyCode == GLFW.GLFW_KEY_C && !editorFocused) { logPanel.copySelectedOrAll(); return true; }
+        if (ctrl && keyCode == GLFW.GLFW_KEY_A && !editorFocused) { logPanel.selectAll(); return true; }
+        if (ctrl && keyCode == GLFW.GLFW_KEY_S && !editorFocused) { logPanel.exportLog(); return true; }
+
+        if (keyCode == GLFW.GLFW_KEY_DELETE && selectedFile != null && !editorFocused) {
+            onDelete(); return true;
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        if (my >= logTop() && mx < logWidth()) {
+            if (logPanel.mouseDragged(mx, my, button, dx, dy, 0, logTop(), logWidth(), logHeight())) return true;
+        }
         if (!drag.active()) return super.mouseDragged(mx, my, button, dx, dy);
         switch (drag.kind) {
             case FILE_SCROLL -> fileScroll.dragScrollbar(my, drag);
             case CMD_SCROLL  -> cmdScroll.dragScrollbar(my, drag);
             case INFO_SCROLL -> infoScroll.dragScrollbar(my, drag);
-            case LOG_SCROLL  -> logScroll.dragScrollbar(my, drag);
             default -> {}
         }
         return true;
@@ -1083,29 +916,25 @@ public class MaredEditorScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
+        logPanel.mouseReleased(mx, my, button);
         drag.clear();
         return super.mouseReleased(mx, my, button);
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double deltaX, double deltaY) {
-        if (!logCollapsed && mx >= this.width - ACTIVE_BINDS_W && my >= logTop()) {
+        if (!logCollapsed && mx >= logWidth() && my >= logTop()) {
             List<String> keys = MaredBindRegistry.keys();
-            int listY = logTop() + LOG_HEADER + 4;
+            int listY = logTop() + MaredLogPanel.LOG_HEADER + 4;
             int visible = Math.max(1, (this.height - listY - PAD) / ITEM_H);
             int maxOffset = Math.max(0, keys.size() - visible);
             if (deltaY < 0) activeBindsScrollOffset = Math.min(maxOffset, activeBindsScrollOffset + 1);
             else if (deltaY > 0) activeBindsScrollOffset = Math.max(0, activeBindsScrollOffset - 1);
             return true;
         }
+        if (logPanel.mouseScrolled(mx, my, deltaY, 0, logTop(), logWidth(), logHeight())) return true;
         if (selectedCommandInfo != null && isCommands() && !infoPanelCollapsed && mx >= infoPanelX()) {
-            infoScroll.wheel(deltaY, 5);
-            return true;
-        }
-        if (my >= logTop() && !logCollapsed) {
-            setupLogScrollArea();
-            logScroll.wheelLog(deltaY, 1);
-            return true;
+            infoScroll.wheel(deltaY, 5); return true;
         }
         if ((isScripts() || isCommands()) && sidebarState == SidebarState.FULL) {
             int listX = TAB_W + 6;
@@ -1114,28 +943,15 @@ public class MaredEditorScreen extends Screen {
             int filesH = Math.min(FILE_SECTION_H, sidebarBottom() - listY - 6);
             int filesListY = listY + 12;
             int filesListH = fitHeight(filesH - 12, ITEM_H);
-            if (MaredUi.hovered(mx, my, listX, filesListY, listW, filesListH)) {
-                fileScroll.wheel(deltaY, 1);
-                return true;
-            }
+            if (MaredUi.hovered(mx, my, listX, filesListY, listW, filesListH)) { fileScroll.wheel(deltaY, 1); return true; }
             if (isCommands()) {
                 int commandsListY = listY + filesH + 4 + 14 + 16;
                 int commandsH = fitHeight(sidebarBottom() - 6 - commandsListY, ITEM_H);
-                if (MaredUi.hovered(mx, my, listX, commandsListY, listW, commandsH)) {
-                    cmdScroll.wheel(deltaY, 1);
-                    return true;
-                }
+                if (MaredUi.hovered(mx, my, listX, commandsListY, listW, commandsH)) { cmdScroll.wheel(deltaY, 1); return true; }
             }
         }
-        if (editor != null && editor.isMouseOver(mx, my) && editor.mouseScrolled(mx, my, deltaX, deltaY))
-            return true;
+        if (editor != null && editor.isMouseOver(mx, my) && editor.mouseScrolled(mx, my, deltaX, deltaY)) return true;
         return super.mouseScrolled(mx, my, deltaX, deltaY);
-    }
-
-    private void setupLogScrollArea() {
-        logScroll.set(0, logTop() + LOG_HEADER, this.width - (logCollapsed ? 0 : ACTIVE_BINDS_W), LOG_H - LOG_HEADER - PAD)
-                 .inverted(true)
-                 .items(LOG_LINE, logLines.size());
     }
 
     @Override
@@ -1143,13 +959,19 @@ public class MaredEditorScreen extends Screen {
         MaredUi.rect(g, 0, 0, this.width, this.height, BG);
         int sbW = sidebarWidth();
 
-        drawLog(g, mouseX, mouseY);
+        // Лог
+        logPanel.setCollapsed(logCollapsed);
+        logPanel.render(g, this.font, 0, logTop(), logWidth(), logHeight(), mouseX, mouseY);
+
+        // Панель биндов — только если лог не свёрнут
+        if (!logCollapsed) {
+            drawActiveBinds(g, logWidth() + 1, logTop(), mouseX, mouseY);
+        }
 
         if (sbW > 0) {
             int bg = (sidebarState == SidebarState.STRIP) ? PANEL_STRIP : PANEL;
             MaredUi.rect(g, TAB_W, 0, TAB_W + sbW, sidebarBottom(), bg);
         }
-
         MaredUi.rect(g, TAB_W + sbW, 0, this.width, TOOLBAR_H + PAD, TOOLBAR_BG);
         MaredUi.rect(g, 0, 0, TAB_W, this.height, TAB_STRIP);
         drawTabs(g, mouseX, mouseY);
@@ -1158,7 +980,6 @@ public class MaredEditorScreen extends Screen {
             drawArrow(g, TAB_W + (STRIP_W - BTN_SZ) / 2, arrowY(), "►", mouseX, mouseY);
         if ((isScripts() || isCommands()) && sidebarState == SidebarState.FULL)
             drawFullSidebar(g, mouseX, mouseY);
-
         drawEditorFrame(g, sbW);
         if (selectedCommandInfo != null && isCommands()) drawInfoPanel(g, mouseX, mouseY);
 
@@ -1168,152 +989,35 @@ public class MaredEditorScreen extends Screen {
         super.render(g, mouseX, mouseY, partialTick);
     }
 
-    private void drawEditorFrame(GuiGraphics g, int sbW) {
-        boolean editable = isScripts() || isCommands();
-        int frameX = TAB_W + sbW + PAD;
-        int frameY = TOOLBAR_H + PAD * 2;
-        int frameW = this.width - frameX - PAD - (editable ? infoWidth() : 0);
-        int frameH = editorBottom() - frameY - PAD;
-
-        if (editable) {
-            MaredUi.panelGradient(g, frameX, frameY, frameW, frameH, EDITOR_BG, accentTop(), accentBottom());
-            String type = isScripts() ? "script" : "commands";
-            String title = (selectedFile == null)
-                ? MaredLang.format("mared.ui.editor_no_selected", type)
-                : MaredLang.format("mared.ui.editor_file", selectedFile);
-            MaredUi.text(g, this.font, title, frameX + 6, frameY + 5, TEXT);
-            MaredUi.dashedLineGradient(g, frameX + 2, frameY + EDITOR_HDR, frameX + frameW - 2, accentTop(), accentBottom());
-        } else {
-            MaredUi.panel(g, frameX, frameY, frameW, frameH, EDITOR_BG, TEXT_DIM);
-            MaredUi.text(g, this.font,
-                MaredLang.format("mared.ui.under_development", tabTitle(openTab)),
-                frameX + 8, frameY + 8, TEXT_DIM);
-        }
-    }
-
-    private void drawInfoPanel(GuiGraphics g, int mouseX, int mouseY) {
-        int infoX = infoPanelX();
-        int infoY = TOOLBAR_H + PAD * 2;
-        int infoH = editorBottom() - infoY - PAD;
-
-        int top = accentTop();
-        int bottom = isMaredInfo() ? MRED_COLOR : accentBottom();
-
-        MaredUi.panelGradient(g, infoX, infoY, infoWidth(), infoH, INFO_BG, top, bottom);
-
-        int toggleX = infoX + 4, toggleY = infoY + 4;
-        boolean toggleHover = MaredUi.hovered(mouseX, mouseY, toggleX, toggleY, 14, 14);
-        MaredUi.buttonGradient(g, this.font, toggleX, toggleY, 14, 14,
-            infoPanelCollapsed ? "◄" : "►",
-            toggleHover ? BTN_HOVER : BTN_BG, top, bottom, TEXT);
-
-        if (infoPanelCollapsed) {
-            MaredUi.text(g, this.font, MaredLang.get("mared.ui.info"), infoX + 7, infoY + 24, top);
-            return;
-        }
-
-        int x = infoX + 8, maxW = INFO_W - 16;
-        MaredCommandRegistry.CommandInfo info = selectedCommandInfo;
-
-        int y = infoY + 22;
-        MaredUi.text(g, this.font, info.name, x, y, top);                                              y += 14;
-        MaredUi.text(g, this.font, MaredLang.get("mared.ui.category") + " " + info.category, x, y, TEXT_DIM); y += 12;
-        MaredUi.text(g, this.font, MaredLang.get("mared.ui.op_level") + " " + info.opLevel, x, y, TEXT_DIM);  y += 16;
-        MaredUi.text(g, this.font, MaredLang.get("mared.ui.description"), x, y, TEXT);                  y += 12;
-        y = MaredUi.wrapped(g, this.font, info.description, x, y, maxW, TEXT_DIM);                      y += 6;
-        MaredUi.text(g, this.font, MaredLang.get("mared.ui.example"), x, y, TEXT);                      y += 12;
-        y = MaredUi.wrapped(g, this.font, info.example, x, y, maxW, TEXT);                               y += 10;
-
-        int filterTitleColor = isMaredInfo() ? MRED_COLOR : TEXT_WARN;
-        MaredUi.text(g, this.font, MaredLang.get("mared.ui.filter_arguments"), x, y, filterTitleColor); y += 12;
-
-        MaredUi.rect(g, infoX + 3, y, infoX + INFO_W - 3, y + FILTER_H, FILTER_BG);
-        MaredUi.outlineGradient(g, infoX + 3, y, INFO_W - 6, FILTER_H, top, bottom);
-        y += FILTER_H + 4;
-
-        MaredUi.rect(g, infoX + 2, y, infoX + INFO_W - 2, y + 1, DIVIDER);
-        y += 3;
-
-        MaredUi.scissorOn(g, infoX + 1, y, infoX + INFO_W - 1, infoY + infoH - 1);
-        MaredUi.Content content = buildInfoContent();
-        content.render(g, this.font, x, y - infoScroll.offset, maxW);
-        MaredUi.scissorOff(g);
-
-        int bodyTop = y;
-        int bodyH = (infoY + infoH - PAD) - bodyTop;
-        infoScroll.set(infoX, bodyTop, INFO_W, bodyH);
-        infoScroll.drawScrollbarGradient(g, top, bottom, SCROLLBAR_W);
-    }
-
-    private void drawLog(GuiGraphics g, int mouseX, int mouseY) {
-        int logTop = logTop();
-        MaredUi.rect(g, 0, logTop, this.width, this.height, LOG_BG);
-
-        if (logCollapsed) {
-            MaredUi.text(g, this.font, MaredLang.get("mared.ui.log"), PAD, logTop + 4, EVENTS_TOP);
-            boolean hover = MaredUi.hovered(mouseX, mouseY, logToggleX(), logToggleY(), 18, 16);
-            MaredUi.button(g, this.font, logToggleX(), logToggleY(), 18, 16,
-                "▲", hover ? BTN_HOVER : BTN_BG, EVENTS_TOP, hover, TEXT);
-            return;
-        }
-
-        int logRight = this.width - ACTIVE_BINDS_W;
-
-        MaredUi.text(g, this.font, MaredLang.get("mared.ui.log"), PAD, logTop + 4, EVENTS_TOP);
-        setupLogScrollArea();
-        logScroll.clamp();
-        int visible = logScroll.visibleItems();
-        int end = logLines.size() - logScroll.offset;
-        int start = Math.max(0, end - visible);
-        for (int i = start; i < end && i < logLines.size(); i++) {
-            String line = logLines.get(i);
-            MaredUi.text(g, this.font, line,
-                PAD + 4, logTop + LOG_HEADER + (i - start) * LOG_LINE, logColor(line));
-        }
-        logScroll.drawScrollbar(g, EVENTS_TOP, SCROLLBAR_W);
-
-        MaredUi.rect(g, logRight, logTop, logRight + 1, this.height, DIVIDER);
-
-        drawActiveBinds(g, logRight, logTop, mouseX, mouseY);
-
-        boolean hover = MaredUi.hovered(mouseX, mouseY, logToggleX(), logToggleY(), 18, 16);
-        MaredUi.button(g, this.font, logToggleX(), logToggleY(), 18, 16,
-            "▼", hover ? BTN_HOVER : BTN_BG, EVENTS_TOP, hover, TEXT);
-    }
-
     private void drawActiveBinds(GuiGraphics g, int x, int logTop, int mouseX, int mouseY) {
-        MaredUi.rect(g, x, logTop, this.width, this.height, LOG_BG);
+        MaredUi.rect(g, x, logTop, this.width, this.height, 0xFF1A1A24);
+        MaredUi.rect(g, x, logTop, x + 1, this.height, 0xFF333344);
 
         int clearW = 70;
         int clearX = this.width - PAD - clearW;
         int clearY = logTop + 2;
 
-        String header = MaredLang.get("mared.ui.active_binds")
-            + " (" + MaredBindRegistry.totalCount() + ")";
+        String header = MaredLang.get("mared.ui.active_binds") + " (" + MaredBindRegistry.totalCount() + ")";
         int maxHeaderWidth = (clearX - 4) - (x + PAD);
         if (maxHeaderWidth > 0 && this.font.width(header) > maxHeaderWidth) {
             header = this.font.plainSubstrByWidth(header, Math.max(0, maxHeaderWidth - 4)) + "...";
         }
-
-        MaredUi.text(g, this.font, header, x + PAD, logTop + 4, EVENTS_TOP);
+        MaredUi.text(g, this.font, header, x + PAD, logTop + 6, EVENTS_TOP);
 
         boolean clearHover = MaredUi.hovered(mouseX, mouseY, clearX, clearY, clearW, 12);
         MaredUi.button(g, this.font, clearX, clearY, clearW, 12, MaredLang.get("mared.ui.clear"),
             clearHover ? BTN_HOVER : BTN_BG, DANGER, clearHover, DANGER);
 
-        int listY = logTop + LOG_HEADER + 4;
+        int listY = logTop + MaredLogPanel.LOG_HEADER + 4;
         int listH = this.height - listY - PAD;
-
         List<String> keys = MaredBindRegistry.keys();
         if (keys.isEmpty()) {
             MaredUi.text(g, this.font, MaredLang.get("mared.ui.no_binds"), x + PAD, listY + 2, TEXT_DIM);
             return;
         }
-
         int visible = Math.max(1, listH / ITEM_H);
         int maxOffset = Math.max(0, keys.size() - visible);
         activeBindsScrollOffset = Math.max(0, Math.min(maxOffset, activeBindsScrollOffset));
-
         for (int i = 0; i < visible; i++) {
             int idx = i + activeBindsScrollOffset;
             if (idx >= keys.size()) break;
@@ -1321,21 +1025,16 @@ public class MaredEditorScreen extends Screen {
             List<MaredBindRegistry.Entry> entries = MaredBindRegistry.entries(key);
             boolean blocking = MaredBindRegistry.hasBlocking(key);
             int itemY = listY + i * ITEM_H;
-
             boolean hov = MaredUi.hovered(mouseX, mouseY, x, itemY, this.width - x, ITEM_H - 2);
             MaredUi.rect(g, x, itemY, this.width, itemY + ITEM_H - 2, hov ? ITEM_HOVER : ITEM_NORMAL);
-
             String label = key + (blocking ? " (block)" : "") + "  [" + entries.size() + "]";
             MaredUi.text(g, this.font, label, x + PAD, itemY + 2, TEXT);
-
             int delX = this.width - PAD - BIND_DEL_SZ;
             int delY = itemY + (ITEM_H - 2 - BIND_DEL_SZ) / 2;
             boolean delHover = MaredUi.hovered(mouseX, mouseY, delX, delY, BIND_DEL_SZ, BIND_DEL_SZ);
-            MaredUi.rect(g, delX, delY, delX + BIND_DEL_SZ, delY + BIND_DEL_SZ,
-                delHover ? 0xFF663333 : 0xFF3A2020);
+            MaredUi.rect(g, delX, delY, delX + BIND_DEL_SZ, delY + BIND_DEL_SZ, delHover ? 0xFF663333 : 0xFF3A2020);
             MaredUi.outline(g, delX, delY, BIND_DEL_SZ, BIND_DEL_SZ, DANGER);
             MaredUi.text(g, this.font, "✕", delX + 1, delY + 1, DANGER);
-
             if (blocking) {
                 int unlockX = delX - BIND_DEL_SZ - 4;
                 int unlockY = delY;
@@ -1346,7 +1045,6 @@ public class MaredEditorScreen extends Screen {
                 MaredUi.text(g, this.font, "U", unlockX + 2, unlockY + 1, 0xFF55FF55);
             }
         }
-
         if (keys.size() > visible) {
             int trackX = this.width - SCROLLBAR_W - 2;
             MaredUi.rect(g, trackX, listY, trackX + SCROLLBAR_W, listY + listH, 0xFF15151E);
@@ -1356,28 +1054,65 @@ public class MaredEditorScreen extends Screen {
         }
     }
 
-    private int logColor(String line) {
-        if (line.contains("[error]") || line.contains("[ошибка]")) return 0xFFFF5555;
-        if (line.contains("[warn]") || line.contains("[предупр]"))   return 0xFFFFAA00;
-        if (line.contains("[give error]"))                           return 0xFFFF5555;
-        if (line.contains("[give]"))                                 return 0xFF55FF88;
-        if (line.contains("[mc error]"))                             return 0xFFFF5555;
-        if (line.contains("[mc]"))                                   return 0xFF88DDFF;
-        if (line.contains("[cmd]"))                                  return 0xFF88DDFF;
-        if (line.contains("[cmd error]"))                            return 0xFFFF5555;
-        if (line.contains("[mared parse]"))                          return 0xFFFF5555;
-        if (line.contains("[mared]"))                                return 0xFF55FF88;
-        if (line.contains("[bind fire]"))                            return 0xFFAA55FF;
-        if (line.contains("[bind]"))                                 return 0xFFFF55FF;
-        if (line.contains("[unblock]"))                              return 0xFF55FF55;
-        if (line.contains("[block]"))                                return 0xFFFFAA00;
-        if (line.contains("[toggle]"))                               return 0xFF55AAFF;
-        if (line.contains("[assert fail]"))                          return 0xFFFF5555;
-        if (line.contains("[assert ok]"))                            return 0xFF55FF88;
-        if (line.contains("[run]") || line.contains("[запуск]"))     return 0xFFFFD700;
-        if (line.contains("[info]") || line.contains("[инфо]"))      return 0xFFAAAAAA;
-        if (line.contains("[auto-save]") || line.contains("[автосейв]")) return 0xFF88DDFF;
-        return TEXT;
+    private void drawEditorFrame(GuiGraphics g, int sbW) {
+        boolean editable = isScripts() || isCommands();
+        int frameX = TAB_W + sbW + PAD;
+        int frameY = TOOLBAR_H + PAD * 2;
+        int frameW = this.width - frameX - PAD - (editable ? infoWidth() : 0);
+        int frameH = editorBottom() - frameY - PAD;
+        if (editable) {
+            MaredUi.panelGradient(g, frameX, frameY, frameW, frameH, EDITOR_BG, accentTop(), accentBottom());
+            String type = isScripts() ? "script" : "commands";
+            String title = (selectedFile == null)
+                ? MaredLang.format("mared.ui.editor_no_selected", type)
+                : MaredLang.format("mared.ui.editor_file", selectedFile);
+            MaredUi.text(g, this.font, title, frameX + 6, frameY + 5, TEXT);
+            MaredUi.dashedLineGradient(g, frameX + 2, frameY + EDITOR_HDR, frameX + frameW - 2, accentTop(), accentBottom());
+        } else {
+            MaredUi.panel(g, frameX, frameY, frameW, frameH, EDITOR_BG, TEXT_DIM);
+            MaredUi.text(g, this.font, MaredLang.format("mared.ui.under_development", tabTitle(openTab)),
+                frameX + 8, frameY + 8, TEXT_DIM);
+        }
+    }
+
+    private void drawInfoPanel(GuiGraphics g, int mouseX, int mouseY) {
+        int infoX = infoPanelX();
+        int infoY = TOOLBAR_H + PAD * 2;
+        int infoH = editorBottom() - infoY - PAD;
+        int top = accentTop();
+        int bottom = isMaredInfo() ? MRED_COLOR : accentBottom();
+        MaredUi.panelGradient(g, infoX, infoY, infoWidth(), infoH, INFO_BG, top, bottom);
+        int toggleX = infoX + 4, toggleY = infoY + 4;
+        boolean toggleHover = MaredUi.hovered(mouseX, mouseY, toggleX, toggleY, 14, 14);
+        MaredUi.buttonGradient(g, this.font, toggleX, toggleY, 14, 14,
+            infoPanelCollapsed ? "◄" : "►", toggleHover ? BTN_HOVER : BTN_BG, top, bottom, TEXT);
+        if (infoPanelCollapsed) {
+            MaredUi.text(g, this.font, MaredLang.get("mared.ui.info"), infoX + 7, infoY + 24, top);
+            return;
+        }
+        int x = infoX + 8, maxW = INFO_W - 16;
+        MaredCommandRegistry.CommandInfo info = selectedCommandInfo;
+        int y = infoY + 22;
+        MaredUi.text(g, this.font, info.name, x, y, top); y += 14;
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.category") + " " + info.category, x, y, TEXT_DIM); y += 12;
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.op_level") + " " + info.opLevel, x, y, TEXT_DIM); y += 16;
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.description"), x, y, TEXT); y += 12;
+        y = MaredUi.wrapped(g, this.font, info.description, x, y, maxW, TEXT_DIM); y += 6;
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.example"), x, y, TEXT); y += 12;
+        y = MaredUi.wrapped(g, this.font, info.example, x, y, maxW, TEXT); y += 10;
+        int filterTitleColor = isMaredInfo() ? MRED_COLOR : TEXT_WARN;
+        MaredUi.text(g, this.font, MaredLang.get("mared.ui.filter_arguments"), x, y, filterTitleColor); y += 12;
+        MaredUi.rect(g, infoX + 3, y, infoX + INFO_W - 3, y + FILTER_H, FILTER_BG);
+        MaredUi.outlineGradient(g, infoX + 3, y, INFO_W - 6, FILTER_H, top, bottom); y += FILTER_H + 4;
+        MaredUi.rect(g, infoX + 2, y, infoX + INFO_W - 2, y + 1, DIVIDER); y += 3;
+        MaredUi.scissorOn(g, infoX + 1, y, infoX + INFO_W - 1, infoY + infoH - 1);
+        MaredUi.Content content = buildInfoContent();
+        content.render(g, this.font, x, y - infoScroll.offset, maxW);
+        MaredUi.scissorOff(g);
+        int bodyTop = y;
+        int bodyH = (infoY + infoH - PAD) - bodyTop;
+        infoScroll.set(infoX, bodyTop, INFO_W, bodyH);
+        infoScroll.drawScrollbarGradient(g, top, bottom, SCROLLBAR_W);
     }
 
     private void drawArrow(GuiGraphics g, int ax, int ay, String symbol, int mouseX, int mouseY) {
@@ -1389,56 +1124,45 @@ public class MaredEditorScreen extends Screen {
     private void drawFullSidebar(GuiGraphics g, int mouseX, int mouseY) {
         int sx = TAB_W, ay = arrowY();
         MaredUi.text(g, this.font, tabTitle(openTab), sx + 8, ay + 5, TEXT);
-
         int arrowX = sx + FULL_W - BTN_SZ - 4;
         int plusX = arrowX - BTN_SZ - 4;
-
         boolean plusHover = MaredUi.hovered(mouseX, mouseY, plusX, ay, BTN_SZ, BTN_SZ);
         MaredUi.buttonGradient(g, this.font, plusX, ay, BTN_SZ, BTN_SZ, "+",
             plusHover ? BTN_HOVER : BTN_BG, accentTop(), accentTop(), TEXT);
-
         boolean arrowHover = MaredUi.hovered(mouseX, mouseY, arrowX, ay, BTN_SZ, BTN_SZ);
         MaredUi.buttonGradient(g, this.font, arrowX, ay, BTN_SZ, BTN_SZ, "◄",
             arrowHover ? BTN_HOVER : BTN_BG, accentBottom(), accentBottom(), TEXT);
-
         int listX = sx + 6, listW = FULL_W - 12 - SCROLLBAR_W;
         int listY = ay + BTN_SZ + 8;
         int filesH = Math.min(FILE_SECTION_H, sidebarBottom() - listY - 6);
         int filesListY = listY + 12;
         int filesListH = fitHeight(filesH - 12, ITEM_H);
-
         MaredUi.text(g, this.font, MaredLang.get("mared.ui.files"), listX, listY, TEXT_DIM);
-
         fileScroll.set(listX, filesListY, listW, filesListH).items(ITEM_H, fileNames.size());
         if (fileNames.isEmpty()) {
             MaredUi.text(g, this.font, MaredLang.get("mared.ui.no_files"), listX + 4, filesListY + 4, TEXT_DIM);
         } else {
             MaredUi.listGradient(g, this.font, fileScroll,
                 fileNames.indexOf(selectedFile), SCROLLBAR_W,
-                accentTop(), accentBottom(),
-                selColor(accentTop()), ITEM_HOVER, ITEM_NORMAL,
+                accentTop(), accentBottom(), selColor(accentTop()), ITEM_HOVER, ITEM_NORMAL,
                 (gr, f, idx, ix, iy, iw, ih, hov, sel) -> {
                     String fname = fileNames.get(idx);
-
-                    // Полоска persistent (только для Commands) — на всю высоту строки
                     if (isCommands() && MaredPersistentStorage.isPersistent(fname)) {
                         MaredUi.rect(gr, ix, iy, ix + PERSISTENT_STRIPE_W, iy + ih, PERSISTENT_COLOR);
                     }
-
-                    MaredUi.text(gr, f, fname, ix + 4, iy + 2, TEXT);
+                    MaredUi.text(gr, f, fname, ix + 6, iy + 2, TEXT);
                     int delX = ix + iw - FILE_DEL_SZ;
                     int delY = iy + (ih - FILE_DEL_SZ) / 2;
                     boolean dHov = MaredUi.hovered(mouseX, mouseY, delX, delY, FILE_DEL_SZ, FILE_DEL_SZ);
-                    MaredUi.rect(gr, delX, delY, delX + FILE_DEL_SZ, delY + FILE_DEL_SZ,
-                        dHov ? 0xFF663333 : 0xFF3A2020);
+                    MaredUi.rect(gr, delX, delY, delX + FILE_DEL_SZ, delY + FILE_DEL_SZ, dHov ? 0xFF663333 : 0xFF3A2020);
                     MaredUi.outline(gr, delX, delY, FILE_DEL_SZ, FILE_DEL_SZ, DANGER);
-                    MaredUi.text(gr, f, "✕", delX + 2, delY + 1, DANGER);
+                    int xw = f.width("✕");
+                    int xx = delX + (FILE_DEL_SZ - xw) / 2;
+                    int xy = delY + (FILE_DEL_SZ - 8) / 2;
+                    MaredUi.text(gr, f, "✕", xx, xy, DANGER);
                 }, mouseX, mouseY);
         }
-
-        if (isCommands()) {
-            drawCommandsList(g, mouseX, mouseY, listX, listW, listY, filesH);
-        }
+        if (isCommands()) drawCommandsList(g, mouseX, mouseY, listX, listW, listY, filesH);
     }
 
     private void drawCommandsList(GuiGraphics g, int mouseX, int mouseY,
@@ -1446,29 +1170,22 @@ public class MaredEditorScreen extends Screen {
         int commandsY = listY + filesH + 4;
         MaredUi.rect(g, TAB_W + 4, commandsY - 2, TAB_W + FULL_W - 4, commandsY, SECTION_BG);
         MaredUi.text(g, this.font, MaredLang.get("mared.ui.available_commands"), listX, commandsY + 2, TEXT_DIM);
-
         int toggleX = listX + listW - TOGGLE_W;
         int toggleY = commandsY + 1;
         boolean toggleHover = MaredUi.hovered(mouseX, mouseY, toggleX, toggleY, TOGGLE_W, TOGGLE_H);
-
         int top = COMMANDS_TOP;
         int bottom = showMaredCommands ? MRED_COLOR : COMMANDS_BOT;
         MaredUi.buttonGradient(g, this.font, toggleX, toggleY, TOGGLE_W, TOGGLE_H,
-            showMaredCommands ? "MR" : "MC",
-            toggleHover ? BTN_HOVER : BTN_BG, top, bottom, TEXT);
-
+            showMaredCommands ? "MR" : "MC", toggleHover ? BTN_HOVER : BTN_BG, top, bottom, TEXT);
         int filterY = commandsY + 14;
         MaredUi.rect(g, listX, filterY, listX + listW, filterY + FILTER_H, FILTER_BG);
         MaredUi.outlineGradient(g, listX, filterY, listW, FILTER_H, top, bottom);
-
         int commandsListY = filterY + 16;
         int commandsH = fitHeight(sidebarBottom() - 6 - commandsListY, ITEM_H);
         if (commandsH < ITEM_H) return;
-
         cmdScroll.set(listX, commandsListY, listW, commandsH).items(ITEM_H, filteredCommands.size());
         MaredUi.listGradient(g, this.font, cmdScroll,
-            filteredCommands.indexOf(selectedCommandInfo), SCROLLBAR_W,
-            top, bottom,
+            filteredCommands.indexOf(selectedCommandInfo), SCROLLBAR_W, top, bottom,
             selColor(showMaredCommands ? MRED_COLOR : COMMANDS_TOP), ITEM_HOVER, ITEM_NORMAL,
             (gr, f, idx, ix, iy, iw, ih, hov, sel) ->
                 MaredUi.text(gr, f, filteredCommands.get(idx).name, ix + 4, iy + 2, TEXT),
@@ -1482,7 +1199,6 @@ public class MaredEditorScreen extends Screen {
             int y = i * TAB_H;
             boolean hovered = mouseX < TAB_W && mouseY >= y && mouseY < y + TAB_H;
             boolean active = tabs[i].equals(openTab);
-
             int top, bottom;
             switch (tabs[i]) {
                 case "scripts"  -> { top = SCRIPTS_TOP;  bottom = SCRIPTS_BOT; }
@@ -1491,7 +1207,6 @@ public class MaredEditorScreen extends Screen {
                 case "events"   -> { top = EVENTS_TOP;   bottom = EVENTS_BOT; }
                 default         -> { top = QUESTS_TOP;   bottom = QUESTS_BOT; }
             }
-
             if (active) {
                 MaredUi.gradientV(g, 2, y + 2, TAB_W - 2, y + TAB_H - 2, top, bottom);
                 MaredUi.centered(g, this.font, letters[i], TAB_W / 2, y + (TAB_H - 8) / 2 + 1, TEXT);

@@ -13,6 +13,7 @@
   "mared.ui.import": "Импорт",
   "mared.ui.settings": "Настройки",
   "mared.ui.new": "Новый",
+  "mared.ui.reload_persistent": "Перезагр",
   "mared.ui.filter": "Фильтр",
   "mared.ui.filter_arguments": "Фильтр аргументов:",
   "mared.ui.description": "Описание:",

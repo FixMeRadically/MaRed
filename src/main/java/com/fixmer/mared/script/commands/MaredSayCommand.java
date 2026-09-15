@@ -1,6 +1,7 @@
 package com.fixmer.mared.script.commands;
 
 import com.fixmer.mared.script.MaredEventRegistry;
+import com.fixmer.mared.script.MaredExpr;
 import com.fixmer.mared.script.MaredScriptContext;
 
 import net.minecraft.network.chat.Component;
@@ -8,15 +9,13 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
- * say <текст> [scope=all|self|server] — отправить сообщение.
+ * say <текст> [scope=all|self|server]
  *
- * scope=all (по умолчанию) — через ванильную /say, все увидят.
- * scope=self             — только себе (sendSystemMessage).
- * scope=server           — то же что all, но через /say.
+ * scope=all (по умолчанию) — broadcastSystemMessage.
+ * scope=self             — только инициатору.
  *
- * ВАЖНО: используется серверный API (ctx.getInitiator()).
- * Клиентский mc.player здесь не нужен — persistent-контекст
- * выполняется до того, как клиент готов.
+ * НЕ использует performPrefixedCommand — Brigadier падал на
+ * незакрытых кавычках и вешал игру.
  */
 public class MaredSayCommand extends MaredScriptCommand {
 
@@ -33,13 +32,11 @@ public class MaredSayCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        String resolved = ctx.substitute(text);
-        if (resolved == null) resolved = "";
+        String resolved = resolveText(text, ctx);
 
         ServerPlayer initiator = ctx.getInitiator();
         MinecraftServer server = ctx.getServer();
 
-        // Fallback: если сервер недоступен
         if (server == null && initiator != null) {
             server = initiator.getServer();
         }
@@ -50,7 +47,6 @@ public class MaredSayCommand extends MaredScriptCommand {
 
         try {
             if ("self".equalsIgnoreCase(scope)) {
-                // Только инициатору — sendSystemMessage работает на сервере
                 if (initiator == null) {
                     ctx.log("[warn] say self: initiator is null");
                     return true;
@@ -58,13 +54,9 @@ public class MaredSayCommand extends MaredScriptCommand {
                 initiator.sendSystemMessage(Component.literal(resolved));
                 MaredEventRegistry.suppressChat(500);
             } else {
-                // all / server — ванильная /say через серверную команду
-                String cmd = "say " + resolved;
-                server.getCommands().performPrefixedCommand(
-                    server.createCommandSourceStack(),
-                    cmd
-                );
-                ctx.log("[mc] /" + cmd);
+                Component msg = Component.literal("[Server] " + resolved);
+                server.getPlayerList().broadcastSystemMessage(msg, false);
+                ctx.log("[say] " + resolved);
                 MaredEventRegistry.suppressChat(500);
             }
         } catch (Exception e) {
@@ -73,7 +65,30 @@ public class MaredSayCommand extends MaredScriptCommand {
         return true;
     }
 
-    @Override public int getDelayTicks() { return 0; }
+    private String resolveText(String raw, MaredScriptContext ctx) {
+        if (raw == null || raw.isEmpty()) return "";
 
+        if (looksLikeConcat(raw)) {
+            try {
+                Object v = MaredExpr.eval(raw, ctx);
+                return MaredExpr.stringify(v);
+            } catch (Exception ignored) {}
+        }
+
+        return ctx.substitute(raw);
+    }
+
+    private boolean looksLikeConcat(String s) {
+        boolean inString = false;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (inString && c == '\\' && i + 1 < s.length()) { i++; continue; }
+            if (c == '"') { inString = !inString; continue; }
+            if (!inString && c == '+') return true;
+        }
+        return false;
+    }
+
+    @Override public int getDelayTicks() { return 0; }
     @Override public String describe() { return "say \"" + text + "\""; }
 }

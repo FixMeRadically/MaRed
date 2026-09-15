@@ -11,17 +11,9 @@ import com.fixmer.mared.script.MaredScriptExecutor.Frame;
 
 /**
  * call name(arg1, arg2) — вызов функции.
- * Толкает тело функции кадром с меткой functionCall.
  *
- * Аргументы передаются как ОБЪЕКТЫ:
- *   $items       → значение переменной items (List, число, строка)
- *   "строка"     → строка без кавычек
- *   123          → Long
- *   1.5          → Double
- *   ${expr}      → вычисленное выражение
- *
- * ВАЖНО: числа возвращаются как Long / Double, потому что MaredExpr
- * работает только с этими типами.
+ * Аргументы передаются как ОБЪЕКТЫ. Если arg содержит арифметику
+ * (например $n - 1), он вычисляется как выражение.
  */
 public class MaredCallCommand extends MaredScriptCommand {
 
@@ -83,11 +75,14 @@ public class MaredCallCommand extends MaredScriptCommand {
 
     /**
      * Определяет значение аргумента:
-     *   $var        → значение переменной (любой тип: число, строка, List)
+     *   $var        → значение переменной (любой тип)
      *   ${expr}     → вычисленное выражение
      *   "строка"    → строка без кавычек
-     *   число       → Long или Double (как в MaredExpr)
+     *   число       → Long или Double
      *   выражение   → вычисленное MaredExpr.eval
+     *
+     * ВАЖНО: если arg содержит арифметику ($n - 1, $a + $b, etc.) —
+     * он вычисляется как выражение.
      */
     public static Object resolveArg(String arg, MaredScriptContext ctx) {
         if (arg == null) return null;
@@ -95,27 +90,23 @@ public class MaredCallCommand extends MaredScriptCommand {
 
         if (s.isEmpty()) return "";
 
-        // $var → значение переменной
-        if (s.startsWith("$") && !s.startsWith("${")) {
-            String varName = s.substring(1);
-            Object v = ctx.getVariable(varName);
-            if (v != null) return v;
-            return s;
-        }
-
-        // ${expr} → вычислить выражение
         if (s.startsWith("${") && s.endsWith("}")) {
             String expr = s.substring(2, s.length() - 1);
             try { return MaredExpr.eval(expr, ctx); }
             catch (Exception e) { return s; }
         }
 
-        // "строка" → снять кавычки
+        if (s.startsWith("$") && !s.startsWith("${") && !containsOperator(s)) {
+            String varName = s.substring(1);
+            Object v = ctx.getVariable(varName);
+            if (v != null) return v;
+            return s;
+        }
+
         if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"")) {
             return s.substring(1, s.length() - 1);
         }
 
-        // число → Long или Double (как в MaredExpr)
         try {
             if (s.contains(".") || s.contains("e") || s.contains("E")) {
                 return Double.parseDouble(s);
@@ -123,9 +114,25 @@ public class MaredCallCommand extends MaredScriptCommand {
             return Long.parseLong(s);
         } catch (NumberFormatException ignored) {}
 
-        // выражение без $ → вычислить
         try { return MaredExpr.eval(s, ctx); }
         catch (Exception e) { return s; }
+    }
+
+    /**
+     * Проверяет, содержит ли строка арифметические операторы вне кавычек.
+     */
+    private static boolean containsOperator(String s) {
+        boolean inString = false;
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '"' || c == '\'') { inString = !inString; continue; }
+            if (inString) continue;
+            if (c == '+' || c == '-' || c == '*' || c == '/' || c == '%') {
+                if ((c == '-' || c == '+') && i == 0) continue;
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override public int getDelayTicks() { return 0; }

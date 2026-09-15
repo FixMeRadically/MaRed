@@ -41,11 +41,23 @@ public class MaredCompactButton extends AbstractWidget {
         graphics.renderOutline(getX(), getY(), width, height, hovered ? accentColor : COLOR_BORDER);
 
         String text = getMessage().getString();
-        int tw = Minecraft.getInstance().font.width(text);
-        int tx = getX() + (width - tw) / 2;
-        int ty = getY() + (height - 8) / 2 + 1;
-        graphics.drawString(Minecraft.getInstance().font, text, tx, ty,
-            hovered ? COLOR_TEXT_HOVER : COLOR_TEXT, true);
+        int color = hovered ? COLOR_TEXT_HOVER : COLOR_TEXT;
+
+        // Для односимвольных иконок (+ ✕ ◄ ► ▲ ▼) используем drawCenteredString —
+        // он точнее центрирует, чем ручной расчёт по font.width.
+        if (text.length() == 1) {
+            int centerX = getX() + width / 2;
+            // drawCenteredString использует правильную baseline, но даёт +1 смещение.
+            // Компенсируем -1 сверху, чтобы иконка была оптически по центру.
+            int centerY = getY() + (height - 8) / 2;
+            graphics.drawCenteredString(Minecraft.getInstance().font, text, centerX, centerY, color);
+        } else {
+            // Обычный текст — центрируем по ширине, baseline как у ванильных кнопок.
+            int tw = Minecraft.getInstance().font.width(text);
+            int tx = getX() + (width - tw) / 2;
+            int ty = getY() + (height - 8) / 2 + 1;
+            graphics.drawString(Minecraft.getInstance().font, text, tx, ty, color, true);
+        }
     }
 
     @Override
