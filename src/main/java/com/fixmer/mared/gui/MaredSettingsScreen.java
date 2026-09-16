@@ -13,8 +13,8 @@ import net.minecraft.network.chat.Component;
 
 public class MaredSettingsScreen extends Screen {
 
-    private static final int BG        = 0xFF0E0E14;
-    private static final int PANEL     = 0xFF1E1E2A;
+    private static final int BG        = 0xFF0A0A10;
+    private static final int PANEL     = 0xFF14141C;
     private static final int BORDER    = 0xFFFFAA00;
     private static final int TEXT      = 0xFFFFFFFF;
     private static final int TEXT_DIM  = 0xFFAAAAAA;
@@ -77,14 +77,16 @@ public class MaredSettingsScreen extends Screen {
         if (this.minecraft != null) this.minecraft.setScreen(parent);
     }
 
+    /** FIX: единая функция layout, используется в render и mouseClicked. */
+    private int panelX() { return this.width / 2 - 220; }
+    private int panelY() { return 40; }
+    private int panelW() { return 440; }
+    private int panelH() { return this.height - 100; }
+
     private List<long[]> computeLayout() {
         List<long[]> rows = new ArrayList<>();
-
-        int panelX = this.width / 2 - 220;
-        int panelY = 40;
-        int x = panelX + PAD;
-        int y = panelY + PAD;
-
+        int x = panelX() + PAD;
+        int y = panelY() + PAD;
         y += 22;
 
         y += 14;
@@ -135,15 +137,15 @@ public class MaredSettingsScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         g.fill(0, 0, this.width, this.height, BG);
 
-        int panelX = this.width / 2 - 220;
-        int panelY = 40;
-        int panelW = 440;
-        int panelH = this.height - 100;
+        int px = panelX();
+        int py = panelY();
+        int pw = panelW();
+        int ph = panelH();
 
-        MaredUi.panel(g, panelX, panelY, panelW, panelH, PANEL, BORDER);
+        MaredUi.panelLitBordered(g, px, py, pw, ph, PANEL, BORDER);
 
-        int x = panelX + PAD;
-        int y = panelY + PAD;
+        int x = px + PAD;
+        int y = py + PAD;
 
         MaredUi.text(g, this.font, MaredLang.get("mared.settings.title"), x, y, BORDER);
         y += 22;
@@ -176,7 +178,7 @@ public class MaredSettingsScreen extends Screen {
         MaredUi.text(g, this.font, MaredLang.get("mared.settings.hint"), x, y, TEXT_WARN);
         y += 12;
         MaredUi.wrapped(g, this.font, MaredLang.get("mared.settings.hint_text"),
-            x, y, panelW - PAD * 2, TEXT_DIM);
+            x, y, pw - PAD * 2, TEXT_DIM);
 
         super.render(g, mouseX, mouseY, partialTick);
     }
@@ -189,11 +191,16 @@ public class MaredSettingsScreen extends Screen {
         }
     }
 
+    /** FIX: крестик вручную, точно по центру. */
     private void drawCheckbox(GuiGraphics g, int x, int y, boolean checked) {
         MaredUi.rect(g, x, y + 2, x + CB_SZ, y + 2 + CB_SZ, CB_BG);
         MaredUi.outline(g, x, y + 2, CB_SZ, CB_SZ, BORDER);
         if (checked) {
-            MaredUi.text(g, this.font, "✕", x + 2, y + 4, CB_SEL);
+            int cx = x + CB_SZ / 2;
+            int cy = y + 2 + CB_SZ / 2;
+            int arm = 3;
+            MaredUi.rect(g, cx - arm, cy, cx + arm + 1, cy + 1, CB_SEL);
+            MaredUi.rect(g, cx, cy - arm, cx + 1, cy + arm + 1, CB_SEL);
         }
     }
 
@@ -208,15 +215,14 @@ public class MaredSettingsScreen extends Screen {
 
     private String indentLabel(MaredSettings.IndentStyle style) {
         return switch (style) {
-            case TAB -> MaredLang.get("mared.settings.indent_style.tab");
-            case SPACES_4 -> MaredLang.get("mared.settings.indent_style.spaces4");
-            case SPACES_2 -> MaredLang.get("mared.settings.indent_style.spaces2");
+            case TAB -> MaredLang.get("mared.settings.indent_tab");
+            case SPACES_4 -> MaredLang.get("mared.settings.indent_4");
+            case SPACES_2 -> MaredLang.get("mared.settings.indent_2");
         };
     }
 
     @Override
     public boolean isPauseScreen() { return false; }
-
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
 }

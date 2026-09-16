@@ -461,6 +461,24 @@ public final class MaredExpr {
                     return list;
                 }
                 case IDENT: {
+                    // ← FIX 1: call func(args)
+                    if ("call".equals(t.text)) {
+                        Token nameTok = next();
+                        if (nameTok.type != TokType.IDENT) {
+                            throw new RuntimeException("expr: expected function name after 'call'");
+                        }
+                        expect(TokType.LPAREN);
+                        List<Object> args = new ArrayList<>();
+                        if (peek().type != TokType.RPAREN) {
+                            args.add(parseExpression());
+                            while (match(TokType.COMMA)) {
+                                args.add(parseExpression());
+                            }
+                        }
+                        expect(TokType.RPAREN);
+                        return ctx.callFunction(nameTok.text, args);
+                    }
+
                     if (peek().type == TokType.LPAREN) {
                         pos++;
                         List<Object> args = new ArrayList<>();

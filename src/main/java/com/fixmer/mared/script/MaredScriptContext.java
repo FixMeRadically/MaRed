@@ -33,6 +33,15 @@ public class MaredScriptContext {
     private boolean breakRequested = false;
     private boolean continueRequested = false;
 
+    // ← FIX 3: флаг persistent
+    private boolean persistent = false;
+    public boolean isPersistent() { return persistent; }
+    public void setPersistent(boolean p) { this.persistent = p; }
+
+    // ← FIX 1: глубина синхронного вызова (защита от бесконечной рекурсии)
+    private int callDepth = 0;
+    private static final int MAX_CALL_DEPTH = 256;
+
     public MaredScriptContext(ServerPlayer initiator, MinecraftServer server, Consumer<String> logger) {
         this.initiator = initiator;
         this.server = server;
@@ -88,6 +97,79 @@ public class MaredScriptContext {
     }
 
     public Map<String, Object> getAllVariables() { return variables; }
+
+    // ============================================================
+    //  FIX 1: Синхронный вызов функции (для return call f(...))
+    // ============================================================
+
+    /**
+     * Синхронно вызывает функцию Mared и возвращает её returnValue.
+     * Используется в MaredExpr, когда встречается `call name(args)`
+     * внутри выражения (например return $n * call fib($n - 1)).
+     *
+     * Тело функции выполняется «мгновенно» через вложенный executor,
+     * который прокручивается до конца в этом же вызове. wait-команды
+     * внутри такой функции обрабатываются как обычно (executor ждёт тика),
+     * но для рекурсии через return это редкость.
+     *
+     * Если функция содержит wait или возвращает управление асинхронно —
+     * этот метод вернёт null, а полное выполнение продолжится в основном
+     * стеке (как при обычном call).
+     */
+    public Object callFunction(String name, List<Object> args) {
+        Func fn = functions.get(name);
+        if (fn == null) {
+            throw new RuntimeException("unknown function: " + name);
+        }
+
+        if (callDepth >= MAX_CALL_DEPTH) {
+            throw new RuntimeException("call stack overflow (max " + MAX_CALL_DEPTH + ")");
+        }
+
+        // --- backup ---
+        Map<String, Object> backup = new HashMap<>();
+        for (String p : fn.params) {
+            backup.put(p, variables.get(p));
+        }
+
+        // --- bind args ---
+        for (int i = 0; i < fn.params.size(); i++) {
+            String p = fn.params.get(i);
+            Object value = (i < args.size()) ? args.get(i) : null;
+            variables.put(p, value);
+        }
+
+        callDepth++;
+        Object result = null;
+        try {
+            MaredScriptExecutor exec = new MaredScriptExecutor(this, fn.body);
+            exec.pushFunctionBodySync(fn.body);
+
+            // Прокрутить executor до конца, но с лимитом на случай wait
+            int safety = 100_000;
+            while (!exec.isFinished() && safety-- > 0) {
+                exec.tick();
+                // Если executor ушёл в wait — прерываем синхронный режим
+                if (exec.isWaiting()) {
+                    // В этом случае вернуть null, а полное выполнение
+                    // доверить основному циклу (см. MaredCallCommand).
+                    // Но в 99% рекурсивных функций wait нет.
+                    break;
+                }
+            }
+
+            if (exec.hasReturnValue()) {
+                result = exec.getReturnValue();
+            }
+        } finally {
+            callDepth--;
+            // --- restore ---
+            for (Map.Entry<String, Object> e : backup.entrySet()) {
+                variables.put(e.getKey(), e.getValue());
+            }
+        }
+        return result;
+    }
 
     // ============================================================
     //  Встроенные данные

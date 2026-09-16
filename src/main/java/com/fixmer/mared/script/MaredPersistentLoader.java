@@ -11,13 +11,8 @@ import com.fixmer.mared.storage.MaredCommandStorage;
 /**
  * Загрузчик persistent-скриптов.
  *
- * Читает из .minecraft/config/mared/commands/<name>.txt
- * Маркер #persistent в первой строке — обязателен.
- *
- * Автоочистка:
- *   - Если файл не найден — имя удаляется из persistent.txt.
- *   - Если в файле нет #persistent — имя удаляется из persistent.txt.
- *   - Если в файле нет on-команд — имя удаляется из persistent.txt.
+ * FIX 3: помечает контекст persistent=true, чтобы on-события
+ * переживали выход из мира и не требовали перезапуска.
  */
 public final class MaredPersistentLoader {
 
@@ -100,7 +95,9 @@ public final class MaredPersistentLoader {
             return false;
         }
 
+        // ← FIX 3: помечаем контекст persistent
         MaredScriptContext ctx = new MaredScriptContext(null, null, msg -> {});
+        ctx.setPersistent(true);
 
         int registered = 0;
         for (MaredScriptCommand cmd : commands) {

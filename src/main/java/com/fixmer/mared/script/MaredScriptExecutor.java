@@ -54,6 +54,13 @@ public class MaredScriptExecutor {
     }
 
     public boolean isFinished() { return finished; }
+
+    /** FIX 1: проверка, ждёт ли executor тиков (wait). */
+    public boolean isWaiting() {
+        Frame top = stack.peek();
+        return top != null && top.waitTicks > 0;
+    }
+
     public MaredScriptContext getContext() { return context; }
     public boolean isStackEmpty() { return stack.isEmpty(); }
 
@@ -77,6 +84,14 @@ public class MaredScriptExecutor {
         Frame f = new Frame(body);
         f.loopBody = true;
         f.loopOwner = owner;
+        f.functionCall = true;
+        stack.push(f);
+        return f;
+    }
+
+    /** FIX 1: push для синхронного вызова из callFunction. */
+    public Frame pushFunctionBodySync(List<MaredScriptCommand> body) {
+        Frame f = new Frame(body);
         f.functionCall = true;
         stack.push(f);
         return f;

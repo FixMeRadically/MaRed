@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 
 public class MaredNameDialog extends Screen {
 
-    private static final int PANEL      = 0xFF1E1E2A;
+    private static final int PANEL      = 0xFF1A1A24;
     private static final int TEXT       = 0xFFFFFFFF;
     private static final int TEXT_DIM   = 0xFFAAAAAA;
     private static final int CHECK_BG   = 0xFF0A0A10;
@@ -36,19 +36,16 @@ public class MaredNameDialog extends Screen {
     private boolean persistent = false;
     private int checkX, checkY, checkSize = 14;
 
-    /** Обычный диалог без чекбокса. */
     public MaredNameDialog(Screen parent, String title, Consumer<String> onAccept,
                            int accentColor, boolean allowSlash) {
         this(parent, title, onAccept, null, accentColor, allowSlash, false);
     }
 
-    /** Диалог с чекбоксом Persistent. */
     public MaredNameDialog(Screen parent, String title, BiConsumer<String, Boolean> onAccept,
                            int accentColor, boolean allowSlash) {
         this(parent, title, null, onAccept, accentColor, allowSlash, true);
     }
 
-    /** Универсальный конструктор. */
     private MaredNameDialog(Screen parent, String title,
                             Consumer<String> onAcceptSimple,
                             BiConsumer<String, Boolean> onAcceptWithFlag,
@@ -85,7 +82,6 @@ public class MaredNameDialog extends Screen {
         nameBox.setFocused(true);
         addRenderableWidget(nameBox);
 
-        // Чекбокс persistent
         if (showPersistentOption) {
             checkX = panelX + 20;
             checkY = panelY + 90;
@@ -126,7 +122,8 @@ public class MaredNameDialog extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        g.fill(0, 0, this.width, this.height, 0x80000000);
+        // FIX: fillGradient — гарантированное затемнение поверх любого экрана
+        g.fillGradient(0, 0, this.width, this.height, 0xC0000000, 0xC0000000);
 
         int panelW = 300;
         int panelH = showPersistentOption ? 170 : 140;
@@ -136,30 +133,26 @@ public class MaredNameDialog extends Screen {
         MaredUi.panel(g, panelX, panelY, panelW, panelH, PANEL, accentColor);
 
         MaredUi.text(g, this.font, title, panelX + 20, panelY + 20, accentColor);
-        MaredUi.text(g, this.font, MaredLang.get("mared.dialog.name_label"), panelX + 20, panelY + 38, TEXT_DIM);
+        MaredUi.text(g, this.font, MaredLang.get("mared.dialog.name_label"),
+            panelX + 20, panelY + 38, TEXT_DIM);
 
-        // Чекбокс
         if (showPersistentOption) {
             boolean hovered = mouseX >= checkX && mouseX < checkX + checkSize
                 && mouseY >= checkY && mouseY < checkY + checkSize;
 
-            // Фон чекбокса
             MaredUi.rect(g, checkX, checkY, checkX + checkSize, checkY + checkSize, CHECK_BG);
             MaredUi.outline(g, checkX, checkY, checkSize, checkSize,
                 hovered ? accentColor : CHECK_BRD);
 
-            // Галочка
             if (persistent) {
                 MaredUi.rect(g, checkX + 3, checkY + 3,
                     checkX + checkSize - 3, checkY + checkSize - 3, CHECK_ON);
             }
 
-            // Текст рядом
             MaredUi.text(g, this.font, MaredLang.get("mared.dialog.persistent"),
                 checkX + checkSize + 6, checkY + 3,
                 persistent ? CHECK_ON : TEXT_DIM);
 
-            // Подсказка
             MaredUi.text(g, this.font, MaredLang.get("mared.dialog.persistent_hint"),
                 checkX, checkY + checkSize + 6, TEXT_DIM);
         }
@@ -169,7 +162,6 @@ public class MaredNameDialog extends Screen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        // Клик по чекбоксу
         if (showPersistentOption && button == 0) {
             if (mx >= checkX && mx < checkX + checkSize
                 && my >= checkY && my < checkY + checkSize) {

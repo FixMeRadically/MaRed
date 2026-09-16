@@ -8,8 +8,10 @@ import com.fixmer.mared.script.MaredScriptExecutor.Frame;
 /**
  * return <выражение> — вернуть значение из функции.
  *
- * Устанавливает returnValue и прерывает все кадры до ближайшего functionCall включительно.
- * Если return вне функции — просто останавливает выполнение (как return из скрипта).
+ * FIX 1: теперь поддерживает `return call func(args)` и любые
+ * арифметические выражения с вызовами функций, потому что
+ * MaredExpr.eval распознаёт `call` как встроенную конструкцию
+ * и синхронно вызывает функцию через MaredScriptContext.callFunction.
  */
 public class MaredReturnCommand extends MaredScriptCommand {
 
@@ -37,7 +39,6 @@ public class MaredReturnCommand extends MaredScriptCommand {
             exec.abortToFunction(fn);
             ctx.log("[mared] return");
         } else {
-            // return вне функции — просто останавливаем весь скрипт
             ctx.log("[mared] return (вне функции)");
             exec.stopAll();
         }

@@ -1,0 +1,450 @@
+package com.fixmer.mared.gui;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Consumer;
+
+import com.fixmer.mared.script.MaredLang;
+import com.fixmer.mared.script.MaredPersistentStorage;
+import com.fixmer.mared.script.MaredScriptStorage;
+import com.fixmer.mared.storage.MaredCommandStorage;
+
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.network.chat.Component;
+
+/**
+ * Левая панель: файлы + список команд + фильтры.
+ */
+public final class MaredEditorSidebar {
+
+    private static final int TEXT        = 0xFFFFFFFF;
+    private static final int TEXT_DIM    = 0xFFAAAAAA;
+    private static final int ITEM_HOVER  = 0xFF2E2E3E;
+    private static final int ITEM_NORMAL = 0xFF1A1A22;
+    private static final int BTN_BG      = 0xFF2D2D2D;
+    private static final int BTN_HOVER   = 0xFF3E3E42;
+    private static final int DANGER      = 0xFFFF4444;
+    private static final int PERSISTENT_COLOR = 0xFF55FF88;
+    private static final int MRED_COLOR  = 0xFFFF3333;
+    private static final int FILTER_BG   = 0xFF0A0A10;
+
+    private static final int TOGGLE_W_FIXED = 30;
+    private static final int TOGGLE_H_FIXED = 12;
+
+    // ---- состояние ----
+    private final List<String> fileNames = new ArrayList<>();
+    private final List<MaredCommandRegistry.CommandInfo> filteredCommands = new ArrayList<>();
+    private String selectedFile = null;
+    private MaredCommandRegistry.CommandInfo selectedCommandInfo = null;
+    private boolean showMaredCommands = false;
+    private String commandFilter = "";
+
+    private final MaredUi.ScrollArea fileScroll = new MaredUi.ScrollArea();
+    private final MaredUi.ScrollArea cmdScroll  = new MaredUi.ScrollArea();
+
+    private EditBox commandFilterBox;
+
+    // ---- флаги ----
+    public boolean shouldToggleSidebar = false;
+    public boolean shouldRebuildEditor = false;
+    public boolean shouldRefreshCommands = false;
+    public boolean shouldReloadFiles = false;
+
+    public MaredEditorSidebar() {}
+
+    // ---- геттеры ----
+    public List<String> fileNames() { return fileNames; }
+    public String selectedFile() { return selectedFile; }
+    public void setSelectedFile(String f) { this.selectedFile = f; }
+    public MaredCommandRegistry.CommandInfo selectedCommandInfo() { return selectedCommandInfo; }
+    public void setSelectedCommandInfo(MaredCommandRegistry.CommandInfo c) { this.selectedCommandInfo = c; }
+    public boolean isShowMaredCommands() { return showMaredCommands; }
+    public String commandFilter() { return commandFilter; }
+    public void setCommandFilter(String s) { commandFilter = s; }
+    public MaredUi.ScrollArea fileScroll() { return fileScroll; }
+    public MaredUi.ScrollArea cmdScroll() { return cmdScroll; }
+    public List<MaredCommandRegistry.CommandInfo> filteredCommands() { return filteredCommands; }
+    public EditBox commandFilterBox() { return commandFilterBox; }
+    public void setCommandFilterBox(EditBox box) { this.commandFilterBox = box; }
+
+    // ============================================================
+    //  Крестик вручную
+    // ============================================================
+
+    /**
+     * FIX: крестик рисуется вручную двумя rect — гарантированный центр,
+     * не зависит от наличия глифа «✕» в шрифте Minecraft.
+     */
+    private static void drawCross(GuiGraphics g, int cx, int cy, int arm, int color) {
+        // горизонтальная линия: cx-arm .. cx+arm
+        MaredUi.rect(g, cx - arm, cy, cx + arm + 1, cy + 1, color);
+        // вертикальная линия: cy-arm .. cy+arm
+        MaredUi.rect(g, cx, cy - arm, cx + 1, cy + arm + 1, color);
+    }
+
+    // ============================================================
+    //  Перезагрузка данных
+    // ============================================================
+
+    public void reloadFiles(String openTab) {
+        fileNames.clear();
+        if ("scripts".equals(openTab)) fileNames.addAll(MaredScriptStorage.listScripts());
+        else if ("commands".equals(openTab)) fileNames.addAll(MaredCommandStorage.listCommands());
+        if (selectedFile != null && !fileNames.contains(selectedFile)) selectedFile = null;
+        fileScroll.offset = 0;
+    }
+
+    public void refreshCommands(String openTab, List<MaredCommandRegistry.CommandInfo> mredCommands) {
+        MaredCommandRegistry.load();
+        filteredCommands.clear();
+        if (showMaredCommands && mredCommands != null) {
+            for (MaredCommandRegistry.CommandInfo c : mredCommands) {
+                if (commandFilter.isEmpty()
+                    || c.name.toLowerCase().startsWith(commandFilter.toLowerCase())) {
+                    filteredCommands.add(c);
+                }
+            }
+        } else {
+            filteredCommands.addAll(MaredCommandRegistry.search(commandFilter));
+        }
+        cmdScroll.offset = 0;
+    }
+
+    // ============================================================
+    //  EditBox фильтра
+    // ============================================================
+
+    public EditBox ensureFilterBox(Font font, MaredEditorLayout layout,
+                                   String openTab,
+                                   MaredEditorLayout.SidebarState state) {
+        if (!"commands".equals(openTab) || state != MaredEditorLayout.SidebarState.FULL) {
+            commandFilterBox = null;
+            return null;
+        }
+
+        int tabW = MaredEditorLayout.TAB_W();
+        int pad = MaredEditorLayout.PAD();
+        int listX = tabW + pad;
+        int listW = MaredEditorLayout.SIDEBAR_W() - pad * 2 - MaredEditorLayout.SCROLLBAR_W();
+        int ay = MaredEditorLayout.arrowY();
+        int listY = ay + MaredEditorLayout.BTN_SZ() + MaredEditorLayout.px(8);
+        int filesH = Math.min(MaredEditorLayout.FILE_SECTION_H(),
+            layout.sidebarBottom(false) - listY - pad);
+        int filterY = listY + filesH + MaredEditorLayout.px(4) + MaredEditorLayout.px(14);
+
+        if (commandFilterBox == null) {
+            commandFilterBox = new EditBox(font,
+                listX + 4,
+                filterY + 2,
+                listW - 8,
+                MaredEditorLayout.FILTER_H() - 4,
+                Component.literal(MaredLang.get("mared.ui.filter")));
+            commandFilterBox.setBordered(false);
+            commandFilterBox.setMaxLength(64);
+            commandFilterBox.setValue(commandFilter);
+            commandFilterBox.setResponder(s -> {
+                commandFilter = s;
+                shouldRefreshCommands = true;
+            });
+        } else {
+            commandFilterBox.setX(listX + 4);
+            commandFilterBox.setY(filterY + 2);
+            commandFilterBox.setWidth(listW - 8);
+        }
+        return commandFilterBox;
+    }
+
+    // ============================================================
+    //  Render
+    // ============================================================
+
+    public void drawStrip(GuiGraphics g, Font font, MaredEditorLayout layout,
+                          int mouseX, int mouseY, int accentTop, int accentBottom) {
+        int tabW = MaredEditorLayout.TAB_W();
+        int stripW = MaredEditorLayout.STRIP_W();
+        int btnSz = MaredEditorLayout.BTN_SZ();
+        int ax = tabW + (stripW - btnSz) / 2;
+        int ay = MaredEditorLayout.arrowY();
+
+        boolean hover = MaredUi.hovered(mouseX, mouseY, ax, ay, btnSz, btnSz);
+        MaredUi.buttonGradient(g, font, ax, ay, btnSz, btnSz, "►",
+            hover ? BTN_HOVER : BTN_BG, accentTop, accentBottom, TEXT);
+    }
+
+    public void drawFull(GuiGraphics g, Font font, MaredEditorLayout layout,
+                         String openTab, int mouseX, int mouseY,
+                         int accentTop, int accentBottom, int selColor) {
+        int tabW = MaredEditorLayout.TAB_W();
+        int sx = tabW;
+        int sidebarW = MaredEditorLayout.SIDEBAR_W();
+        int ay = MaredEditorLayout.arrowY();
+        int btnSz = MaredEditorLayout.BTN_SZ();
+        int pad = MaredEditorLayout.PAD();
+
+        MaredUi.text(g, font, MaredEditorTabs.title(openTab),
+            sx + pad + 2, ay + (btnSz - 8) / 2, TEXT);
+
+        int arrowX = sx + sidebarW - btnSz - pad;
+        int plusX = arrowX - btnSz - MaredEditorLayout.px(4);
+
+        boolean plusHover = MaredUi.hovered(mouseX, mouseY, plusX, ay, btnSz, btnSz);
+        MaredUi.buttonGradient(g, font, plusX, ay, btnSz, btnSz, "+",
+            plusHover ? BTN_HOVER : BTN_BG, accentTop, accentTop, TEXT);
+
+        boolean arrowHover = MaredUi.hovered(mouseX, mouseY, arrowX, ay, btnSz, btnSz);
+        MaredUi.buttonGradient(g, font, arrowX, ay, btnSz, btnSz, "◄",
+            arrowHover ? BTN_HOVER : BTN_BG, accentBottom, accentBottom, TEXT);
+
+        int listX = sx + pad;
+        int listW = sidebarW - pad * 2 - MaredEditorLayout.SCROLLBAR_W();
+        int listY = ay + btnSz + MaredEditorLayout.px(8);
+        int filesH = Math.min(MaredEditorLayout.FILE_SECTION_H(),
+            layout.sidebarBottom(false) - listY - pad);
+        int filesListY = listY + MaredEditorLayout.px(12);
+        int itemH = MaredEditorLayout.ITEM_H();
+        int filesListH = (Math.max(0, filesH - MaredEditorLayout.px(12)) / itemH) * itemH;
+
+        MaredUi.text(g, font, MaredLang.get("mared.ui.files"), listX, listY, TEXT_DIM);
+        fileScroll.set(listX, filesListY, listW, filesListH).items(itemH, fileNames.size());
+
+        if (fileNames.isEmpty()) {
+            MaredUi.text(g, font, MaredLang.get("mared.ui.no_files"),
+                listX + MaredEditorLayout.px(4),
+                filesListY + MaredEditorLayout.px(4), TEXT_DIM);
+        } else {
+            final int scrollbarW = MaredEditorLayout.SCROLLBAR_W();
+            final int delSz = MaredEditorLayout.FILE_DEL_SZ();
+            final int stripeW = MaredEditorLayout.PERSISTENT_STRIPE();
+            final boolean commandsTab = "commands".equals(openTab);
+
+            MaredUi.listGradient(g, font, fileScroll,
+                fileNames.indexOf(selectedFile), scrollbarW,
+                accentTop, accentBottom, selColor, ITEM_HOVER, ITEM_NORMAL,
+                (gr, f, idx, ix, iy, iw, ih, hov, sel) -> {
+                    String fname = fileNames.get(idx);
+                    if (commandsTab && MaredPersistentStorage.isPersistent(fname)) {
+                        MaredUi.rect(gr, ix, iy, ix + stripeW, iy + ih, PERSISTENT_COLOR);
+                    }
+                    int textY = iy + (ih - 8) / 2;
+                    MaredUi.text(gr, f, fname, ix + pad, textY, TEXT);
+
+                    // Кнопка удаления — рамка
+                    int delX = ix + iw - delSz - MaredEditorLayout.px(4);
+                    int delY = iy + (ih - delSz) / 2;
+                    boolean dHov = MaredUi.hovered(mouseX, mouseY, delX, delY, delSz, delSz);
+                    MaredUi.rect(gr, delX, delY, delX + delSz, delY + delSz,
+                        dHov ? 0xFF663333 : 0xFF3A2020);
+                    MaredUi.outline(gr, delX, delY, delSz, delSz, DANGER);
+
+                    // FIX: крестик вручную — идеальный центр
+                    int cx = delX + delSz / 2;
+                    int cy = delY + delSz / 2;
+                    drawCross(gr, cx, cy, delSz / 2 - 2, DANGER);
+                }, mouseX, mouseY);
+        }
+
+        if ("commands".equals(openTab)) {
+            drawCommandsList(g, font, layout, openTab, mouseX, mouseY,
+                listX, listW, listY, filesH, accentTop, accentBottom, selColor);
+        }
+    }
+
+    private void drawCommandsList(GuiGraphics g, Font font, MaredEditorLayout layout,
+                                  String openTab, int mouseX, int mouseY,
+                                  int listX, int listW, int listY, int filesH,
+                                  int accentTop, int accentBottom, int selColor) {
+        int pad = MaredEditorLayout.PAD();
+        int tabW = MaredEditorLayout.TAB_W();
+        int sidebarW = MaredEditorLayout.SIDEBAR_W();
+        int filterH = MaredEditorLayout.FILTER_H();
+        int itemH = MaredEditorLayout.ITEM_H();
+
+        int commandsY = listY + filesH + MaredEditorLayout.px(4);
+        MaredUi.rect(g, tabW + pad - 2, commandsY - 2,
+            tabW + sidebarW - pad + 2, commandsY, 0xFF2A2A38);
+        MaredUi.text(g, font, MaredLang.get("mared.ui.available_commands"),
+            listX, commandsY + 2, TEXT_DIM);
+
+        int toggleW = MaredEditorLayout.px(TOGGLE_W_FIXED);
+        int toggleH = MaredEditorLayout.px(TOGGLE_H_FIXED);
+        int toggleX = listX + listW - toggleW - MaredEditorLayout.px(4);
+        int toggleY = commandsY + 1;
+        boolean toggleHover = MaredUi.hovered(mouseX, mouseY, toggleX, toggleY, toggleW, toggleH);
+        int bottom = showMaredCommands ? MRED_COLOR : accentBottom;
+        MaredUi.buttonGradient(g, font, toggleX, toggleY, toggleW, toggleH,
+            showMaredCommands ? "MR" : "MC",
+            toggleHover ? BTN_HOVER : BTN_BG, accentTop, bottom, TEXT);
+
+        int filterY = commandsY + MaredEditorLayout.px(14);
+        MaredUi.rect(g, listX, filterY, listX + listW, filterY + filterH, FILTER_BG);
+        MaredUi.outlineGradient(g, listX, filterY, listW, filterH, accentTop, bottom);
+
+        int commandsListY = filterY + filterH + 2;
+        int commandsH = ((layout.sidebarBottom(false) - pad - commandsListY) / itemH) * itemH;
+        if (commandsH < itemH) return;
+
+        cmdScroll.set(listX, commandsListY, listW, commandsH).items(itemH, filteredCommands.size());
+        int selCol = selColor;
+        if (showMaredCommands) {
+            selCol = 0xFF000000 | ((MRED_COLOR >> 16 & 0xFF) / 3 << 16)
+                                 | ((MRED_COLOR >> 8  & 0xFF) / 3 << 8)
+                                 | ((MRED_COLOR       & 0xFF) / 3);
+        }
+        MaredUi.listGradient(g, font, cmdScroll,
+            filteredCommands.indexOf(selectedCommandInfo), MaredEditorLayout.SCROLLBAR_W(),
+            accentTop, bottom, selCol, ITEM_HOVER, ITEM_NORMAL,
+            (gr, f, idx, ix, iy, iw, ih, hov, sel) -> {
+                int textY = iy + (ih - 8) / 2;
+                MaredUi.text(gr, f, filteredCommands.get(idx).name,
+                    ix + pad, textY, TEXT);
+            },
+            mouseX, mouseY);
+    }
+
+    // ============================================================
+    //  Клик
+    // ============================================================
+
+    public boolean handleClick(MaredEditorLayout layout, String openTab,
+                               double mx, double my,
+                               MaredEditorLayout.SidebarState state,
+                               MaredUi.DragState drag,
+                               Runnable onNew,
+                               Consumer<String> onDelete) {
+        int tabW = MaredEditorLayout.TAB_W();
+        int pad = MaredEditorLayout.PAD();
+        int btnSz = MaredEditorLayout.BTN_SZ();
+        int ay = MaredEditorLayout.arrowY();
+
+        if (state == MaredEditorLayout.SidebarState.STRIP) {
+            int stripW = MaredEditorLayout.STRIP_W();
+            int ax = tabW + (stripW - btnSz) / 2;
+            if (MaredUi.hovered(mx, my, ax, ay, btnSz, btnSz)) {
+                shouldToggleSidebar = true;
+                shouldRebuildEditor = true;
+                return true;
+            }
+            return false;
+        }
+
+        if (state != MaredEditorLayout.SidebarState.FULL) return false;
+
+        int sidebarW = MaredEditorLayout.SIDEBAR_W();
+        int arrowX = tabW + sidebarW - btnSz - pad;
+        int plusX  = arrowX - btnSz - MaredEditorLayout.px(4);
+
+        if (MaredUi.hovered(mx, my, arrowX, ay, btnSz, btnSz)) {
+            shouldToggleSidebar = true;
+            shouldRebuildEditor = true;
+            return true;
+        }
+        if (MaredUi.hovered(mx, my, plusX, ay, btnSz, btnSz)) {
+            onNew.run();
+            return true;
+        }
+
+        int listX = tabW + pad;
+        int listW = sidebarW - pad * 2 - MaredEditorLayout.SCROLLBAR_W();
+        int listY = ay + btnSz + MaredEditorLayout.px(8);
+        int filesH = Math.min(MaredEditorLayout.FILE_SECTION_H(),
+            layout.sidebarBottom(false) - listY - pad);
+        int filesListY = listY + MaredEditorLayout.px(12);
+        int itemH = MaredEditorLayout.ITEM_H();
+        int filesListH = (Math.max(0, filesH - MaredEditorLayout.px(12)) / itemH) * itemH;
+        int itemW = listW - MaredEditorLayout.SCROLLBAR_W() - 2;
+
+        fileScroll.set(listX, filesListY, listW, filesListH).items(itemH, fileNames.size());
+        if (fileScroll.clickScrollbar(mx, my, MaredEditorLayout.SCROLLBAR_W(), drag,
+            MaredUi.DragKind.FILE_SCROLL)) return true;
+
+        int visibleFiles = fileScroll.visibleItems();
+        for (int i = 0; i < visibleFiles; i++) {
+            int idx = i + fileScroll.offset;
+            if (idx >= fileNames.size()) break;
+            int itemY = filesListY + i * itemH;
+            int delX = listX + itemW - MaredEditorLayout.FILE_DEL_SZ() - MaredEditorLayout.px(4);
+            int delY = itemY + (itemH - 2 - MaredEditorLayout.FILE_DEL_SZ()) / 2;
+            if (MaredUi.hovered(mx, my, delX, delY,
+                MaredEditorLayout.FILE_DEL_SZ(), MaredEditorLayout.FILE_DEL_SZ())) {
+                onDelete.accept(fileNames.get(idx));
+                return true;
+            }
+        }
+        int fileIdx = fileScroll.hitItem(mx, my, MaredEditorLayout.SCROLLBAR_W());
+        if (fileIdx >= 0) {
+            selectedFile = fileNames.get(fileIdx);
+            shouldRebuildEditor = true;
+            return true;
+        }
+
+        if ("commands".equals(openTab)) {
+            int commandsY = listY + filesH + MaredEditorLayout.px(4);
+            int toggleW = MaredEditorLayout.px(TOGGLE_W_FIXED);
+            int toggleH = MaredEditorLayout.px(TOGGLE_H_FIXED);
+            int toggleX = listX + listW - toggleW - MaredEditorLayout.px(4);
+            int toggleY = commandsY + 1;
+            if (MaredUi.hovered(mx, my, toggleX, toggleY, toggleW, toggleH)) {
+                showMaredCommands = !showMaredCommands;
+                commandFilter = "";
+                if (commandFilterBox != null) commandFilterBox.setValue("");
+                shouldRefreshCommands = true;
+                return true;
+            }
+
+            if (commandFilterBox != null && commandFilterBox.isMouseOver(mx, my)) {
+                return false;
+            }
+
+            int filterY = commandsY + MaredEditorLayout.px(14);
+            int commandsListY = filterY + MaredEditorLayout.FILTER_H() + 2;
+            int commandsH = ((layout.sidebarBottom(false) - pad - commandsListY) / itemH) * itemH;
+            cmdScroll.set(listX, commandsListY, listW, commandsH).items(itemH, filteredCommands.size());
+            if (cmdScroll.clickScrollbar(mx, my, MaredEditorLayout.SCROLLBAR_W(), drag,
+                MaredUi.DragKind.CMD_SCROLL)) return true;
+
+            int cmdIdx = cmdScroll.hitItem(mx, my, MaredEditorLayout.SCROLLBAR_W());
+            if (cmdIdx >= 0) {
+                selectedCommandInfo = filteredCommands.get(cmdIdx);
+                shouldRebuildEditor = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean handleScroll(MaredEditorLayout layout, String openTab,
+                                double mx, double my, double deltaY,
+                                MaredEditorLayout.SidebarState state) {
+        if (state != MaredEditorLayout.SidebarState.FULL) return false;
+
+        int pad = MaredEditorLayout.PAD();
+        int tabW = MaredEditorLayout.TAB_W();
+        int sidebarW = MaredEditorLayout.SIDEBAR_W();
+        int listX = tabW + pad;
+        int listW = sidebarW - pad * 2 - MaredEditorLayout.SCROLLBAR_W();
+        int listY = MaredEditorLayout.arrowY() + MaredEditorLayout.BTN_SZ()
+                  + MaredEditorLayout.px(8);
+        int filesH = Math.min(MaredEditorLayout.FILE_SECTION_H(),
+            layout.sidebarBottom(false) - listY - pad);
+        int filesListY = listY + MaredEditorLayout.px(12);
+        int itemH = MaredEditorLayout.ITEM_H();
+        int filesListH = (Math.max(0, filesH - MaredEditorLayout.px(12)) / itemH) * itemH;
+
+        if (MaredUi.hovered(mx, my, listX, filesListY, listW, filesListH)) {
+            fileScroll.wheel(deltaY, 1);
+            return true;
+        }
+        if ("commands".equals(openTab)) {
+            int commandsListY = listY + filesH + MaredEditorLayout.px(4)
+                              + MaredEditorLayout.px(14) + MaredEditorLayout.FILTER_H() + 2;
+            int commandsH = ((layout.sidebarBottom(false) - pad - commandsListY) / itemH) * itemH;
+            if (MaredUi.hovered(mx, my, listX, commandsListY, listW, commandsH)) {
+                cmdScroll.wheel(deltaY, 1);
+                return true;
+            }
+        }
+        return false;
+    }
+}

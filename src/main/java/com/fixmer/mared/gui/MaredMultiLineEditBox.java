@@ -22,6 +22,8 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     private static final int COLOR_TEXT    = 0xFFDDDDDD;
     private static final int COLOR_NUMBERS = 0xFF666680;
     private static final int COLOR_SELECT  = 0x804466CC;
+    // FIX: фон совпадает с EDITOR_BG, чтобы не было светлого пятна
+    private static final int COLOR_BG      = 0xFF0E0E16;
 
     private final List<StringBuilder> lines = new ArrayList<>();
     private int cursorLine = 0;
@@ -502,7 +504,8 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
 
-        graphics.fill(getX(), getY(), getX() + width, getY() + height, 0xFF141420);
+        // FIX: цвет совпадает с EDITOR_BG, чтобы редактор не выглядел «вылезающим»
+        graphics.fill(getX(), getY(), getX() + width, getY() + height, COLOR_BG);
 
         graphics.enableScissor(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1);
 
@@ -519,22 +522,13 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             selEndL = e[0]; selEndC = e[1];
         }
 
-        // Счётчик отрисованных физических строк
         int visualRow = 0;
-        int lineIdx = 0;
 
-        // Курсор — на какой физической строке и в какой X
         Integer cursorVisualRow = null;
         int cursorX = textX0;
         int cursorBaseVisualRow = 0;
 
-        // Идём по логическим строкам, начиная с scrollLine (по логике)
-        // НО scrollLine теперь означает номер логической строки — оставим так.
-        // Однако для корректного скролла удобно считать «физические строки» scroll.
-        // Оставим scrollLine как логический индекс — этого достаточно.
-
-        // Собираем физические строки для видимых логических
-        List<int[]> wrapRanges = new ArrayList<>(); // [lineIdx, visualRowStart]
+        List<int[]> wrapRanges = new ArrayList<>();
 
         for (int li = 0; li < lines.size(); li++) {
             String lineText = lines.get(li).toString();
@@ -543,13 +537,11 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
             wrapRanges.add(new int[]{li, visualRow});
 
-            // Если эта логическая строка не видна — пропускаем отрисовку, но считаем физические
             if (visualRow + physical.size() <= scrollLine) {
                 visualRow += physical.size();
                 continue;
             }
 
-            // Отрисовка физических строк
             for (int pIdx = 0; pIdx < physical.size(); pIdx++) {
                 int currentVisual = visualRow;
                 visualRow++;
@@ -557,7 +549,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
                 if (currentVisual < scrollLine) continue;
                 int drawRow = currentVisual - scrollLine;
                 if (drawRow >= visibleVisualRows) {
-                    // дальше не рисуем, но счётчик уже увеличили — это ок для курсора
+                    // дальше не рисуем
                 }
 
                 int lineY = getY() + PADDING + drawRow * LINE_HEIGHT;
@@ -565,28 +557,19 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
                 String physicalText = physical.get(pIdx);
 
-                // Номер строки — только у первой физической строки
                 if (pIdx == 0) {
                     String num = String.valueOf(li + 1);
                     graphics.drawString(mc.font, num, lineNumX, lineY, COLOR_NUMBERS, false);
                 }
 
-                // Отрисовка символов + выделение
                 int curX = textX0;
-                // Реальный индекс символа в логической строке:
-                // учитываем, что переносы "съели" пробелы — упрощённо:
-                // считаем, что символы идут по порядку physicalText без учёта обрезанных пробелов.
-                // Для выделения это даёт небольшую неточность, но визуально корректно.
                 int physCharStart = 0;
-                // найдём смещение physicalText в lineText
-                // (грубый поиск подстроки — для корректного выделения)
                 if (pIdx > 0) {
                     int searchFrom = 0;
                     for (int q = 0; q < pIdx; q++) {
                         int found = lineText.indexOf(physical.get(q), searchFrom);
                         if (found >= 0) searchFrom = found + physical.get(q).length();
                     }
-                    // пропускаем ведущий пробел
                     while (searchFrom < lineText.length() && lineText.charAt(searchFrom) == ' ') {
                         searchFrom++;
                     }
@@ -607,7 +590,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
                     graphics.drawString(mc.font, ch, curX, lineY, COLOR_TEXT, false);
                     curX += chWidth;
 
-                    // Курсор — запоминаем позицию
                     if (cursorLine == li && cursorCol == logicalCol) {
                         cursorVisualRow = currentVisual;
                         cursorX = curX - chWidth;
@@ -615,7 +597,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
                     }
                 }
 
-                // Курсор в конце строки
                 if (cursorLine == li && cursorCol == physCharStart + physicalText.length()) {
                     cursorVisualRow = currentVisual;
                     cursorX = curX;
@@ -623,16 +604,12 @@ public class MaredMultiLineEditBox extends AbstractWidget {
                 }
             }
 
-            // Обработка случая "курсор в конце логической строки, но после последнего физического куска"
             if (cursorLine == li && cursorCol == lineText.length()) {
                 int lastPhysRow = visualRow - 1;
                 cursorVisualRow = lastPhysRow;
-                // X — в конце последнего куска
-                // (уже установлено выше, но перезапишем на всякий случай)
             }
         }
 
-        // Отрисовка курсора
         if (editable && isFocused() && cursorVisualRow != null) {
             long now = System.currentTimeMillis();
             if (now - lastBlink > CURSOR_BLINK) {
