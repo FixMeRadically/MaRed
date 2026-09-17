@@ -5,13 +5,14 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Change game mode",
+      "description_ru": "Сменить игровой режим",
       "example": "/gamemode creative @s",
       "arguments": [
-        { "value": "survival", "description": "Normal mode — health, hunger, blocks drop", "examples": ["/gamemode survival @s"] },
-        { "value": "creative", "description": "Creative mode — fly, infinite blocks, invulnerable", "examples": ["/gamemode creative @s"] },
-        { "value": "adventure", "description": "Adventure mode — can't break/place blocks", "examples": ["/gamemode adventure @s"] },
-        { "value": "spectator", "description": "Spectator mode — fly through blocks, invisible", "examples": ["/gamemode spectator @s"] },
-        { "value": "[target]", "description": "Who to change (default: self)", "examples": ["/gamemode creative @a", "/gamemode creative Notch"] }
+        { "value": "survival", "description": "Normal mode — health, hunger, blocks drop", "description_ru": "Обычный режим — здоровье, голод, блоки падают", "examples": ["/gamemode survival @s"] },
+        { "value": "creative", "description": "Creative mode — fly, infinite blocks, invulnerable", "description_ru": "Творческий режим — полёт, бесконечные блоки, неуязвимость", "examples": ["/gamemode creative @s"] },
+        { "value": "adventure", "description": "Adventure mode — can't break/place blocks", "description_ru": "Режим приключения — нельзя ломать/ставить блоки", "examples": ["/gamemode adventure @s"] },
+        { "value": "spectator", "description": "Spectator mode — fly through blocks, invisible", "description_ru": "Режим наблюдателя — полёт сквозь блоки, невидимость", "examples": ["/gamemode spectator @s"] },
+        { "value": "[target]", "description": "Who to change (default: self)", "description_ru": "Кому изменить (по умолчанию: себе)", "examples": ["/gamemode creative @a", "/gamemode creative Notch"] }
       ]
     }
   ]

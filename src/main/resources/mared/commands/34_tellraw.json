@@ -5,27 +5,28 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Send a JSON message to players",
+      "description_ru": "Отправить JSON-сообщение игрокам",
       "example": "/tellraw @s {\"text\":\"Hello\",\"color\":\"gold\"}",
       "arguments": [
-        { "value": "<targets>", "description": "Who receives", "examples": ["/tellraw @s {\"text\":\"Hello\"}"] },
-        { "value": "<json>", "description": "JSON text component", "examples": ["/tellraw @s {\"text\":\"Hello\",\"color\":\"gold\"}"] }
+        { "value": "<targets>", "description": "Who receives", "description_ru": "Кто получает", "examples": ["/tellraw @s {\"text\":\"Hello\"}"] },
+        { "value": "<json>", "description": "JSON text component", "description_ru": "JSON текстовый компонент", "examples": ["/tellraw @s {\"text\":\"Hello\",\"color\":\"gold\"}"] }
       ],
       "nbt": [
-        { "tag": "text", "what": "Plain text", "why": "Simplest form", "example": "/tellraw @s {\"text\":\"Hello\"}" },
-        { "tag": "color", "what": "Text color", "why": "red, gold, #FF5500", "example": "/tellraw @s {\"text\":\"Hello\",\"color\":\"gold\"}" },
-        { "tag": "bold", "what": "Bold text", "why": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"bold\":true}" },
-        { "tag": "italic", "what": "Italic text", "why": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"italic\":true}" },
-        { "tag": "underlined", "what": "Underlined text", "why": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"underlined\":true}" },
-        { "tag": "strikethrough", "what": "Strikethrough", "why": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"strikethrough\":true}" },
-        { "tag": "obfuscated", "what": "Obfuscated text", "why": "Random characters", "example": "/tellraw @s {\"text\":\"Hi\",\"obfuscated\":true}" },
-        { "tag": "clickEvent", "what": "Click action", "why": "run_command, open_url, suggest_command, copy_to_clipboard", "example": "/tellraw @s {\"text\":\"Click\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/say Hi\"}}" },
-        { "tag": "hoverEvent", "what": "Hover tooltip", "why": "show_text, show_item, show_entity", "example": "/tellraw @s {\"text\":\"Hover\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":\"Tooltip\"}}" },
-        { "tag": "extra", "what": "Multiple parts", "why": "Array of components", "example": "/tellraw @s {\"text\":\"A\",\"extra\":[{\"text\":\"B\",\"color\":\"red\"}]}" },
-        { "tag": "selector", "what": "Entity selector", "why": "Renders entity name", "example": "/tellraw @s {\"selector\":\"@p\"}" },
-        { "tag": "score", "what": "Scoreboard value", "why": "Display score", "example": "/tellraw @s {\"score\":{\"name\":\"@s\",\"objective\":\"kills\"}}" },
-        { "tag": "translate", "what": "Translation key", "why": "Localized text", "example": "/tellraw @s {\"translate\":\"item.minecraft.diamond\"}" },
-        { "tag": "keybind", "what": "Keybind name", "why": "Show key name", "example": "/tellraw @s {\"keybind\":\"key.jump\"}" },
-        { "tag": "nbt", "what": "NBT value", "why": "Display NBT", "example": "/tellraw @s {\"nbt\":\"Health\",\"entity\":\"@s\"}" }
+        { "tag": "text", "what": "Plain text", "what_ru": "Обычный текст", "why": "Simplest form", "why_ru": "Простейшая форма", "example": "/tellraw @s {\"text\":\"Hello\"}" },
+        { "tag": "color", "what": "Text color", "what_ru": "Цвет текста", "why": "red, gold, #FF5500", "why_ru": "red, gold, #FF5500", "example": "/tellraw @s {\"text\":\"Hello\",\"color\":\"gold\"}" },
+        { "tag": "bold", "what": "Bold text", "what_ru": "Жирный текст", "why": "true/false", "why_ru": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"bold\":true}" },
+        { "tag": "italic", "what": "Italic text", "what_ru": "Курсив", "why": "true/false", "why_ru": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"italic\":true}" },
+        { "tag": "underlined", "what": "Underlined text", "what_ru": "Подчёркнутый текст", "why": "true/false", "why_ru": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"underlined\":true}" },
+        { "tag": "strikethrough", "what": "Strikethrough", "what_ru": "Зачёркнутый", "why": "true/false", "why_ru": "true/false", "example": "/tellraw @s {\"text\":\"Hi\",\"strikethrough\":true}" },
+        { "tag": "obfuscated", "what": "Obfuscated text", "what_ru": "Обфусцированный текст", "why": "Random characters", "why_ru": "Случайные символы", "example": "/tellraw @s {\"text\":\"Hi\",\"obfuscated\":true}" },
+        { "tag": "clickEvent", "what": "Click action", "what_ru": "Действие по клику", "why": "run_command, open_url, suggest_command, copy_to_clipboard", "why_ru": "run_command, open_url, suggest_command, copy_to_clipboard", "example": "/tellraw @s {\"text\":\"Click\",\"clickEvent\":{\"action\":\"run_command\",\"value\":\"/say Hi\"}}" },
+        { "tag": "hoverEvent", "what": "Hover tooltip", "what_ru": "Подсказка при наведении", "why": "show_text, show_item, show_entity", "why_ru": "show_text, show_item, show_entity", "example": "/tellraw @s {\"text\":\"Hover\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":\"Tooltip\"}}" },
+        { "tag": "extra", "what": "Multiple parts", "what_ru": "Несколько частей", "why": "Array of components", "why_ru": "Массив компонентов", "example": "/tellraw @s {\"text\":\"A\",\"extra\":[{\"text\":\"B\",\"color\":\"red\"}]}" },
+        { "tag": "selector", "what": "Entity selector", "what_ru": "Селектор сущности", "why": "Renders entity name", "why_ru": "Отображает имя сущности", "example": "/tellraw @s {\"selector\":\"@p\"}" },
+        { "tag": "score", "what": "Scoreboard value", "what_ru": "Значение таблицы очков", "why": "Display score", "why_ru": "Показать очки", "example": "/tellraw @s {\"score\":{\"name\":\"@s\",\"objective\":\"kills\"}}" },
+        { "tag": "translate", "what": "Translation key", "what_ru": "Ключ перевода", "why": "Localized text", "why_ru": "Локализованный текст", "example": "/tellraw @s {\"translate\":\"item.minecraft.diamond\"}" },
+        { "tag": "keybind", "what": "Keybind name", "what_ru": "Имя привязки клавиши", "why": "Show key name", "why_ru": "Показать имя клавиши", "example": "/tellraw @s {\"keybind\":\"key.jump\"}" },
+        { "tag": "nbt", "what": "NBT value", "what_ru": "Значение NBT", "why": "Display NBT", "why_ru": "Показать NBT", "example": "/tellraw @s {\"nbt\":\"Health\",\"entity\":\"@s\"}" }
       ]
     }
   ]

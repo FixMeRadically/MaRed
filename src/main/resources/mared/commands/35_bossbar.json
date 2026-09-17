@@ -5,27 +5,28 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Manage boss bars",
+      "description_ru": "Управление боссбарами",
       "example": "/bossbar add my:bar {\"text\":\"Boss\"}",
       "arguments": [
-        { "value": "add <id> <name>", "description": "Create boss bar", "examples": ["/bossbar add my:bar {\"text\":\"Boss\"}"] },
-        { "value": "remove <id>", "description": "Delete boss bar", "examples": ["/bossbar remove my:bar"] },
-        { "value": "list", "description": "List all boss bars", "examples": ["/bossbar list"] },
-        { "value": "get <id> <property>", "description": "Read property", "examples": ["/bossbar get my:bar value", "/bossbar get my:bar max", "/bossbar get my:bar players"] },
-        { "value": "set <id> color <color>", "description": "Set color", "examples": ["/bossbar set my:bar color red"] },
-        { "value": "set <id> style <style>", "description": "Set style", "examples": ["/bossbar set my:bar style notched_10"] },
-        { "value": "set <id> value <n>", "description": "Set current value", "examples": ["/bossbar set my:bar value 50"] },
-        { "value": "set <id> max <n>", "description": "Set max value", "examples": ["/bossbar set my:bar max 100"] },
-        { "value": "set <id> players <targets>", "description": "Set visible players", "examples": ["/bossbar set my:bar players @a"] },
-        { "value": "set <id> visible <true|false>", "description": "Show/hide", "examples": ["/bossbar set my:bar visible true"] },
-        { "value": "set <id> name <json>", "description": "Change name", "examples": ["/bossbar set my:bar name {\"text\":\"New\"}"] }
+        { "value": "add <id> <name>", "description": "Create boss bar", "description_ru": "Создать боссбар", "examples": ["/bossbar add my:bar {\"text\":\"Boss\"}"] },
+        { "value": "remove <id>", "description": "Delete boss bar", "description_ru": "Удалить боссбар", "examples": ["/bossbar remove my:bar"] },
+        { "value": "list", "description": "List all boss bars", "description_ru": "Список всех боссбаров", "examples": ["/bossbar list"] },
+        { "value": "get <id> <property>", "description": "Read property", "description_ru": "Прочитать свойство", "examples": ["/bossbar get my:bar value"] },
+        { "value": "set <id> color <color>", "description": "Set color", "description_ru": "Задать цвет", "examples": ["/bossbar set my:bar color red"] },
+        { "value": "set <id> style <style>", "description": "Set style", "description_ru": "Задать стиль", "examples": ["/bossbar set my:bar style notched_10"] },
+        { "value": "set <id> value <n>", "description": "Set current value", "description_ru": "Задать текущее значение", "examples": ["/bossbar set my:bar value 50"] },
+        { "value": "set <id> max <n>", "description": "Set max value", "description_ru": "Задать макс. значение", "examples": ["/bossbar set my:bar max 100"] },
+        { "value": "set <id> players <targets>", "description": "Set visible players", "description_ru": "Задать видимых игроков", "examples": ["/bossbar set my:bar players @a"] },
+        { "value": "set <id> visible <true|false>", "description": "Show/hide", "description_ru": "Показать/скрыть", "examples": ["/bossbar set my:bar visible true"] },
+        { "value": "set <id> name <json>", "description": "Change name", "description_ru": "Изменить имя", "examples": ["/bossbar set my:bar name {\"text\":\"New\"}"] }
       ],
       "nbt": [
-        { "tag": "color", "what": "Bar color", "why": "blue, green, pink, purple, red, white, yellow", "example": "/bossbar set my:bar color blue" },
-        { "tag": "style", "what": "Bar style", "why": "progress, notched_6, notched_10, notched_12, notched_20", "example": "/bossbar set my:bar style notched_10" },
-        { "tag": "value", "what": "Current value", "why": "Fill amount", "example": "/bossbar set my:bar value 50" },
-        { "tag": "max", "what": "Max value", "why": "Full bar value", "example": "/bossbar set my:bar max 100" },
-        { "tag": "players", "what": "Visible players", "why": "Who sees the bar", "example": "/bossbar set my:bar players @a" },
-        { "tag": "visible", "what": "Visibility", "why": "Show or hide", "example": "/bossbar set my:bar visible true" }
+        { "tag": "color", "what": "Bar color", "what_ru": "Цвет полосы", "why": "blue, green, pink, purple, red, white, yellow", "why_ru": "blue, green, pink, purple, red, white, yellow", "example": "/bossbar set my:bar color blue" },
+        { "tag": "style", "what": "Bar style", "what_ru": "Стиль полосы", "why": "progress, notched_6, notched_10, notched_12, notched_20", "why_ru": "progress, notched_6, notched_10, notched_12, notched_20", "example": "/bossbar set my:bar style notched_10" },
+        { "tag": "value", "what": "Current value", "what_ru": "Текущее значение", "why": "Fill amount", "why_ru": "Заполнение", "example": "/bossbar set my:bar value 50" },
+        { "tag": "max", "what": "Max value", "what_ru": "Макс. значение", "why": "Full bar value", "why_ru": "Полное значение полосы", "example": "/bossbar set my:bar max 100" },
+        { "tag": "players", "what": "Visible players", "what_ru": "Видимые игроки", "why": "Who sees the bar", "why_ru": "Кто видит полосу", "example": "/bossbar set my:bar players @a" },
+        { "tag": "visible", "what": "Visibility", "what_ru": "Видимость", "why": "Show or hide", "why_ru": "Показать или скрыть", "example": "/bossbar set my:bar visible true" }
       ]
     }
   ]

@@ -150,7 +150,7 @@ public final class MaredEditorInfoPanel {
         int infoX = panelX(layout);
         int infoW = MaredEditorLayout.INFO_W();
         int scrollbarW = MaredEditorLayout.SCROLLBAR_W();
-        int rightEdge = infoX + infoW - scrollbarW - 2;
+        int rightEdge = infoX + infoW - scrollbarW - 4;
         if (mx < infoX || mx > rightEdge) return -1;
 
         int innerW = infoW - 16 - 10;
@@ -185,15 +185,12 @@ public final class MaredEditorInfoPanel {
         int infoX = panelX(layout);
         int infoY = MaredEditorLayout.TOOLBAR_H() + MaredEditorLayout.PAD() * 2;
         int infoW = panelWidth(layout);
-        // FIX: симметрично с редактором — вычитаем PAD
         int infoH = Math.max(0, editorBottom - infoY - MaredEditorLayout.PAD());
         int bottom = isMared ? MRED_COLOR : accentBottom;
 
-        // FIX: сплошной фон, без градиента — не остаётся следов
         MaredUi.rect(g, infoX, infoY, infoX + infoW, infoY + infoH,
             collapsed ? COLLAPSED_BG : INFO_BG);
 
-        // Тонкие границы сверху/снизу
         if (!collapsed) {
             MaredUi.rect(g, infoX, infoY, infoX + infoW, infoY + 1, accentTop);
             MaredUi.rect(g, infoX, infoY + infoH - 1, infoX + infoW, infoY + infoH, bottom);
@@ -235,15 +232,21 @@ public final class MaredEditorInfoPanel {
         MaredUi.rect(g, infoX + 2, y, infoX + MaredEditorLayout.INFO_W() - 2, y + 1, DIVIDER);
         y += 3;
 
+        int bodyTop = y;
+        int bodyH = (infoY + infoH - MaredEditorLayout.PAD()) - bodyTop;
+
+        // FIX: пересчитываем content и позицию КАЖДЫЙ КАДР — скролл обновляется при выборе команды
+        MaredUi.Content content = buildContent(info, accentTop, isMared);
+        int contentH = content.height(font, maxW);
+        infoScroll.set(infoX, bodyTop, MaredEditorLayout.INFO_W(), bodyH);
+        infoScroll.content(contentH);
+        infoScroll.clamp();
+
         MaredUi.scissorOn(g, infoX + 1, y,
             infoX + MaredEditorLayout.INFO_W() - 1, infoY + infoH - 1);
-        MaredUi.Content content = buildContent(info, accentTop, isMared);
         content.render(g, font, x, y - infoScroll.offset, maxW);
         MaredUi.scissorOff(g);
 
-        int bodyTop = y;
-        int bodyH = (infoY + infoH - MaredEditorLayout.PAD()) - bodyTop;
-        infoScroll.set(infoX, bodyTop, MaredEditorLayout.INFO_W(), bodyH);
         infoScroll.drawScrollbarGradient(g, accentTop, bottom, MaredEditorLayout.SCROLLBAR_W());
     }
 

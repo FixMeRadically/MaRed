@@ -13,13 +13,12 @@ import java.util.function.Consumer;
 
 public class MaredNameDialog extends Screen {
 
-    private static final int PANEL      = 0xFF1A1A24;
-    private static final int TEXT       = 0xFFFFFFFF;
-    private static final int TEXT_DIM   = 0xFFAAAAAA;
-    private static final int CHECK_BG   = 0xFF0A0A10;
-    private static final int CHECK_ON   = 0xFF55FF88;
-    private static final int CHECK_OFF  = 0xFF3A3A4A;
-    private static final int CHECK_BRD  = 0xFF4A4A4A;
+    private static final int PANEL    = 0xFF1A1A24;
+    private static final int TEXT     = 0xFFFFFFFF;
+    private static final int TEXT_DIM = 0xFFAAAAAA;
+    private static final int CHECK_BG = 0xFF0A0A10;
+    private static final int CHECK_ON = 0xFF55FF88;
+    private static final int CHECK_BRD= 0xFF4A4A4A;
 
     private final Screen parent;
     private final String title;
@@ -64,7 +63,6 @@ public class MaredNameDialog extends Screen {
     @Override
     protected void init() {
         super.init();
-
         MaredLang.reload();
 
         int panelW = 300;
@@ -104,7 +102,6 @@ public class MaredNameDialog extends Screen {
         String name = nameBox.getValue().trim();
         if (name.isEmpty()) return;
         if (!allowSlash && name.contains("/")) return;
-
         if (showPersistentOption && onAcceptWithFlag != null) {
             onAcceptWithFlag.accept(name, persistent);
         } else if (onAcceptSimple != null) {
@@ -122,8 +119,8 @@ public class MaredNameDialog extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // FIX: fillGradient — гарантированное затемнение поверх любого экрана
-        g.fillGradient(0, 0, this.width, this.height, 0xC0000000, 0xC0000000);
+        // FIX: свой фон первой строкой, без super.renderBackground
+        g.fill(0, 0, this.width, this.height, 0xC0000000);
 
         int panelW = 300;
         int panelH = showPersistentOption ? 170 : 140;
@@ -174,20 +171,14 @@ public class MaredNameDialog extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 257 || keyCode == 335) {
-            onOk();
-            return true;
-        }
-        if (keyCode == 256) {
-            onCancel();
-            return true;
-        }
+        if (keyCode == 257 || keyCode == 335) { onOk(); return true; }
+        if (keyCode == 256) { onCancel(); return true; }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    @Override
-    public boolean isPauseScreen() { return false; }
+    @Override public boolean isPauseScreen() { return false; }
 
+    /** FIX: пусто — иначе ванильный blur размазывает фон. */
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
 }

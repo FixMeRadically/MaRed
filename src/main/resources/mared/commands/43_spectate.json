@@ -5,10 +5,11 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Enter spectator mode from another entity",
+      "description_ru": "Войти в режим наблюдателя от лица другой сущности",
       "example": "/spectate @e[type=zombie,limit=1]",
       "arguments": [
-        { "value": "<target>", "description": "Who to spectate", "examples": ["/spectate @e[type=zombie,limit=1]"] },
-        { "value": "[player]", "description": "Who will spectate", "examples": ["/spectate @e[type=zombie,limit=1] @s"] }
+        { "value": "<target>", "description": "Who to spectate", "description_ru": "За кем наблюдать", "examples": ["/spectate @e[type=zombie,limit=1]"] },
+        { "value": "[player]", "description": "Who will spectate", "description_ru": "Кто будет наблюдать", "examples": ["/spectate @e[type=zombie,limit=1] @s"] }
       ]
     }
   ]

@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import com.fixmer.mared.Mared;
+import com.fixmer.mared.script.MaredLang;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -25,7 +26,14 @@ import com.google.gson.JsonObject;
 /**
  * Загрузчик справочника команд из JSON.
  * Читает ВСЕ .json-файлы из папки resources/mared/commands/.
- * Если файл отсутствует — пропускает с предупреждением в логе.
+ *
+ * FIX 0.2.3: поддержка локализации через поля "_ru".
+ *   description       → description_ru       (если язык русский)
+ *   arguments[].description  → arguments[].description_ru
+ *   nbt[].what        → nbt[].what_ru
+ *   nbt[].why         → nbt[].why_ru
+ *
+ * Если поле "_ru" отсутствует — используется английский вариант.
  */
 public class MaredCommandRegistry {
 
@@ -115,7 +123,13 @@ public class MaredCommandRegistry {
         Mared.LOGGER.info("Total commands loaded: {}", COMMANDS.size());
     }
 
-    /** Возвращает список имён .json-файлов в папке commands/. */
+    /** Перезагрузка — если игрок сменил язык в настройках. */
+    public static void reload() {
+        loaded = false;
+        COMMANDS.clear();
+        load();
+    }
+
     private static List<String> listCommandFiles() {
         List<String> result = new ArrayList<>();
 
@@ -126,7 +140,6 @@ public class MaredCommandRegistry {
                 return result;
             }
 
-            // В JAR-файле (в реальной сборке) — нужен FileSystem для чтения папки.
             if ("jar".equals(url.getProtocol())) {
                 try {
                     URI uri = url.toURI();
@@ -146,7 +159,6 @@ public class MaredCommandRegistry {
                     Mared.LOGGER.error("Failed to list commands from JAR", e);
                 }
             } else {
-                // В dev-окружении — обычная папка.
                 try {
                     Path dir = Paths.get(url.toURI());
                     if (Files.exists(dir)) {
@@ -183,7 +195,9 @@ public class MaredCommandRegistry {
             if (name.isEmpty()) continue;
             String category = optString(obj, "category", "Misc");
             int opLevel = obj.has("opLevel") ? obj.get("opLevel").getAsInt() : 2;
-            String description = optString(obj, "description", "");
+
+            // FIX: локализованные поля
+            String description = optStringLang(obj, "description");
             String example = optString(obj, "example", "/" + name);
 
             List<Argument> args = new ArrayList<>();
@@ -192,7 +206,7 @@ public class MaredCommandRegistry {
                     if (!aEl.isJsonObject()) continue;
                     JsonObject a = aEl.getAsJsonObject();
                     String value = optString(a, "value", "");
-                    String desc = optString(a, "description", "");
+                    String desc = optStringLang(a, "description");
                     List<String> exs = new ArrayList<>();
                     if (a.has("examples")) {
                         for (JsonElement e : a.getAsJsonArray("examples")) {
@@ -210,8 +224,8 @@ public class MaredCommandRegistry {
                     JsonObject n = nEl.getAsJsonObject();
                     nbt.add(new NbtHint(
                         optString(n, "tag", ""),
-                        optString(n, "what", ""),
-                        optString(n, "why", ""),
+                        optStringLang(n, "what"),
+                        optStringLang(n, "why"),
                         optString(n, "example", "")
                     ));
                 }
@@ -223,6 +237,23 @@ public class MaredCommandRegistry {
 
     private static String optString(JsonObject o, String key, String def) {
         return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsString() : def;
+    }
+
+    /**
+     * FIX: выбирает локализованное поле.
+     * Если язык русский и есть "<key>_ru" — вернёт его.
+     * Иначе — англ. "<key>".
+     */
+    private static String optStringLang(JsonObject o, String key) {
+        String lang = MaredLang.getCurrentCode();
+        if (lang != null && lang.startsWith("ru")) {
+            String keyRu = key + "_ru";
+            if (o.has(keyRu) && !o.get(keyRu).isJsonNull()) {
+                String s = o.get(keyRu).getAsString();
+                if (s != null && !s.isEmpty()) return s;
+            }
+        }
+        return optString(o, key, "");
     }
 
     // ---- Public API ----
@@ -239,10 +270,6 @@ public class MaredCommandRegistry {
         return null;
     }
 
-    /**
-     * Поиск по НАЧАЛУ имени команды.
-     * "Tr" -> trigger, "Su" -> summon.
-     */
     public static List<CommandInfo> search(String query) {
         List<CommandInfo> all = all();
         if (query == null || query.isEmpty()) return all;

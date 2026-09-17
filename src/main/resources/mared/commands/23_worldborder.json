@@ -5,16 +5,17 @@
       "category": "World",
       "opLevel": 2,
       "description": "Manage the world border",
+      "description_ru": "Управление границей мира",
       "example": "/worldborder set 1000",
       "arguments": [
-        { "value": "add <distance>", "description": "Grow/shrink border", "examples": ["/worldborder add 100"] },
-        { "value": "set <distance>", "description": "Set border size", "examples": ["/worldborder set 1000"] },
-        { "value": "center <x> <z>", "description": "Set border center", "examples": ["/worldborder center 0 0"] },
-        { "value": "damage amount <n>", "description": "Damage per block outside", "examples": ["/worldborder damage amount 5"] },
-        { "value": "damage buffer <n>", "description": "Buffer distance", "examples": ["/worldborder damage buffer 10"] },
-        { "value": "get", "description": "Show current border info", "examples": ["/worldborder get"] },
-        { "value": "warning distance <n>", "description": "Warning distance", "examples": ["/worldborder warning distance 10"] },
-        { "value": "warning time <n>", "description": "Warning time in seconds", "examples": ["/worldborder warning time 15"] }
+        { "value": "add <distance>", "description": "Grow/shrink border", "description_ru": "Расширить/сузить границу", "examples": ["/worldborder add 100"] },
+        { "value": "set <distance>", "description": "Set border size", "description_ru": "Задать размер границы", "examples": ["/worldborder set 1000"] },
+        { "value": "center <x> <z>", "description": "Set border center", "description_ru": "Задать центр границы", "examples": ["/worldborder center 0 0"] },
+        { "value": "damage amount <n>", "description": "Damage per block outside", "description_ru": "Урон за блок снаружи", "examples": ["/worldborder damage amount 5"] },
+        { "value": "damage buffer <n>", "description": "Buffer distance", "description_ru": "Буферная дистанция", "examples": ["/worldborder damage buffer 10"] },
+        { "value": "get", "description": "Show current border info", "description_ru": "Показать информацию о границе", "examples": ["/worldborder get"] },
+        { "value": "warning distance <n>", "description": "Warning distance", "description_ru": "Дистанция предупреждения", "examples": ["/worldborder warning distance 10"] },
+        { "value": "warning time <n>", "description": "Warning time in seconds", "description_ru": "Время предупреждения в секундах", "examples": ["/worldborder warning time 15"] }
       ]
     }
   ]

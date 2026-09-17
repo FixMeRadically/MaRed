@@ -5,10 +5,11 @@
       "category": "World",
       "opLevel": 2,
       "description": "Generate a jigsaw structure",
+      "description_ru": "Сгенерировать jigsaw-структуру",
       "example": "/jigsaw generate minecraft:village_plains ~ ~ ~",
       "arguments": [
-        { "value": "generate <id>", "description": "Generate a structure", "examples": ["/jigsaw generate minecraft:village_plains ~ ~ ~"] },
-        { "value": "<pos>", "description": "Starting position", "examples": ["/jigsaw generate minecraft:village_plains 0 64 0"] }
+        { "value": "generate <id>", "description": "Generate a structure", "description_ru": "Сгенерировать структуру", "examples": ["/jigsaw generate minecraft:village_plains ~ ~ ~"] },
+        { "value": "<pos>", "description": "Starting position", "description_ru": "Начальная позиция", "examples": ["/jigsaw generate minecraft:village_plains 0 64 0"] }
       ]
     }
   ]

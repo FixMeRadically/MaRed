@@ -5,10 +5,11 @@
       "category": "Server",
       "opLevel": 3,
       "description": "Whitelist alternate syntax",
+      "description_ru": "Альтернативный синтаксис whitelist",
       "example": "/whitelist add @p",
       "arguments": [
-        { "value": "add @p", "description": "Add nearest player", "examples": ["/whitelist add @p"] },
-        { "value": "add @a", "description": "Add all players", "examples": ["/whitelist add @a"] }
+        { "value": "add @p", "description": "Add nearest player", "description_ru": "Добавить ближайшего игрока", "examples": ["/whitelist add @p"] },
+        { "value": "add @a", "description": "Add all players", "description_ru": "Добавить всех игроков", "examples": ["/whitelist add @a"] }
       ]
     }
   ]

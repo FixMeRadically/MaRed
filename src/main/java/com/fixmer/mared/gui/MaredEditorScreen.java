@@ -29,25 +29,23 @@ import net.minecraft.server.level.ServerPlayer;
 
 public class MaredEditorScreen extends Screen {
 
-    // ---- палитра ----
     public static final int BG            = 0xFF0A0A10;
     public static final int PANEL_BASE    = 0xFF14141C;
     public static final int PANEL_RAISED  = 0xFF1A1A24;
     public static final int PANEL_SUNKEN  = 0xFF101018;
     public static final int EDITOR_BG     = 0xFF0E0E16;
     public static final int TAB_STRIP_BG  = 0xFF0F0F14;
+    public static final int INFO_BG       = 0xFF1A1A24;
 
     private static final int TEXT         = 0xFFFFFFFF;
     private static final int TEXT_DIM     = 0xFFAAAAAA;
 
-    // ---- контроллеры ----
     private final MaredLogPanel          logPanel     = new MaredLogPanel();
     private final MaredEditorToolbar     toolbar      = new MaredEditorToolbar();
     private final MaredEditorSidebar     sidebar      = new MaredEditorSidebar();
     private final MaredEditorInfoPanel   infoPanel    = new MaredEditorInfoPanel();
     private final MaredEditorBindsPanel  bindsPanel   = new MaredEditorBindsPanel();
 
-    // ---- состояние ----
     private String openTab = "scripts";
     private MaredEditorLayout.SidebarState sidebarState = MaredEditorLayout.SidebarState.CLOSED;
     private boolean logCollapsed = false;
@@ -104,10 +102,6 @@ public class MaredEditorScreen extends Screen {
         @Override public void onNew() { MaredEditorScreen.this.onNew(); }
     }
 
-    // ============================================================
-    //  FilterBox'ы
-    // ============================================================
-
     private void updateSidebarFilterBox() {
         EditBox current = sidebar.commandFilterBox();
         if (current != null) {
@@ -115,9 +109,7 @@ public class MaredEditorScreen extends Screen {
             sidebar.setCommandFilterBox(null);
         }
 
-        // FIX: не создавать, если лог свёрнут (сайдбар скрыт)
-        if (logCollapsed) return;
-
+        // FIX: фильтр-бокс рисуется даже если лог свёрнут
         EditBox box = sidebar.ensureFilterBox(this.font, MaredEditorLayout.INSTANCE,
             openTab, sidebarState);
         if (box != null && !children().contains(box)) {
@@ -140,10 +132,6 @@ public class MaredEditorScreen extends Screen {
             addRenderableWidget(box);
         }
     }
-
-    // ============================================================
-    //  Редактор
-    // ============================================================
 
     private void rebuildEditor() {
         if (editor != null) { removeWidget(editor); editor = null; }
@@ -188,9 +176,8 @@ public class MaredEditorScreen extends Screen {
         editor.setFocused(true);
     }
 
+    // FIX: sidebarWidth больше НЕ зависит от logCollapsed — strip-панель видна всегда
     private int sidebarWidth() {
-        // FIX: при свёрнутом логе сайдбар полностью скрыт
-        if (logCollapsed) return 0;
         return MaredEditorLayout.sidebarWidth(sidebarState,
             MaredEditorTabs.isSupported(openTab));
     }
@@ -220,10 +207,6 @@ public class MaredEditorScreen extends Screen {
                          | ((a >> 8  & 0xFF) / 3 << 8)
                          | ((a       & 0xFF) / 3);
     }
-
-    // ============================================================
-    //  Действия
-    // ============================================================
 
     private void onNew() {
         if ("scripts".equals(openTab)) {
@@ -327,10 +310,7 @@ public class MaredEditorScreen extends Screen {
             lastSavedText = content;
             addLog(MaredLang.format("mared.log.info.saved", sidebar.selectedFile()));
         } else {
-            addLog(MaredLang.format("mared.log.error.failed_save", sidebar.selectedFile())
-                + " (path: " + ("scripts".equals(openTab) ? "scripts" : "commands") + "/"
-                + sidebar.selectedFile()
-                + ("scripts".equals(openTab) ? ".mared" : ".txt") + ")");
+            addLog(MaredLang.format("mared.log.error.failed_save", sidebar.selectedFile()));
         }
     }
 
@@ -475,42 +455,8 @@ public class MaredEditorScreen extends Screen {
 
     private void addLog(String line) { logPanel.add(line); }
 
-    // ============================================================
-    //  Input
-    // ============================================================
-
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        int logTop = MaredEditorLayout.logTop(logCollapsed);
-        int logW = MaredEditorLayout.logWidth();
-        int screenW = MaredEditorLayout.screenW();
-
-        // бинды
-        if (!logCollapsed && my >= logTop && mx >= logW) {
-            if (bindsPanel.mouseClicked(mx, my, MaredEditorLayout.INSTANCE, logCollapsed)) return true;
-        }
-
-        // лог
-        if (my >= logTop) {
-            int clickW = logCollapsed ? screenW : logW;
-            if (logPanel.mouseClicked(mx, my, button, 0, logTop, clickW,
-                MaredEditorLayout.logHeight(logCollapsed), this.font)) return true;
-        }
-
-        // инфо-панель
-        if ("commands".equals(openTab) && sidebar.selectedCommandInfo() != null
-            && my >= MaredEditorLayout.TOOLBAR_H() + MaredEditorLayout.PAD()) {
-            int editorBottom = MaredEditorLayout.editorBottom(logCollapsed);
-            if (infoPanel.mouseClicked(MaredEditorLayout.INSTANCE, this.font,
-                sidebar.selectedCommandInfo(), mx, my, editorBottom, drag)) {
-                updateInfoFilterBox();
-                return true;
-            }
-        }
-
-        if (super.mouseClicked(mx, my, button)) return true;
-
-        // табы
         int tabIdx = MaredEditorTabs.hitTab(mx, my);
         if (tabIdx >= 0) {
             String clicked = MaredEditorTabs.TABS[tabIdx];
@@ -535,9 +481,7 @@ public class MaredEditorScreen extends Screen {
             return true;
         }
 
-        // сайдбар — только когда лог развёрнут
-        if (!logCollapsed
-            && MaredEditorTabs.isSupported(openTab)
+        if (MaredEditorTabs.isSupported(openTab)
             && (sidebarState == MaredEditorLayout.SidebarState.STRIP
              || sidebarState == MaredEditorLayout.SidebarState.FULL)) {
 
@@ -574,6 +518,33 @@ public class MaredEditorScreen extends Screen {
                 updateSidebarFilterBox();
                 return true;
             }
+        }
+
+        if (super.mouseClicked(mx, my, button)) return true;
+
+        if ("commands".equals(openTab) && sidebar.selectedCommandInfo() != null
+            && my >= MaredEditorLayout.TOOLBAR_H() + MaredEditorLayout.PAD()) {
+            int editorBottom = MaredEditorLayout.editorBottom(logCollapsed);
+            if (infoPanel.mouseClicked(MaredEditorLayout.INSTANCE, this.font,
+                sidebar.selectedCommandInfo(), mx, my, editorBottom, drag)) {
+                rebuildEditor();
+                updateInfoFilterBox();
+                return true;
+            }
+        }
+
+        int logTop = MaredEditorLayout.logTop(logCollapsed);
+        int logW = MaredEditorLayout.logWidth();
+        int screenW = MaredEditorLayout.screenW();
+
+        if (!logCollapsed && my >= logTop && mx >= logW) {
+            if (bindsPanel.mouseClicked(mx, my, MaredEditorLayout.INSTANCE, logCollapsed)) return true;
+        }
+
+        if (my >= logTop) {
+            int clickW = logCollapsed ? screenW : logW;
+            if (logPanel.mouseClicked(mx, my, button, 0, logTop, clickW,
+                MaredEditorLayout.logHeight(logCollapsed), this.font)) return true;
         }
 
         return false;
@@ -645,9 +616,7 @@ public class MaredEditorScreen extends Screen {
             infoPanel.scroll().wheel(dy, 5); return true;
         }
 
-        // FIX: скролл сайдбара только когда лог развёрнут
-        if (!logCollapsed
-            && MaredEditorTabs.isSupported(openTab)
+        if (MaredEditorTabs.isSupported(openTab)
             && sidebarState == MaredEditorLayout.SidebarState.FULL) {
             if (sidebar.handleScroll(MaredEditorLayout.INSTANCE, openTab, mx, my, dy, sidebarState))
                 return true;
@@ -658,10 +627,6 @@ public class MaredEditorScreen extends Screen {
 
         return super.mouseScrolled(mx, my, dx, dy);
     }
-
-    // ============================================================
-    //  Render
-    // ============================================================
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
@@ -675,41 +640,33 @@ public class MaredEditorScreen extends Screen {
         int tabW = MaredEditorLayout.TAB_W();
         int toolbarH = MaredEditorLayout.TOOLBAR_H() + MaredEditorLayout.PAD();
 
-        // 1. Общий фон
         MaredUi.rect(g, 0, 0, screenW, screenH, BG);
 
-        // 2. Сайдбар — только когда лог развёрнут
         if (sbW > 0) {
             int bg = (sidebarState == MaredEditorLayout.SidebarState.STRIP)
                 ? PANEL_BASE : PANEL_RAISED;
             MaredUi.panelLit(g, tabW, 0, sbW, logTop, bg);
         }
 
-        // 3. Тулбар
         MaredUi.panelLit(g, tabW + sbW, 0, screenW - tabW - sbW, toolbarH, PANEL_RAISED);
 
-        // 4. Полоса табов
         MaredUi.rect(g, 0, 0, tabW, screenH, TAB_STRIP_BG);
         MaredEditorTabs.draw(g, this.font, openTab, mouseX, mouseY);
 
-        // 5. Содержимое сайдбара — только когда лог развёрнут
-        if (!logCollapsed
-            && MaredEditorTabs.isSupported(openTab)
+        // FIX: strip-панель рисуется даже если лог свёрнут
+        if (MaredEditorTabs.isSupported(openTab)
             && sidebarState == MaredEditorLayout.SidebarState.STRIP) {
             sidebar.drawStrip(g, this.font, MaredEditorLayout.INSTANCE,
                 mouseX, mouseY, accentTop(), accentBottom());
         }
-        if (!logCollapsed
-            && MaredEditorTabs.isSupported(openTab)
+        if (MaredEditorTabs.isSupported(openTab)
             && sidebarState == MaredEditorLayout.SidebarState.FULL) {
             sidebar.drawFull(g, this.font, MaredEditorLayout.INSTANCE,
                 openTab, mouseX, mouseY, accentTop(), accentBottom(), selColor(accentTop()));
         }
 
-        // 6. Редактор
         drawEditorFrame(g, sbW);
 
-        // 7. Инфо-панель
         if ("commands".equals(openTab) && sidebar.selectedCommandInfo() != null) {
             infoPanel.render(g, this.font, MaredEditorLayout.INSTANCE,
                 sidebar.selectedCommandInfo(), accentTop(), accentBottom(),
@@ -717,12 +674,10 @@ public class MaredEditorScreen extends Screen {
                 MaredEditorLayout.editorBottom(logCollapsed), drag);
         }
 
-        // 8. Лог
         logPanel.setCollapsed(logCollapsed);
         logPanel.render(g, this.font, 0, logTop, logCollapsed ? screenW : logW,
             MaredEditorLayout.logHeight(logCollapsed), mouseX, mouseY);
 
-        // 9. Бинды
         if (!logCollapsed) {
             bindsPanel.render(g, this.font, MaredEditorLayout.INSTANCE,
                 false, mouseX, mouseY);
@@ -742,7 +697,7 @@ public class MaredEditorScreen extends Screen {
         int editorHdr = MaredEditorLayout.EDITOR_HDR();
 
         if (editable) {
-            MaredUi.panelLit(g, frameX, frameY, frameW, frameH, EDITOR_BG);
+            MaredUi.rect(g, frameX, frameY, frameX + frameW, frameY + frameH, EDITOR_BG);
             MaredUi.rect(g, frameX, frameY, frameX + frameW, frameY + 1, accentTop());
             MaredUi.rect(g, frameX, frameY + frameH - 1, frameX + frameW, frameY + frameH, accentBottom());
 
@@ -755,7 +710,7 @@ public class MaredEditorScreen extends Screen {
             MaredUi.dashedLineGradient(g, frameX + 2, frameY + editorHdr,
                 frameX + frameW - 2, accentTop(), accentBottom());
         } else {
-            MaredUi.panelLit(g, frameX, frameY, frameW, frameH, EDITOR_BG);
+            MaredUi.rect(g, frameX, frameY, frameX + frameW, frameY + frameH, EDITOR_BG);
             MaredUi.text(g, this.font,
                 MaredLang.format("mared.ui.under_development", MaredEditorTabs.title(openTab)),
                 frameX + 8, frameY + 8, TEXT_DIM);
@@ -763,45 +718,33 @@ public class MaredEditorScreen extends Screen {
     }
 
     // ============================================================
-    //  MRED_COMMANDS
+    //  MRED_COMMANDS — без изменений, тот же список
     // ============================================================
 
     private static void ensureMredCommands() {
         if (MRED_COMMANDS != null) return;
         MRED_COMMANDS = new ArrayList<>();
-
-        MRED_COMMANDS.add(mk("say", "Отправить сообщение в чат",
-            "say \"Hello, $self\"",
-            args("text", "текст сообщения",
-                "say \"Hello!\"", "say $greeting")));
-        MRED_COMMANDS.add(mk("wait", "Пауза в тиках/секундах",
-            "wait 3 seconds",
+        MRED_COMMANDS.add(mk("say", "Отправить сообщение в чат", "say \"Hello, $self\"",
+            args("text", "текст сообщения", "say \"Hello!\"", "say $greeting")));
+        MRED_COMMANDS.add(mk("wait", "Пауза в тиках/секундах", "wait 3 seconds",
             args("time", "время ожидания", "wait 3 seconds", "wait 100 ticks")));
-        MRED_COMMANDS.add(mk("set", "Присвоить переменную",
-            "set count = 5",
-            args("name = value", "имя и значение",
-                "set count = 5", "set name = \"Steve\""),
-            args("global.name", "глобальная переменная",
-                "set global.hp = 20", "set global.count = $global.count + 1")));
-        MRED_COMMANDS.add(mk("array", "Объявить массив",
-            "array items = [1, 2, 3]",
-            args("name = [values]", "массив значений",
-                "array items = [1, 2, 3]", "array names = [\"a\", \"b\"]")));
-        MRED_COMMANDS.add(mk("give", "Выдать предмет",
-            "give @s diamond 5",
+        MRED_COMMANDS.add(mk("set", "Присвоить переменную", "set count = 5",
+            args("name = value", "имя и значение", "set count = 5", "set name = \"Steve\""),
+            args("global.name", "глобальная переменная", "set global.hp = 20", "set global.count = $global.count + 1")));
+        MRED_COMMANDS.add(mk("array", "Объявить массив", "array items = [1, 2, 3]",
+            args("name = [values]", "массив значений", "array items = [1, 2, 3]", "array names = [\"a\", \"b\"]")));
+        MRED_COMMANDS.add(mk("give", "Выдать предмет", "give @s diamond 5",
             args("target", "получатель", "give @s diamond 5"),
             args("item", "предмет", "give @s minecraft:diamond 5"),
             args("count", "количество", "give @s diamond 64")));
-        MRED_COMMANDS.add(mk("bind", "Привязать клавишу",
-            "bind R { say \"Hi\" }",
+        MRED_COMMANDS.add(mk("bind", "Привязать клавишу", "bind R { say \"Hi\" }",
             args("key", "клавиша", "bind R { say \"Hi\" }"),
             args("add", "добавить действие", "bind R add { say \"second\" }"),
             args("clear", "очистить бинд", "bind Q clear"),
             args("block", "заблокировать ваниль", "bind W block { say \"locked\" }"),
             args("hold", "удержание", "bind W hold { say \"held\" }"),
             args("release", "отпускание", "bind W release { say \"released\" }")));
-        MRED_COMMANDS.add(mk("on", "Обработчик события",
-            "on right_click { say \"clicked\" }",
+        MRED_COMMANDS.add(mk("on", "Обработчик события", "on right_click { say \"clicked\" }",
             args("event", "тип события", "on right_click { ... }"),
             args("add", "добавить", "on right_click add { ... }"),
             args("replace", "заменить", "on right_click replace { ... }")));
@@ -823,12 +766,10 @@ public class MaredEditorScreen extends Screen {
             args("var in array", "по массиву", "for $item in $items { ... }")));
         MRED_COMMANDS.add(mk("while", "Пока условие", "while $n < 3 { set n = $n + 1 }",
             args("condition", "условие", "while $n < 3 { ... }")));
-        MRED_COMMANDS.add(mk("break", "Выйти из цикла", "break",
-            args("", "", "repeat 10 { break }")));
+        MRED_COMMANDS.add(mk("break", "Выйти из цикла", "break", args("", "", "repeat 10 { break }")));
         MRED_COMMANDS.add(mk("continue", "Пропустить итерацию", "continue",
             args("", "", "if $i == 3 { continue }")));
-        MRED_COMMANDS.add(mk("func", "Объявить функцию",
-            "func greet($name) { say \"Hi, $name\" }",
+        MRED_COMMANDS.add(mk("func", "Объявить функцию", "func greet($name) { say \"Hi, $name\" }",
             args("name(params)", "имя и параметры", "func greet($name) { ... }")));
         MRED_COMMANDS.add(mk("call", "Вызвать функцию", "call greet(\"Steve\")",
             args("name(args)", "имя и аргументы", "call greet(\"Steve\")"),
@@ -840,16 +781,13 @@ public class MaredEditorScreen extends Screen {
         MRED_COMMANDS.add(mk("assert", "Проверка", "assert $x > 10 \"must be big\"",
             args("condition [message]", "условие и сообщение", "assert $x > 10 \"x too small\"")));
         MRED_COMMANDS.add(mk("{}", "Блок команд", "{ say \"Hello\" }",
-            args("open", "открыть", "{"),
-            args("close", "закрыть", "}")));
+            args("open", "открыть", "{"), args("close", "закрыть", "}")));
         MRED_COMMANDS.add(mk("$self", "Имя игрока", "say \"Hello, $self\"",
             args("", "", "say \"Hello, $self\"")));
         MRED_COMMANDS.add(mk("$world", "Мир", "say \"World: $world\"",
             args("", "", "say \"World: $world\"")));
-        MRED_COMMANDS.add(mk("global", "Глобальная переменная",
-            "set global.hp = 20",
-            args("set/get", "использование",
-                "set global.hp = 20", "say \"HP: $global.hp\"")));
+        MRED_COMMANDS.add(mk("global", "Глобальная переменная", "set global.hp = 20",
+            args("set/get", "использование", "set global.hp = 20", "say \"HP: $global.hp\"")));
     }
 
     private static MaredCommandRegistry.Argument args(String value, String desc, String... examples) {
@@ -864,5 +802,9 @@ public class MaredEditorScreen extends Screen {
     }
 
     @Override public boolean isPauseScreen() { return false; }
-    @Override public void renderBackground(GuiGraphics g, int mx, int my, float pt) {}
+
+    @Override
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // Пусто — не даём MC рисовать blur.
+    }
 }

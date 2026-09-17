@@ -43,7 +43,6 @@ public class MaredSettingsScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-
         MaredLang.reload();
         MaredSettings.load();
         draftAutoIndent = MaredSettings.getAutoIndent();
@@ -77,7 +76,6 @@ public class MaredSettingsScreen extends Screen {
         if (this.minecraft != null) this.minecraft.setScreen(parent);
     }
 
-    /** FIX: единая функция layout, используется в render и mouseClicked. */
     private int panelX() { return this.width / 2 - 220; }
     private int panelY() { return 40; }
     private int panelW() { return 440; }
@@ -88,24 +86,20 @@ public class MaredSettingsScreen extends Screen {
         int x = panelX() + PAD;
         int y = panelY() + PAD;
         y += 22;
-
         y += 14;
         for (int i = 0; i < MaredSettings.AutoIndent.values().length; i++) {
             rows.add(new long[]{0, x, y, 400, i});
             y += ROW_H;
         }
         y += 8;
-
         y += 14;
         for (int i = 0; i < MaredSettings.IndentStyle.values().length; i++) {
             rows.add(new long[]{1, x, y, 400, i});
             y += ROW_H;
         }
         y += 8;
-
         y += 14;
         rows.add(new long[]{2, x, y, 400, 0});
-
         return rows;
     }
 
@@ -135,6 +129,7 @@ public class MaredSettingsScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // КРИТИЧНО: свой фон, без super.renderBackground.
         g.fill(0, 0, this.width, this.height, BG);
 
         int px = panelX();
@@ -142,7 +137,7 @@ public class MaredSettingsScreen extends Screen {
         int pw = panelW();
         int ph = panelH();
 
-        MaredUi.panelLitBordered(g, px, py, pw, ph, PANEL, BORDER);
+        MaredUi.panelGradient(g, px, py, pw, ph, PANEL, BORDER, MaredUi.darken(BORDER, 0.4f));
 
         int x = px + PAD;
         int y = py + PAD;
@@ -191,7 +186,6 @@ public class MaredSettingsScreen extends Screen {
         }
     }
 
-    /** FIX: крестик вручную, точно по центру. */
     private void drawCheckbox(GuiGraphics g, int x, int y, boolean checked) {
         MaredUi.rect(g, x, y + 2, x + CB_SZ, y + 2 + CB_SZ, CB_BG);
         MaredUi.outline(g, x, y + 2, CB_SZ, CB_SZ, BORDER);
@@ -215,14 +209,17 @@ public class MaredSettingsScreen extends Screen {
 
     private String indentLabel(MaredSettings.IndentStyle style) {
         return switch (style) {
-            case TAB -> MaredLang.get("mared.settings.indent_tab");
-            case SPACES_4 -> MaredLang.get("mared.settings.indent_4");
-            case SPACES_2 -> MaredLang.get("mared.settings.indent_2");
+            case TAB      -> MaredLang.get("mared.settings.indent_style.tab");
+            case SPACES_4 -> MaredLang.get("mared.settings.indent_style.spaces4");
+            case SPACES_2 -> MaredLang.get("mared.settings.indent_style.spaces2");
         };
     }
 
     @Override
     public boolean isPauseScreen() { return false; }
+
     @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        // Пусто — не даём MC рисовать blur.
+    }
 }

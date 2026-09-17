@@ -5,10 +5,11 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Bossbar alternate syntax",
+      "description_ru": "Альтернативный синтаксис bossbar",
       "example": "/bossbar set my:bar color purple",
       "arguments": [
-        { "value": "color red|blue|green|pink|purple|white|yellow", "description": "Color values", "examples": ["/bossbar set my:bar color purple"] },
-        { "value": "style progress|notched_6|notched_10|notched_12|notched_20", "description": "Style values", "examples": ["/bossbar set my:bar style notched_20"] }
+        { "value": "color red|blue|green|pink|purple|white|yellow", "description": "Color values", "description_ru": "Значения цвета", "examples": ["/bossbar set my:bar color purple"] },
+        { "value": "style progress|notched_6|notched_10|notched_12|notched_20", "description": "Style values", "description_ru": "Значения стиля", "examples": ["/bossbar set my:bar style notched_20"] }
       ]
     }
   ]

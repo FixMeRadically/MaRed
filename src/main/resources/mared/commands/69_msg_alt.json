@@ -5,11 +5,12 @@
       "category": "Basic",
       "opLevel": 0,
       "description": "Message alternate syntax",
+      "description_ru": "Альтернативный синтаксис msg",
       "example": "/msg @a Hello",
       "arguments": [
-        { "value": "@a", "description": "All players", "examples": ["/msg @a Hello"] },
-        { "value": "@p", "description": "Nearest player", "examples": ["/msg @p Hello"] },
-        { "value": "@r", "description": "Random player", "examples": ["/msg @r Hi"] }
+        { "value": "@a", "description": "All players", "description_ru": "Все игроки", "examples": ["/msg @a Hello"] },
+        { "value": "@p", "description": "Nearest player", "description_ru": "Ближайший игрок", "examples": ["/msg @p Hello"] },
+        { "value": "@r", "description": "Random player", "description_ru": "Случайный игрок", "examples": ["/msg @r Hi"] }
       ]
     }
   ]

@@ -5,9 +5,10 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Clear inventory alternative syntax",
+      "description_ru": "Альтернативный синтаксис очистки инвентаря",
       "example": "/clear",
       "arguments": [
-        { "value": "", "description": "Clear own inventory", "examples": ["/clear"] }
+        { "value": "", "description": "Clear own inventory", "description_ru": "Очистить свой инвентарь", "examples": ["/clear"] }
       ]
     }
   ]

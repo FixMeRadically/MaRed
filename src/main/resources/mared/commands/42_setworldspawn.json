@@ -5,10 +5,11 @@
       "category": "World",
       "opLevel": 2,
       "description": "Set the world spawn point",
+      "description_ru": "Задать точку возрождения мира",
       "example": "/setworldspawn 0 64 0",
       "arguments": [
-        { "value": "[pos]", "description": "Spawn coordinates", "examples": ["/setworldspawn 0 64 0"] },
-        { "value": "[angle]", "description": "Spawn angle", "examples": ["/setworldspawn 0 64 0 90"] }
+        { "value": "[pos]", "description": "Spawn coordinates", "description_ru": "Координаты возрождения", "examples": ["/setworldspawn 0 64 0"] },
+        { "value": "[angle]", "description": "Spawn angle", "description_ru": "Угол возрождения", "examples": ["/setworldspawn 0 64 0 90"] }
       ]
     }
   ]

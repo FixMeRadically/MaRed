@@ -5,10 +5,11 @@
       "category": "Mared",
       "opLevel": 0,
       "description": "Mared mod core command",
+      "description_ru": "Основная команда мода Mared",
       "example": "/mared help",
       "arguments": [
-        { "value": "help", "description": "Show Mared help", "examples": ["/mared help"] },
-        { "value": "version", "description": "Show version", "examples": ["/mared version"] }
+        { "value": "help", "description": "Show Mared help", "description_ru": "Показать справку Mared", "examples": ["/mared help"] },
+        { "value": "version", "description": "Show version", "description_ru": "Показать версию", "examples": ["/mared version"] }
       ]
     }
   ]

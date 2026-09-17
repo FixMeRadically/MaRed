@@ -5,11 +5,12 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Clear items from inventory",
+      "description_ru": "Очистить предметы из инвентаря",
       "example": "/clear @s",
       "arguments": [
-        { "value": "<target>", "description": "Who to clear", "examples": ["/clear @s", "/clear @a", "/clear Notch"] },
-        { "value": "[item]", "description": "Specific item", "examples": ["/clear @s minecraft:diamond"] },
-        { "value": "[maxCount]", "description": "Max to clear", "examples": ["/clear @s minecraft:diamond 5"] }
+        { "value": "<target>", "description": "Who to clear", "description_ru": "Кому очистить", "examples": ["/clear @s", "/clear @a", "/clear Notch"] },
+        { "value": "[item]", "description": "Specific item", "description_ru": "Конкретный предмет", "examples": ["/clear @s minecraft:diamond"] },
+        { "value": "[maxCount]", "description": "Max to clear", "description_ru": "Макс. очистить", "examples": ["/clear @s minecraft:diamond 5"] }
       ]
     }
   ]

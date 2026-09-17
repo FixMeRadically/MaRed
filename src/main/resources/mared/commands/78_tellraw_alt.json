@@ -5,9 +5,10 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Tellraw alternate syntax",
+      "description_ru": "Альтернативный синтаксис tellraw",
       "example": "/tellraw @a [{\"text\":\"A\"},{\"text\":\"B\"}]",
       "arguments": [
-        { "value": "<json array>", "description": "Array of text components", "examples": ["/tellraw @a [{\"text\":\"A\"},{\"text\":\"B\"}]"] }
+        { "value": "<json array>", "description": "Array of text components", "description_ru": "Массив текстовых компонентов", "examples": ["/tellraw @a [{\"text\":\"A\"},{\"text\":\"B\"}]"] }
       ]
     }
   ]

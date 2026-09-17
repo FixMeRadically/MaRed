@@ -5,13 +5,14 @@
       "category": "World",
       "opLevel": 2,
       "description": "Schedule a function to run later",
+      "description_ru": "Запланировать функцию на потом",
       "example": "/schedule function mypack:my_function 100t",
       "arguments": [
-        { "value": "function <id> <time>", "description": "Schedule a function", "examples": ["/schedule function mypack:my_function 100t"] },
-        { "value": "clear <id>", "description": "Clear scheduled function", "examples": ["/schedule clear mypack:my_function"] },
-        { "value": "<time>", "description": "Delay (e.g., 10s, 100t, 1d)", "examples": ["/schedule function mypack:my_function 10s"] },
-        { "value": "append", "description": "Add to schedule instead of replace", "examples": ["/schedule function mypack:my_function 100t append"] },
-        { "value": "replace", "description": "Replace existing schedule", "examples": ["/schedule function mypack:my_function 100t replace"] }
+        { "value": "function <id> <time>", "description": "Schedule a function", "description_ru": "Запланировать функцию", "examples": ["/schedule function mypack:my_function 100t"] },
+        { "value": "clear <id>", "description": "Clear scheduled function", "description_ru": "Очистить запланированную функцию", "examples": ["/schedule clear mypack:my_function"] },
+        { "value": "<time>", "description": "Delay (e.g., 10s, 100t, 1d)", "description_ru": "Задержка (например, 10s, 100t, 1d)", "examples": ["/schedule function mypack:my_function 10s"] },
+        { "value": "append", "description": "Add to schedule instead of replace", "description_ru": "Добавить в расписание вместо замены", "examples": ["/schedule function mypack:my_function 100t append"] },
+        { "value": "replace", "description": "Replace existing schedule", "description_ru": "Заменить существующее расписание", "examples": ["/schedule function mypack:my_function 100t replace"] }
       ]
     }
   ]

@@ -27,10 +27,9 @@ public final class MaredEditorBindsPanel {
     public int scrollOffset() { return scrollOffset; }
     public void resetScroll() { scrollOffset = 0; }
 
-    /** FIX: крестик — вручную. */
-    private static void drawCross(GuiGraphics g, int cx, int cy, int arm, int color) {
+    /** FIX: минус вместо крестика. */
+    private static void drawMinus(GuiGraphics g, int cx, int cy, int arm, int color) {
         MaredUi.rect(g, cx - arm, cy, cx + arm + 1, cy + 1, color);
-        MaredUi.rect(g, cx, cy - arm, cx + 1, cy + arm + 1, color);
     }
 
     public void render(GuiGraphics g, Font font, MaredEditorLayout layout,
@@ -43,7 +42,6 @@ public final class MaredEditorBindsPanel {
         int screenW = layout.screenW();
         int screenH = layout.screenH();
 
-        // FIX: сплошной фон вместо panelLit
         MaredUi.rect(g, x, logTop, screenW, screenH, BG);
         MaredUi.rect(g, x, logTop, x + 1, screenH, MaredEditorLayout.BORDER_TOP);
 
@@ -102,7 +100,8 @@ public final class MaredEditorBindsPanel {
             MaredUi.outline(g, delX, delY, delSz, delSz, DANGER);
             int cx = delX + delSz / 2;
             int cy = delY + delSz / 2;
-            drawCross(g, cx, cy, delSz / 2 - 2, DANGER);
+            // FIX: минус вместо крестика
+            drawMinus(g, cx, cy, delSz / 2 - 2, DANGER);
 
             if (blocking) {
                 int unlockX = delX - delSz - 4;

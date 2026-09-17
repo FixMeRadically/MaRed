@@ -5,10 +5,11 @@
       "category": "Entity",
       "opLevel": 2,
       "description": "Teleport alternate syntax",
+      "description_ru": "Альтернативный синтаксис телепортации",
       "example": "/tp 100 64 100",
       "arguments": [
-        { "value": "<x> <y> <z>", "description": "Teleport self to coords", "examples": ["/tp 100 64 100"] },
-        { "value": "<target>", "description": "Teleport to entity", "examples": ["/tp Notch"] }
+        { "value": "<x> <y> <z>", "description": "Teleport self to coords", "description_ru": "Телепорт себя к координатам", "examples": ["/tp 100 64 100"] },
+        { "value": "<target>", "description": "Teleport to entity", "description_ru": "Телепорт к сущности", "examples": ["/tp Notch"] }
       ]
     }
   ]

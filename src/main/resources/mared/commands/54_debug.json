@@ -5,11 +5,12 @@
       "category": "Server",
       "opLevel": 3,
       "description": "Start/stop debugging sessions",
+      "description_ru": "Начать/остановить сессию отладки",
       "example": "/debug start",
       "arguments": [
-        { "value": "start", "description": "Start debug", "examples": ["/debug start"] },
-        { "value": "stop", "description": "Stop debug", "examples": ["/debug stop"] },
-        { "value": "function <name>", "description": "Debug a function", "examples": ["/debug function mypack:my_function"] }
+        { "value": "start", "description": "Start debug", "description_ru": "Начать отладку", "examples": ["/debug start"] },
+        { "value": "stop", "description": "Stop debug", "description_ru": "Остановить отладку", "examples": ["/debug stop"] },
+        { "value": "function <name>", "description": "Debug a function", "description_ru": "Отладка функции", "examples": ["/debug function mypack:my_function"] }
       ]
     }
   ]

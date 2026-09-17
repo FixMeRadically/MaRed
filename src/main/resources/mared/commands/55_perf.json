@@ -5,10 +5,11 @@
       "category": "Server",
       "opLevel": 4,
       "description": "Start/stop performance profiling",
+      "description_ru": "Начать/остановить профилирование производительности",
       "example": "/perf start",
       "arguments": [
-        { "value": "start", "description": "Start profiling", "examples": ["/perf start"] },
-        { "value": "stop", "description": "Stop profiling", "examples": ["/perf stop"] }
+        { "value": "start", "description": "Start profiling", "description_ru": "Начать профилирование", "examples": ["/perf start"] },
+        { "value": "stop", "description": "Stop profiling", "description_ru": "Остановить профилирование", "examples": ["/perf stop"] }
       ]
     }
   ]

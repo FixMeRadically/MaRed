@@ -5,10 +5,11 @@
       "category": "Basic",
       "opLevel": 0,
       "description": "Trigger alternate syntax",
+      "description_ru": "Альтернативный синтаксис триггера",
       "example": "/trigger myObjective set 5",
       "arguments": [
-        { "value": "<objective> add <n>", "description": "Add to trigger", "examples": ["/trigger myObjective add 5"] },
-        { "value": "<objective> set <n>", "description": "Set trigger", "examples": ["/trigger myObjective set 5"] }
+        { "value": "<objective> add <n>", "description": "Add to trigger", "description_ru": "Прибавить к триггеру", "examples": ["/trigger myObjective add 5"] },
+        { "value": "<objective> set <n>", "description": "Set trigger", "description_ru": "Задать триггер", "examples": ["/trigger myObjective set 5"] }
       ]
     }
   ]

@@ -5,9 +5,10 @@
       "category": "Basic",
       "opLevel": 2,
       "description": "Say alternate syntax",
+      "description_ru": "Альтернативный синтаксис say",
       "example": "/say Hello",
       "arguments": [
-        { "value": "<message>", "description": "Message text", "examples": ["/say Hello"] }
+        { "value": "<message>", "description": "Message text", "description_ru": "Текст сообщения", "examples": ["/say Hello"] }
       ]
     }
   ]

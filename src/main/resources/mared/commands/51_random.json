@@ -5,10 +5,11 @@
       "category": "World",
       "opLevel": 2,
       "description": "Generate random values",
+      "description_ru": "Сгенерировать случайные значения",
       "example": "/random value 1..10",
       "arguments": [
-        { "value": "value <range>", "description": "Random number", "examples": ["/random value 1..10"] },
-        { "value": "roll <range>", "description": "Random number with result", "examples": ["/random roll 1..10"] }
+        { "value": "value <range>", "description": "Random number", "description_ru": "Случайное число", "examples": ["/random value 1..10"] },
+        { "value": "roll <range>", "description": "Random number with result", "description_ru": "Случайное число с результатом", "examples": ["/random roll 1..10"] }
       ]
     }
   ]

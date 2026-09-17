@@ -5,9 +5,10 @@
       "category": "Entity",
       "opLevel": 2,
       "description": "Kill entities",
+      "description_ru": "Убить сущности",
       "example": "/kill @e[type=zombie]",
       "arguments": [
-        { "value": "<target>", "description": "Who to kill", "examples": ["/kill @s", "/kill @e[type=zombie]", "/kill @a"] }
+        { "value": "<target>", "description": "Who to kill", "description_ru": "Кого убить", "examples": ["/kill @s", "/kill @e[type=zombie]", "/kill @a"] }
       ]
     }
   ]

@@ -5,23 +5,24 @@
       "category": "World",
       "opLevel": 2,
       "description": "Clone blocks from one region to another",
+      "description_ru": "Копировать блоки из одной области в другую",
       "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~",
       "arguments": [
-        { "value": "<begin>", "description": "First corner of source region", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~"] },
-        { "value": "<end>", "description": "Second corner of source region", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~"] },
-        { "value": "<destination>", "description": "Target corner", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~"] },
-        { "value": "replace", "description": "Replace all blocks in target (default)", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ replace"] },
-        { "value": "masked", "description": "Only copy non-air blocks", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ masked"] },
-        { "value": "force", "description": "Force clone even into occupied area", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ force"] },
-        { "value": "move", "description": "Move instead of copy", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ move"] },
-        { "value": "normal", "description": "Copy without filtering (default)", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ normal"] }
+        { "value": "<begin>", "description": "First corner of source region", "description_ru": "Первый угол исходной области", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~"] },
+        { "value": "<end>", "description": "Second corner of source region", "description_ru": "Второй угол исходной области", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~"] },
+        { "value": "<destination>", "description": "Target corner", "description_ru": "Целевой угол", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~"] },
+        { "value": "replace", "description": "Replace all blocks in target (default)", "description_ru": "Заменить все блоки в цели (по умолчанию)", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ replace"] },
+        { "value": "masked", "description": "Only copy non-air blocks", "description_ru": "Копировать только не-воздух", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ masked"] },
+        { "value": "force", "description": "Force clone even into occupied area", "description_ru": "Форсировать клонирование в занятую область", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ force"] },
+        { "value": "move", "description": "Move instead of copy", "description_ru": "Переместить вместо копирования", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ move"] },
+        { "value": "normal", "description": "Copy without filtering (default)", "description_ru": "Копировать без фильтрации (по умолчанию)", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ normal"] }
       ],
       "nbt": [
-        { "tag": "replace", "what": "Replace mode", "why": "Overwrite target region completely", "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ replace" },
-        { "tag": "masked", "what": "Masked mode", "why": "Only copy non-air blocks", "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ masked" },
-        { "tag": "force", "what": "Force mode", "why": "Clone even if target region is occupied", "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ force" },
-        { "tag": "move", "what": "Move mode", "why": "Move blocks instead of copy", "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ move" },
-        { "tag": "normal", "what": "Normal mode", "why": "Copy without filtering", "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ normal" }
+        { "tag": "replace", "what": "Replace mode", "what_ru": "Режим replace", "why": "Overwrite target region completely", "why_ru": "Полностью перезаписать область", "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ replace" },
+        { "tag": "masked", "what": "Masked mode", "what_ru": "Режим masked", "why": "Only copy non-air blocks", "why_ru": "Копировать только не-воздух", "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ masked" },
+        { "tag": "force", "what": "Force mode", "what_ru": "Режим force", "why": "Clone even if target region is occupied", "why_ru": "Клонировать даже если цель занята", "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ force" },
+        { "tag": "move", "what": "Move mode", "what_ru": "Режим move", "why": "Move blocks instead of copy", "why_ru": "Переместить блоки вместо копирования", "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ move" },
+        { "tag": "normal", "what": "Normal mode", "what_ru": "Режим normal", "why": "Copy without filtering", "why_ru": "Копировать без фильтрации", "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ normal" }
       ]
     }
   ]

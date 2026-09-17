@@ -5,9 +5,10 @@
       "category": "World",
       "opLevel": 2,
       "description": "Clone alternate syntax",
+      "description_ru": "Альтернативный синтаксис clone",
       "example": "/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ filtered minecraft:stone",
       "arguments": [
-        { "value": "filtered <block>", "description": "Only copy matching blocks", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ filtered minecraft:stone"] }
+        { "value": "filtered <block>", "description": "Only copy matching blocks", "description_ru": "Копировать только совпадающие блоки", "examples": ["/clone ~ ~ ~ ~5 ~5 ~5 ~10 ~ ~ filtered minecraft:stone"] }
       ]
     }
   ]

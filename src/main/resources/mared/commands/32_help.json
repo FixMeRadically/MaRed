@@ -5,9 +5,10 @@
       "category": "Basic",
       "opLevel": 0,
       "description": "Show command help",
+      "description_ru": "Показать справку по командам",
       "example": "/help",
       "arguments": [
-        { "value": "[command]", "description": "Command name to get help for", "examples": ["/help", "/help give", "/help execute"] }
+        { "value": "[command]", "description": "Command name to get help for", "description_ru": "Название команды для справки", "examples": ["/help", "/help give", "/help execute"] }
       ]
     },
     {
@@ -15,9 +16,10 @@
       "category": "Basic",
       "opLevel": 0,
       "description": "List players online",
+      "description_ru": "Список игроков онлайн",
       "example": "/list",
       "arguments": [
-        { "value": "uuids", "description": "Show UUIDs", "examples": ["/list uuids"] }
+        { "value": "uuids", "description": "Show UUIDs", "description_ru": "Показать UUID", "examples": ["/list uuids"] }
       ]
     },
     {
@@ -25,9 +27,10 @@
       "category": "Basic",
       "opLevel": 0,
       "description": "Emote message from yourself",
+      "description_ru": "Эмоциональное сообщение от себя",
       "example": "/me waves",
       "arguments": [
-        { "value": "<action>", "description": "Emote text", "examples": ["/me waves"] }
+        { "value": "<action>", "description": "Emote text", "description_ru": "Текст эмоции", "examples": ["/me waves"] }
       ]
     },
     {
@@ -35,10 +38,11 @@
       "category": "Basic",
       "opLevel": 0,
       "description": "Send a private message",
+      "description_ru": "Отправить личное сообщение",
       "example": "/msg Notch Hi",
       "arguments": [
-        { "value": "<target>", "description": "Recipient", "examples": ["/msg Notch Hi"] },
-        { "value": "<message>", "description": "Message", "examples": ["/msg Notch Hi"] }
+        { "value": "<target>", "description": "Recipient", "description_ru": "Получатель", "examples": ["/msg Notch Hi"] },
+        { "value": "<message>", "description": "Message", "description_ru": "Сообщение", "examples": ["/msg Notch Hi"] }
       ]
     },
     {
@@ -46,10 +50,11 @@
       "category": "Basic",
       "opLevel": 0,
       "description": "Alias for /msg",
+      "description_ru": "Псевдоним /msg",
       "example": "/tell Notch Hi",
       "arguments": [
-        { "value": "<target>", "description": "Recipient", "examples": ["/tell Notch Hi"] },
-        { "value": "<message>", "description": "Message", "examples": ["/tell Notch Hi"] }
+        { "value": "<target>", "description": "Recipient", "description_ru": "Получатель", "examples": ["/tell Notch Hi"] },
+        { "value": "<message>", "description": "Message", "description_ru": "Сообщение", "examples": ["/tell Notch Hi"] }
       ]
     },
     {
@@ -57,10 +62,11 @@
       "category": "Basic",
       "opLevel": 0,
       "description": "Alias for /msg",
+      "description_ru": "Псевдоним /msg",
       "example": "/w Notch Hi",
       "arguments": [
-        { "value": "<target>", "description": "Recipient", "examples": ["/w Notch Hi"] },
-        { "value": "<message>", "description": "Message", "examples": ["/w Notch Hi"] }
+        { "value": "<target>", "description": "Recipient", "description_ru": "Получатель", "examples": ["/w Notch Hi"] },
+        { "value": "<message>", "description": "Message", "description_ru": "Сообщение", "examples": ["/w Notch Hi"] }
       ]
     },
     {
@@ -68,9 +74,10 @@
       "category": "Basic",
       "opLevel": 2,
       "description": "Broadcast a message to all players",
+      "description_ru": "Отправить сообщение всем игрокам",
       "example": "/say Hello everyone",
       "arguments": [
-        { "value": "<message>", "description": "Message", "examples": ["/say Hello everyone"] }
+        { "value": "<message>", "description": "Message", "description_ru": "Сообщение", "examples": ["/say Hello everyone"] }
       ]
     },
     {
@@ -78,9 +85,10 @@
       "category": "World",
       "opLevel": 0,
       "description": "Show world seed",
+      "description_ru": "Показать сид мира",
       "example": "/seed",
       "arguments": [
-        { "value": "[dimension]", "description": "Dimension seed", "examples": ["/seed minecraft:overworld", "/seed minecraft:the_nether"] }
+        { "value": "[dimension]", "description": "Dimension seed", "description_ru": "Сид измерения", "examples": ["/seed minecraft:overworld", "/seed minecraft:the_nether"] }
       ]
     },
     {
@@ -88,10 +96,11 @@
       "category": "Basic",
       "opLevel": 0,
       "description": "Activate a scoreboard trigger",
+      "description_ru": "Активировать триггер таблицы очков",
       "example": "/trigger myObjective",
       "arguments": [
-        { "value": "<objective>", "description": "Trigger name", "examples": ["/trigger myObjective"] },
-        { "value": "[value]", "description": "Value to set", "examples": ["/trigger myObjective set 1", "/trigger myObjective add 5"] }
+        { "value": "<objective>", "description": "Trigger name", "description_ru": "Имя триггера", "examples": ["/trigger myObjective"] },
+        { "value": "[value]", "description": "Value to set", "description_ru": "Значение для установки", "examples": ["/trigger myObjective set 1", "/trigger myObjective add 5"] }
       ]
     }
   ]

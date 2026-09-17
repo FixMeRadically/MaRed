@@ -5,9 +5,10 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Give alternate syntax",
+      "description_ru": "Альтернативный синтаксис give",
       "example": "/give @s minecraft:diamond",
       "arguments": [
-        { "value": "<item> [count]", "description": "Give without explicit target", "examples": ["/give @s minecraft:diamond 64"] }
+        { "value": "<item> [count]", "description": "Give without explicit target", "description_ru": "Выдать без явной цели", "examples": ["/give @s minecraft:diamond 64"] }
       ]
     }
   ]

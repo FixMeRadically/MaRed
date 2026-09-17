@@ -5,11 +5,12 @@
       "category": "Server",
       "opLevel": 4,
       "description": "Open a singleplayer world to LAN",
+      "description_ru": "Открыть одиночный мир в локальную сеть",
       "example": "/publish",
       "arguments": [
-        { "value": "[port]", "description": "Port number", "examples": ["/publish 25565"] },
-        { "value": "[allowCommands]", "description": "Allow cheats", "examples": ["/publish 25565 true"] },
-        { "value": "[gamemode]", "description": "Game mode", "examples": ["/publish 25565 false creative"] }
+        { "value": "[port]", "description": "Port number", "description_ru": "Номер порта", "examples": ["/publish 25565"] },
+        { "value": "[allowCommands]", "description": "Allow cheats", "description_ru": "Разрешить читы", "examples": ["/publish 25565 true"] },
+        { "value": "[gamemode]", "description": "Game mode", "description_ru": "Игровой режим", "examples": ["/publish 25565 false creative"] }
       ]
     }
   ]

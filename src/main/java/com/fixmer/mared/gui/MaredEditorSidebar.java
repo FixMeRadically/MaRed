@@ -14,9 +14,6 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 
-/**
- * Левая панель: файлы + список команд + фильтры.
- */
 public final class MaredEditorSidebar {
 
     private static final int TEXT        = 0xFFFFFFFF;
@@ -30,10 +27,10 @@ public final class MaredEditorSidebar {
     private static final int MRED_COLOR  = 0xFFFF3333;
     private static final int FILTER_BG   = 0xFF0A0A10;
 
-    private static final int TOGGLE_W_FIXED = 30;
-    private static final int TOGGLE_H_FIXED = 12;
+    // FIX: 40x14 — "MR"/"MC" влезают с запасом
+    private static final int TOGGLE_W_FIXED = 40;
+    private static final int TOGGLE_H_FIXED = 14;
 
-    // ---- состояние ----
     private final List<String> fileNames = new ArrayList<>();
     private final List<MaredCommandRegistry.CommandInfo> filteredCommands = new ArrayList<>();
     private String selectedFile = null;
@@ -46,7 +43,6 @@ public final class MaredEditorSidebar {
 
     private EditBox commandFilterBox;
 
-    // ---- флаги ----
     public boolean shouldToggleSidebar = false;
     public boolean shouldRebuildEditor = false;
     public boolean shouldRefreshCommands = false;
@@ -54,7 +50,6 @@ public final class MaredEditorSidebar {
 
     public MaredEditorSidebar() {}
 
-    // ---- геттеры ----
     public List<String> fileNames() { return fileNames; }
     public String selectedFile() { return selectedFile; }
     public void setSelectedFile(String f) { this.selectedFile = f; }
@@ -69,24 +64,9 @@ public final class MaredEditorSidebar {
     public EditBox commandFilterBox() { return commandFilterBox; }
     public void setCommandFilterBox(EditBox box) { this.commandFilterBox = box; }
 
-    // ============================================================
-    //  Крестик вручную
-    // ============================================================
-
-    /**
-     * FIX: крестик рисуется вручную двумя rect — гарантированный центр,
-     * не зависит от наличия глифа «✕» в шрифте Minecraft.
-     */
-    private static void drawCross(GuiGraphics g, int cx, int cy, int arm, int color) {
-        // горизонтальная линия: cx-arm .. cx+arm
+    private static void drawMinus(GuiGraphics g, int cx, int cy, int arm, int color) {
         MaredUi.rect(g, cx - arm, cy, cx + arm + 1, cy + 1, color);
-        // вертикальная линия: cy-arm .. cy+arm
-        MaredUi.rect(g, cx, cy - arm, cx + 1, cy + arm + 1, color);
     }
-
-    // ============================================================
-    //  Перезагрузка данных
-    // ============================================================
 
     public void reloadFiles(String openTab) {
         fileNames.clear();
@@ -112,10 +92,6 @@ public final class MaredEditorSidebar {
         cmdScroll.offset = 0;
     }
 
-    // ============================================================
-    //  EditBox фильтра
-    // ============================================================
-
     public EditBox ensureFilterBox(Font font, MaredEditorLayout layout,
                                    String openTab,
                                    MaredEditorLayout.SidebarState state) {
@@ -136,10 +112,7 @@ public final class MaredEditorSidebar {
 
         if (commandFilterBox == null) {
             commandFilterBox = new EditBox(font,
-                listX + 4,
-                filterY + 2,
-                listW - 8,
-                MaredEditorLayout.FILTER_H() - 4,
+                listX + 4, filterY + 2, listW - 8, MaredEditorLayout.FILTER_H() - 4,
                 Component.literal(MaredLang.get("mared.ui.filter")));
             commandFilterBox.setBordered(false);
             commandFilterBox.setMaxLength(64);
@@ -155,10 +128,6 @@ public final class MaredEditorSidebar {
         }
         return commandFilterBox;
     }
-
-    // ============================================================
-    //  Render
-    // ============================================================
 
     public void drawStrip(GuiGraphics g, Font font, MaredEditorLayout layout,
                           int mouseX, int mouseY, int accentTop, int accentBottom) {
@@ -230,18 +199,15 @@ public final class MaredEditorSidebar {
                     int textY = iy + (ih - 8) / 2;
                     MaredUi.text(gr, f, fname, ix + pad, textY, TEXT);
 
-                    // Кнопка удаления — рамка
                     int delX = ix + iw - delSz - MaredEditorLayout.px(4);
                     int delY = iy + (ih - delSz) / 2;
                     boolean dHov = MaredUi.hovered(mouseX, mouseY, delX, delY, delSz, delSz);
                     MaredUi.rect(gr, delX, delY, delX + delSz, delY + delSz,
                         dHov ? 0xFF663333 : 0xFF3A2020);
                     MaredUi.outline(gr, delX, delY, delSz, delSz, DANGER);
-
-                    // FIX: крестик вручную — идеальный центр
                     int cx = delX + delSz / 2;
                     int cy = delY + delSz / 2;
-                    drawCross(gr, cx, cy, delSz / 2 - 2, DANGER);
+                    drawMinus(gr, cx, cy, delSz / 2 - 2, DANGER);
                 }, mouseX, mouseY);
         }
 
@@ -264,18 +230,24 @@ public final class MaredEditorSidebar {
         int commandsY = listY + filesH + MaredEditorLayout.px(4);
         MaredUi.rect(g, tabW + pad - 2, commandsY - 2,
             tabW + sidebarW - pad + 2, commandsY, 0xFF2A2A38);
-        MaredUi.text(g, font, MaredLang.get("mared.ui.available_commands"),
-            listX, commandsY + 2, TEXT_DIM);
 
         int toggleW = MaredEditorLayout.px(TOGGLE_W_FIXED);
         int toggleH = MaredEditorLayout.px(TOGGLE_H_FIXED);
         int toggleX = listX + listW - toggleW - MaredEditorLayout.px(4);
         int toggleY = commandsY + 1;
+
+        int maxHeaderW = toggleX - listX - 4;
+        String header = MaredLang.get("mared.ui.available_commands");
+        if (maxHeaderW > 0 && font.width(header) > maxHeaderW) {
+            header = font.plainSubstrByWidth(header, Math.max(0, maxHeaderW - 4)) + "...";
+        }
+        MaredUi.text(g, font, header, listX, commandsY + 2, TEXT_DIM);
+
+        String toggleLabel = showMaredCommands ? "MR" : "MC";
         boolean toggleHover = MaredUi.hovered(mouseX, mouseY, toggleX, toggleY, toggleW, toggleH);
         int bottom = showMaredCommands ? MRED_COLOR : accentBottom;
         MaredUi.buttonGradient(g, font, toggleX, toggleY, toggleW, toggleH,
-            showMaredCommands ? "MR" : "MC",
-            toggleHover ? BTN_HOVER : BTN_BG, accentTop, bottom, TEXT);
+            toggleLabel, toggleHover ? BTN_HOVER : BTN_BG, accentTop, bottom, TEXT);
 
         int filterY = commandsY + MaredEditorLayout.px(14);
         MaredUi.rect(g, listX, filterY, listX + listW, filterY + filterH, FILTER_BG);
@@ -297,15 +269,10 @@ public final class MaredEditorSidebar {
             accentTop, bottom, selCol, ITEM_HOVER, ITEM_NORMAL,
             (gr, f, idx, ix, iy, iw, ih, hov, sel) -> {
                 int textY = iy + (ih - 8) / 2;
-                MaredUi.text(gr, f, filteredCommands.get(idx).name,
-                    ix + pad, textY, TEXT);
+                MaredUi.text(gr, f, filteredCommands.get(idx).name, ix + pad, textY, TEXT);
             },
             mouseX, mouseY);
     }
-
-    // ============================================================
-    //  Клик
-    // ============================================================
 
     public boolean handleClick(MaredEditorLayout layout, String openTab,
                                double mx, double my,
@@ -345,9 +312,16 @@ public final class MaredEditorSidebar {
             return true;
         }
 
+        // FIX: не кликать выше заголовка (область "Редактор") и вне боковой панели
+        int listY = ay + btnSz + MaredEditorLayout.px(8);
+        if (my < listY - MaredEditorLayout.px(4)) return false;
+
         int listX = tabW + pad;
         int listW = sidebarW - pad * 2 - MaredEditorLayout.SCROLLBAR_W();
-        int listY = ay + btnSz + MaredEditorLayout.px(8);
+
+        // FIX: клик должен быть в области сайдбара
+        if (mx < tabW || mx >= tabW + sidebarW) return false;
+
         int filesH = Math.min(MaredEditorLayout.FILE_SECTION_H(),
             layout.sidebarBottom(false) - listY - pad);
         int filesListY = listY + MaredEditorLayout.px(12);

@@ -20,15 +20,16 @@ import net.neoforged.fml.loading.FMLPaths;
 
 public class MaredLogPanel {
 
-    private static final int BG         = 0xFF101018;
-    private static final int TEXT       = 0xFFFFFFFF;
-    private static final int TEXT_DIM   = 0xFFAAAAAA;
-    private static final int BTN_BG     = 0xFF2D2D2D;
-    private static final int BTN_HOVER  = 0xFF3E3E42;
-    private static final int BTN_ACTIVE = 0xFF3A6A3A;
-    private static final int ACCENT     = 0xFF55AAFF;
-    private static final int SELECT_BG  = 0x804466CC;
+    private static final int BG          = 0xFF101018;
+    private static final int TEXT        = 0xFFFFFFFF;
+    private static final int TEXT_DIM    = 0xFFAAAAAA;
+    private static final int BTN_BG      = 0xFF2D2D2D;
+    private static final int BTN_HOVER   = 0xFF3E3E42;
+    private static final int BTN_ACTIVE  = 0xFF3A6A3A;
+    private static final int ACCENT      = 0xFF55AAFF;
+    private static final int SELECT_BG   = 0x804466CC;
     private static final int PANEL_SETTINGS = 0xFF0E0E14;
+    private static final int SCROLLBAR_W = 6;
 
     public static final int LOG_HEADER = 20;
     public static final int LOG_LINE   = 10;
@@ -89,49 +90,45 @@ public class MaredLogPanel {
         return result;
     }
 
-    /** FIX: шапка рисуется в фиксированной точке — не зависит от collapsed. */
+    // ============================================================
+    //  Шапка
+    // ============================================================
+
     private void drawHeader(GuiGraphics g, Font font, int x, int y, int w,
                             int mouseX, int mouseY) {
         MaredUi.text(g, font, "Log", x + 6, y + 6, ACCENT);
 
         int btnY = y + 2;
         int btnH = 14;
-        // FIX: правый край всегда = x + w - 6 (не зависит от того, растянут лог или нет)
         int right = x + w - 6;
 
-        // Export
         right -= 50;
         boolean exportHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 50, btnH);
         MaredUi.button(g, font, right, btnY, 50, btnH, "Export",
             exportHover ? BTN_HOVER : BTN_BG, ACCENT, exportHover, TEXT);
 
-        // Clear
         right -= 4; right -= 44;
         boolean clearHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 44, btnH);
         MaredUi.button(g, font, right, btnY, 44, btnH, "Clear",
             clearHover ? BTN_HOVER : BTN_BG, 0xFFFF5555, clearHover, TEXT);
 
-        // Copy
         right -= 4; right -= 44;
         boolean copyHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 44, btnH);
         MaredUi.button(g, font, right, btnY, 44, btnH, "Copy",
             copyHover ? BTN_HOVER : BTN_BG, ACCENT, copyHover, TEXT);
 
-        // Gear
         right -= 4; right -= 18;
         boolean gearHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 18, btnH);
         MaredUi.button(g, font, right, btnY, 18, btnH, "⚙",
             gearHover ? BTN_HOVER : (settingsOpen ? BTN_ACTIVE : BTN_BG),
             ACCENT, gearHover, TEXT);
 
-        // Toggle
         right -= 4; right -= 18;
         boolean toggleHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 18, btnH);
         MaredUi.button(g, font, right, btnY, 18, btnH, collapsed ? "▲" : "▼",
             toggleHover ? BTN_HOVER : BTN_BG, ACCENT, toggleHover, TEXT);
     }
 
-    /** FIX: клик в шапке — независимо от collapsed. */
     private boolean headerClick(double mx, double my, int x, int y, int w) {
         if (my < y || my >= y + LOG_HEADER) return false;
         int btnY = y + 2;
@@ -154,9 +151,12 @@ public class MaredLogPanel {
             if (onToggle != null) onToggle.run();
             return true;
         }
-        // клик по пустому месту шапки — не поглощаем
         return false;
     }
+
+    // ============================================================
+    //  Render
+    // ============================================================
 
     public void render(GuiGraphics g, Font font, int x, int y, int w, int h,
                        int mouseX, int mouseY) {
@@ -209,10 +209,11 @@ public class MaredLogPanel {
         }
 
         MaredUi.scissorOff(g);
-        scroll.drawScrollbar(g, ACCENT, 6);
+
+        // FIX: ползунок через MaredUi.ScrollArea.drawScrollbar — всегда видим если скроллится
+        scroll.drawScrollbar(g, ACCENT, SCROLLBAR_W);
     }
 
-    /** FIX: категории wrap'аются по ширине, ничего не выходит за экран. */
     private void renderSettings(GuiGraphics g, Font font, int x, int y, int w, int h,
                                 int mouseX, int mouseY) {
         MaredUi.rect(g, x, y, x + w, y + h, PANEL_SETTINGS);
@@ -221,13 +222,13 @@ public class MaredLogPanel {
         int startX = x + 6;
         int startY = y + 6;
         int innerW = w - 12;
+        int rowH = 14;
 
         MaredUi.text(g, font, "Log filters", startX, startY, ACCENT);
 
-        // ---- Levels ----
+        // ---- Levels: чекбоксы [✓] ----
         MaredUi.text(g, font, "Levels:", startX, startY + 16, 0xFFFFAA00);
 
-        int rowH = 14;
         int lvlRowY = startY + 30;
         int lvlItemW = 70;
         int lvlCols = Math.max(1, innerW / (lvlItemW + 4));
@@ -241,15 +242,16 @@ public class MaredLogPanel {
             int bg = enabled ? BTN_ACTIVE : (hov ? BTN_HOVER : BTN_BG);
             MaredUi.rect(g, cx, cy, cx + lvlItemW, cy + 12, bg);
             MaredUi.outline(g, cx, cy, lvlItemW, 12, enabled ? 0xFF55FF88 : 0xFF4A4A4A);
-            MaredUi.text(g, font, (enabled ? "+ " : "  ") + lvl.name(),
-                cx + 4, cy + 2, enabled ? 0xFF55FF88 : TEXT_DIM);
+            String prefix = enabled ? "[✓] " : "[  ] ";
+            MaredUi.text(g, font, prefix + lvl.name(), cx + 4, cy + 2,
+                enabled ? 0xFF55FF88 : TEXT_DIM);
             col++;
             if (col >= lvlCols) { col = 0; row++; }
         }
-        int lvlRows = (row + 1);
+        int lvlRows = row + 1;
         lvlRowY += lvlRows * rowH + 8;
 
-        // ---- Categories ----
+        // ---- Categories: чекбоксы [✓] ----
         MaredUi.text(g, font, "Categories:", startX, lvlRowY, 0xFFFFAA00);
         lvlRowY += 14;
 
@@ -265,14 +267,19 @@ public class MaredLogPanel {
             int bg = enabled ? BTN_ACTIVE : (hov ? BTN_HOVER : BTN_BG);
             MaredUi.rect(g, cx, cy, cx + catItemW, cy + 12, bg);
             MaredUi.outline(g, cx, cy, catItemW, 12, enabled ? 0xFF55FF88 : 0xFF4A4A4A);
-            MaredUi.text(g, font, (enabled ? "+ " : "  ") + "[" + cat + "]",
-                cx + 4, cy + 2, enabled ? 0xFF55FF88 : TEXT_DIM);
+            String prefix = enabled ? "[✓] " : "[  ] ";
+            MaredUi.text(g, font, prefix + "[" + cat + "]", cx + 4, cy + 2,
+                enabled ? 0xFF55FF88 : TEXT_DIM);
             col++;
             if (col >= catCols) { col = 0; row++; }
         }
 
         MaredUi.scissorOff(g);
     }
+
+    // ============================================================
+    //  Selection helpers
+    // ============================================================
 
     private boolean isLineSelected(int lineIdx) {
         if (!selStart.valid() || !selEnd.valid()) return false;
@@ -323,9 +330,12 @@ public class MaredLogPanel {
         return idx;
     }
 
+    // ============================================================
+    //  Клик / drag / scroll
+    // ============================================================
+
     public boolean mouseClicked(double mx, double my, int button, int x, int y, int w, int h,
                                 Font font) {
-        // клик в шапке — фиксированные координаты
         if (my >= y && my < y + LOG_HEADER) {
             return headerClick(mx, my, x, y, w);
         }
@@ -333,14 +343,13 @@ public class MaredLogPanel {
         if (collapsed) return false;
 
         if (settingsOpen) {
-            // если клик вне панели лога — не поглощаем
             if (mx < x || mx > x + w || my < y || my > y + h) return false;
             return settingsClick(mx, my, x, y + LOG_HEADER, w, h - LOG_HEADER);
         }
 
         if (my >= y + LOG_HEADER) {
             scroll.set(x, y + LOG_HEADER, w, h - LOG_HEADER);
-            if (scroll.clickScrollbar(mx, my, 6, drag, MaredUi.DragKind.LOG_SCROLL)) return true;
+            if (scroll.clickScrollbar(mx, my, SCROLLBAR_W, drag, MaredUi.DragKind.LOG_SCROLL)) return true;
 
             List<LogEntry> visible = getVisibleEntries();
             int idx = indexAt(my, y + LOG_HEADER, visible.size());
@@ -409,7 +418,6 @@ public class MaredLogPanel {
         int innerW = w - 12;
         int rowH = 14;
 
-        // Levels
         int lvlRowY = startY + 30;
         int lvlItemW = 70;
         int lvlCols = Math.max(1, innerW / (lvlItemW + 4));
@@ -424,10 +432,9 @@ public class MaredLogPanel {
             col++;
             if (col >= lvlCols) { col = 0; row++; }
         }
-        int lvlRows = (row + 1);
+        int lvlRows = row + 1;
         lvlRowY += lvlRows * rowH + 8;
 
-        // Categories
         lvlRowY += 14;
         int catItemW = 90;
         int catCols = Math.max(1, innerW / (catItemW + 4));
@@ -444,6 +451,10 @@ public class MaredLogPanel {
         }
         return true;
     }
+
+    // ============================================================
+    //  Копирование / экспорт
+    // ============================================================
 
     public void copySelectedOrAll() {
         StringBuilder sb = new StringBuilder();

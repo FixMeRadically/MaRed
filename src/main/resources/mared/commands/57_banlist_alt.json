@@ -5,9 +5,10 @@
       "category": "Server",
       "opLevel": 3,
       "description": "Ban list alternate syntax",
+      "description_ru": "Альтернативный синтаксис списка банов",
       "example": "/banlist ips",
       "arguments": [
-        { "value": "ips", "description": "Show banned IPs", "examples": ["/banlist ips"] }
+        { "value": "ips", "description": "Show banned IPs", "description_ru": "Показать забаненные IP", "examples": ["/banlist ips"] }
       ]
     }
   ]

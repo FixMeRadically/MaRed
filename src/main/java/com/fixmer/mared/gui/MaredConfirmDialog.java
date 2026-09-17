@@ -9,9 +9,9 @@ import com.fixmer.mared.script.MaredLang;
 
 public class MaredConfirmDialog extends Screen {
 
-    private static final int PANEL      = 0xFF1E1E2A;
-    private static final int TEXT       = 0xFFFFFFFF;
-    private static final int DANGER     = 0xFFFF4444;
+    private static final int PANEL  = 0xFF1E1E2A;
+    private static final int TEXT   = 0xFFFFFFFF;
+    private static final int DANGER = 0xFFFF4444;
 
     private final Screen parent;
     private final String title;
@@ -32,7 +32,6 @@ public class MaredConfirmDialog extends Screen {
     @Override
     protected void init() {
         super.init();
-
         MaredLang.reload();
 
         int panelW = 320;
@@ -53,11 +52,7 @@ public class MaredConfirmDialog extends Screen {
             Component.literal(MaredLang.get("mared.dialog.cancel")), 0xFF55FF88, this::onCancel));
     }
 
-    private void onConfirm() {
-        onConfirm.run();
-        onClose();
-    }
-
+    private void onConfirm() { onConfirm.run(); onClose(); }
     private void onCancel() { onClose(); }
 
     @Override
@@ -67,7 +62,8 @@ public class MaredConfirmDialog extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        g.fill(0, 0, this.width, this.height, 0x80000000);
+        // FIX: свой фон первой строкой, без super.renderBackground
+        g.fill(0, 0, this.width, this.height, 0xC0000000);
 
         int panelW = 320;
         int panelH = 140;
@@ -84,19 +80,12 @@ public class MaredConfirmDialog extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 257 || keyCode == 335) {
-            onConfirm();
-            return true;
-        }
-        if (keyCode == 256) {
-            onCancel();
-            return true;
-        }
+        if (keyCode == 257 || keyCode == 335) { onConfirm(); return true; }
+        if (keyCode == 256) { onCancel(); return true; }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    @Override
-    public boolean isPauseScreen() { return false; }
+    @Override public boolean isPauseScreen() { return false; }
 
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}

@@ -5,9 +5,10 @@
       "category": "Entity",
       "opLevel": 2,
       "description": "Kill alternate syntax",
+      "description_ru": "Альтернативный синтаксис kill",
       "example": "/kill",
       "arguments": [
-        { "value": "", "description": "Kill self", "examples": ["/kill"] }
+        { "value": "", "description": "Kill self", "description_ru": "Убить себя", "examples": ["/kill"] }
       ]
     }
   ]

@@ -5,11 +5,12 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Set spawn point for a player",
+      "description_ru": "Задать точку возрождения игроку",
       "example": "/spawnpoint @s 0 64 0",
       "arguments": [
-        { "value": "[player]", "description": "Target player", "examples": ["/spawnpoint @s", "/spawnpoint @a"] },
-        { "value": "[pos]", "description": "Spawn coordinates", "examples": ["/spawnpoint @s 100 64 100"] },
-        { "value": "[angle]", "description": "Spawn angle", "examples": ["/spawnpoint @s 100 64 100 90"] }
+        { "value": "[player]", "description": "Target player", "description_ru": "Целевой игрок", "examples": ["/spawnpoint @s", "/spawnpoint @a"] },
+        { "value": "[pos]", "description": "Spawn coordinates", "description_ru": "Координаты возрождения", "examples": ["/spawnpoint @s 100 64 100"] },
+        { "value": "[angle]", "description": "Spawn angle", "description_ru": "Угол возрождения", "examples": ["/spawnpoint @s 100 64 100 90"] }
       ]
     }
   ]

@@ -5,11 +5,12 @@
       "category": "Player",
       "opLevel": 2,
       "description": "Scoreboard alternate syntax",
+      "description_ru": "Альтернативный синтаксис scoreboard",
       "example": "/scoreboard objectives setdisplay list kills",
       "arguments": [
-        { "value": "objectives setdisplay list <name>", "description": "Display in list slot", "examples": ["/scoreboard objectives setdisplay list kills"] },
-        { "value": "objectives setdisplay sidebar <name>", "description": "Display in sidebar", "examples": ["/scoreboard objectives setdisplay sidebar kills"] },
-        { "value": "objectives setdisplay belowName <name>", "description": "Display below name", "examples": ["/scoreboard objectives setdisplay belowName health"] }
+        { "value": "objectives setdisplay list <name>", "description": "Display in list slot", "description_ru": "Показать в слоте списка", "examples": ["/scoreboard objectives setdisplay list kills"] },
+        { "value": "objectives setdisplay sidebar <name>", "description": "Display in sidebar", "description_ru": "Показать в сайдбаре", "examples": ["/scoreboard objectives setdisplay sidebar kills"] },
+        { "value": "objectives setdisplay belowName <name>", "description": "Display below name", "description_ru": "Показать под именем", "examples": ["/scoreboard objectives setdisplay belowName health"] }
       ]
     }
   ]
