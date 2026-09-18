@@ -1,17 +1,13 @@
 package com.fixmer.mared.script.commands;
 
 import com.fixmer.mared.script.MaredExpr;
+import com.fixmer.mared.script.MaredLang;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
 import com.fixmer.mared.script.MaredScriptExecutor.Frame;
 
 /**
  * return <выражение> — вернуть значение из функции.
- *
- * FIX 1: теперь поддерживает `return call func(args)` и любые
- * арифметические выражения с вызовами функций, потому что
- * MaredExpr.eval распознаёт `call` как встроенную конструкцию
- * и синхронно вызывает функцию через MaredScriptContext.callFunction.
  */
 public class MaredReturnCommand extends MaredScriptCommand {
 
@@ -28,7 +24,7 @@ public class MaredReturnCommand extends MaredScriptCommand {
             try {
                 value = MaredExpr.eval(expression, ctx);
             } catch (Exception e) {
-                ctx.log("[error] return: " + e.getMessage());
+                ctx.log(MaredLang.format("mared.log.eval.error", expression, e.getMessage()));
                 value = null;
             }
         }
@@ -37,9 +33,9 @@ public class MaredReturnCommand extends MaredScriptCommand {
         Frame fn = exec.findEnclosingFunction();
         if (fn != null) {
             exec.abortToFunction(fn);
-            ctx.log("[mared] return");
+            ctx.log(MaredLang.get("mared.log.mared.return"));
         } else {
-            ctx.log("[mared] return (вне функции)");
+            ctx.log(MaredLang.get("mared.log.mared.return_outside"));
             exec.stopAll();
         }
     }

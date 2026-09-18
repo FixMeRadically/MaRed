@@ -14,6 +14,9 @@ import com.fixmer.mared.script.MaredScriptExecutor.Frame;
  *
  * Аргументы передаются как ОБЪЕКТЫ. Если arg содержит арифметику
  * (например $n - 1), он вычисляется как выражение.
+ *
+ * FIX: resolveArg при отсутствии переменной возвращает null,
+ * а не строку "$name".
  */
 public class MaredCallCommand extends MaredScriptCommand {
 
@@ -81,8 +84,7 @@ public class MaredCallCommand extends MaredScriptCommand {
      *   число       → Long или Double
      *   выражение   → вычисленное MaredExpr.eval
      *
-     * ВАЖНО: если arg содержит арифметику ($n - 1, $a + $b, etc.) —
-     * он вычисляется как выражение.
+     * FIX: если переменная не найдена — возвращает null, а не "$var".
      */
     public static Object resolveArg(String arg, MaredScriptContext ctx) {
         if (arg == null) return null;
@@ -100,7 +102,8 @@ public class MaredCallCommand extends MaredScriptCommand {
             String varName = s.substring(1);
             Object v = ctx.getVariable(varName);
             if (v != null) return v;
-            return s;
+            // ← FIX: возвращаем null вместо "$name"
+            return null;
         }
 
         if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"")) {

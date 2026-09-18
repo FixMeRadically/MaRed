@@ -2,63 +2,70 @@ package com.fixmer.mared.script.commands;
 
 import java.util.List;
 
+import com.fixmer.mared.script.MaredExpr;
+import com.fixmer.mared.script.MaredLang;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
 import com.fixmer.mared.script.MaredScriptExecutor.Frame;
 import com.fixmer.mared.script.MaredScriptExecutor.LoopOwner;
 
 /**
- * repeat N { ... }
- * Толкает тело кадром N раз. Если внутри срабатывает break — цикл прерывается.
+ * repeat N { ... }  или  repeat $n { ... }
+ * Count вычисляется как выражение — поддерживает $переменные, арифметику.
+ * Если count <= 0 — цикл не выполняется.
  */
 public class MaredRepeatCommand extends MaredScriptCommand {
 
-    private final int count;
+    private final String countExpr;
     private final List<MaredScriptCommand> body;
 
-    public MaredRepeatCommand(int count, List<MaredScriptCommand> body) {
-        this.count = count;
+    public MaredRepeatCommand(String countExpr, List<MaredScriptCommand> body) {
+        this.countExpr = countExpr;
         this.body = body;
     }
 
     @Override
     public void execute(MaredScriptContext ctx, MaredScriptExecutor exec) {
+        int count = 0;
+        try {
+            count = (int) MaredExpr.toLong(MaredExpr.eval(countExpr, ctx));
+        } catch (Exception e) {
+            ctx.log(MaredLang.format("mared.log.eval.error", countExpr, e.getMessage()));
+            return;
+        }
+
         if (count <= 0 || body.isEmpty()) return;
 
-        // Кадр-родитель: мы хотим, чтобы тело выполнялось в отдельном кадре
-        // и родитель следил за его завершением.
+        final int total = count;
+
         LoopOwner owner = new LoopOwner() {
             int iteration = 0;
 
             @Override
             public boolean onBodyFinished(MaredScriptContext c, MaredScriptExecutor ex, Frame bodyFrame) {
-                // break — прекращаем
                 if (bodyFrame.breakRequested) {
                     bodyFrame.breakRequested = false;
                     c.log("[mared] break — выход из repeat");
                     return false;
                 }
-                // continue — считаем итерацию и продолжаем, если ещё есть
                 if (bodyFrame.continueRequested) {
                     bodyFrame.continueRequested = false;
                 }
                 iteration++;
-                if (iteration >= count) return false;
+                if (iteration >= total) return false;
 
-                // запустить следующую итерацию
                 ex.pushLoopBody(body, this);
                 return true;
             }
 
             @Override
-            public String describe() { return "repeat " + count; }
+            public String describe() { return "repeat " + total; }
         };
 
-        // Первая итерация
         exec.pushLoopBody(body, owner);
     }
 
     @Override public int getDelayTicks() { return 0; }
 
-    @Override public String describe() { return "repeat " + count; }
+    @Override public String describe() { return "repeat " + countExpr; }
 }

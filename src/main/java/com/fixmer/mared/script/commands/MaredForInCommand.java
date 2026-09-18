@@ -10,15 +10,6 @@ import com.fixmer.mared.script.MaredScriptExecutor;
 import com.fixmer.mared.script.MaredScriptExecutor.Frame;
 import com.fixmer.mared.script.MaredScriptExecutor.LoopOwner;
 
-/**
- * for $item in $items { ... }
- * Итерация по элементам массива.
- *
- * Работает с:
- *   - List<Object>  (обычный array)
- *   - Object[]      (Java-массив)
- *   - null / пустой массив — цикл не выполняется
- */
 public class MaredForInCommand extends MaredScriptCommand {
 
     private static final int MAX_ITER = 100_000;
@@ -56,6 +47,10 @@ public class MaredForInCommand extends MaredScriptCommand {
 
         ctx.log(MaredLang.format("mared.log.mared.for_in_start", var, arrayName, elements.length));
 
+        // FIX C: сохраняем старое значение
+        final boolean hadVar = ctx.hasVariable(var);
+        final Object oldVar = ctx.getVariable(var);
+
         LoopOwner owner = new LoopOwner() {
             int index = 0;
             int iteration = 0;
@@ -65,6 +60,7 @@ public class MaredForInCommand extends MaredScriptCommand {
                 if (bodyFrame.breakRequested) {
                     bodyFrame.breakRequested = false;
                     c.log("[mared] break — выход из for-in");
+                    restoreVar(c);
                     return false;
                 }
                 if (bodyFrame.continueRequested) {
@@ -73,15 +69,27 @@ public class MaredForInCommand extends MaredScriptCommand {
                 iteration++;
                 if (iteration >= MAX_ITER) {
                     c.log("[warn] for-in: превышен лимит " + MAX_ITER + " итераций");
+                    restoreVar(c);
                     return false;
                 }
 
                 index++;
-                if (index >= elements.length) return false;
+                if (index >= elements.length) {
+                    restoreVar(c);
+                    return false;
+                }
 
                 c.setVariable(var, elements[index]);
                 ex.pushLoopBody(body, this);
                 return true;
+            }
+
+            private void restoreVar(MaredScriptContext c) {
+                if (hadVar) {
+                    c.setVariable(var, oldVar);
+                } else {
+                    c.setVariable(var, null);
+                }
             }
 
             @Override
@@ -90,15 +98,10 @@ public class MaredForInCommand extends MaredScriptCommand {
             }
         };
 
-        // Первая итерация — index = 0
         ctx.setVariable(var, elements[0]);
         exec.pushLoopBody(body, owner);
     }
 
-    /**
-     * Преобразует что угодно в Object[].
-     * List → Object[], array → Object[], иначе → null.
-     */
     private static Object[] toObjectArray(Object raw) {
         if (raw == null) return null;
 

@@ -57,6 +57,7 @@ public final class MaredMethods {
                 Object a = arg(args, 0);
                 if (a instanceof Long || a instanceof Double) {
                     int idx = (int) MaredExpr.toLong(a);
+                    if (idx < 0) idx = list.size() + idx;
                     if (idx < 0 || idx >= list.size()) return null;
                     return list.remove(idx);
                 }
@@ -141,6 +142,78 @@ public final class MaredMethods {
                 return list.isEmpty() ? null : list.get(0);
             case "last":
                 return list.isEmpty() ? null : list.get(list.size() - 1);
+
+            // ---- NEW: агрегаты ----
+            case "sum": {
+                double total = 0;
+                boolean allInt = true;
+                for (Object v : list) {
+                    if (!(v instanceof Long)) allInt = false;
+                    total += MaredExpr.toNumber(v);
+                }
+                return allInt ? (Object) (long) total : MaredExpr.num(total);
+            }
+            case "avg":
+            case "average": {
+                if (list.isEmpty()) return 0.0;
+                double total = 0;
+                for (Object v : list) total += MaredExpr.toNumber(v);
+                return total / list.size();
+            }
+            case "min": {
+                if (list.isEmpty()) return null;
+                double m = MaredExpr.toNumber(list.get(0));
+                boolean allInt = list.get(0) instanceof Long;
+                for (Object v : list) {
+                    double d = MaredExpr.toNumber(v);
+                    if (d < m) m = d;
+                    if (!(v instanceof Long)) allInt = false;
+                }
+                return allInt ? (Object) (long) m : MaredExpr.num(m);
+            }
+            case "max": {
+                if (list.isEmpty()) return null;
+                double m = MaredExpr.toNumber(list.get(0));
+                boolean allInt = list.get(0) instanceof Long;
+                for (Object v : list) {
+                    double d = MaredExpr.toNumber(v);
+                    if (d > m) m = d;
+                    if (!(v instanceof Long)) allInt = false;
+                }
+                return allInt ? (Object) (long) m : MaredExpr.num(m);
+            }
+
+            // ---- NEW: take / drop / distinct / flatten ----
+            case "take": {
+                int n = (int) MaredExpr.toLong(arg(args, 0));
+                if (n < 0) n = 0;
+                if (n > list.size()) n = list.size();
+                return new ArrayList<>(list.subList(0, n));
+            }
+            case "drop": {
+                int n = (int) MaredExpr.toLong(arg(args, 0));
+                if (n < 0) n = 0;
+                if (n > list.size()) n = list.size();
+                return new ArrayList<>(list.subList(n, list.size()));
+            }
+            case "distinct":
+            case "unique": {
+                List<Object> out = new ArrayList<>();
+                for (Object v : list) {
+                    if (!out.contains(v)) out.add(v);
+                }
+                return out;
+            }
+            case "flatten": {
+                List<Object> out = new ArrayList<>();
+                for (Object v : list) {
+                    if (v instanceof List<?> sub) out.addAll(sub);
+                    else out.add(v);
+                }
+                return out;
+            }
+
+            // ---- map / filter ----
             case "map": {
                 if (args.isEmpty()) return new ArrayList<>(list);
                 String expr = MaredExpr.stringify(args.get(0));
@@ -188,6 +261,10 @@ public final class MaredMethods {
                 return s.toLowerCase();
             case "trim":
                 return s.trim();
+            case "trimStart":
+                return s.stripLeading();
+            case "trimEnd":
+                return s.stripTrailing();
             case "sub":
             case "substring": {
                 int from = (int) MaredExpr.toLong(arg(args, 0));
@@ -210,6 +287,10 @@ public final class MaredMethods {
                 return s.endsWith(MaredExpr.stringify(arg(args, 0)));
             case "replace":
                 return s.replace(
+                    MaredExpr.stringify(arg(args, 0)),
+                    MaredExpr.stringify(arg(args, 1)));
+            case "replaceAll":
+                return s.replaceAll(
                     MaredExpr.stringify(arg(args, 0)),
                     MaredExpr.stringify(arg(args, 1)));
             case "repeat": {

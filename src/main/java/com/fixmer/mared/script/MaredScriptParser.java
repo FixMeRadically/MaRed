@@ -11,6 +11,7 @@ import com.fixmer.mared.script.commands.MaredCallCommand;
 import com.fixmer.mared.script.commands.MaredContinueCommand;
 import com.fixmer.mared.script.commands.MaredDebugCommand;
 import com.fixmer.mared.script.commands.MaredEvalCommand;
+import com.fixmer.mared.script.commands.MaredExitCommand;
 import com.fixmer.mared.script.commands.MaredForCommand;
 import com.fixmer.mared.script.commands.MaredForInCommand;
 import com.fixmer.mared.script.commands.MaredFuncCommand;
@@ -19,6 +20,7 @@ import com.fixmer.mared.script.commands.MaredIfCommand;
 import com.fixmer.mared.script.commands.MaredLogCommand;
 import com.fixmer.mared.script.commands.MaredMcCommand;
 import com.fixmer.mared.script.commands.MaredOnCommand;
+import com.fixmer.mared.script.commands.MaredPrintCommand;
 import com.fixmer.mared.script.commands.MaredRepeatCommand;
 import com.fixmer.mared.script.commands.MaredReturnCommand;
 import com.fixmer.mared.script.commands.MaredSayCommand;
@@ -111,6 +113,7 @@ public class MaredScriptParser {
             case "break":  return new MaredBreakCommand();
             case "continue": return new MaredContinueCommand();
             case "return": return parseReturn(tokens, startLine);
+            case "exit":   return new MaredExitCommand();
             default: return parseLine(tokens, startLine);
         }
     }
@@ -158,18 +161,33 @@ public class MaredScriptParser {
 
     private static MaredScriptCommand parseRepeat(Cursor cur, List<String> tokens, int line) {
         if (tokens.size() < 2) throw new ParseException(line, "repeat: missing count");
-        String countStr = tokens.get(1);
-        if (tokens.size() >= 3 && !"times".equalsIgnoreCase(tokens.get(2)))
-            throw new ParseException(line, "repeat: expected 'times' or end of line");
-        int count;
-        try { count = Integer.parseInt(countStr); }
-        catch (NumberFormatException e) { throw new ParseException(line, "repeat: '" + countStr + "' is not a number"); }
+
+        int end = tokens.size();
+        for (int i = 1; i < tokens.size(); i++) {
+            if (tokens.get(i).equalsIgnoreCase("times")) {
+                end = i;
+                break;
+            }
+        }
+
+        StringBuilder countSb = new StringBuilder();
+        for (int i = 1; i < end; i++) {
+            if (countSb.length() > 0) countSb.append(' ');
+            countSb.append(tokens.get(i));
+        }
+
+        if (countSb.length() == 0)
+            throw new ParseException(line, "repeat: empty count expression");
+
+        String countExpr = countSb.toString();
         List<MaredScriptCommand> body = parseBody(cur, line);
-        return new MaredRepeatCommand(count, body);
+        return new MaredRepeatCommand(countExpr, body);
     }
 
     private static MaredScriptCommand parseFor(Cursor cur, List<String> tokens, int line) {
-        if (tokens.size() < 4) throw new ParseException(line, "for: expected 'for $i = a to b' or 'for $item in $items'");
+        if (tokens.size() < 4)
+            throw new ParseException(line, "for: expected 'for $i = a to b' or 'for $item in $items'");
+
         String var = tokens.get(1);
         if (var.startsWith("$")) var = var.substring(1);
 
@@ -181,12 +199,32 @@ public class MaredScriptParser {
             return new MaredForInCommand(var, arrName, body);
         }
 
-        if (tokens.size() < 6) throw new ParseException(line, "for: expected 'for $i = a to b {'");
-        if (!tokens.get(2).equals("=")) throw new ParseException(line, "for: expected '=' after name");
-        if (!tokens.get(4).equalsIgnoreCase("to")) throw new ParseException(line, "for: expected 'to'");
+        if (!tokens.get(2).equals("="))
+            throw new ParseException(line, "for: expected '=' after name");
 
-        String from = tokens.get(3);
-        String to = tokens.get(5);
+        int toIdx = -1;
+        for (int i = 3; i < tokens.size(); i++) {
+            if (tokens.get(i).equalsIgnoreCase("to")) { toIdx = i; break; }
+        }
+        if (toIdx < 0)
+            throw new ParseException(line, "for: missing 'to'");
+
+        StringBuilder fromSb = new StringBuilder();
+        for (int i = 3; i < toIdx; i++) {
+            if (fromSb.length() > 0) fromSb.append(' ');
+            fromSb.append(tokens.get(i));
+        }
+        StringBuilder toSb = new StringBuilder();
+        for (int i = toIdx + 1; i < tokens.size(); i++) {
+            if (toSb.length() > 0) toSb.append(' ');
+            toSb.append(tokens.get(i));
+        }
+
+        String from = fromSb.toString();
+        String to = toSb.toString();
+        if (from.isEmpty() || to.isEmpty())
+            throw new ParseException(line, "for: empty from/to expression");
+
         List<MaredScriptCommand> body = parseBody(cur, line);
         return new MaredForCommand(var, from, to, body);
     }
@@ -315,6 +353,7 @@ public class MaredScriptParser {
         String command = tokens.get(0);
         switch (command) {
             case "say":     return parseSay(tokens, lineNumber);
+            case "print":   return parsePrint(tokens, lineNumber);
             case "wait":    return parseWait(tokens, lineNumber);
             case "delay":   return parseWait(tokens, lineNumber);
             case "give":    return parseGive(tokens, lineNumber);
@@ -349,6 +388,16 @@ public class MaredScriptParser {
         return new MaredSayCommand(textWithArgs, scope);
     }
 
+    private static MaredScriptCommand parsePrint(List<String> tokens, int lineNumber) {
+        if (tokens.size() < 2) throw new ParseException(lineNumber, "print: missing text");
+        StringBuilder raw = new StringBuilder();
+        for (int i = 1; i < tokens.size(); i++) {
+            if (i > 1) raw.append(' ');
+            raw.append(tokens.get(i));
+        }
+        return new MaredPrintCommand(raw.toString());
+    }
+
     private static MaredScriptCommand parseWait(List<String> tokens, int lineNumber) {
         if (tokens.size() < 2) throw new ParseException(lineNumber, "wait: missing amount");
         double amount;
@@ -370,16 +419,24 @@ public class MaredScriptParser {
         return new MaredGiveCommand(target, item, count);
     }
 
+    /**
+     * FIX G: "set x = call fn(...)" обрабатывается как SetFromCall только
+     * если вся правая часть — один call. Иначе — обычный Set с выражением,
+     * которое умеет call (через MaredExpr).
+     */
     private static MaredScriptCommand parseSet(List<String> tokens, int lineNumber) {
         if (tokens.size() < 4) throw new ParseException(lineNumber, "set: expected 'set name = value'");
         String name = tokens.get(1);
         if (name.startsWith("$")) name = name.substring(1);
         if (!tokens.get(2).equals("=")) throw new ParseException(lineNumber, "set: expected '=' after name");
 
-        if (tokens.size() >= 5 && "call".equalsIgnoreCase(tokens.get(3))) {
-            String callPart = join(tokens.subList(4, tokens.size()));
+        // FIX G: только если ровно 5 токенов — 'set name = call fn(...)'
+        if (tokens.size() == 5 && "call".equalsIgnoreCase(tokens.get(3))) {
+            String callPart = tokens.get(4);
             int paren = callPart.indexOf('(');
-            if (paren < 0 || !callPart.endsWith(")")) throw new ParseException(lineNumber, "set: expected 'call func(args)'");
+            if (paren < 0 || !callPart.endsWith(")")) {
+                throw new ParseException(lineNumber, "set: expected 'call func(args)'");
+            }
             String funcName = callPart.substring(0, paren).trim();
             String inside = callPart.substring(paren + 1, callPart.length() - 1).trim();
             List<String> callArgs = new ArrayList<>();

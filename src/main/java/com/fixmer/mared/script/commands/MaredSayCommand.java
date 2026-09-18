@@ -11,7 +11,12 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * say <текст> [scope=all|self|server]
  *
- * FIX A: табы заменяются на 4 пробела — шрифт MC не поддерживает \t.
+ * FIX 0.2.4:
+ *   - убраны внешние кавычки в выводе
+ *   - \t → 4 пробела
+ *   - \n → отдельные строки чата
+ *   - scope=self без initiator — молчим
+ *   - FIX F: разэкранирование кавычек перед substitute/eval
  */
 public class MaredSayCommand extends MaredScriptCommand {
 
@@ -36,19 +41,28 @@ public class MaredSayCommand extends MaredScriptCommand {
         if (server == null && initiator != null) server = initiator.getServer();
         if (server == null) { ctx.log("[warn] say: server is null"); return true; }
 
+        String[] lines = resolved.split("\n", -1);
+        boolean selfOnly = "self".equalsIgnoreCase(scope);
+
         try {
-            if ("self".equalsIgnoreCase(scope)) {
-                if (initiator == null) {
-                    Component msg = Component.literal("[Server] " + resolved);
-                    server.getPlayerList().broadcastSystemMessage(msg, false);
-                    ctx.log("[say] (no initiator) " + resolved);
+            for (String line : lines) {
+                if (line.isEmpty()) continue;
+
+                if (selfOnly) {
+                    if (initiator == null) continue;
+                    initiator.sendSystemMessage(Component.literal(line));
                 } else {
-                    initiator.sendSystemMessage(Component.literal(resolved));
+                    Component msg = Component.literal(line);
+                    server.getPlayerList().broadcastSystemMessage(msg, false);
                 }
-                MaredEventRegistry.suppressChat(500);
+            }
+
+            if (selfOnly) {
+                if (initiator != null) {
+                    ctx.log("[say] (self) " + resolved);
+                    MaredEventRegistry.suppressChat(500);
+                }
             } else {
-                Component msg = Component.literal("[Server] " + resolved);
-                server.getPlayerList().broadcastSystemMessage(msg, false);
                 ctx.log("[say] " + resolved);
                 MaredEventRegistry.suppressChat(500);
             }
@@ -58,7 +72,14 @@ public class MaredSayCommand extends MaredScriptCommand {
         return true;
     }
 
-    /** FIX A: \t → 4 пробела. Работает и после resolveText. */
+    private static String stripOuterQuotes(String s) {
+        if (s == null || s.length() < 2) return s;
+        if (s.charAt(0) == '"' && s.charAt(s.length() - 1) == '"') {
+            return s.substring(1, s.length() - 1);
+        }
+        return s;
+    }
+
     private static String sanitizeTabs(String s) {
         if (s == null) return "";
         return s.replace("\t", "    ");
@@ -66,13 +87,19 @@ public class MaredSayCommand extends MaredScriptCommand {
 
     private String resolveText(String raw, MaredScriptContext ctx) {
         if (raw == null || raw.isEmpty()) return "";
+
+        // 1. Конкатенация ("a" + $b) → вычислить как выражение
         if (looksLikeConcat(raw)) {
             try {
                 Object v = MaredExpr.eval(raw, ctx);
                 return MaredExpr.stringify(v);
             } catch (Exception ignored) {}
         }
-        return ctx.substitute(raw);
+
+        // 2. Обычная строка — снять кавычки, разэкранировать, подставить
+        String stripped = stripOuterQuotes(raw);
+        stripped = MaredDebugCommand.unescapeQuotes(stripped);
+        return ctx.substitute(stripped);
     }
 
     private boolean looksLikeConcat(String s) {

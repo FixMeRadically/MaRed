@@ -10,7 +10,30 @@ public final class MaredUi {
 
     private MaredUi() {}
 
-    // ---------- базовые примитивы ----------
+    // ============================================================
+    //  Общие цвета фона (единые для всего UI)
+    // ============================================================
+
+    /** Фон всего экрана редактора/диалогов. */
+    public static final int SCREEN_BG   = 0xFF0A0A10;
+    /** Фон всплывающей панели (диалоги, настройки). */
+    public static final int PANEL_BG    = 0xFF14141C;
+    /** Фон полей ввода / "утопленных" областей. */
+    public static final int SUNKEN_BG   = 0xFF0A0A10;
+    /** Обычный текст. */
+    public static final int TEXT        = 0xFFFFFFFF;
+    /** Приглушённый текст. */
+    public static final int TEXT_DIM    = 0xFFAAAAAA;
+    /** Опасность (удаление, ошибки). */
+    public static final int DANGER      = 0xFFFF4444;
+    /** Успех / подтверждение. */
+    public static final int SUCCESS     = 0xFF55FF88;
+    /** Предупреждение. */
+    public static final int WARN        = 0xFFFFAA00;
+
+    // ============================================================
+    //  Базовые примитивы
+    // ============================================================
 
     public static void rect(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
         g.fill(x1, y1, x2, y2, color);
@@ -31,28 +54,56 @@ public final class MaredUi {
         outlineGradient(g, x, y, w, h, topColor, bottomColor);
     }
 
-    // ---------- 3D-панели (свет сверху) ----------
+    // ============================================================
+    //  3D-панели
+    // ============================================================
 
-    /**
-     * Панель с лёгким вертикальным градиентом: верх светлее, низ темнее.
-     * Даёт эффект «свет падает сверху».
-     */
     public static void panelLit(GuiGraphics g, int x, int y, int w, int h, int baseColor) {
         int top = lighten(baseColor, 0.06f);
         int bottom = darken(baseColor, 0.10f);
         gradientV(g, x, y, x + w, y + h, top, bottom);
     }
 
-    /** Панель с лёгким градиентом + однотонной рамкой. */
     public static void panelLitBordered(GuiGraphics g, int x, int y, int w, int h,
                                         int baseColor, int border) {
         panelLit(g, x, y, w, h, baseColor);
         outline(g, x, y, w, h, border);
     }
 
-    // ---------- работа с цветом ----------
+    /**
+     * Универсальная 3D-панель с градиентной рамкой.
+     */
+    public static void panel3D(GuiGraphics g, int x, int y, int w, int h,
+                               int bg, int accentTop, int accentBottom) {
+        g.fill(x, y, x + w, y + h, bg);
+        outlineGradient(g, x, y, w, h, accentTop, accentBottom);
+    }
 
-    /** Осветлить цвет. amount ∈ [0,1]. */
+    // ============================================================
+    //  Фон диалога / всплывающего экрана — как в настройках
+    // ============================================================
+
+    /**
+     * Затемнение под всплывающим экраном. Использует тот же фон, что
+     * MaredSettingsScreen (0xFF0A0A10), без ванильного blur.
+     * НЕ вызывает super.renderBackground — иначе MaredUi размажется.
+     */
+    public static void dialogBackground(GuiGraphics g, int width, int height) {
+        g.fill(0, 0, width, height, SCREEN_BG);
+    }
+
+    /**
+     * Стандартная панель всплывающего экрана: тот же стиль, что в
+     * MaredSettingsScreen — panelGradient с accent-рамкой.
+     */
+    public static void dialogPanel(GuiGraphics g, int x, int y, int w, int h, int accent) {
+        panelGradient(g, x, y, w, h, PANEL_BG, accent, darken(accent, 0.4f));
+    }
+
+    // ============================================================
+    //  Работа с цветом
+    // ============================================================
+
     public static int lighten(int color, float amount) {
         int a = (color >> 24) & 0xFF;
         int r = (color >> 16) & 0xFF;
@@ -64,7 +115,6 @@ public final class MaredUi {
         return (a << 24) | (clamp255(r) << 16) | (clamp255(g) << 8) | clamp255(b);
     }
 
-    /** Затемнить цвет. amount ∈ [0,1]. */
     public static int darken(int color, float amount) {
         int a = (color >> 24) & 0xFF;
         int r = (color >> 16) & 0xFF;
@@ -80,7 +130,9 @@ public final class MaredUi {
         return v < 0 ? 0 : (v > 255 ? 255 : v);
     }
 
-    // ---------- градиенты ----------
+    // ============================================================
+    //  Градиенты
+    // ============================================================
 
     public static void outlineGradient(GuiGraphics g, int x, int y, int w, int h,
                                        int topColor, int bottomColor) {
@@ -113,7 +165,9 @@ public final class MaredUi {
         return (ra << 24) | (rr << 16) | (rg << 8) | rb;
     }
 
-    // ---------- текст ----------
+    // ============================================================
+    //  Текст
+    // ============================================================
 
     public static void text(GuiGraphics g, Font f, String s, int x, int y, int c) {
         g.drawString(f, s, x, y, c, true);
@@ -127,7 +181,9 @@ public final class MaredUi {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
-    // ---------- wrapped ----------
+    // ============================================================
+    //  Wrapped
+    // ============================================================
 
     public static int wrapped(GuiGraphics g, Font f, String text, int x, int y, int maxW, int c) {
         if (text == null || text.isEmpty()) return y;
@@ -239,7 +295,9 @@ public final class MaredUi {
         return result;
     }
 
-    // ---------- кнопки ----------
+    // ============================================================
+    //  Кнопки
+    // ============================================================
 
     public static void button(GuiGraphics g, Font f, int x, int y, int w, int h, String label,
                               int bg, int border, boolean hovered, int textColor) {
@@ -255,7 +313,96 @@ public final class MaredUi {
         centered(g, f, label, x + w / 2, y + (h - 8) / 2, textColor);
     }
 
-    // ---------- линии ----------
+    /**
+     * Универсальная 3D-кнопка с градиентной рамкой.
+     */
+    public static void button3D(GuiGraphics g, Font f, int x, int y, int w, int h, String label,
+                                int bg, int accent, int textColor, boolean hovered) {
+        int border = hovered ? accent : darken(accent, 0.3f);
+        int top = lighten(border, 0.15f);
+        int bottom = darken(border, 0.25f);
+        g.fill(x, y, x + w, y + h, bg);
+        outlineGradient(g, x, y, w, h, top, bottom);
+        centered(g, f, label, x + w / 2, y + (h - 8) / 2, textColor);
+    }
+
+    // ============================================================
+    //  Специализированные кнопки (сокращение дублей в GUI)
+    // ============================================================
+
+    /** Кнопка удаления — красная рамка + минус. */
+    public static void drawDelButton(GuiGraphics g, int x, int y, int sz, boolean hovered) {
+        int bg = hovered ? 0xFF663333 : 0xFF3A2020;
+        rect(g, x, y, x + sz, y + sz, bg);
+        outline(g, x, y, sz, sz, DANGER);
+        int cx = x + sz / 2;
+        int cy = y + sz / 2;
+        drawMinus(g, cx, cy, sz / 2 - 2, DANGER);
+    }
+
+    /** Кнопка разблокировки — зелёная рамка + "U". */
+    public static void drawUnlockButton(GuiGraphics g, Font f, int x, int y, int sz, boolean hovered) {
+        int bg = hovered ? 0xFF336633 : 0xFF203A20;
+        rect(g, x, y, x + sz, y + sz, bg);
+        outline(g, x, y, sz, sz, SUCCESS);
+        centered(g, f, "U", x + sz / 2, y + sz / 2 - 4, SUCCESS);
+    }
+
+    /** Значок «минус» — используется в кнопке удаления и в заголовке toggle. */
+    public static void drawMinus(GuiGraphics g, int cx, int cy, int arm, int color) {
+        rect(g, cx - arm, cy, cx + arm + 1, cy + 1, color);
+    }
+
+    /** Чекбокс: рамка + (если checked) заливка. Используется в логе и настройках. */
+    public static void drawCheckbox(GuiGraphics g, int x, int y, int sz, boolean checked,
+                                    int border, int fill) {
+        rect(g, x, y, x + sz, y + sz, SUNKEN_BG);
+        outline(g, x, y, sz, sz, border);
+        if (checked) {
+            rect(g, x + 3, y + 3, x + sz - 3, y + sz - 3, fill);
+        }
+    }
+
+    /** Чекбокс с галочкой (крест из двух полос). Используется в настройках. */
+    public static void drawCheckMark(GuiGraphics g, int x, int y, int sz, boolean checked,
+                                     int border, int fill) {
+        rect(g, x, y, x + sz, y + sz, SUNKEN_BG);
+        outline(g, x, y, sz, sz, border);
+        if (checked) {
+            int cx = x + sz / 2;
+            int cy = y + sz / 2;
+            int arm = 3;
+            rect(g, cx - arm, cy, cx + arm + 1, cy + 1, fill);
+            rect(g, cx, cy - arm, cx + 1, cy + arm + 1, fill);
+        }
+    }
+
+    /** Радиокнопка — квадрат с заливкой при selected. */
+    public static void drawRadio(GuiGraphics g, int x, int y, int sz, boolean selected,
+                                 int border, int fill) {
+        rect(g, x, y, x + sz, y + sz, SUNKEN_BG);
+        outline(g, x, y, sz, sz, border);
+        if (selected) {
+            rect(g, x + 3, y + 3, x + sz - 3, y + sz - 3, fill);
+        }
+    }
+
+    /** Строка списка — фон + опциональная левая полоска. */
+    public static void drawItemRow(GuiGraphics g, int x, int y, int w, int h,
+                                   int bg, boolean selected,
+                                   int stripeColor, int stripeW,
+                                   int accentTop, int accentBottom) {
+        g.fill(x, y, x + w, y + h, bg);
+        if (selected) {
+            gradientV(g, x, y, x + stripeW, y + h, accentTop, accentBottom);
+        } else if (stripeColor != 0) {
+            rect(g, x, y, x + stripeW, y + h, stripeColor);
+        }
+    }
+
+    // ============================================================
+    //  Линии
+    // ============================================================
 
     public static void dashedLine(GuiGraphics g, int x1, int y, int x2, int color) {
         int dash = 4, gap = 3, x = x1;
@@ -286,9 +433,44 @@ public final class MaredUi {
         g.disableScissor();
     }
 
-    // ---------- drag ----------
+    // ============================================================
+    //  Прокрутка
+    // ============================================================
 
-    public enum DragKind { NONE, FILE_SCROLL, CMD_SCROLL, INFO_SCROLL, LOG_SCROLL }
+    public static void drawScrollbar(GuiGraphics g, int trackX, int trackY, int trackW, int trackH,
+                                     int thumbY, int thumbH, int accentTop, int accentBottom) {
+        g.fill(trackX, trackY, trackX + trackW, trackY + trackH, 0xFF15151E);
+        if (thumbH > 0) {
+            gradientV(g, trackX, thumbY, trackX + trackW, thumbY + thumbH, accentTop, accentBottom);
+        }
+    }
+
+    public static void scrollbarTrack(GuiGraphics g, int x, int y, int w, int h) {
+        g.fill(x, y, x + w, y + h, 0xFF15151E);
+    }
+
+    public static void scrollbarThumb(GuiGraphics g, int x, int y, int w, int h,
+                                      int accentTop, int accentBottom) {
+        gradientV(g, x, y, x + w, y + h, accentTop, accentBottom);
+    }
+
+    // ============================================================
+    //  Строка списка (совместимость)
+    // ============================================================
+
+    public static void listRow(GuiGraphics g, int x, int y, int w, int h,
+                               int bg, boolean selected, int selAccentTop, int selAccentBottom) {
+        g.fill(x, y, x + w, y + h, bg);
+        if (selected) {
+            gradientV(g, x, y, x + 2, y + h, selAccentTop, selAccentBottom);
+        }
+    }
+
+    // ============================================================
+    //  Drag
+    // ============================================================
+
+    public enum DragKind { NONE, FILE_SCROLL, CMD_SCROLL, INFO_SCROLL, LOG_SCROLL, FILTER_SCROLL }
 
     public static class DragState {
         public DragKind kind = DragKind.NONE;
@@ -308,7 +490,9 @@ public final class MaredUi {
         public boolean active() { return kind != DragKind.NONE; }
     }
 
-    // ---------- скролл-область ----------
+    // ============================================================
+    //  ScrollArea
+    // ============================================================
 
     public static class ScrollArea {
         public int x, y, w, h;
@@ -367,20 +551,17 @@ public final class MaredUi {
             if (!scrollable()) return;
             int th = trackH();
             int trackX = x + w - width - 2;
-            g.fill(trackX, y, trackX + width, y + th, 0xFF15151E);
-            int thumbH = thumbH();
-            int thumbY = thumbY();
-            g.fill(trackX, thumbY, trackX + width, thumbY + thumbH, scrollbarColor);
+            MaredUi.scrollbarTrack(g, trackX, y, width, th);
+            MaredUi.scrollbarThumb(g, trackX, thumbY(), width, thumbH(),
+                scrollbarColor, scrollbarColor);
         }
 
         public void drawScrollbarGradient(GuiGraphics g, int topColor, int bottomColor, int width) {
             if (!scrollable()) return;
             int th = trackH();
             int trackX = x + w - width - 2;
-            g.fill(trackX, y, trackX + width, y + th, 0xFF15151E);
-            int thumbH = thumbH();
-            int thumbY = thumbY();
-            gradientV(g, trackX, thumbY, trackX + width, thumbY + thumbH, topColor, bottomColor);
+            MaredUi.scrollbarTrack(g, trackX, y, width, th);
+            MaredUi.scrollbarThumb(g, trackX, thumbY(), width, thumbH(), topColor, bottomColor);
         }
 
         public boolean clickScrollbar(double mx, double my, int width, DragState drag, DragKind kind) {
@@ -428,7 +609,9 @@ public final class MaredUi {
         }
     }
 
-    // ---------- pixel scroll ----------
+    // ============================================================
+    //  PixelScroll
+    // ============================================================
 
     public static class PixelScroll {
         public int x, y, w, h;
@@ -462,10 +645,8 @@ public final class MaredUi {
         public void drawScrollbarGradient(GuiGraphics g, int topColor, int bottomColor, int width) {
             if (!scrollable()) return;
             int trackX = x + w - width - 2;
-            g.fill(trackX, y, trackX + width, y + h, 0xFF15151E);
-            int thumbH = thumbH();
-            int thumbY = thumbY();
-            gradientV(g, trackX, thumbY, trackX + width, thumbY + thumbH, topColor, bottomColor);
+            MaredUi.scrollbarTrack(g, trackX, y, width, h);
+            MaredUi.scrollbarThumb(g, trackX, thumbY(), width, thumbH(), topColor, bottomColor);
         }
 
         public boolean clickScrollbar(double mx, double my, int width, DragState drag, DragKind kind) {
@@ -496,7 +677,9 @@ public final class MaredUi {
         }
     }
 
-    // ---------- список ----------
+    // ============================================================
+    //  List renderer
+    // ============================================================
 
     public interface ItemRenderer {
         void render(GuiGraphics g, Font f, int idx, int x, int y, int w, int h,
@@ -521,17 +704,16 @@ public final class MaredUi {
             boolean hov = mouseX >= area.x && mouseX < area.x + itemW
                        && mouseY >= itemY && mouseY < itemY + area.itemHeight - 2;
             int bg = selected ? selColor : (hov ? hoverColor : normalColor);
-            rect(g, area.x, itemY, area.x + itemW, itemY + area.itemHeight - 2, bg);
-            if (selected) {
-                gradientV(g, area.x, itemY, area.x + 2, itemY + area.itemHeight - 2,
-                    topColor, bottomColor);
-            }
+            listRow(g, area.x, itemY, itemW, area.itemHeight - 2, bg, selected,
+                topColor, bottomColor);
             renderer.render(g, f, idx, area.x, itemY, itemW, area.itemHeight - 2, hov, selected);
         }
         area.drawScrollbarGradient(g, topColor, bottomColor, scrollbarWidth);
     }
 
-    // ---------- Content ----------
+    // ============================================================
+    //  Content
+    // ============================================================
 
     public static class Content {
         private final List<Row> rows = new ArrayList<>();

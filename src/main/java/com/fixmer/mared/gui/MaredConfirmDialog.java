@@ -9,9 +9,8 @@ import com.fixmer.mared.script.MaredLang;
 
 public class MaredConfirmDialog extends Screen {
 
-    private static final int PANEL  = 0xFF1E1E2A;
-    private static final int TEXT   = 0xFFFFFFFF;
-    private static final int DANGER = 0xFFFF4444;
+    private static final int TEXT   = MaredUi.TEXT;
+    private static final int DANGER = MaredUi.DANGER;
 
     private final Screen parent;
     private final String title;
@@ -62,15 +61,15 @@ public class MaredConfirmDialog extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // FIX: свой фон первой строкой, без super.renderBackground
-        g.fill(0, 0, this.width, this.height, 0xC0000000);
+        // Фон экрана + панель — как в настройках, без blur.
+        MaredUi.dialogBackground(g, this.width, this.height);
 
         int panelW = 320;
         int panelH = 140;
         int panelX = (this.width - panelW) / 2;
         int panelY = (this.height - panelH) / 2;
 
-        MaredUi.panel(g, panelX, panelY, panelW, panelH, PANEL, DANGER);
+        MaredUi.dialogPanel(g, panelX, panelY, panelW, panelH, DANGER);
 
         MaredUi.text(g, this.font, title, panelX + 20, panelY + 20, DANGER);
         MaredUi.wrapped(g, this.font, message, panelX + 20, panelY + 50, panelW - 40, TEXT);

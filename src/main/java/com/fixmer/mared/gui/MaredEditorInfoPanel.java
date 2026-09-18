@@ -80,8 +80,7 @@ public final class MaredEditorInfoPanel {
 
         if (argFilterBox == null) {
             argFilterBox = new EditBox(font,
-                infoX + pad + 3,
-                y + 2,
+                infoX + pad + 3, y + 2,
                 MaredEditorLayout.INFO_W() - pad * 2 - 6,
                 MaredEditorLayout.FILTER_H() - 4,
                 Component.literal(MaredLang.get("mared.ui.filter")));
@@ -188,27 +187,32 @@ public final class MaredEditorInfoPanel {
         int infoH = Math.max(0, editorBottom - infoY - MaredEditorLayout.PAD());
         int bottom = isMared ? MRED_COLOR : accentBottom;
 
+        // Фон
         MaredUi.rect(g, infoX, infoY, infoX + infoW, infoY + infoH,
             collapsed ? COLLAPSED_BG : INFO_BG);
 
+        // Верхняя и нижняя линии
         if (!collapsed) {
             MaredUi.rect(g, infoX, infoY, infoX + infoW, infoY + 1, accentTop);
             MaredUi.rect(g, infoX, infoY + infoH - 1, infoX + infoW, infoY + infoH, bottom);
         }
 
+        // Toggle-кнопка
         int toggleX = infoX + 4, toggleY = infoY + 4;
         boolean toggleHover = MaredUi.hovered(mouseX, mouseY, toggleX, toggleY, 14, 14);
-        MaredUi.buttonGradient(g, font, toggleX, toggleY, 14, 14,
-            collapsed ? "◄" : "►", toggleHover ? BTN_HOVER : BTN_BG, accentTop, bottom, TEXT);
+        MaredUi.button3D(g, font, toggleX, toggleY, 14, 14,
+            collapsed ? "◄" : "►",
+            toggleHover ? BTN_HOVER : BTN_BG, accentTop, TEXT, toggleHover);
 
         if (collapsed) {
             int cx = infoX + infoW / 2;
             int ty = infoY + 24;
-            MaredUi.centered(g, font, MaredLang.get("mared.ui.info"), cx, ty, accentTop);
+            MaredUi.centered(g, font, "INFO", cx, ty, accentTop);
             return;
         }
 
-        int x = infoX + 8, maxW = MaredEditorLayout.INFO_W() - 16;
+        int x = infoX + 8;
+        int maxW = infoW - 16 - MaredEditorLayout.SCROLLBAR_W() - 2;
         int y = infoY + 22;
 
         MaredUi.text(g, font, info.name, x, y, accentTop); y += 14;
@@ -223,28 +227,25 @@ public final class MaredEditorInfoPanel {
         MaredUi.text(g, font, MaredLang.get("mared.ui.filter_arguments"), x, y, filterTitleColor); y += 12;
 
         int filterH = MaredEditorLayout.FILTER_H();
-        MaredUi.rect(g, infoX + 3, y, infoX + MaredEditorLayout.INFO_W() - 3,
-            y + filterH, FILTER_BG);
-        MaredUi.outlineGradient(g, infoX + 3, y, MaredEditorLayout.INFO_W() - 6,
-            filterH, accentTop, bottom);
+        MaredUi.rect(g, infoX + 3, y, infoX + infoW - 3, y + filterH, FILTER_BG);
+        MaredUi.outlineGradient(g, infoX + 3, y, infoW - 6, filterH, accentTop, bottom);
         y += filterH + 4;
 
-        MaredUi.rect(g, infoX + 2, y, infoX + MaredEditorLayout.INFO_W() - 2, y + 1, DIVIDER);
-        y += 3;
+        MaredUi.rect(g, infoX + 2, y, infoX + infoW - 2, y + 1, DIVIDER);
+        y += 5;  // FIX: +2px — текст не на полоске
 
         int bodyTop = y;
         int bodyH = (infoY + infoH - MaredEditorLayout.PAD()) - bodyTop;
 
-        // FIX: пересчитываем content и позицию КАЖДЫЙ КАДР — скролл обновляется при выборе команды
         MaredUi.Content content = buildContent(info, accentTop, isMared);
         int contentH = content.height(font, maxW);
-        infoScroll.set(infoX, bodyTop, MaredEditorLayout.INFO_W(), bodyH);
+        infoScroll.set(infoX, bodyTop, infoW, bodyH);
         infoScroll.content(contentH);
         infoScroll.clamp();
 
-        MaredUi.scissorOn(g, infoX + 1, y,
-            infoX + MaredEditorLayout.INFO_W() - 1, infoY + infoH - 1);
-        content.render(g, font, x, y - infoScroll.offset, maxW);
+        // FIX: scissor ТОЛЬКО для области контента — начинается с bodyTop
+        MaredUi.scissorOn(g, infoX + 1, bodyTop, infoX + infoW - 1, infoY + infoH - 1);
+        content.render(g, font, x, bodyTop - infoScroll.offset, maxW);
         MaredUi.scissorOff(g);
 
         infoScroll.drawScrollbarGradient(g, accentTop, bottom, MaredEditorLayout.SCROLLBAR_W());
@@ -279,7 +280,7 @@ public final class MaredEditorInfoPanel {
         int bodyH = (editorBottom - MaredEditorLayout.PAD()) - bodyTop;
         infoScroll.set(infoX, bodyTop, MaredEditorLayout.INFO_W(), bodyH);
         infoScroll.content(buildContent(info, 0, false).height(font,
-            MaredEditorLayout.INFO_W() - 16));
+            MaredEditorLayout.INFO_W() - 16 - MaredEditorLayout.SCROLLBAR_W() - 2));
 
         if (!overFilter && infoScroll.clickScrollbar(mx, my,
             MaredEditorLayout.SCROLLBAR_W(), drag, MaredUi.DragKind.INFO_SCROLL)) {

@@ -13,11 +13,10 @@ import java.util.function.Consumer;
 
 public class MaredNameDialog extends Screen {
 
-    private static final int PANEL    = 0xFF1A1A24;
-    private static final int TEXT     = 0xFFFFFFFF;
-    private static final int TEXT_DIM = 0xFFAAAAAA;
-    private static final int CHECK_BG = 0xFF0A0A10;
-    private static final int CHECK_ON = 0xFF55FF88;
+    private static final int TEXT     = MaredUi.TEXT;
+    private static final int TEXT_DIM = MaredUi.TEXT_DIM;
+    private static final int CHECK_BG = MaredUi.SUNKEN_BG;
+    private static final int CHECK_ON = MaredUi.SUCCESS;
     private static final int CHECK_BRD= 0xFF4A4A4A;
 
     private final Screen parent;
@@ -119,15 +118,15 @@ public class MaredNameDialog extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // FIX: свой фон первой строкой, без super.renderBackground
-        g.fill(0, 0, this.width, this.height, 0xC0000000);
+        // Фон экрана + панель — как в настройках, без blur.
+        MaredUi.dialogBackground(g, this.width, this.height);
 
         int panelW = 300;
         int panelH = showPersistentOption ? 170 : 140;
         int panelX = (this.width - panelW) / 2;
         int panelY = (this.height - panelH) / 2;
 
-        MaredUi.panel(g, panelX, panelY, panelW, panelH, PANEL, accentColor);
+        MaredUi.dialogPanel(g, panelX, panelY, panelW, panelH, accentColor);
 
         MaredUi.text(g, this.font, title, panelX + 20, panelY + 20, accentColor);
         MaredUi.text(g, this.font, MaredLang.get("mared.dialog.name_label"),
@@ -137,14 +136,8 @@ public class MaredNameDialog extends Screen {
             boolean hovered = mouseX >= checkX && mouseX < checkX + checkSize
                 && mouseY >= checkY && mouseY < checkY + checkSize;
 
-            MaredUi.rect(g, checkX, checkY, checkX + checkSize, checkY + checkSize, CHECK_BG);
-            MaredUi.outline(g, checkX, checkY, checkSize, checkSize,
-                hovered ? accentColor : CHECK_BRD);
-
-            if (persistent) {
-                MaredUi.rect(g, checkX + 3, checkY + 3,
-                    checkX + checkSize - 3, checkY + checkSize - 3, CHECK_ON);
-            }
+            MaredUi.drawCheckbox(g, checkX, checkY, checkSize, persistent,
+                hovered ? accentColor : CHECK_BRD, CHECK_ON);
 
             MaredUi.text(g, this.font, MaredLang.get("mared.dialog.persistent"),
                 checkX + checkSize + 6, checkY + 3,
@@ -178,7 +171,7 @@ public class MaredNameDialog extends Screen {
 
     @Override public boolean isPauseScreen() { return false; }
 
-    /** FIX: пусто — иначе ванильный blur размазывает фон. */
+    /** Пусто — отключает blur ванильного renderBackground. */
     @Override
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
 }

@@ -3,9 +3,9 @@ package com.fixmer.mared.script.commands;
 import com.fixmer.mared.script.MaredScriptContext;
 
 /**
- * log "..."  — вывести строку в лог редактора.
- *
- * FIX A: табы заменяются на 4 пробела.
+ * log "..." — вывести строку в лог редактора.
+ * FIX: снимает кавычки, \t → 4 пробела.
+ * FIX F: разэкранирование кавычек.
  */
 public class MaredLogCommand extends MaredScriptCommand {
 
@@ -19,8 +19,8 @@ public class MaredLogCommand extends MaredScriptCommand {
         if (t.length() >= 2 && t.startsWith("\"") && t.endsWith("\"")) {
             t = t.substring(1, t.length() - 1);
         }
+        t = MaredDebugCommand.unescapeQuotes(t);
         t = ctx.substitute(t);
-        // FIX A: \t → 4 пробела
         t = t.replace("\t", "    ");
         ctx.log("[log] " + t);
         return true;

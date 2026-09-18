@@ -13,14 +13,14 @@ import net.minecraft.network.chat.Component;
 
 public class MaredSettingsScreen extends Screen {
 
-    private static final int BG        = 0xFF0A0A10;
-    private static final int PANEL     = 0xFF14141C;
-    private static final int BORDER    = 0xFFFFAA00;
-    private static final int TEXT      = 0xFFFFFFFF;
-    private static final int TEXT_DIM  = 0xFFAAAAAA;
-    private static final int TEXT_WARN = 0xFFFFAA00;
-    private static final int CB_BG     = 0xFF1A1A24;
-    private static final int CB_SEL    = 0xFFFFAA00;
+    private static final int BG        = MaredUi.SCREEN_BG;
+    private static final int PANEL     = MaredUi.PANEL_BG;
+    private static final int BORDER    = MaredUi.WARN;
+    private static final int TEXT      = MaredUi.TEXT;
+    private static final int TEXT_DIM  = MaredUi.TEXT_DIM;
+    private static final int TEXT_WARN = MaredUi.WARN;
+    private static final int CB_BG     = MaredUi.SUNKEN_BG;
+    private static final int CB_SEL    = MaredUi.WARN;
 
     private static final int PAD = 10;
     private static final int ROW_H = 20;
@@ -148,8 +148,8 @@ public class MaredSettingsScreen extends Screen {
         MaredUi.text(g, this.font, MaredLang.get("mared.settings.auto_indent"), x, y, TEXT_WARN);
         y += 14;
         for (MaredSettings.AutoIndent mode : MaredSettings.AutoIndent.values()) {
-            drawRadio(g, x, y, draftAutoIndent == mode);
-            MaredUi.text(g, this.font, autoIndentLabel(mode), x + CB_SZ + 6, y + 3, TEXT);
+            MaredUi.drawRadio(g, x, y + 2, CB_SZ, draftAutoIndent == mode, BORDER, CB_SEL);
+            MaredUi.text(g, this.font, autoIndentLabel(mode), x + CB_SZ + 6, y + 5, TEXT);
             y += ROW_H;
         }
         y += 8;
@@ -157,17 +157,17 @@ public class MaredSettingsScreen extends Screen {
         MaredUi.text(g, this.font, MaredLang.get("mared.settings.indent_style"), x, y, TEXT_WARN);
         y += 14;
         for (MaredSettings.IndentStyle style : MaredSettings.IndentStyle.values()) {
-            drawRadio(g, x, y, draftIndentStyle == style);
-            MaredUi.text(g, this.font, indentLabel(style), x + CB_SZ + 6, y + 3, TEXT);
+            MaredUi.drawRadio(g, x, y + 2, CB_SZ, draftIndentStyle == style, BORDER, CB_SEL);
+            MaredUi.text(g, this.font, indentLabel(style), x + CB_SZ + 6, y + 5, TEXT);
             y += ROW_H;
         }
         y += 8;
 
         MaredUi.text(g, this.font, MaredLang.get("mared.settings.backspace"), x, y, TEXT_WARN);
         y += 14;
-        drawCheckbox(g, x, y, draftBackspaceRemovesIndent);
+        MaredUi.drawCheckMark(g, x, y + 2, CB_SZ, draftBackspaceRemovesIndent, BORDER, CB_SEL);
         MaredUi.text(g, this.font, MaredLang.get("mared.settings.backspace_whole_indent"),
-            x + CB_SZ + 6, y + 3, TEXT);
+            x + CB_SZ + 6, y + 5, TEXT);
         y += ROW_H + 16;
 
         MaredUi.text(g, this.font, MaredLang.get("mared.settings.hint"), x, y, TEXT_WARN);
@@ -176,26 +176,6 @@ public class MaredSettingsScreen extends Screen {
             x, y, pw - PAD * 2, TEXT_DIM);
 
         super.render(g, mouseX, mouseY, partialTick);
-    }
-
-    private void drawRadio(GuiGraphics g, int x, int y, boolean selected) {
-        MaredUi.rect(g, x, y + 2, x + CB_SZ, y + 2 + CB_SZ, CB_BG);
-        MaredUi.outline(g, x, y + 2, CB_SZ, CB_SZ, BORDER);
-        if (selected) {
-            MaredUi.rect(g, x + 3, y + 5, x + CB_SZ - 3, y + 2 + CB_SZ - 3, CB_SEL);
-        }
-    }
-
-    private void drawCheckbox(GuiGraphics g, int x, int y, boolean checked) {
-        MaredUi.rect(g, x, y + 2, x + CB_SZ, y + 2 + CB_SZ, CB_BG);
-        MaredUi.outline(g, x, y + 2, CB_SZ, CB_SZ, BORDER);
-        if (checked) {
-            int cx = x + CB_SZ / 2;
-            int cy = y + 2 + CB_SZ / 2;
-            int arm = 3;
-            MaredUi.rect(g, cx - arm, cy, cx + arm + 1, cy + 1, CB_SEL);
-            MaredUi.rect(g, cx, cy - arm, cx + 1, cy + arm + 1, CB_SEL);
-        }
     }
 
     private String autoIndentLabel(MaredSettings.AutoIndent mode) {

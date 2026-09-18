@@ -12,6 +12,7 @@
   "mared.ui.delete": "Delete",
   "mared.ui.import": "Import",
   "mared.ui.settings": "Settings",
+  "mared.ui.reload_persistent": "Reload",
   "mared.ui.new": "New",
   "mared.ui.filter": "Filter",
   "mared.ui.filter_arguments": "Filter arguments:",
@@ -103,6 +104,8 @@
   "mared.log.toggle.unknown_key": "[toggle] unknown key: %s",
   "mared.log.toggle.on": "[toggle] on: %s",
   "mared.log.toggle.off": "[toggle] off: %s",
+  "mared.log.toggle.off_kept": "[toggle] unblocked: %s (bind kept)",
+  "mared.log.toggle.off_removed": "[toggle] unblocked: %s (%d bind(s) removed)",
 
   "mared.log.mc.no_player": "[mc] player not available",
   "mared.log.mc.sent": "[mc] /%s",
@@ -131,10 +134,14 @@
   "mared.log.mared.for_in_start": "[mared] for-in: $%s over $%s (%d items)",
   "mared.log.mared.for_in_empty": "[mared] for-in: array $%s is empty",
   "mared.log.mared.for_in_not_array": "[error] for-in: $%s is not an array",
+  "mared.log.mared.return": "[mared] return",
+  "mared.log.mared.return_outside": "[mared] return (outside function)",
+  "mared.log.mared.exit": "[mared] exit — script stopped",
   "mared.log.debug": "[debug] %s = %s",
   "mared.log.assert.ok": "[assert ok] %s",
   "mared.log.assert.fail": "[assert fail] %s — %s",
   "mared.log.log": "[mared log] %s",
+  "mared.log.print": "[print] %s",
   "mared.log.eval.error": "[error] %s — %s",
 
   "mared.help.say.desc": "Send a chat message",
@@ -188,15 +195,15 @@
   "mared.help.if.arg.elif": "Continuation of condition.",
 
   "mared.help.repeat.desc": "Repeat N times",
-  "mared.help.repeat.arg.n": "How many times",
+  "mared.help.repeat.arg.n": "How many times. Can be expression: repeat $n, repeat $n + 1",
   "mared.help.repeat.arg.block": "Block { ... } executed N times",
 
   "mared.help.for.desc": "For loop",
-  "mared.help.for.arg.range": "Counter with inclusive bounds.",
+  "mared.help.for.arg.range": "Counter with inclusive bounds. Bounds may be expressions.",
   "mared.help.for.arg.in": "Iterate over array elements: 'for $item in $items { ... }'",
 
   "mared.help.while.desc": "While loop",
-  "mared.help.while.arg.condition": "Repeats while condition is true.",
+  "mared.help.while.arg.condition": "Repeats while condition is true. Max 10000 iterations.",
 
   "mared.help.break.desc": "Break the current loop",
   "mared.help.break.arg.empty": "Exits the enclosing loop.",
@@ -214,8 +221,14 @@
   "mared.help.return.desc": "Return a value from a function",
   "mared.help.return.arg.expr": "Value to return. If empty — returns null.",
 
+  "mared.help.exit.desc": "Stop the current script",
+  "mared.help.exit.arg.empty": "Terminates execution immediately.",
+
+  "mared.help.print.desc": "Print text to the editor log",
+  "mared.help.print.arg.text": "Same as 'log' but without [log] prefix. Supports $vars.",
+
   "mared.help.debug.desc": "Print value to log",
-  "mared.help.debug.arg.expr": "Logs the value of the expression.",
+  "mared.help.debug.arg.expr": "Logs the value of the expression. Strings are printed as-is.",
 
   "mared.help.assert.desc": "Assert a condition",
   "mared.help.assert.arg.condition": "Stops the script if condition is false.",
@@ -239,15 +252,15 @@
   "mared.help.help.arg.variables": "set name = value — declaration. Use $name in commands.",
   "mared.help.help.arg.special": "$self — player, $world — world name.",
   "mared.help.help.arg.conditions": "if <left> <op> <right> { ... } elif { ... } else { ... }.",
-  "mared.help.help.arg.loops": "repeat <N> { ... } / for $i = a to b { ... } / for $x in $items { ... } / while <cond> { ... }",
+  "mared.help.help.arg.loops": "repeat <expr> { ... } / for $i = a to b { ... } / for $x in $items { ... } / while <cond> { ... }",
   "mared.help.help.arg.binds": "bind <key> [add|replace|clear|block|hold|release] { ... } / block <key> / unblock <key> / toggle <key>",
-  "mared.help.help.arg.expr": "Arithmetic, strings, lists, methods.",
+  "mared.help.help.arg.expr": "Arithmetic, strings, lists, methods. Builtins: abs, min, max, clamp, sign, sqrt, random, len, upper, lower, trim, sub, find, replace, split, join, format, sum, minList, maxList, avg, range, ...",
   "mared.help.help.arg.funcs": "func name($a) { ... } / call name(arg) / set x = call name(arg)",
-  "mared.help.help.arg.arrays": "array items = [1,2,3]. Methods: push/pop/get/size/sort/map/filter.",
-  "mared.help.help.arg.strings": "Methods: upper/lower/sub/find/replace/split/len.",
+  "mared.help.help.arg.arrays": "array items = [1,2,3]. Methods: push/pop/get/size/sort/map/filter/sum/min/max/avg/take/drop/distinct/flatten.",
+  "mared.help.help.arg.strings": "Methods: upper/lower/sub/find/replace/replaceAll/split/trim/trimStart/trimEnd/len/charAt.",
   "mared.help.help.arg.hotkeys": "Ctrl+S — save. Delete — delete file.",
   "mared.help.help.arg.mc": "Use 'mc <command>' inside a Mared block to run vanilla Minecraft commands.",
-  "mared.help.help.arg.return": "return <expr> — exit function with value.",
+  "mared.help.help.arg.return": "return <expr> — exit function with value. exit — stop script.",
   "mared.help.help.arg.global": "set global.name = value — persists between script runs.",
   "mared.help.help.arg.events": "on <event> { ... } — event handlers: right_click, block_break, kill, chat, ...",
   "mared.help.help.arg.playervars": "Player vars: $hp, $x, $y, $z, $xp_level, $gamemode, $held_item, $dimension, $time, $weather, ..."

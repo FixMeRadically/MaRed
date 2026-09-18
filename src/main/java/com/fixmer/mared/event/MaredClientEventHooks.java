@@ -100,6 +100,11 @@ public final class MaredClientEventHooks {
 
     @SubscribeEvent
     public static void onKey(InputEvent.Key event) {
+        int key = event.getKey();
+
+        // ← FIX: Escape не пробрасываем в key_press / key_release
+        if (key == GLFW.GLFW_KEY_ESCAPE) return;
+
         Minecraft mc = Minecraft.getInstance();
         if (mc.screen != null) return;
         if (mc.player == null) return;
@@ -119,17 +124,65 @@ public final class MaredClientEventHooks {
         MaredEventRegistry.fire(type, server, data);
     }
 
+    /**
+     * FIX: расширен список имён клавиш — добавлены модификаторы, F-клавиши,
+     * стрелки, цифры Numpad, Escape и т.д.
+     */
     private static String nameForKey(int code) {
+        // A-Z
         if (code >= GLFW.GLFW_KEY_A && code <= GLFW.GLFW_KEY_Z)
             return String.valueOf((char) ('A' + (code - GLFW.GLFW_KEY_A)));
+        // 0-9
         if (code >= GLFW.GLFW_KEY_0 && code <= GLFW.GLFW_KEY_9)
             return String.valueOf((char) ('0' + (code - GLFW.GLFW_KEY_0)));
+        // F1-F25
+        if (code >= GLFW.GLFW_KEY_F1 && code <= GLFW.GLFW_KEY_F25)
+            return "F" + (code - GLFW.GLFW_KEY_F1 + 1);
+        // Numpad 0-9
+        if (code >= GLFW.GLFW_KEY_KP_0 && code <= GLFW.GLFW_KEY_KP_9)
+            return "Numpad" + (code - GLFW.GLFW_KEY_KP_0);
+
         switch (code) {
-            case GLFW.GLFW_KEY_SPACE: return "Space";
-            case GLFW.GLFW_KEY_ENTER: return "Enter";
-            case GLFW.GLFW_KEY_TAB: return "Tab";
-            case GLFW.GLFW_KEY_ESCAPE: return "Escape";
-            default: return "Key#" + code;
+            case GLFW.GLFW_KEY_SPACE:        return "Space";
+            case GLFW.GLFW_KEY_ENTER:        return "Enter";
+            case GLFW.GLFW_KEY_ESCAPE:       return "Escape";
+            case GLFW.GLFW_KEY_TAB:          return "Tab";
+            case GLFW.GLFW_KEY_BACKSPACE:    return "Backspace";
+            case GLFW.GLFW_KEY_DELETE:       return "Delete";
+            case GLFW.GLFW_KEY_INSERT:       return "Insert";
+            case GLFW.GLFW_KEY_HOME:         return "Home";
+            case GLFW.GLFW_KEY_END:          return "End";
+            case GLFW.GLFW_KEY_PAGE_UP:      return "PageUp";
+            case GLFW.GLFW_KEY_PAGE_DOWN:    return "PageDown";
+            case GLFW.GLFW_KEY_UP:           return "Up";
+            case GLFW.GLFW_KEY_DOWN:         return "Down";
+            case GLFW.GLFW_KEY_LEFT:         return "Left";
+            case GLFW.GLFW_KEY_RIGHT:        return "Right";
+            case GLFW.GLFW_KEY_LEFT_SHIFT:   return "LShift";
+            case GLFW.GLFW_KEY_RIGHT_SHIFT:  return "RShift";
+            case GLFW.GLFW_KEY_LEFT_CONTROL: return "LCtrl";
+            case GLFW.GLFW_KEY_RIGHT_CONTROL:return "RCtrl";
+            case GLFW.GLFW_KEY_LEFT_ALT:     return "LAlt";
+            case GLFW.GLFW_KEY_RIGHT_ALT:    return "RAlt";
+            case GLFW.GLFW_KEY_LEFT_SUPER:   return "LSuper";
+            case GLFW.GLFW_KEY_RIGHT_SUPER:  return "RSuper";
+            case GLFW.GLFW_KEY_CAPS_LOCK:    return "CapsLock";
+            case GLFW.GLFW_KEY_NUM_LOCK:     return "NumLock";
+            case GLFW.GLFW_KEY_SCROLL_LOCK:  return "ScrollLock";
+            case GLFW.GLFW_KEY_PRINT_SCREEN: return "PrintScreen";
+            case GLFW.GLFW_KEY_PAUSE:        return "Pause";
+            case GLFW.GLFW_KEY_MINUS:        return "Minus";
+            case GLFW.GLFW_KEY_EQUAL:        return "Equal";
+            case GLFW.GLFW_KEY_LEFT_BRACKET: return "LBracket";
+            case GLFW.GLFW_KEY_RIGHT_BRACKET:return "RBracket";
+            case GLFW.GLFW_KEY_BACKSLASH:    return "Backslash";
+            case GLFW.GLFW_KEY_SEMICOLON:    return "Semicolon";
+            case GLFW.GLFW_KEY_APOSTROPHE:   return "Apostrophe";
+            case GLFW.GLFW_KEY_GRAVE_ACCENT: return "Grave";
+            case GLFW.GLFW_KEY_COMMA:        return "Comma";
+            case GLFW.GLFW_KEY_PERIOD:       return "Period";
+            case GLFW.GLFW_KEY_SLASH:        return "Slash";
+            default:                         return "Key#" + code;
         }
     }
 

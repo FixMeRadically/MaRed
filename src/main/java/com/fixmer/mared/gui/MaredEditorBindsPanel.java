@@ -11,14 +11,13 @@ import net.minecraft.client.gui.GuiGraphics;
 public final class MaredEditorBindsPanel {
 
     private static final int BG           = 0xFF101018;
-    private static final int TEXT         = 0xFFFFFFFF;
-    private static final int TEXT_DIM     = 0xFFAAAAAA;
+    private static final int TEXT         = MaredUi.TEXT;
+    private static final int TEXT_DIM     = MaredUi.TEXT_DIM;
     private static final int BTN_BG       = 0xFF2D2D2D;
     private static final int BTN_HOVER    = 0xFF3E3E42;
     private static final int ITEM_HOVER   = 0xFF2E2E3E;
     private static final int ITEM_NORMAL  = 0xFF1A1A22;
-    private static final int DANGER       = 0xFFFF4444;
-    private static final int UNLOCK_COLOR = 0xFF55FF55;
+    private static final int DANGER       = MaredUi.DANGER;
 
     private int scrollOffset = 0;
 
@@ -26,11 +25,6 @@ public final class MaredEditorBindsPanel {
 
     public int scrollOffset() { return scrollOffset; }
     public void resetScroll() { scrollOffset = 0; }
-
-    /** FIX: минус вместо крестика. */
-    private static void drawMinus(GuiGraphics g, int cx, int cy, int arm, int color) {
-        MaredUi.rect(g, cx - arm, cy, cx + arm + 1, cy + 1, color);
-    }
 
     public void render(GuiGraphics g, Font font, MaredEditorLayout layout,
                        boolean logCollapsed, int mouseX, int mouseY) {
@@ -95,24 +89,13 @@ public final class MaredEditorBindsPanel {
             int delX = screenW - pad - delSz;
             int delY = itemY + (itemH - 2 - delSz) / 2;
             boolean delHover = MaredUi.hovered(mouseX, mouseY, delX, delY, delSz, delSz);
-            MaredUi.rect(g, delX, delY, delX + delSz, delY + delSz,
-                delHover ? 0xFF663333 : 0xFF3A2020);
-            MaredUi.outline(g, delX, delY, delSz, delSz, DANGER);
-            int cx = delX + delSz / 2;
-            int cy = delY + delSz / 2;
-            // FIX: минус вместо крестика
-            drawMinus(g, cx, cy, delSz / 2 - 2, DANGER);
+            MaredUi.drawDelButton(g, delX, delY, delSz, delHover);
 
             if (blocking) {
                 int unlockX = delX - delSz - 4;
                 int unlockY = delY;
                 boolean unlockHover = MaredUi.hovered(mouseX, mouseY, unlockX, unlockY, delSz, delSz);
-                MaredUi.rect(g, unlockX, unlockY, unlockX + delSz, unlockY + delSz,
-                    unlockHover ? 0xFF336633 : 0xFF203A20);
-                MaredUi.outline(g, unlockX, unlockY, delSz, delSz, UNLOCK_COLOR);
-                int ucx = unlockX + delSz / 2;
-                int ucy = unlockY + delSz / 2;
-                MaredUi.centered(g, font, "U", ucx, ucy - 4, UNLOCK_COLOR);
+                MaredUi.drawUnlockButton(g, font, unlockX, unlockY, delSz, unlockHover);
             }
         }
 

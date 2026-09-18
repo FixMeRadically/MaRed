@@ -56,6 +56,10 @@ public class MaredEditorScreen extends Screen {
 
     private static List<MaredCommandRegistry.CommandInfo> MRED_COMMANDS = null;
 
+    // Позиция мыши (для Ctrl+C/Ctrl+A приоритетов)
+    private double lastMouseX = -1;
+    private double lastMouseY = -1;
+
     public MaredEditorScreen() { super(Component.literal("Mared Editor")); }
 
     @Override
@@ -109,9 +113,8 @@ public class MaredEditorScreen extends Screen {
             sidebar.setCommandFilterBox(null);
         }
 
-        // FIX: фильтр-бокс рисуется даже если лог свёрнут
         EditBox box = sidebar.ensureFilterBox(this.font, MaredEditorLayout.INSTANCE,
-            openTab, sidebarState);
+            openTab, sidebarState, logCollapsed);
         if (box != null && !children().contains(box)) {
             addRenderableWidget(box);
         }
@@ -176,7 +179,6 @@ public class MaredEditorScreen extends Screen {
         editor.setFocused(true);
     }
 
-    // FIX: sidebarWidth больше НЕ зависит от logCollapsed — strip-панель видна всегда
     private int sidebarWidth() {
         return MaredEditorLayout.sidebarWidth(sidebarState,
             MaredEditorTabs.isSupported(openTab));
@@ -455,8 +457,22 @@ public class MaredEditorScreen extends Screen {
 
     private void addLog(String line) { logPanel.add(line); }
 
+    // ============================================================
+    //  Input
+    // ============================================================
+
+    @Override
+    public void mouseMoved(double mx, double my) {
+        this.lastMouseX = mx;
+        this.lastMouseY = my;
+        super.mouseMoved(mx, my);
+    }
+
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        this.lastMouseX = mx;
+        this.lastMouseY = my;
+
         int tabIdx = MaredEditorTabs.hitTab(mx, my);
         if (tabIdx >= 0) {
             String clicked = MaredEditorTabs.TABS[tabIdx];
@@ -489,7 +505,7 @@ public class MaredEditorScreen extends Screen {
 
             boolean clickedSidebar = sidebar.handleClick(
                 MaredEditorLayout.INSTANCE, openTab, mx, my, sidebarState, drag,
-                this::onNew, this::onDelete);
+                this::onNew, this::onDelete, logCollapsed);
 
             if (clickedSidebar) {
                 boolean needRebuild = false;
@@ -535,15 +551,13 @@ public class MaredEditorScreen extends Screen {
 
         int logTop = MaredEditorLayout.logTop(logCollapsed);
         int logW = MaredEditorLayout.logWidth();
-        int screenW = MaredEditorLayout.screenW();
 
         if (!logCollapsed && my >= logTop && mx >= logW) {
             if (bindsPanel.mouseClicked(mx, my, MaredEditorLayout.INSTANCE, logCollapsed)) return true;
         }
 
         if (my >= logTop) {
-            int clickW = logCollapsed ? screenW : logW;
-            if (logPanel.mouseClicked(mx, my, button, 0, logTop, clickW,
+            if (logPanel.mouseClicked(mx, my, button, 0, logTop, logW,
                 MaredEditorLayout.logHeight(logCollapsed), this.font)) return true;
         }
 
@@ -555,29 +569,67 @@ public class MaredEditorScreen extends Screen {
         boolean ctrl = (modifiers & 2) != 0;
         boolean shift = (modifiers & 1) != 0;
         boolean editorFocused = editor != null && editor.isFocused();
+        boolean editorHasSelection = editor != null && editor.hasSelection();
 
-        if (ctrl && keyCode == GLFW.GLFW_KEY_C && !editorFocused) { logPanel.copySelectedOrAll(); return true; }
-        if (ctrl && keyCode == GLFW.GLFW_KEY_A && !editorFocused) { logPanel.selectAll(); return true; }
+        // Мышь над логом?
+        int logTop = MaredEditorLayout.logTop(logCollapsed);
+        int logW = MaredEditorLayout.logWidth();
+        boolean mouseOverLog = !logCollapsed
+            && lastMouseX >= 0 && lastMouseY >= 0
+            && lastMouseX < logW
+            && lastMouseY >= logTop
+            && lastMouseY < MaredEditorLayout.screenH();
+
+        // Ctrl+C — в редактор только если фокус + выделение + мышь НЕ над логом
+        if (ctrl && keyCode == GLFW.GLFW_KEY_C) {
+            if (editorFocused && editorHasSelection && !mouseOverLog) {
+                return super.keyPressed(keyCode, scanCode, modifiers);
+            }
+            logPanel.copySelectedOrAll();
+            return true;
+        }
+
+        // Ctrl+A — в лог, если мышь над логом; иначе в редактор
+        if (ctrl && keyCode == GLFW.GLFW_KEY_A) {
+            if (editorFocused && !mouseOverLog) {
+                return super.keyPressed(keyCode, scanCode, modifiers);
+            }
+            logPanel.selectAll();
+            return true;
+        }
+
+        // Ctrl+S / Ctrl+Shift+S — экспорт лога / сохранение
         if (ctrl && keyCode == GLFW.GLFW_KEY_S && !editorFocused) {
-            if (shift) { onSave(); return true; }
+            if (shift) {
+                onSave();
+                return true;
+            }
             logPanel.exportLog();
             return true;
         }
+
+        // Delete — удаление выбранного файла
         if (keyCode == GLFW.GLFW_KEY_DELETE
             && sidebar.selectedFile() != null && !editorFocused) {
-            onDelete(); return true;
+            onDelete();
+            return true;
         }
+
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        this.lastMouseX = mx;
+        this.lastMouseY = my;
+
         int logTop = MaredEditorLayout.logTop(logCollapsed);
         int logW = MaredEditorLayout.logWidth();
-        int screenW = MaredEditorLayout.screenW();
+
+        logPanel.tickAutoScroll();
+
         if (my >= logTop) {
-            int clickW = logCollapsed ? screenW : logW;
-            if (logPanel.mouseDragged(mx, my, button, dx, dy, 0, logTop, clickW,
+            if (logPanel.mouseDragged(mx, my, button, dx, dy, 0, logTop, logW,
                 MaredEditorLayout.logHeight(logCollapsed), this.font)) return true;
         }
         if (!drag.active()) return super.mouseDragged(mx, my, button, dx, dy);
@@ -601,13 +653,11 @@ public class MaredEditorScreen extends Screen {
     public boolean mouseScrolled(double mx, double my, double dx, double dy) {
         int logTop = MaredEditorLayout.logTop(logCollapsed);
         int logW = MaredEditorLayout.logWidth();
-        int screenW = MaredEditorLayout.screenW();
 
         if (!logCollapsed
             && bindsPanel.mouseScrolled(mx, my, dy, MaredEditorLayout.INSTANCE, logCollapsed)) return true;
 
-        int clickW = logCollapsed ? screenW : logW;
-        if (logPanel.mouseScrolled(mx, my, dy, 0, logTop, clickW,
+        if (logPanel.mouseScrolled(mx, my, dy, 0, logTop, logW,
             MaredEditorLayout.logHeight(logCollapsed))) return true;
 
         if ("commands".equals(openTab) && sidebar.selectedCommandInfo() != null
@@ -618,7 +668,7 @@ public class MaredEditorScreen extends Screen {
 
         if (MaredEditorTabs.isSupported(openTab)
             && sidebarState == MaredEditorLayout.SidebarState.FULL) {
-            if (sidebar.handleScroll(MaredEditorLayout.INSTANCE, openTab, mx, my, dy, sidebarState))
+            if (sidebar.handleScroll(MaredEditorLayout.INSTANCE, openTab, mx, my, dy, sidebarState, logCollapsed))
                 return true;
         }
 
@@ -632,6 +682,9 @@ public class MaredEditorScreen extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         MaredEditorLayout.update(this.width, this.height);
 
+        this.lastMouseX = mouseX;
+        this.lastMouseY = mouseY;
+
         int screenW = MaredEditorLayout.screenW();
         int screenH = MaredEditorLayout.screenH();
         int logTop = MaredEditorLayout.logTop(logCollapsed);
@@ -639,6 +692,9 @@ public class MaredEditorScreen extends Screen {
         int sbW = sidebarWidth();
         int tabW = MaredEditorLayout.TAB_W();
         int toolbarH = MaredEditorLayout.TOOLBAR_H() + MaredEditorLayout.PAD();
+
+        // Автоскролл ДО рендера
+        logPanel.tickAutoScroll();
 
         MaredUi.rect(g, 0, 0, screenW, screenH, BG);
 
@@ -653,7 +709,6 @@ public class MaredEditorScreen extends Screen {
         MaredUi.rect(g, 0, 0, tabW, screenH, TAB_STRIP_BG);
         MaredEditorTabs.draw(g, this.font, openTab, mouseX, mouseY);
 
-        // FIX: strip-панель рисуется даже если лог свёрнут
         if (MaredEditorTabs.isSupported(openTab)
             && sidebarState == MaredEditorLayout.SidebarState.STRIP) {
             sidebar.drawStrip(g, this.font, MaredEditorLayout.INSTANCE,
@@ -662,7 +717,7 @@ public class MaredEditorScreen extends Screen {
         if (MaredEditorTabs.isSupported(openTab)
             && sidebarState == MaredEditorLayout.SidebarState.FULL) {
             sidebar.drawFull(g, this.font, MaredEditorLayout.INSTANCE,
-                openTab, mouseX, mouseY, accentTop(), accentBottom(), selColor(accentTop()));
+                openTab, mouseX, mouseY, accentTop(), accentBottom(), selColor(accentTop()), logCollapsed);
         }
 
         drawEditorFrame(g, sbW);
@@ -675,13 +730,16 @@ public class MaredEditorScreen extends Screen {
         }
 
         logPanel.setCollapsed(logCollapsed);
-        logPanel.render(g, this.font, 0, logTop, logCollapsed ? screenW : logW,
+        logPanel.render(g, this.font, 0, logTop, logW,
             MaredEditorLayout.logHeight(logCollapsed), mouseX, mouseY);
 
         if (!logCollapsed) {
             bindsPanel.render(g, this.font, MaredEditorLayout.INSTANCE,
                 false, mouseX, mouseY);
         }
+
+        // Автоскролл ПОСЛЕ рендера
+        logPanel.tickAutoScroll();
 
         super.render(g, mouseX, mouseY, partialTick);
     }
@@ -717,34 +775,42 @@ public class MaredEditorScreen extends Screen {
         }
     }
 
-    // ============================================================
-    //  MRED_COMMANDS — без изменений, тот же список
-    // ============================================================
-
     private static void ensureMredCommands() {
         if (MRED_COMMANDS != null) return;
         MRED_COMMANDS = new ArrayList<>();
-        MRED_COMMANDS.add(mk("say", "Отправить сообщение в чат", "say \"Hello, $self\"",
-            args("text", "текст сообщения", "say \"Hello!\"", "say $greeting")));
-        MRED_COMMANDS.add(mk("wait", "Пауза в тиках/секундах", "wait 3 seconds",
+
+        MRED_COMMANDS.add(mk("say", "Отправить сообщение в чат",
+            "say \"Hello, $self\"",
+            args("text", "текст сообщения",
+                "say \"Hello!\"", "say $greeting")));
+        MRED_COMMANDS.add(mk("wait", "Пауза в тиках/секундах",
+            "wait 3 seconds",
             args("time", "время ожидания", "wait 3 seconds", "wait 100 ticks")));
-        MRED_COMMANDS.add(mk("set", "Присвоить переменную", "set count = 5",
-            args("name = value", "имя и значение", "set count = 5", "set name = \"Steve\""),
-            args("global.name", "глобальная переменная", "set global.hp = 20", "set global.count = $global.count + 1")));
-        MRED_COMMANDS.add(mk("array", "Объявить массив", "array items = [1, 2, 3]",
-            args("name = [values]", "массив значений", "array items = [1, 2, 3]", "array names = [\"a\", \"b\"]")));
-        MRED_COMMANDS.add(mk("give", "Выдать предмет", "give @s diamond 5",
+        MRED_COMMANDS.add(mk("set", "Присвоить переменную",
+            "set count = 5",
+            args("name = value", "имя и значение",
+                "set count = 5", "set name = \"Steve\""),
+            args("global.name", "глобальная переменная",
+                "set global.hp = 20", "set global.count = $global.count + 1")));
+        MRED_COMMANDS.add(mk("array", "Объявить массив",
+            "array items = [1, 2, 3]",
+            args("name = [values]", "массив значений",
+                "array items = [1, 2, 3]", "array names = [\"a\", \"b\"]")));
+        MRED_COMMANDS.add(mk("give", "Выдать предмет",
+            "give @s diamond 5",
             args("target", "получатель", "give @s diamond 5"),
             args("item", "предмет", "give @s minecraft:diamond 5"),
             args("count", "количество", "give @s diamond 64")));
-        MRED_COMMANDS.add(mk("bind", "Привязать клавишу", "bind R { say \"Hi\" }",
+        MRED_COMMANDS.add(mk("bind", "Привязать клавишу",
+            "bind R { say \"Hi\" }",
             args("key", "клавиша", "bind R { say \"Hi\" }"),
             args("add", "добавить действие", "bind R add { say \"second\" }"),
             args("clear", "очистить бинд", "bind Q clear"),
             args("block", "заблокировать ваниль", "bind W block { say \"locked\" }"),
             args("hold", "удержание", "bind W hold { say \"held\" }"),
             args("release", "отпускание", "bind W release { say \"released\" }")));
-        MRED_COMMANDS.add(mk("on", "Обработчик события", "on right_click { say \"clicked\" }",
+        MRED_COMMANDS.add(mk("on", "Обработчик события",
+            "on right_click { say \"clicked\" }",
             args("event", "тип события", "on right_click { ... }"),
             args("add", "добавить", "on right_click add { ... }"),
             args("replace", "заменить", "on right_click replace { ... }")));
@@ -766,28 +832,37 @@ public class MaredEditorScreen extends Screen {
             args("var in array", "по массиву", "for $item in $items { ... }")));
         MRED_COMMANDS.add(mk("while", "Пока условие", "while $n < 3 { set n = $n + 1 }",
             args("condition", "условие", "while $n < 3 { ... }")));
-        MRED_COMMANDS.add(mk("break", "Выйти из цикла", "break", args("", "", "repeat 10 { break }")));
+        MRED_COMMANDS.add(mk("break", "Выйти из цикла", "break",
+            args("", "", "repeat 10 { break }")));
         MRED_COMMANDS.add(mk("continue", "Пропустить итерацию", "continue",
             args("", "", "if $i == 3 { continue }")));
-        MRED_COMMANDS.add(mk("func", "Объявить функцию", "func greet($name) { say \"Hi, $name\" }",
+        MRED_COMMANDS.add(mk("func", "Объявить функцию",
+            "func greet($name) { say \"Hi, $name\" }",
             args("name(params)", "имя и параметры", "func greet($name) { ... }")));
         MRED_COMMANDS.add(mk("call", "Вызвать функцию", "call greet(\"Steve\")",
             args("name(args)", "имя и аргументы", "call greet(\"Steve\")"),
             args("return", "присвоить результат", "set x = call add(2, 3)")));
         MRED_COMMANDS.add(mk("return", "Вернуть значение", "return $a + $b",
             args("expression", "выражение", "return 5", "return call f($n - 1)")));
+        MRED_COMMANDS.add(mk("exit", "Остановить скрипт", "exit",
+            args("", "", "exit")));
+        MRED_COMMANDS.add(mk("print", "Вывести в лог", "print \"Hello\"",
+            args("text", "текст", "print \"value: $x\"")));
         MRED_COMMANDS.add(mk("debug", "Вывести значение", "debug $x",
             args("expression", "выражение", "debug $x", "debug $x + 1")));
         MRED_COMMANDS.add(mk("assert", "Проверка", "assert $x > 10 \"must be big\"",
             args("condition [message]", "условие и сообщение", "assert $x > 10 \"x too small\"")));
         MRED_COMMANDS.add(mk("{}", "Блок команд", "{ say \"Hello\" }",
-            args("open", "открыть", "{"), args("close", "закрыть", "}")));
+            args("open", "открыть", "{"),
+            args("close", "закрыть", "}")));
         MRED_COMMANDS.add(mk("$self", "Имя игрока", "say \"Hello, $self\"",
             args("", "", "say \"Hello, $self\"")));
         MRED_COMMANDS.add(mk("$world", "Мир", "say \"World: $world\"",
             args("", "", "say \"World: $world\"")));
-        MRED_COMMANDS.add(mk("global", "Глобальная переменная", "set global.hp = 20",
-            args("set/get", "использование", "set global.hp = 20", "say \"HP: $global.hp\"")));
+        MRED_COMMANDS.add(mk("global", "Глобальная переменная",
+            "set global.hp = 20",
+            args("set/get", "использование",
+                "set global.hp = 20", "say \"HP: $global.hp\"")));
     }
 
     private static MaredCommandRegistry.Argument args(String value, String desc, String... examples) {

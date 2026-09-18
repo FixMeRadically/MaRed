@@ -6,6 +6,14 @@ import com.fixmer.mared.script.MaredKeyNames;
 import com.fixmer.mared.script.MaredLang;
 import com.fixmer.mared.script.MaredScriptContext;
 
+/**
+ * toggle <key> — переключает блокировку клавиши.
+ *
+ * FIX: различаем случаи:
+ *   - был bind + block → unblock оставит bind, снимет только блокировку
+ *   - был bind block   → unblock удалит и bind, и блокировку
+ *   Логируем, что именно произошло.
+ */
 public class MaredToggleCommand extends MaredScriptCommand {
 
     private final String keyRaw;
@@ -26,8 +34,15 @@ public class MaredToggleCommand extends MaredScriptCommand {
 
         boolean blocked = MaredKeyBlocker.isBlocked(pk.keyCode);
         if (blocked) {
+            int before = MaredBindRegistry.entries(keyRaw).size();
             MaredBindRegistry.unblock(keyRaw);
-            ctx.log(MaredLang.format("mared.log.toggle.off", keyRaw));
+            int after = MaredBindRegistry.entries(keyRaw).size();
+
+            if (after < before) {
+                ctx.log(MaredLang.format("mared.log.toggle.off_removed", keyRaw, before - after));
+            } else {
+                ctx.log(MaredLang.format("mared.log.toggle.off_kept", keyRaw));
+            }
         } else {
             MaredBindRegistry.block(keyRaw);
             ctx.log(MaredLang.format("mared.log.toggle.on", keyRaw));

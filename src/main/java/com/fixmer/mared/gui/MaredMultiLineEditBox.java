@@ -18,12 +18,13 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     private static final int PADDING        = 4;
     private static final int CURSOR_BLINK   = 500;
     private static final int LINE_NUM_WIDTH = 20;
+    private static final int SCROLLBAR_W    = 5;
 
     private static final int COLOR_TEXT    = 0xFFDDDDDD;
     private static final int COLOR_NUMBERS = 0xFF666680;
     private static final int COLOR_SELECT  = 0x804466CC;
-    // FIX: фон совпадает с EDITOR_BG, чтобы не было светлого пятна
     private static final int COLOR_BG      = 0xFF0E0E16;
+    private static final int COLOR_SB_TRACK = 0xFF15151E;
 
     private final List<StringBuilder> lines = new ArrayList<>();
     private int cursorLine = 0;
@@ -40,6 +41,11 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     private long lastBlink = 0;
     private boolean cursorVisible = true;
     private boolean editable = true;
+
+    // === Скроллбар drag ===
+    private boolean draggingScrollbar = false;
+    private double dragStartY = 0;
+    private int dragStartScroll = 0;
 
     public MaredMultiLineEditBox(int x, int y, int width, int height, int accentColor, Runnable onValueChanged) {
         super(x, y, width, height, Component.literal(""));
@@ -85,9 +91,9 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         if (onValueChanged != null) onValueChanged.run();
     }
 
-    // ---- Selection ----
+    // ---- Selection (публично) ----
 
-    private boolean hasSelection() {
+    public boolean hasSelection() {
         return selStartLine >= 0 && selEndLine >= 0
             && (selStartLine != selEndLine || selStartCol != selEndCol);
     }
@@ -446,6 +452,13 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     @Override
     public void onClick(double mx, double my) {
         if (!editable) return;
+
+        // Клик по скроллбару — начало drag
+        if (isOverScrollbar(mx, my)) {
+            beginScrollbarDrag(my);
+            return;
+        }
+
         this.setFocused(true);
         int[] pos = pixelToPos(mx, my);
         cursorLine = pos[0];
@@ -457,6 +470,10 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        if (draggingScrollbar) {
+            dragScrollbar(my);
+            return true;
+        }
         if (!editable || !selecting) return false;
         int[] pos = pixelToPos(mx, my);
         cursorLine = pos[0];
@@ -469,6 +486,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
         selecting = false;
+        draggingScrollbar = false;
         return super.mouseReleased(mx, my, button);
     }
 
@@ -498,19 +516,66 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         return true;
     }
 
+    // ---- Скроллбар ----
+
+    private boolean isScrollable() {
+        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
+        return lines.size() > visibleLines;
+    }
+
+    private boolean isOverScrollbar(double mx, double my) {
+        if (!isScrollable()) return false;
+        int sbX = getX() + width - SCROLLBAR_W - 1;
+        return mx >= sbX - 2 && mx < getX() + width
+            && my >= getY() && my < getY() + height;
+    }
+
+    private int scrollbarTrackH() {
+        return height - 2;
+    }
+
+    private int scrollbarThumbH() {
+        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
+        int totalLines = lines.size();
+        return Math.max(10, scrollbarTrackH() * visibleLines / Math.max(1, totalLines));
+    }
+
+    private int scrollbarThumbY() {
+        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
+        int totalLines = lines.size();
+        int maxScroll = Math.max(0, totalLines - visibleLines);
+        if (maxScroll == 0) return getY() + 1;
+        int travel = scrollbarTrackH() - scrollbarThumbH();
+        return getY() + 1 + travel * scrollLine / maxScroll;
+    }
+
+    private void beginScrollbarDrag(double my) {
+        draggingScrollbar = true;
+        dragStartY = my;
+        dragStartScroll = scrollLine;
+    }
+
+    private void dragScrollbar(double my) {
+        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
+        int totalLines = lines.size();
+        int maxScroll = Math.max(0, totalLines - visibleLines);
+        int travel = Math.max(1, scrollbarTrackH() - scrollbarThumbH());
+        int delta = (int) Math.round((my - dragStartY) * maxScroll / travel);
+        scrollLine = Mth.clamp(dragStartScroll + delta, 0, maxScroll);
+    }
+
     // ---- Render ----
 
     @Override
     protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         Minecraft mc = Minecraft.getInstance();
 
-        // FIX: цвет совпадает с EDITOR_BG, чтобы редактор не выглядел «вылезающим»
         graphics.fill(getX(), getY(), getX() + width, getY() + height, COLOR_BG);
 
         graphics.enableScissor(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1);
 
         int visibleVisualRows = (height - PADDING * 2) / LINE_HEIGHT;
-        int availableWidth = width - PADDING * 2 - LINE_NUM_WIDTH;
+        int availableWidth = width - PADDING * 2 - LINE_NUM_WIDTH - SCROLLBAR_W;
         int textX0 = getX() + PADDING + LINE_NUM_WIDTH;
         int lineNumX = getX() + PADDING;
 
@@ -528,14 +593,10 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         int cursorX = textX0;
         int cursorBaseVisualRow = 0;
 
-        List<int[]> wrapRanges = new ArrayList<>();
-
         for (int li = 0; li < lines.size(); li++) {
             String lineText = lines.get(li).toString();
             List<String> physical = MaredUi.wrapLines(mc.font, lineText, availableWidth);
             if (physical.isEmpty()) physical.add("");
-
-            wrapRanges.add(new int[]{li, visualRow});
 
             if (visualRow + physical.size() <= scrollLine) {
                 visualRow += physical.size();
@@ -548,9 +609,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
                 if (currentVisual < scrollLine) continue;
                 int drawRow = currentVisual - scrollLine;
-                if (drawRow >= visibleVisualRows) {
-                    // дальше не рисуем
-                }
+                if (drawRow >= visibleVisualRows) continue;
 
                 int lineY = getY() + PADDING + drawRow * LINE_HEIGHT;
                 if (lineY >= getY() + height - PADDING) continue;
@@ -628,6 +687,21 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         }
 
         graphics.disableScissor();
+
+        // === Скроллбар ===
+        if (isScrollable()) {
+            int sbX = getX() + width - SCROLLBAR_W - 1;
+            int sbY = getY() + 1;
+            int sbH = scrollbarTrackH();
+
+            // трек
+            graphics.fill(sbX, sbY, sbX + SCROLLBAR_W, sbY + sbH, COLOR_SB_TRACK);
+
+            // ползунок
+            int thumbH = scrollbarThumbH();
+            int thumbY = scrollbarThumbY();
+            graphics.fill(sbX, thumbY, sbX + SCROLLBAR_W, thumbY + thumbH, accentColor);
+        }
     }
 
     private boolean isCharSelected(int line, int col, int sl, int sc, int el, int ec) {

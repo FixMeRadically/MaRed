@@ -414,6 +414,27 @@ public final class MaredExpr {
                     Object idx = parseExpression();
                     expect(TokType.RBRACKET);
                     value = indexValue(value, idx);
+                } else if (match(TokType.LPAREN)) {
+                    // $name(args) → call name(args)
+                    List<Object> args = new ArrayList<>();
+                    if (peek().type != TokType.RPAREN) {
+                        args.add(parseExpression());
+                        while (match(TokType.COMMA)) {
+                            args.add(parseExpression());
+                        }
+                    }
+                    expect(TokType.RPAREN);
+
+                    if (value instanceof String fnName && !fnName.isEmpty()) {
+                        // FIX H: сначала пробуем user function, потом — builtin
+                        if (ctx.hasFunction(fnName)) {
+                            value = ctx.callFunction(fnName, args);
+                        } else {
+                            value = MaredBuiltins.call(fnName, args, ctx);
+                        }
+                    } else {
+                        throw new RuntimeException("expr: cannot call non-function value");
+                    }
                 } else if (match(TokType.DOT)) {
                     Token nameTok = next();
                     if (nameTok.type != TokType.IDENT) {
@@ -443,7 +464,15 @@ public final class MaredExpr {
                 case INT:    return t.intVal;
                 case FLOAT:  return t.floatVal;
                 case STRING: return t.text;
-                case VAR:    return ctx.getVariable(t.text);
+                case VAR: {
+                    String varName = t.text;
+                    // если сразу за $name идёт '(' — это вызов функции,
+                    // возвращаем имя как строку, parsePostfix обработает LPAREN.
+                    if (peek().type == TokType.LPAREN) {
+                        return varName;
+                    }
+                    return ctx.getVariable(varName);
+                }
                 case LPAREN: {
                     Object v = parseExpression();
                     expect(TokType.RPAREN);
@@ -461,7 +490,6 @@ public final class MaredExpr {
                     return list;
                 }
                 case IDENT: {
-                    // ← FIX 1: call func(args)
                     if ("call".equals(t.text)) {
                         Token nameTok = next();
                         if (nameTok.type != TokType.IDENT) {
@@ -476,7 +504,11 @@ public final class MaredExpr {
                             }
                         }
                         expect(TokType.RPAREN);
-                        return ctx.callFunction(nameTok.text, args);
+                        // FIX H: call fn(...) — сначала user, потом builtin
+                        if (ctx.hasFunction(nameTok.text)) {
+                            return ctx.callFunction(nameTok.text, args);
+                        }
+                        return MaredBuiltins.call(nameTok.text, args, ctx);
                     }
 
                     if (peek().type == TokType.LPAREN) {
@@ -489,6 +521,10 @@ public final class MaredExpr {
                             }
                         }
                         expect(TokType.RPAREN);
+                        // FIX H: сначала user, потом builtin
+                        if (ctx.hasFunction(t.text)) {
+                            return ctx.callFunction(t.text, args);
+                        }
                         return MaredBuiltins.call(t.text, args, ctx);
                     }
                     if ("true".equals(t.text)) return Boolean.TRUE;

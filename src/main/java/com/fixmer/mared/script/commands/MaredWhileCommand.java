@@ -2,6 +2,7 @@ package com.fixmer.mared.script.commands;
 
 import java.util.List;
 
+import com.fixmer.mared.script.MaredLang;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
 import com.fixmer.mared.script.MaredScriptExecutor.Frame;
@@ -9,12 +10,13 @@ import com.fixmer.mared.script.MaredScriptExecutor.LoopOwner;
 
 /**
  * while <условие> { ... }
- * Повторяет тело, пока условие истинно.
- * Лимит итераций — 100000, чтобы не зависнуть.
+ *
+ * FIX: лимит снижен с 100_000 до 10_000 — защита от фриза клиента.
+ * Если нужно больше итераций — добавь `wait 1 tick` в тело.
  */
 public class MaredWhileCommand extends MaredScriptCommand {
 
-    private static final int MAX_ITER = 100_000;
+    private static final int MAX_ITER = 10_000;
 
     private final String condition;
     private final List<MaredScriptCommand> body;
@@ -28,10 +30,7 @@ public class MaredWhileCommand extends MaredScriptCommand {
     public void execute(MaredScriptContext ctx, MaredScriptExecutor exec) {
         if (body.isEmpty()) return;
 
-        // Проверить условие первый раз
-        if (!MaredIfCommand.evaluateStatic(condition, ctx)) {
-            return;
-        }
+        if (!MaredIfCommand.evaluateStatic(condition, ctx)) return;
 
         LoopOwner owner = new LoopOwner() {
             int iteration = 0;
@@ -48,10 +47,9 @@ public class MaredWhileCommand extends MaredScriptCommand {
                 }
                 iteration++;
                 if (iteration >= MAX_ITER) {
-                    c.log("[warn] while: превышен лимит " + MAX_ITER + " итераций");
+                    c.log(MaredLang.format("mared.log.mared.while_limit", MAX_ITER));
                     return false;
                 }
-                // Проверяем условие заново
                 if (!MaredIfCommand.evaluateStatic(condition, c)) return false;
 
                 ex.pushLoopBody(body, this);

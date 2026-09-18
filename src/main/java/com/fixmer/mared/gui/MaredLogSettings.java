@@ -17,38 +17,15 @@ import com.google.gson.JsonParser;
 
 import net.neoforged.fml.loading.FMLPaths;
 
-/**
- * Настройки фильтрации лога Mared.
- *
- * Каждая строка лога имеет:
- *   - уровень (TRACE / DEBUG / INFO / WARN / ERROR)
- *   - категорию (mared / say / cmd / mc / give / bind / on / run / assert / auto-save / log / info / error / other)
- *
- * Пользователь может включить/выключить любой уровень и категорию.
- */
 public final class MaredLogSettings {
 
     private MaredLogSettings() {}
 
-    // ---- Уровни ----
     public enum Level { TRACE, DEBUG, INFO, WARN, ERROR }
 
-    // ---- Категории ----
     public static final String[] CATEGORIES = {
-        "mared",     // [mared]
-        "say",       // [say]
-        "cmd",       // [cmd]
-        "mc",        // [mc]
-        "give",      // [give]
-        "bind",      // [bind]
-        "on",        // on right_click etc.
-        "run",       // [run] [запуск]
-        "assert",    // [assert ok/fail]
-        "auto-save", // [auto-save]
-        "log",       // [log] (собственные log-строки)
-        "info",      // [info] [инфо]
-        "error",     // [error] [ошибка]
-        "other"
+        "mared", "say", "cmd", "mc", "give", "bind", "on",
+        "run", "assert", "auto-save", "log", "info", "error", "other"
     };
 
     private static final Set<Level> enabledLevels = new LinkedHashSet<>();
@@ -56,7 +33,13 @@ public final class MaredLogSettings {
     private static boolean loaded = false;
 
     static {
+        resetDefaults();
+    }
+
+    private static void resetDefaults() {
+        enabledLevels.clear();
         for (Level l : Level.values()) enabledLevels.add(l);
+        enabledCategories.clear();
         for (String c : CATEGORIES) enabledCategories.add(c);
     }
 
@@ -64,21 +47,30 @@ public final class MaredLogSettings {
     public static boolean isCategoryEnabled(String c) { return enabledCategories.contains(c); }
 
     public static void toggleLevel(Level l) {
-        if (enabledLevels.contains(l)) enabledLevels.remove(l);
-        else enabledLevels.add(l);
+        if (enabledLevels.contains(l)) {
+            // Не даём отключить последний уровень
+            if (enabledLevels.size() <= 1) return;
+            enabledLevels.remove(l);
+        } else {
+            enabledLevels.add(l);
+        }
         save();
     }
 
     public static void toggleCategory(String c) {
-        if (enabledCategories.contains(c)) enabledCategories.remove(c);
-        else enabledCategories.add(c);
+        if (enabledCategories.contains(c)) {
+            // Не даём отключить последнюю категорию
+            if (enabledCategories.size() <= 1) return;
+            enabledCategories.remove(c);
+        } else {
+            enabledCategories.add(c);
+        }
         save();
     }
 
     public static Set<Level> getEnabledLevels() { return enabledLevels; }
     public static Set<String> getEnabledCategories() { return enabledCategories; }
 
-    /** Определяет уровень по строке лога. */
     public static Level parseLevel(String line) {
         if (line.contains("[error]") || line.contains("[ошибка]")
             || line.contains("[give error]") || line.contains("[mc error]")
@@ -98,7 +90,6 @@ public final class MaredLogSettings {
         return Level.INFO;
     }
 
-    /** Определяет категорию по строке лога. */
     public static String parseCategory(String line) {
         if (line.contains("[say]"))       return "say";
         if (line.contains("[cmd]"))       return "cmd";
@@ -116,7 +107,6 @@ public final class MaredLogSettings {
         return "other";
     }
 
-    /** Проверяет, должна ли строка отображаться. */
     public static boolean shouldShow(String line) {
         Level lvl = parseLevel(line);
         if (!enabledLevels.contains(lvl)) return false;
@@ -124,7 +114,7 @@ public final class MaredLogSettings {
         return enabledCategories.contains(cat);
     }
 
-    // ---- Сохранение / загрузка ----
+    // ---- Save / Load ----
 
     private static Path configFile() {
         return FMLPaths.CONFIGDIR.get().resolve("mared").resolve("log_settings.json");
@@ -135,6 +125,7 @@ public final class MaredLogSettings {
         loaded = true;
         Path p = configFile();
         if (!Files.exists(p)) return;
+
         try {
             String json = Files.readString(p, StandardCharsets.UTF_8);
             JsonObject o = JsonParser.parseString(json).getAsJsonObject();
@@ -145,15 +136,24 @@ public final class MaredLogSettings {
                     try { enabledLevels.add(Level.valueOf(e.getAsString())); }
                     catch (Exception ignored) {}
                 }
+                // Защита: если пользователь отключил всё — вернём все
+                if (enabledLevels.isEmpty()) {
+                    for (Level l : Level.values()) enabledLevels.add(l);
+                }
             }
             if (o.has("categories")) {
                 enabledCategories.clear();
                 for (JsonElement e : o.getAsJsonArray("categories")) {
                     enabledCategories.add(e.getAsString());
                 }
+                // Защита: если пусто — все категории
+                if (enabledCategories.isEmpty()) {
+                    for (String c : CATEGORIES) enabledCategories.add(c);
+                }
             }
         } catch (Exception e) {
             Mared.LOGGER.error("[Mared] Failed to load log_settings.json", e);
+            resetDefaults();
         }
     }
 

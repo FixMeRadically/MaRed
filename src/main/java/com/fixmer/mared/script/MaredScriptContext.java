@@ -33,12 +33,10 @@ public class MaredScriptContext {
     private boolean breakRequested = false;
     private boolean continueRequested = false;
 
-    // ← FIX 3: флаг persistent
     private boolean persistent = false;
     public boolean isPersistent() { return persistent; }
     public void setPersistent(boolean p) { this.persistent = p; }
 
-    // ← FIX 1: глубина синхронного вызова (защита от бесконечной рекурсии)
     private int callDepth = 0;
     private static final int MAX_CALL_DEPTH = 256;
 
@@ -69,8 +67,9 @@ public class MaredScriptContext {
     public Object getVariable(String name) {
         if (name == null) return null;
 
-        Object local = variables.get(name);
-        if (local != null) return local;
+        if (variables.containsKey(name)) {
+            return variables.get(name);
+        }
 
         if (name.startsWith("global.")) {
             return MaredGlobalStorage.get(name);
@@ -99,22 +98,13 @@ public class MaredScriptContext {
     public Map<String, Object> getAllVariables() { return variables; }
 
     // ============================================================
-    //  FIX 1: Синхронный вызов функции (для return call f(...))
+    //  Синхронный вызов функции
     // ============================================================
 
     /**
-     * Синхронно вызывает функцию Mared и возвращает её returnValue.
-     * Используется в MaredExpr, когда встречается `call name(args)`
-     * внутри выражения (например return $n * call fib($n - 1)).
-     *
-     * Тело функции выполняется «мгновенно» через вложенный executor,
-     * который прокручивается до конца в этом же вызове. wait-команды
-     * внутри такой функции обрабатываются как обычно (executor ждёт тика),
-     * но для рекурсии через return это редкость.
-     *
-     * Если функция содержит wait или возвращает управление асинхронно —
-     * этот метод вернёт null, а полное выполнение продолжится в основном
-     * стеке (как при обычном call).
+     * FIX A: убран лишний pushFunctionBodySync.
+     * FIX D: помечаем верхний кадр как functionCall = true,
+     *        чтобы return внутри функции не писал "return (вне функции)".
      */
     public Object callFunction(String name, List<Object> args) {
         Func fn = functions.get(name);
@@ -126,13 +116,11 @@ public class MaredScriptContext {
             throw new RuntimeException("call stack overflow (max " + MAX_CALL_DEPTH + ")");
         }
 
-        // --- backup ---
         Map<String, Object> backup = new HashMap<>();
         for (String p : fn.params) {
             backup.put(p, variables.get(p));
         }
 
-        // --- bind args ---
         for (int i = 0; i < fn.params.size(); i++) {
             String p = fn.params.get(i);
             Object value = (i < args.size()) ? args.get(i) : null;
@@ -143,17 +131,15 @@ public class MaredScriptContext {
         Object result = null;
         try {
             MaredScriptExecutor exec = new MaredScriptExecutor(this, fn.body);
-            exec.pushFunctionBodySync(fn.body);
 
-            // Прокрутить executor до конца, но с лимитом на случай wait
+            // FIX D: помечаем кадр функции, чтобы findEnclosingFunction его нашёл
+            MaredScriptExecutor.Frame top = exec.peekTopFrame();
+            if (top != null) top.functionCall = true;
+
             int safety = 100_000;
             while (!exec.isFinished() && safety-- > 0) {
                 exec.tick();
-                // Если executor ушёл в wait — прерываем синхронный режим
                 if (exec.isWaiting()) {
-                    // В этом случае вернуть null, а полное выполнение
-                    // доверить основному циклу (см. MaredCallCommand).
-                    // Но в 99% рекурсивных функций wait нет.
                     break;
                 }
             }
@@ -163,7 +149,6 @@ public class MaredScriptContext {
             }
         } finally {
             callDepth--;
-            // --- restore ---
             for (Map.Entry<String, Object> e : backup.entrySet()) {
                 variables.put(e.getKey(), e.getValue());
             }
@@ -374,6 +359,11 @@ public class MaredScriptContext {
     //  substitute
     // ============================================================
 
+    /**
+     * FIX B: полный парсер подстановок.
+     * FIX C: isVarChar больше НЕ включает точку.
+     * FIX E: findExpressionEnd обрабатывает $fn(...) — вызов функции.
+     */
     public String substitute(String input) {
         if (input == null || input.isEmpty()) return input;
 
@@ -384,32 +374,14 @@ public class MaredScriptContext {
         while (i < n) {
             char c = input.charAt(i);
 
+            // ${expr}
             if (c == '$' && i + 1 < n && input.charAt(i + 1) == '{') {
                 int start = i + 2;
-                int end = start;
-                int depth = 1;
-                boolean inString = false;
-                char quote = 0;
-
-                while (end < n && depth > 0) {
-                    char ch = input.charAt(end);
-                    if (inString) {
-                        if (ch == '\\' && end + 1 < n) { end += 2; continue; }
-                        if (ch == quote) inString = false;
-                    } else {
-                        if (ch == '"' || ch == '\'') { inString = true; quote = ch; }
-                        else if (ch == '{') depth++;
-                        else if (ch == '}') depth--;
-                    }
-                    if (depth == 0) break;
-                    end++;
-                }
-
-                if (depth != 0) {
+                int end = findMatchingBrace(input, start, n);
+                if (end < 0) {
                     result.append("<UNCLOSED:").append(input.substring(i)).append(">");
                     break;
                 }
-
                 String expr = input.substring(start, end);
                 String value;
                 try {
@@ -423,48 +395,55 @@ public class MaredScriptContext {
                 continue;
             }
 
+            // $var или $var.method(...) или $fn(...) или $var + ...
             if (c == '$') {
                 int start = i + 1;
                 int end = start;
                 while (end < n && isVarChar(input.charAt(end))) end++;
                 if (end > start) {
                     String varName = input.substring(start, end);
-                    Object value = getVariable(varName);
 
-                    if (value == null) {
-                        int exprEnd = end;
-                        int depth = 0;
-                        boolean inStr = false;
-                        char q = 0;
-                        while (exprEnd < n) {
-                            char ch = input.charAt(exprEnd);
-                            if (inStr) {
-                                if (ch == '\\' && exprEnd + 1 < n) { exprEnd += 2; continue; }
-                                if (ch == q) inStr = false;
-                            } else {
-                                if (ch == '"' || ch == '\'') { inStr = true; q = ch; }
-                                else if (ch == '(' || ch == '[') depth++;
-                                else if (ch == ')' || ch == ']') {
-                                    if (depth == 0) break;
-                                    depth--;
-                                } else if (depth == 0 && (ch == ' ' || ch == ',')) {
-                                    break;
-                                }
-                            }
-                            exprEnd++;
-                        }
-                        if (exprEnd > end) {
+                    // FIX E: $fn(...) — сразу открывающая скобка
+                    if (end < n && input.charAt(end) == '(') {
+                        int close = findMatchingParen(input, end, n);
+                        if (close > 0) {
+                            int exprEnd = close + 1;
                             String fullExpr = input.substring(i + 1, exprEnd);
                             try {
                                 Object v = MaredExpr.eval("$" + fullExpr, this);
                                 result.append(MaredExpr.stringify(v));
                                 i = exprEnd;
                                 continue;
-                            } catch (Exception ignored) {}
+                            } catch (Exception ignored) {
+                                // fallback ниже
+                            }
                         }
                     }
 
-                    result.append(value != null ? MaredExpr.stringify(value) : "$" + varName);
+                    // Пробуем найти границы выражения и вычислить
+                    int exprEnd = findExpressionEnd(input, end, n);
+                    if (exprEnd > end) {
+                        String fullExpr = input.substring(i + 1, exprEnd);
+                        try {
+                            Object v = MaredExpr.eval("$" + fullExpr, this);
+                            result.append(MaredExpr.stringify(v));
+                            i = exprEnd;
+                            continue;
+                        } catch (Exception ignored) {
+                            // откатываемся к простой подстановке
+                        }
+                    }
+
+                    // Простая подстановка переменной
+                    if (hasVariable(varName)) {
+                        Object value = getVariable(varName);
+                        result.append(MaredExpr.stringify(value));
+                        i = end;
+                        continue;
+                    }
+
+                    // Не найдено — оставить как есть
+                    result.append("$").append(varName);
                     i = end;
                     continue;
                 }
@@ -476,8 +455,147 @@ public class MaredScriptContext {
         return unescape(result.toString());
     }
 
+    /**
+     * FIX E: если start — открывающая скобка, это вызов $fn(...).
+     */
+    private int findExpressionEnd(String s, int start, int n) {
+        int i = start;
+
+        // $fn(...)
+        if (i < n && s.charAt(i) == '(') {
+            int close = findMatchingParen(s, i, n);
+            if (close > 0) return close + 1;
+            return i;
+        }
+
+        while (i < n) {
+            char c = s.charAt(i);
+
+            if (c == '.') {
+                int j = i + 1;
+                while (j < n && isIdentChar(s.charAt(j))) j++;
+                if (j == i + 1) break;
+                if (j < n && s.charAt(j) == '(') {
+                    int close = findMatchingParen(s, j, n);
+                    if (close < 0) break;
+                    i = close + 1;
+                    continue;
+                }
+                break;
+            }
+
+            if (c == '[') {
+                int close = findMatchingBracket(s, i, n);
+                if (close < 0) break;
+                i = close + 1;
+                continue;
+            }
+
+            if (c == '+' || c == '-' || c == '*' || c == '/' || c == '%') {
+                if (i == start && (c == '+' || c == '-')) {
+                    // унарный
+                }
+                int j = i + 1;
+                while (j < n && s.charAt(j) == ' ') j++;
+                if (j < n && (Character.isLetterOrDigit(s.charAt(j)) || s.charAt(j) == '$'
+                        || s.charAt(j) == '"' || s.charAt(j) == '(' || s.charAt(j) == '-')) {
+                    i = j;
+                    continue;
+                }
+                break;
+            }
+
+            if (c == '=' && i + 1 < n && s.charAt(i + 1) == '=') { i += 2; continue; }
+            if (c == '!' && i + 1 < n && s.charAt(i + 1) == '=') { i += 2; continue; }
+            if (c == '<' || c == '>') {
+                if (i + 1 < n && s.charAt(i + 1) == '=') i++;
+                i++;
+                continue;
+            }
+            if (c == '&' && i + 1 < n && s.charAt(i + 1) == '&') { i += 2; continue; }
+            if (c == '|' && i + 1 < n && s.charAt(i + 1) == '|') { i += 2; continue; }
+
+            if (c == ' ') {
+                int j = i + 1;
+                while (j < n && s.charAt(j) == ' ') j++;
+                if (j < n) {
+                    char nc = s.charAt(j);
+                    if (nc == '+' || nc == '-' || nc == '*' || nc == '/' || nc == '%'
+                        || nc == '=' || nc == '!' || nc == '<' || nc == '>'
+                        || nc == '&' || nc == '|') {
+                        i = j;
+                        continue;
+                    }
+                }
+                break;
+            }
+
+            break;
+        }
+
+        return i;
+    }
+
+    private int findMatchingBrace(String s, int start, int n) {
+        int depth = 1;
+        boolean inStr = false;
+        char q = 0;
+        for (int i = start; i < n; i++) {
+            char c = s.charAt(i);
+            if (inStr) {
+                if (c == '\\' && i + 1 < n) { i++; continue; }
+                if (c == q) inStr = false;
+                continue;
+            }
+            if (c == '"' || c == '\'') { inStr = true; q = c; continue; }
+            if (c == '{') depth++;
+            else if (c == '}') { depth--; if (depth == 0) return i; }
+        }
+        return -1;
+    }
+
+    private int findMatchingParen(String s, int openIdx, int n) {
+        int depth = 1;
+        boolean inStr = false;
+        char q = 0;
+        for (int i = openIdx + 1; i < n; i++) {
+            char c = s.charAt(i);
+            if (inStr) {
+                if (c == '\\' && i + 1 < n) { i++; continue; }
+                if (c == q) inStr = false;
+                continue;
+            }
+            if (c == '"' || c == '\'') { inStr = true; q = c; continue; }
+            if (c == '(') depth++;
+            else if (c == ')') { depth--; if (depth == 0) return i; }
+        }
+        return -1;
+    }
+
+    private int findMatchingBracket(String s, int openIdx, int n) {
+        int depth = 1;
+        boolean inStr = false;
+        char q = 0;
+        for (int i = openIdx + 1; i < n; i++) {
+            char c = s.charAt(i);
+            if (inStr) {
+                if (c == '\\' && i + 1 < n) { i++; continue; }
+                if (c == q) inStr = false;
+                continue;
+            }
+            if (c == '"' || c == '\'') { inStr = true; q = c; continue; }
+            if (c == '[') depth++;
+            else if (c == ']') { depth--; if (depth == 0) return i; }
+        }
+        return -1;
+    }
+
     private boolean isVarChar(char c) {
-        return Character.isLetterOrDigit(c) || c == '_' || c == '.';
+        return Character.isLetterOrDigit(c) || c == '_';
+    }
+
+    private boolean isIdentChar(char c) {
+        return Character.isLetterOrDigit(c) || c == '_';
     }
 
     private static String unescape(String s) {
