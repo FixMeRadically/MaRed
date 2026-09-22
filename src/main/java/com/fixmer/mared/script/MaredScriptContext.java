@@ -88,10 +88,18 @@ public class MaredScriptContext {
         return null;
     }
 
+    /**
+     * FIX 0.2.4: hasVariable теперь согласован с getVariable.
+     * Для self/world возвращает true всегда — как и getVariable,
+     * который возвращает fallback ("console" / "unknown").
+     * Для global.* проверяет MaredGlobalStorage.
+     */
     public boolean hasVariable(String name) {
         if (name == null) return false;
         if (variables.containsKey(name)) return true;
         if (name.startsWith("global.")) return MaredGlobalStorage.has(name);
+        if ("self".equals(name)) return true;
+        if ("world".equals(name)) return true;
         return false;
     }
 

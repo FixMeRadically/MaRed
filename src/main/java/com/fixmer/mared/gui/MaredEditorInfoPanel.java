@@ -29,18 +29,57 @@ public final class MaredEditorInfoPanel {
     private final MaredUi.PixelScroll infoScroll = new MaredUi.PixelScroll();
     private EditBox argFilterBox;
 
+    // === FIX 0.2.4: кэш Content ===
+    private MaredUi.Content cachedContent = null;
+    private MaredCommandRegistry.CommandInfo cachedContentInfo = null;
+    private int cachedContentAccent = 0;
+    private boolean cachedContentMared = false;
+    private int cachedContentHeight = 0;
+    private int cachedContentInnerW = 0;
+
     public MaredEditorInfoPanel() {}
 
     public boolean isCollapsed() { return collapsed; }
     public void setCollapsed(boolean v) { collapsed = v; }
     public void toggleCollapsed() { collapsed = !collapsed; infoScroll.offset = 0; }
     public String argFilter() { return argFilter; }
-    public void setArgFilter(String s) { argFilter = s; }
+    public void setArgFilter(String s) { argFilter = s; invalidateContentCache(); }
     public Set<Integer> expandedArgs() { return expandedArgs; }
-    public void clearExpanded() { expandedArgs.clear(); }
+    public void clearExpanded() { expandedArgs.clear(); invalidateContentCache(); }
     public MaredUi.PixelScroll scroll() { return infoScroll; }
     public EditBox argFilterBox() { return argFilterBox; }
     public void setArgFilterBox(EditBox box) { this.argFilterBox = box; }
+
+    /** FIX 0.2.4: сброс кэша при изменении фильтра/expanded/info. */
+    private void invalidateContentCache() {
+        cachedContent = null;
+        cachedContentInfo = null;
+        cachedContentHeight = 0;
+        cachedContentInnerW = 0;
+    }
+
+    /**
+     * FIX 0.2.4: получить Content из кэша, если info/accent/isMared те же.
+     * Иначе — построить и закэшировать.
+     */
+    private MaredUi.Content getOrBuildContent(MaredCommandRegistry.CommandInfo info,
+                                              int accentTop, boolean isMared,
+                                              Font font, int innerW) {
+        if (cachedContent != null
+            && cachedContentInfo == info
+            && cachedContentAccent == accentTop
+            && cachedContentMared == isMared
+            && cachedContentInnerW == innerW) {
+            return cachedContent;
+        }
+        cachedContent = buildContent(info, accentTop, isMared);
+        cachedContentInfo = info;
+        cachedContentAccent = accentTop;
+        cachedContentMared = isMared;
+        cachedContentInnerW = innerW;
+        cachedContentHeight = cachedContent.height(font, innerW);
+        return cachedContent;
+    }
 
     public int panelX(MaredEditorLayout layout) {
         return MaredEditorLayout.infoPanelX(collapsed);
@@ -87,7 +126,10 @@ public final class MaredEditorInfoPanel {
             argFilterBox.setBordered(false);
             argFilterBox.setMaxLength(64);
             argFilterBox.setValue(argFilter);
-            argFilterBox.setResponder(s -> argFilter = s);
+            argFilterBox.setResponder(s -> {
+                argFilter = s;
+                invalidateContentCache();
+            });
         } else {
             argFilterBox.setX(infoX + pad + 3);
             argFilterBox.setY(y + 2);
@@ -232,18 +274,17 @@ public final class MaredEditorInfoPanel {
         y += filterH + 4;
 
         MaredUi.rect(g, infoX + 2, y, infoX + infoW - 2, y + 1, DIVIDER);
-        y += 5;  // FIX: +2px — текст не на полоске
+        y += 5;
 
         int bodyTop = y;
         int bodyH = (infoY + infoH - MaredEditorLayout.PAD()) - bodyTop;
 
-        MaredUi.Content content = buildContent(info, accentTop, isMared);
-        int contentH = content.height(font, maxW);
+        // FIX 0.2.4: используем кэш
+        MaredUi.Content content = getOrBuildContent(info, accentTop, isMared, font, maxW);
         infoScroll.set(infoX, bodyTop, infoW, bodyH);
-        infoScroll.content(contentH);
+        infoScroll.content(cachedContentHeight);
         infoScroll.clamp();
 
-        // FIX: scissor ТОЛЬКО для области контента — начинается с bodyTop
         MaredUi.scissorOn(g, infoX + 1, bodyTop, infoX + infoW - 1, infoY + infoH - 1);
         content.render(g, font, x, bodyTop - infoScroll.offset, maxW);
         MaredUi.scissorOff(g);
@@ -279,8 +320,11 @@ public final class MaredEditorInfoPanel {
         int bodyTop = bodyTop(layout, font, info);
         int bodyH = (editorBottom - MaredEditorLayout.PAD()) - bodyTop;
         infoScroll.set(infoX, bodyTop, MaredEditorLayout.INFO_W(), bodyH);
-        infoScroll.content(buildContent(info, 0, false).height(font,
-            MaredEditorLayout.INFO_W() - 16 - MaredEditorLayout.SCROLLBAR_W() - 2));
+
+        // FIX 0.2.4: используем кэш высоты, не строим Content заново
+        int innerW = MaredEditorLayout.INFO_W() - 16 - MaredEditorLayout.SCROLLBAR_W() - 2;
+        getOrBuildContent(info, 0, false, font, innerW);
+        infoScroll.content(cachedContentHeight);
 
         if (!overFilter && infoScroll.clickScrollbar(mx, my,
             MaredEditorLayout.SCROLLBAR_W(), drag, MaredUi.DragKind.INFO_SCROLL)) {
@@ -292,6 +336,7 @@ public final class MaredEditorInfoPanel {
             if (hit >= 0) {
                 if (expandedArgs.contains(hit)) expandedArgs.remove(hit);
                 else expandedArgs.add(hit);
+                invalidateContentCache();
                 return true;
             }
         }

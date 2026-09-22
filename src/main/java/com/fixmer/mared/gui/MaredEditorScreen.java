@@ -69,6 +69,9 @@ public class MaredEditorScreen extends Screen {
         MaredEditorLayout.update(this.width, this.height);
         MaredSettings.load();
         MaredLang.reload();
+        // FIX 0.2.4: перезагружаем справочник команд после смены языка —
+        // иначе описания остаются на старом языке (они кэшируются в CommandInfo).
+        MaredCommandRegistry.reload();
         ensureMredCommands();
 
         sidebar.reloadFiles(openTab);
@@ -78,12 +81,14 @@ public class MaredEditorScreen extends Screen {
         rebuildEditor();
         updateSidebarFilterBox();
         updateInfoFilterBox();
+        updateLogSearchBox();
 
         logPanel.setOnToggle(() -> {
             logCollapsed = !logCollapsed;
             rebuildEditor();
             updateInfoFilterBox();
             updateSidebarFilterBox();
+            updateLogSearchBox();
         });
     }
 
@@ -133,6 +138,23 @@ public class MaredEditorScreen extends Screen {
         EditBox box = infoPanel.ensureFilterBox(this.font, MaredEditorLayout.INSTANCE, info);
         if (box != null && !children().contains(box)) {
             addRenderableWidget(box);
+        }
+    }
+
+    /** FIX 0.2.4: синхронизация searchBox в логе с widgets этого экрана. */
+    private void updateLogSearchBox() {
+        EditBox current = logPanel.searchBox();
+        if (current != null) {
+            removeWidget(current);
+        }
+
+        int logTop = MaredEditorLayout.logTop(logCollapsed);
+        int logW = MaredEditorLayout.logWidth();
+        EditBox box = logPanel.ensureSearchBox(this.font, 0, logTop, logW);
+        if (box != null && !children().contains(box)) {
+            addRenderableWidget(box);
+            // Если поиск только что открылся — фокусируемся
+            box.setFocused(true);
         }
     }
 
@@ -492,6 +514,7 @@ public class MaredEditorScreen extends Screen {
             rebuildEditor();
             updateSidebarFilterBox();
             updateInfoFilterBox();
+            updateLogSearchBox();
             sidebar.reloadFiles(openTab);
             sidebar.refreshCommands(openTab, MRED_COMMANDS);
             return true;
@@ -557,8 +580,15 @@ public class MaredEditorScreen extends Screen {
         }
 
         if (my >= logTop) {
+            // FIX 0.2.4: при клике на кнопку поиска — открыть/закрыть searchBox
+            boolean wasSearchOpen = logPanel.isSearchOpen();
             if (logPanel.mouseClicked(mx, my, button, 0, logTop, logW,
-                MaredEditorLayout.logHeight(logCollapsed), this.font)) return true;
+                MaredEditorLayout.logHeight(logCollapsed), this.font)) {
+                if (wasSearchOpen != logPanel.isSearchOpen()) {
+                    updateLogSearchBox();
+                }
+                return true;
+            }
         }
 
         return false;
@@ -570,6 +600,18 @@ public class MaredEditorScreen extends Screen {
         boolean shift = (modifiers & 1) != 0;
         boolean editorFocused = editor != null && editor.isFocused();
         boolean editorHasSelection = editor != null && editor.hasSelection();
+        EditBox searchBox = logPanel.searchBox();
+        boolean searchFocused = searchBox != null && searchBox.isFocused();
+
+        // Если фокус на поиске — Esc закрывает, обычные клавиши отдаём EditBox
+        if (searchFocused && keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            logPanel.closeSearch();
+            updateLogSearchBox();
+            return true;
+        }
+        if (searchFocused && !ctrl) {
+            return super.keyPressed(keyCode, scanCode, modifiers);
+        }
 
         // Мышь над логом?
         int logTop = MaredEditorLayout.logTop(logCollapsed);
@@ -579,6 +621,19 @@ public class MaredEditorScreen extends Screen {
             && lastMouseX < logW
             && lastMouseY >= logTop
             && lastMouseY < MaredEditorLayout.screenH();
+
+        // FIX 0.2.4: Ctrl+F — открыть/закрыть поиск по логу
+        if (ctrl && keyCode == GLFW.GLFW_KEY_F) {
+            if (!logPanel.isSearchOpen()) {
+                openLogSearch();
+            } else if (searchFocused) {
+                logPanel.closeSearch();
+                updateLogSearchBox();
+            } else if (searchBox != null) {
+                searchBox.setFocused(true);
+            }
+            return true;
+        }
 
         // Ctrl+C — в редактор только если фокус + выделение + мышь НЕ над логом
         if (ctrl && keyCode == GLFW.GLFW_KEY_C) {
@@ -616,6 +671,15 @@ public class MaredEditorScreen extends Screen {
         }
 
         return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    /** Открывает поиск в логе и фокусирует поле. */
+    private void openLogSearch() {
+        logPanel.setCollapsed(false);
+        logPanel.setSearchOpen(true);
+        updateLogSearchBox();
+        EditBox box = logPanel.searchBox();
+        if (box != null) box.setFocused(true);
     }
 
     @Override

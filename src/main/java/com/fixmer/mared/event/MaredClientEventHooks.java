@@ -4,7 +4,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.fixmer.mared.Mared;
+import com.fixmer.mared.script.MaredBindRegistry;
 import com.fixmer.mared.script.MaredEventRegistry;
+import com.fixmer.mared.script.MaredKeyBlocker;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -210,14 +212,24 @@ public final class MaredClientEventHooks {
         MaredEventRegistry.fire("tick_client", server, data);
     }
 
+    /**
+     * FIX 0.2.4: при выходе из мира/сети снимаем блокировки клавиш и мыши,
+     * очищаем бинды. Иначе в мультиплеере (где ServerStoppedEvent не срабатывает)
+     * блокировки остаются висеть до перезапуска игры.
+     */
     @SubscribeEvent
     public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
-        if (!MaredEventRegistry.has("leave")) return;
         Minecraft mc = Minecraft.getInstance();
         MinecraftServer server = mc.getSingleplayerServer();
-        Map<String, Object> data = new HashMap<>();
-        if (event.getPlayer() != null) data.put("player", event.getPlayer().getName().getString());
-        else data.put("player", "unknown");
-        MaredEventRegistry.fire("leave", server, data);
+
+        if (MaredEventRegistry.has("leave")) {
+            Map<String, Object> data = new HashMap<>();
+            if (event.getPlayer() != null) data.put("player", event.getPlayer().getName().getString());
+            else data.put("player", "unknown");
+            MaredEventRegistry.fire("leave", server, data);
+        }
+
+        MaredBindRegistry.clearAll();
+        MaredKeyBlocker.clear();
     }
 }

@@ -48,6 +48,74 @@ public final class MaredEditorSidebar {
 
     public MaredEditorSidebar() {}
 
+    // ============================================================
+    //  FIX 0.2.4: единый источник геометрии
+    // ============================================================
+
+    /**
+     * Вся геометрия sidebar в одном месте.
+     * Раньше drawFull / handleClick / handleScroll / ensureFilterBox /
+     * drawCommandsList считали её отдельно и могли расходиться.
+     */
+    public record SidebarGeometry(
+        int tabW, int pad, int sidebarW,
+        int listX, int listW,
+        int listY, int filesH, int filesListY, int filesListH, int itemH,
+        int arrowX, int plusX,
+        int toggleX, int toggleY, int toggleW, int toggleH,
+        int commandsY, int filterY, int commandsListY, int commandsH,
+        int scrollbarW
+    ) {}
+
+    public static SidebarGeometry computeGeometry(MaredEditorLayout layout,
+                                                   boolean logCollapsed,
+                                                   String openTab) {
+        int tabW = MaredEditorLayout.TAB_W();
+        int pad = MaredEditorLayout.PAD();
+        int sidebarW = MaredEditorLayout.SIDEBAR_W();
+        int itemH = MaredEditorLayout.ITEM_H();
+
+        int listX = tabW + pad;
+        int listW = sidebarW - pad * 2 - MaredEditorLayout.SCROLLBAR_W();
+        int listY = MaredEditorLayout.arrowY() + MaredEditorLayout.BTN_SZ()
+                  + MaredEditorLayout.px(8);
+
+        int filesH = Math.min(MaredEditorLayout.FILE_SECTION_H(),
+            layout.sidebarBottom(logCollapsed) - listY - pad);
+        int filesListY = listY + MaredEditorLayout.px(12);
+        int filesListH = (Math.max(0, filesH - MaredEditorLayout.px(12)) / itemH) * itemH;
+
+        int btnSz = MaredEditorLayout.BTN_SZ();
+        int ay = MaredEditorLayout.arrowY();
+        int arrowX = tabW + sidebarW - btnSz - pad;
+        int plusX  = arrowX - btnSz - MaredEditorLayout.px(4);
+
+        int toggleW = MaredEditorLayout.px(TOGGLE_W_FIXED);
+        int toggleH = MaredEditorLayout.px(TOGGLE_H_FIXED);
+
+        int commandsY = listY + filesH + MaredEditorLayout.px(4);
+        int toggleX = listX + listW - toggleW - MaredEditorLayout.px(4);
+        int toggleY = commandsY + 1;
+
+        int filterY = commandsY + MaredEditorLayout.px(14);
+        int commandsListY = filterY + MaredEditorLayout.FILTER_H() + 2;
+        int commandsH = ((layout.sidebarBottom(logCollapsed) - pad - commandsListY) / itemH) * itemH;
+
+        return new SidebarGeometry(
+            tabW, pad, sidebarW,
+            listX, listW,
+            listY, filesH, filesListY, filesListH, itemH,
+            arrowX, plusX,
+            toggleX, toggleY, toggleW, toggleH,
+            commandsY, filterY, commandsListY, commandsH,
+            MaredEditorLayout.SCROLLBAR_W()
+        );
+    }
+
+    // ============================================================
+    //  Public API
+    // ============================================================
+
     public List<String> fileNames() { return fileNames; }
     public String selectedFile() { return selectedFile; }
     public void setSelectedFile(String f) { this.selectedFile = f; }
@@ -95,19 +163,12 @@ public final class MaredEditorSidebar {
             return null;
         }
 
-        int tabW = MaredEditorLayout.TAB_W();
-        int pad = MaredEditorLayout.PAD();
-        int listX = tabW + pad;
-        int listW = MaredEditorLayout.SIDEBAR_W() - pad * 2 - MaredEditorLayout.SCROLLBAR_W();
-        int ay = MaredEditorLayout.arrowY();
-        int listY = ay + MaredEditorLayout.BTN_SZ() + MaredEditorLayout.px(8);
-        int filesH = Math.min(MaredEditorLayout.FILE_SECTION_H(),
-            layout.sidebarBottom(logCollapsed) - listY - pad);
-        int filterY = listY + filesH + MaredEditorLayout.px(4) + MaredEditorLayout.px(14);
+        SidebarGeometry geo = computeGeometry(layout, logCollapsed, openTab);
 
         if (commandFilterBox == null) {
             commandFilterBox = new EditBox(font,
-                listX + 4, filterY + 2, listW - 8, MaredEditorLayout.FILTER_H() - 4,
+                geo.listX() + 4, geo.filterY() + 2,
+                geo.listW() - 8, MaredEditorLayout.FILTER_H() - 4,
                 Component.literal(MaredLang.get("mared.ui.filter")));
             commandFilterBox.setBordered(false);
             commandFilterBox.setMaxLength(64);
@@ -117,12 +178,16 @@ public final class MaredEditorSidebar {
                 shouldRefreshCommands = true;
             });
         } else {
-            commandFilterBox.setX(listX + 4);
-            commandFilterBox.setY(filterY + 2);
-            commandFilterBox.setWidth(listW - 8);
+            commandFilterBox.setX(geo.listX() + 4);
+            commandFilterBox.setY(geo.filterY() + 2);
+            commandFilterBox.setWidth(geo.listW() - 8);
         }
         return commandFilterBox;
     }
+
+    // ============================================================
+    //  Draw: strip
+    // ============================================================
 
     public void drawStrip(GuiGraphics g, Font font, MaredEditorLayout layout,
                           int mouseX, int mouseY, int accentTop, int accentBottom) {
@@ -137,49 +202,48 @@ public final class MaredEditorSidebar {
             hover ? BTN_HOVER : BTN_BG, accentTop, TEXT, hover);
     }
 
+    // ============================================================
+    //  Draw: full
+    // ============================================================
+
     public void drawFull(GuiGraphics g, Font font, MaredEditorLayout layout,
                          String openTab, int mouseX, int mouseY,
                          int accentTop, int accentBottom, int selColor,
                          boolean logCollapsed) {
-        int tabW = MaredEditorLayout.TAB_W();
-        int sx = tabW;
-        int sidebarW = MaredEditorLayout.SIDEBAR_W();
-        int ay = MaredEditorLayout.arrowY();
-        int btnSz = MaredEditorLayout.BTN_SZ();
-        int pad = MaredEditorLayout.PAD();
+        SidebarGeometry geo = computeGeometry(layout, logCollapsed, openTab);
+        int pad = geo.pad();
 
+        // Заголовок
         MaredUi.text(g, font, MaredEditorTabs.title(openTab),
-            sx + pad + 2, ay + (btnSz - 8) / 2, TEXT);
+            geo.listX() + 2, MaredEditorLayout.arrowY() + (MaredEditorLayout.BTN_SZ() - 8) / 2, TEXT);
 
-        int arrowX = sx + sidebarW - btnSz - pad;
-        int plusX = arrowX - btnSz - MaredEditorLayout.px(4);
-
-        boolean plusHover = MaredUi.hovered(mouseX, mouseY, plusX, ay, btnSz, btnSz);
-        MaredUi.button3D(g, font, plusX, ay, btnSz, btnSz, "+",
+        // Кнопка "+"
+        boolean plusHover = MaredUi.hovered(mouseX, mouseY,
+            geo.plusX(), MaredEditorLayout.arrowY(),
+            MaredEditorLayout.BTN_SZ(), MaredEditorLayout.BTN_SZ());
+        MaredUi.button3D(g, font, geo.plusX(), MaredEditorLayout.arrowY(),
+            MaredEditorLayout.BTN_SZ(), MaredEditorLayout.BTN_SZ(), "+",
             plusHover ? BTN_HOVER : BTN_BG, accentTop, TEXT, plusHover);
 
-        boolean arrowHover = MaredUi.hovered(mouseX, mouseY, arrowX, ay, btnSz, btnSz);
-        MaredUi.button3D(g, font, arrowX, ay, btnSz, btnSz, "◄",
+        // Кнопка "◄"
+        boolean arrowHover = MaredUi.hovered(mouseX, mouseY,
+            geo.arrowX(), MaredEditorLayout.arrowY(),
+            MaredEditorLayout.BTN_SZ(), MaredEditorLayout.BTN_SZ());
+        MaredUi.button3D(g, font, geo.arrowX(), MaredEditorLayout.arrowY(),
+            MaredEditorLayout.BTN_SZ(), MaredEditorLayout.BTN_SZ(), "◄",
             arrowHover ? BTN_HOVER : BTN_BG, accentBottom, TEXT, arrowHover);
 
-        int listX = sx + pad;
-        int listW = sidebarW - pad * 2 - MaredEditorLayout.SCROLLBAR_W();
-        int listY = ay + btnSz + MaredEditorLayout.px(8);
-        int filesH = Math.min(MaredEditorLayout.FILE_SECTION_H(),
-            layout.sidebarBottom(logCollapsed) - listY - pad);
-        int filesListY = listY + MaredEditorLayout.px(12);
-        int itemH = MaredEditorLayout.ITEM_H();
-        int filesListH = (Math.max(0, filesH - MaredEditorLayout.px(12)) / itemH) * itemH;
-
-        MaredUi.text(g, font, MaredLang.get("mared.ui.files"), listX, listY, TEXT_DIM);
-        fileScroll.set(listX, filesListY, listW, filesListH).items(itemH, fileNames.size());
+        // Список файлов
+        MaredUi.text(g, font, MaredLang.get("mared.ui.files"), geo.listX(), geo.listY(), TEXT_DIM);
+        fileScroll.set(geo.listX(), geo.filesListY(), geo.listW(), geo.filesListH())
+                  .items(geo.itemH(), fileNames.size());
 
         if (fileNames.isEmpty()) {
             MaredUi.text(g, font, MaredLang.get("mared.ui.no_files"),
-                listX + MaredEditorLayout.px(4),
-                filesListY + MaredEditorLayout.px(4), TEXT_DIM);
+                geo.listX() + MaredEditorLayout.px(4),
+                geo.filesListY() + MaredEditorLayout.px(4), TEXT_DIM);
         } else {
-            final int scrollbarW = MaredEditorLayout.SCROLLBAR_W();
+            final int scrollbarW = geo.scrollbarW();
             final int delSz = MaredEditorLayout.FILE_DEL_SZ();
             final int stripeW = MaredEditorLayout.PERSISTENT_STRIPE();
             final boolean commandsTab = "commands".equals(openTab);
@@ -204,52 +268,48 @@ public final class MaredEditorSidebar {
 
         if ("commands".equals(openTab)) {
             drawCommandsList(g, font, layout, openTab, mouseX, mouseY,
-                listX, listW, listY, filesH, accentTop, accentBottom, selColor, logCollapsed);
+                geo, accentTop, accentBottom, selColor);
         }
     }
 
     private void drawCommandsList(GuiGraphics g, Font font, MaredEditorLayout layout,
                                   String openTab, int mouseX, int mouseY,
-                                  int listX, int listW, int listY, int filesH,
-                                  int accentTop, int accentBottom, int selColor,
-                                  boolean logCollapsed) {
-        int pad = MaredEditorLayout.PAD();
-        int tabW = MaredEditorLayout.TAB_W();
-        int sidebarW = MaredEditorLayout.SIDEBAR_W();
-        int filterH = MaredEditorLayout.FILTER_H();
-        int itemH = MaredEditorLayout.ITEM_H();
+                                  SidebarGeometry geo,
+                                  int accentTop, int accentBottom, int selColor) {
+        int pad = geo.pad();
 
-        int commandsY = listY + filesH + MaredEditorLayout.px(4);
-        MaredUi.rect(g, tabW + pad - 2, commandsY - 2,
-            tabW + sidebarW - pad + 2, commandsY, 0xFF2A2A38);
+        // Разделитель
+        MaredUi.rect(g, geo.tabW() + pad - 2, geo.commandsY() - 2,
+            geo.tabW() + geo.sidebarW() - pad + 2, geo.commandsY(), 0xFF2A2A38);
 
-        int toggleW = MaredEditorLayout.px(TOGGLE_W_FIXED);
-        int toggleH = MaredEditorLayout.px(TOGGLE_H_FIXED);
-        int toggleX = listX + listW - toggleW - MaredEditorLayout.px(4);
-        int toggleY = commandsY + 1;
-
-        int maxHeaderW = toggleX - listX - 4;
+        // Заголовок
+        int maxHeaderW = geo.toggleX() - geo.listX() - 4;
         String header = MaredLang.get("mared.ui.available_commands");
         if (maxHeaderW > 0 && font.width(header) > maxHeaderW) {
             header = font.plainSubstrByWidth(header, Math.max(0, maxHeaderW - 4)) + "...";
         }
-        MaredUi.text(g, font, header, listX, commandsY + 2, TEXT_DIM);
+        MaredUi.text(g, font, header, geo.listX(), geo.commandsY() + 2, TEXT_DIM);
 
+        // Toggle MR/MC
         String toggleLabel = showMaredCommands ? "MR" : "MC";
-        boolean toggleHover = MaredUi.hovered(mouseX, mouseY, toggleX, toggleY, toggleW, toggleH);
+        boolean toggleHover = MaredUi.hovered(mouseX, mouseY,
+            geo.toggleX(), geo.toggleY(), geo.toggleW(), geo.toggleH());
         int bottom = showMaredCommands ? MRED_COLOR : accentBottom;
-        MaredUi.button3D(g, font, toggleX, toggleY, toggleW, toggleH,
-            toggleLabel, toggleHover ? BTN_HOVER : BTN_BG, bottom, TEXT, toggleHover);
+        MaredUi.button3D(g, font, geo.toggleX(), geo.toggleY(),
+            geo.toggleW(), geo.toggleH(), toggleLabel,
+            toggleHover ? BTN_HOVER : BTN_BG, bottom, TEXT, toggleHover);
 
-        int filterY = commandsY + MaredEditorLayout.px(14);
-        MaredUi.rect(g, listX, filterY, listX + listW, filterY + filterH, FILTER_BG);
-        MaredUi.outlineGradient(g, listX, filterY, listW, filterH, accentTop, bottom);
+        // Filter
+        MaredUi.rect(g, geo.listX(), geo.filterY(),
+            geo.listX() + geo.listW(), geo.filterY() + MaredEditorLayout.FILTER_H(), FILTER_BG);
+        MaredUi.outlineGradient(g, geo.listX(), geo.filterY(),
+            geo.listW(), MaredEditorLayout.FILTER_H(), accentTop, bottom);
 
-        int commandsListY = filterY + filterH + 2;
-        int commandsH = ((layout.sidebarBottom(logCollapsed) - pad - commandsListY) / itemH) * itemH;
-        if (commandsH < itemH) return;
+        if (geo.commandsH() < geo.itemH()) return;
 
-        cmdScroll.set(listX, commandsListY, listW, commandsH).items(itemH, filteredCommands.size());
+        cmdScroll.set(geo.listX(), geo.commandsListY(), geo.listW(), geo.commandsH())
+                 .items(geo.itemH(), filteredCommands.size());
+
         int selCol = selColor;
         if (showMaredCommands) {
             selCol = 0xFF000000 | ((MRED_COLOR >> 16 & 0xFF) / 3 << 16)
@@ -257,7 +317,7 @@ public final class MaredEditorSidebar {
                                  | ((MRED_COLOR       & 0xFF) / 3);
         }
         MaredUi.listGradient(g, font, cmdScroll,
-            filteredCommands.indexOf(selectedCommandInfo), MaredEditorLayout.SCROLLBAR_W(),
+            filteredCommands.indexOf(selectedCommandInfo), geo.scrollbarW(),
             accentTop, bottom, selCol, ITEM_HOVER, ITEM_NORMAL,
             (gr, f, idx, ix, iy, iw, ih, hov, sel) -> {
                 int textY = iy + (ih - 8) / 2;
@@ -265,6 +325,10 @@ public final class MaredEditorSidebar {
             },
             mouseX, mouseY);
     }
+
+    // ============================================================
+    //  Click
+    // ============================================================
 
     public boolean handleClick(MaredEditorLayout layout, String openTab,
                                double mx, double my,
@@ -274,7 +338,6 @@ public final class MaredEditorSidebar {
                                Consumer<String> onDelete,
                                boolean logCollapsed) {
         int tabW = MaredEditorLayout.TAB_W();
-        int pad = MaredEditorLayout.PAD();
         int btnSz = MaredEditorLayout.BTN_SZ();
         int ay = MaredEditorLayout.arrowY();
 
@@ -291,51 +354,43 @@ public final class MaredEditorSidebar {
 
         if (state != MaredEditorLayout.SidebarState.FULL) return false;
 
-        int sidebarW = MaredEditorLayout.SIDEBAR_W();
-        int arrowX = tabW + sidebarW - btnSz - pad;
-        int plusX  = arrowX - btnSz - MaredEditorLayout.px(4);
+        SidebarGeometry geo = computeGeometry(layout, logCollapsed, openTab);
 
-        if (MaredUi.hovered(mx, my, arrowX, ay, btnSz, btnSz)) {
+        if (MaredUi.hovered(mx, my, geo.arrowX(), ay, btnSz, btnSz)) {
             shouldToggleSidebar = true;
             shouldRebuildEditor = true;
             return true;
         }
-        if (MaredUi.hovered(mx, my, plusX, ay, btnSz, btnSz)) {
+        if (MaredUi.hovered(mx, my, geo.plusX(), ay, btnSz, btnSz)) {
             onNew.run();
             return true;
         }
 
-        int listY = ay + btnSz + MaredEditorLayout.px(8);
-        if (my < listY - MaredEditorLayout.px(4)) return false;
-        if (mx < tabW || mx >= tabW + sidebarW) return false;
+        if (my < geo.listY() - MaredEditorLayout.px(4)) return false;
+        if (mx < tabW || mx >= tabW + geo.sidebarW()) return false;
 
-        int listX = tabW + pad;
-        int listW = sidebarW - pad * 2 - MaredEditorLayout.SCROLLBAR_W();
-        int filesH = Math.min(MaredEditorLayout.FILE_SECTION_H(),
-            layout.sidebarBottom(logCollapsed) - listY - pad);
-        int filesListY = listY + MaredEditorLayout.px(12);
-        int itemH = MaredEditorLayout.ITEM_H();
-        int filesListH = (Math.max(0, filesH - MaredEditorLayout.px(12)) / itemH) * itemH;
-        int itemW = listW - MaredEditorLayout.SCROLLBAR_W() - 2;
+        int itemW = geo.listW() - geo.scrollbarW() - 2;
 
-        fileScroll.set(listX, filesListY, listW, filesListH).items(itemH, fileNames.size());
-        if (fileScroll.clickScrollbar(mx, my, MaredEditorLayout.SCROLLBAR_W(), drag,
+        fileScroll.set(geo.listX(), geo.filesListY(), geo.listW(), geo.filesListH())
+                  .items(geo.itemH(), fileNames.size());
+
+        if (fileScroll.clickScrollbar(mx, my, geo.scrollbarW(), drag,
             MaredUi.DragKind.FILE_SCROLL)) return true;
 
         int visibleFiles = fileScroll.visibleItems();
         for (int i = 0; i < visibleFiles; i++) {
             int idx = i + fileScroll.offset;
             if (idx >= fileNames.size()) break;
-            int itemY = filesListY + i * itemH;
-            int delX = listX + itemW - MaredEditorLayout.FILE_DEL_SZ() - MaredEditorLayout.px(4);
-            int delY = itemY + (itemH - 2 - MaredEditorLayout.FILE_DEL_SZ()) / 2;
+            int itemY = geo.filesListY() + i * geo.itemH();
+            int delX = geo.listX() + itemW - MaredEditorLayout.FILE_DEL_SZ() - MaredEditorLayout.px(4);
+            int delY = itemY + (geo.itemH() - 2 - MaredEditorLayout.FILE_DEL_SZ()) / 2;
             if (MaredUi.hovered(mx, my, delX, delY,
                 MaredEditorLayout.FILE_DEL_SZ(), MaredEditorLayout.FILE_DEL_SZ())) {
                 onDelete.accept(fileNames.get(idx));
                 return true;
             }
         }
-        int fileIdx = fileScroll.hitItem(mx, my, MaredEditorLayout.SCROLLBAR_W());
+        int fileIdx = fileScroll.hitItem(mx, my, geo.scrollbarW());
         if (fileIdx >= 0) {
             selectedFile = fileNames.get(fileIdx);
             shouldRebuildEditor = true;
@@ -343,12 +398,8 @@ public final class MaredEditorSidebar {
         }
 
         if ("commands".equals(openTab)) {
-            int commandsY = listY + filesH + MaredEditorLayout.px(4);
-            int toggleW = MaredEditorLayout.px(TOGGLE_W_FIXED);
-            int toggleH = MaredEditorLayout.px(TOGGLE_H_FIXED);
-            int toggleX = listX + listW - toggleW - MaredEditorLayout.px(4);
-            int toggleY = commandsY + 1;
-            if (MaredUi.hovered(mx, my, toggleX, toggleY, toggleW, toggleH)) {
+            if (MaredUi.hovered(mx, my, geo.toggleX(), geo.toggleY(),
+                geo.toggleW(), geo.toggleH())) {
                 showMaredCommands = !showMaredCommands;
                 commandFilter = "";
                 if (commandFilterBox != null) commandFilterBox.setValue("");
@@ -360,14 +411,12 @@ public final class MaredEditorSidebar {
                 return false;
             }
 
-            int filterY = commandsY + MaredEditorLayout.px(14);
-            int commandsListY = filterY + MaredEditorLayout.FILTER_H() + 2;
-            int commandsH = ((layout.sidebarBottom(logCollapsed) - pad - commandsListY) / itemH) * itemH;
-            cmdScroll.set(listX, commandsListY, listW, commandsH).items(itemH, filteredCommands.size());
-            if (cmdScroll.clickScrollbar(mx, my, MaredEditorLayout.SCROLLBAR_W(), drag,
+            cmdScroll.set(geo.listX(), geo.commandsListY(), geo.listW(), geo.commandsH())
+                     .items(geo.itemH(), filteredCommands.size());
+            if (cmdScroll.clickScrollbar(mx, my, geo.scrollbarW(), drag,
                 MaredUi.DragKind.CMD_SCROLL)) return true;
 
-            int cmdIdx = cmdScroll.hitItem(mx, my, MaredEditorLayout.SCROLLBAR_W());
+            int cmdIdx = cmdScroll.hitItem(mx, my, geo.scrollbarW());
             if (cmdIdx >= 0) {
                 selectedCommandInfo = filteredCommands.get(cmdIdx);
                 shouldRebuildEditor = true;
@@ -377,34 +426,26 @@ public final class MaredEditorSidebar {
         return false;
     }
 
+    // ============================================================
+    //  Scroll
+    // ============================================================
+
     public boolean handleScroll(MaredEditorLayout layout, String openTab,
                                 double mx, double my, double deltaY,
                                 MaredEditorLayout.SidebarState state,
                                 boolean logCollapsed) {
         if (state != MaredEditorLayout.SidebarState.FULL) return false;
 
-        int pad = MaredEditorLayout.PAD();
-        int tabW = MaredEditorLayout.TAB_W();
-        int sidebarW = MaredEditorLayout.SIDEBAR_W();
-        int listX = tabW + pad;
-        int listW = sidebarW - pad * 2 - MaredEditorLayout.SCROLLBAR_W();
-        int listY = MaredEditorLayout.arrowY() + MaredEditorLayout.BTN_SZ()
-                  + MaredEditorLayout.px(8);
-        int filesH = Math.min(MaredEditorLayout.FILE_SECTION_H(),
-            layout.sidebarBottom(logCollapsed) - listY - pad);
-        int filesListY = listY + MaredEditorLayout.px(12);
-        int itemH = MaredEditorLayout.ITEM_H();
-        int filesListH = (Math.max(0, filesH - MaredEditorLayout.px(12)) / itemH) * itemH;
+        SidebarGeometry geo = computeGeometry(layout, logCollapsed, openTab);
 
-        if (MaredUi.hovered(mx, my, listX, filesListY, listW, filesListH)) {
+        if (MaredUi.hovered(mx, my, geo.listX(), geo.filesListY(),
+            geo.listW(), geo.filesListH())) {
             fileScroll.wheel(deltaY, 1);
             return true;
         }
         if ("commands".equals(openTab)) {
-            int commandsListY = listY + filesH + MaredEditorLayout.px(4)
-                              + MaredEditorLayout.px(14) + MaredEditorLayout.FILTER_H() + 2;
-            int commandsH = ((layout.sidebarBottom(logCollapsed) - pad - commandsListY) / itemH) * itemH;
-            if (MaredUi.hovered(mx, my, listX, commandsListY, listW, commandsH)) {
+            if (MaredUi.hovered(mx, my, geo.listX(), geo.commandsListY(),
+                geo.listW(), geo.commandsH())) {
                 cmdScroll.wheel(deltaY, 1);
                 return true;
             }

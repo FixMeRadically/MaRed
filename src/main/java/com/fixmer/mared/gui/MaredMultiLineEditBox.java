@@ -1,6 +1,8 @@
 package com.fixmer.mared.gui;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 
 import com.fixmer.mared.MaredSettings;
@@ -19,6 +21,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     private static final int CURSOR_BLINK   = 500;
     private static final int LINE_NUM_WIDTH = 20;
     private static final int SCROLLBAR_W    = 5;
+    private static final int MAX_UNDO       = 100;
 
     private static final int COLOR_TEXT    = 0xFFDDDDDD;
     private static final int COLOR_NUMBERS = 0xFF666680;
@@ -46,6 +49,24 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     private boolean draggingScrollbar = false;
     private double dragStartY = 0;
     private int dragStartScroll = 0;
+
+    // === Undo / Redo ===
+    private final Deque<Snapshot> undoStack = new ArrayDeque<>();
+    private final Deque<Snapshot> redoStack = new ArrayDeque<>();
+    private boolean suppressUndoSnapshot = false;
+
+    private static final class Snapshot {
+        final List<String> lines;
+        final int cursorLine;
+        final int cursorCol;
+
+        Snapshot(List<StringBuilder> src, int cl, int cc) {
+            this.lines = new ArrayList<>(src.size());
+            for (StringBuilder sb : src) this.lines.add(sb.toString());
+            this.cursorLine = cl;
+            this.cursorCol = cc;
+        }
+    }
 
     public MaredMultiLineEditBox(int x, int y, int width, int height, int accentColor, Runnable onValueChanged) {
         super(x, y, width, height, Component.literal(""));
@@ -79,16 +100,73 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
     public void setValue(String text) {
         if (text != null) text = text.replace("\r", "");
+        // При программной установке значения НЕ создаём undo-снапшот
+        suppressUndoSnapshot = true;
         lines.clear();
         String[] parts = text.split("\n", -1);
         for (String p : parts) lines.add(new StringBuilder(p));
         if (lines.isEmpty()) lines.add(new StringBuilder());
         cursorLine = 0; cursorCol = 0; scrollLine = 0;
         clearSelection();
+        undoStack.clear();
+        redoStack.clear();
+        suppressUndoSnapshot = false;
     }
 
     private void notifyChanged() {
         if (onValueChanged != null) onValueChanged.run();
+    }
+
+    // ============================================================
+    //  Undo / Redo
+    // ============================================================
+
+    /** Снимок ДО изменения. Вызывать перед мутацией lines. */
+    private void pushUndo() {
+        if (suppressUndoSnapshot) return;
+        undoStack.push(new Snapshot(lines, cursorLine, cursorCol));
+        if (undoStack.size() > MAX_UNDO) {
+            // ArrayDeque не поддерживает removeLast — но у нас push/pop с головы,
+            // поэтому чтобы отрезать хвост, снимем весь стек в список.
+            List<Snapshot> tmp = new ArrayList<>(undoStack);
+            undoStack.clear();
+            for (int i = 0; i < MAX_UNDO; i++) undoStack.push(tmp.get(i));
+        }
+        redoStack.clear();
+    }
+
+    private void undo() {
+        if (undoStack.isEmpty()) return;
+        Snapshot snap = undoStack.pop();
+        redoStack.push(new Snapshot(lines, cursorLine, cursorCol));
+
+        suppressUndoSnapshot = true;
+        lines.clear();
+        for (String s : snap.lines) lines.add(new StringBuilder(s));
+        if (lines.isEmpty()) lines.add(new StringBuilder());
+        cursorLine = Math.max(0, Math.min(snap.cursorLine, lines.size() - 1));
+        cursorCol = Math.max(0, Math.min(snap.cursorCol, lines.get(cursorLine).length()));
+        clearSelection();
+        ensureCursorVisible();
+        suppressUndoSnapshot = false;
+        notifyChanged();
+    }
+
+    private void redo() {
+        if (redoStack.isEmpty()) return;
+        Snapshot snap = redoStack.pop();
+        undoStack.push(new Snapshot(lines, cursorLine, cursorCol));
+
+        suppressUndoSnapshot = true;
+        lines.clear();
+        for (String s : snap.lines) lines.add(new StringBuilder(s));
+        if (lines.isEmpty()) lines.add(new StringBuilder());
+        cursorLine = Math.max(0, Math.min(snap.cursorLine, lines.size() - 1));
+        cursorCol = Math.max(0, Math.min(snap.cursorCol, lines.get(cursorLine).length()));
+        clearSelection();
+        ensureCursorVisible();
+        suppressUndoSnapshot = false;
+        notifyChanged();
     }
 
     // ---- Selection (публично) ----
@@ -169,6 +247,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         if (codePoint == '\t') return false;
         if (codePoint < 32) return false;
 
+        pushUndo();
         if (hasSelection()) deleteSelection();
 
         if (codePoint == '{' && shouldAutoIndentOnBrace()) {
@@ -190,10 +269,12 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
         if (ctrl) {
             switch (keyCode) {
-                case 67: copySelection(); return true;
-                case 86: pasteFromClipboard(); return true;
-                case 88: cutSelection(); return true;
-                case 65: selectAll(); return true;
+                case 67: copySelection(); return true;   // C
+                case 86: pasteFromClipboard(); return true; // V
+                case 88: cutSelection(); return true;    // X
+                case 65: selectAll(); return true;       // A
+                case 90: undo(); return true;            // Z
+                case 89: redo(); return true;            // Y
                 default: return false;
             }
         }
@@ -219,6 +300,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
     private void cutSelection() {
         if (!hasSelection()) return;
+        pushUndo();
         Minecraft.getInstance().keyboardHandler.setClipboard(getSelectedText());
         deleteSelection();
         notifyChanged();
@@ -228,6 +310,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         String clip = Minecraft.getInstance().keyboardHandler.getClipboard();
         if (clip == null || clip.isEmpty()) return;
         clip = clip.replace("\r", "");
+        pushUndo();
         if (hasSelection()) deleteSelection();
 
         String[] pasted = clip.split("\n", -1);
@@ -259,6 +342,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     }
 
     private void insertNewLine() {
+        pushUndo();
         if (hasSelection()) deleteSelection();
         StringBuilder line = lines.get(cursorLine);
         String rest = line.substring(cursorCol);
@@ -277,7 +361,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     }
 
     private void backspace() {
-        if (hasSelection()) { deleteSelection(); notifyChanged(); return; }
+        if (hasSelection()) { pushUndo(); deleteSelection(); notifyChanged(); return; }
 
         if (cursorCol > 0 && MaredSettings.isBackspaceRemovesIndent()) {
             String line = lines.get(cursorLine).toString();
@@ -297,6 +381,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
                     removeLen = 1;
                 }
                 if (removeLen > 0) {
+                    pushUndo();
                     lines.get(cursorLine).delete(cursorCol - removeLen, cursorCol);
                     cursorCol -= removeLen;
                     notifyChanged();
@@ -306,10 +391,12 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         }
 
         if (cursorCol > 0) {
+            pushUndo();
             lines.get(cursorLine).deleteCharAt(cursorCol - 1);
             cursorCol--;
             notifyChanged();
         } else if (cursorLine > 0) {
+            pushUndo();
             StringBuilder prev = lines.get(cursorLine - 1);
             StringBuilder cur = lines.get(cursorLine);
             cursorCol = prev.length();
@@ -322,12 +409,14 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     }
 
     private void delete() {
-        if (hasSelection()) { deleteSelection(); notifyChanged(); return; }
+        if (hasSelection()) { pushUndo(); deleteSelection(); notifyChanged(); return; }
         StringBuilder line = lines.get(cursorLine);
         if (cursorCol < line.length()) {
+            pushUndo();
             line.deleteCharAt(cursorCol);
             notifyChanged();
         } else if (cursorLine < lines.size() - 1) {
+            pushUndo();
             line.append(lines.get(cursorLine + 1));
             lines.remove(cursorLine + 1);
             notifyChanged();

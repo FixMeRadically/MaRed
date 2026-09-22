@@ -89,14 +89,6 @@ public class MaredScriptExecutor {
         return f;
     }
 
-    /** FIX 1: push для синхронного вызова из callFunction. */
-    public Frame pushFunctionBodySync(List<MaredScriptCommand> body) {
-        Frame f = new Frame(body);
-        f.functionCall = true;
-        stack.push(f);
-        return f;
-    }
-
     public Frame findEnclosingLoop() {
         for (Frame f : stack) {
             if (f.loopBody) return f;

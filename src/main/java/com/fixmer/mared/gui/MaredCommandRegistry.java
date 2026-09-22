@@ -13,7 +13,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import com.fixmer.mared.Mared;
@@ -27,13 +29,15 @@ import com.google.gson.JsonObject;
  * Загрузчик справочника команд из JSON.
  * Читает ВСЕ .json-файлы из папки resources/mared/commands/.
  *
- * FIX 0.2.3: поддержка локализации через поля "_ru".
- *   description       → description_ru       (если язык русский)
- *   arguments[].description  → arguments[].description_ru
- *   nbt[].what        → nbt[].what_ru
- *   nbt[].why         → nbt[].why_ru
+ * FIX 0.2.4: merge дубликатов по name.
+ * Раньше: 3 × effect, 3 × execute, 2 × scoreboard и т.д. — все записи
+ * попадали в COMMANDS отдельно, в списке было месиво.
+ * Теперь: записи с одинаковым name (case-insensitive) объединяются:
+ *   - arguments и nbt складываются (с дедупликацией по value)
+ *   - description/example — первый непустой
+ *   - category/opLevel — первый непустой
  *
- * Если поле "_ru" отсутствует — используется английский вариант.
+ * FIX 0.2.4: локализация через поля "_ru" (как было).
  */
 public class MaredCommandRegistry {
 
@@ -104,6 +108,9 @@ public class MaredCommandRegistry {
             return;
         }
 
+        // Собираем "сырые" записи во временный список, потом мерджим
+        List<CommandInfo> raw = new ArrayList<>();
+
         for (String fileName : files) {
             String fullPath = COMMANDS_DIR + "/" + fileName;
             try (InputStream in = MaredCommandRegistry.class.getResourceAsStream(fullPath)) {
@@ -112,15 +119,20 @@ public class MaredCommandRegistry {
                     continue;
                 }
                 String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-                int before = COMMANDS.size();
-                parseJson(json);
-                Mared.LOGGER.info("Loaded {} commands from {}", COMMANDS.size() - before, fullPath);
+                int before = raw.size();
+                parseJsonInto(json, raw);
+                Mared.LOGGER.info("Loaded {} commands from {}", raw.size() - before, fullPath);
             } catch (Exception e) {
                 Mared.LOGGER.error("Failed to load {}: {}", fullPath, e.getMessage());
             }
         }
 
-        Mared.LOGGER.info("Total commands loaded: {}", COMMANDS.size());
+        int rawCount = raw.size();
+        List<CommandInfo> merged = mergeByName(raw);
+        COMMANDS.addAll(merged);
+
+        Mared.LOGGER.info("Total commands loaded: {} ({} raw, merged to {} unique names)",
+            COMMANDS.size(), rawCount, merged.size());
     }
 
     /** Перезагрузка — если игрок сменил язык в настройках. */
@@ -128,6 +140,71 @@ public class MaredCommandRegistry {
         loaded = false;
         COMMANDS.clear();
         load();
+    }
+
+    /**
+     * FIX 0.2.4: merge записей с одинаковым name (case-insensitive).
+     * Порядок сохраняется — первая встреченная запись задаёт позицию.
+     */
+    private static List<CommandInfo> mergeByName(List<CommandInfo> raw) {
+        Map<String, CommandInfo> byName = new LinkedHashMap<>();
+        Map<String, Boolean> seen = new LinkedHashMap<>();
+
+        for (CommandInfo c : raw) {
+            String key = c.name.toLowerCase();
+            if (!seen.containsKey(key)) {
+                // Первая запись — берём как основу
+                byName.put(key, c);
+                seen.put(key, Boolean.TRUE);
+                continue;
+            }
+            // Дубликат — мерджим в существующую
+            CommandInfo existing = byName.get(key);
+            byName.put(key, mergeTwo(existing, c));
+        }
+        return new ArrayList<>(byName.values());
+    }
+
+    private static CommandInfo mergeTwo(CommandInfo a, CommandInfo b) {
+        // description / example — первый непустой
+        String description = !isEmpty(a.description) ? a.description : b.description;
+        String example = !isEmpty(a.example) ? a.example : b.example;
+
+        // category / opLevel — первый непустой/недефолтный
+        String category = !isEmpty(a.category) ? a.category : b.category;
+        int opLevel = a.opLevel != 0 ? a.opLevel : b.opLevel;
+
+        // arguments — дедупликация по value
+        List<Argument> args = new ArrayList<>(a.arguments);
+        for (Argument argB : b.arguments) {
+            boolean dup = false;
+            for (Argument argA : args) {
+                if (argA.value.equalsIgnoreCase(argB.value)) {
+                    dup = true;
+                    break;
+                }
+            }
+            if (!dup) args.add(argB);
+        }
+
+        // nbt — дедупликация по tag
+        List<NbtHint> nbt = new ArrayList<>(a.nbtHints);
+        for (NbtHint nbtB : b.nbtHints) {
+            boolean dup = false;
+            for (NbtHint nbtA : nbt) {
+                if (nbtA.tag.equalsIgnoreCase(nbtB.tag)) {
+                    dup = true;
+                    break;
+                }
+            }
+            if (!dup) nbt.add(nbtB);
+        }
+
+        return new CommandInfo(a.name, category, opLevel, description, example, args, nbt);
+    }
+
+    private static boolean isEmpty(String s) {
+        return s == null || s.isEmpty();
     }
 
     private static List<String> listCommandFiles() {
@@ -181,7 +258,7 @@ public class MaredCommandRegistry {
         return result;
     }
 
-    private static void parseJson(String json) {
+    private static void parseJsonInto(String json, List<CommandInfo> out) {
         Gson gson = new Gson();
         JsonObject root = gson.fromJson(json, JsonObject.class);
         if (root == null || !root.has("commands")) return;
@@ -231,7 +308,7 @@ public class MaredCommandRegistry {
                 }
             }
 
-            COMMANDS.add(new CommandInfo(name, category, opLevel, description, example, args, nbt));
+            out.add(new CommandInfo(name, category, opLevel, description, example, args, nbt));
         }
     }
 
@@ -239,11 +316,6 @@ public class MaredCommandRegistry {
         return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsString() : def;
     }
 
-    /**
-     * FIX: выбирает локализованное поле.
-     * Если язык русский и есть "<key>_ru" — вернёт его.
-     * Иначе — англ. "<key>".
-     */
     private static String optStringLang(JsonObject o, String key) {
         String lang = MaredLang.getCurrentCode();
         if (lang != null && lang.startsWith("ru")) {
