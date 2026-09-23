@@ -32,6 +32,18 @@ public final class MaredLogSettings {
     private static final Set<String> enabledCategories = new LinkedHashSet<>();
     private static boolean loaded = false;
 
+    // ============================================================
+    //  FIX 0.2.5+: версия для инвалидации кэшей (MaredLogPanel)
+    // ============================================================
+
+    private static volatile int VERSION = 0;
+
+    public static int getVersion() { return VERSION; }
+
+    private static void bumpVersion() { VERSION++; }
+
+    // ============================================================
+
     static {
         resetDefaults();
     }
@@ -48,23 +60,23 @@ public final class MaredLogSettings {
 
     public static void toggleLevel(Level l) {
         if (enabledLevels.contains(l)) {
-            // Не даём отключить последний уровень
             if (enabledLevels.size() <= 1) return;
             enabledLevels.remove(l);
         } else {
             enabledLevels.add(l);
         }
+        bumpVersion();
         save();
     }
 
     public static void toggleCategory(String c) {
         if (enabledCategories.contains(c)) {
-            // Не даём отключить последнюю категорию
             if (enabledCategories.size() <= 1) return;
             enabledCategories.remove(c);
         } else {
             enabledCategories.add(c);
         }
+        bumpVersion();
         save();
     }
 
@@ -114,7 +126,9 @@ public final class MaredLogSettings {
         return enabledCategories.contains(cat);
     }
 
-    // ---- Save / Load ----
+    // ============================================================
+    //  Save / Load
+    // ============================================================
 
     private static Path configFile() {
         return FMLPaths.CONFIGDIR.get().resolve("mared").resolve("log_settings.json");
@@ -124,7 +138,10 @@ public final class MaredLogSettings {
         if (loaded) return;
         loaded = true;
         Path p = configFile();
-        if (!Files.exists(p)) return;
+        if (!Files.exists(p)) {
+            bumpVersion();
+            return;
+        }
 
         try {
             String json = Files.readString(p, StandardCharsets.UTF_8);
@@ -136,7 +153,6 @@ public final class MaredLogSettings {
                     try { enabledLevels.add(Level.valueOf(e.getAsString())); }
                     catch (Exception ignored) {}
                 }
-                // Защита: если пользователь отключил всё — вернём все
                 if (enabledLevels.isEmpty()) {
                     for (Level l : Level.values()) enabledLevels.add(l);
                 }
@@ -146,7 +162,6 @@ public final class MaredLogSettings {
                 for (JsonElement e : o.getAsJsonArray("categories")) {
                     enabledCategories.add(e.getAsString());
                 }
-                // Защита: если пусто — все категории
                 if (enabledCategories.isEmpty()) {
                     for (String c : CATEGORIES) enabledCategories.add(c);
                 }
@@ -155,6 +170,7 @@ public final class MaredLogSettings {
             Mared.LOGGER.error("[Mared] Failed to load log_settings.json", e);
             resetDefaults();
         }
+        bumpVersion();
     }
 
     public static synchronized void save() {

@@ -11,21 +11,29 @@ public class MaredConfirmDialog extends Screen {
 
     private static final int TEXT   = MaredUi.TEXT;
     private static final int DANGER = MaredUi.DANGER;
+    private static final int WARN   = MaredUi.WARN;
 
     private final Screen parent;
     private final String title;
     private final String message;
     private final Runnable onConfirm;
+    private final boolean warning;
 
     private AbstractWidget confirmBtn;
     private AbstractWidget cancelBtn;
 
     public MaredConfirmDialog(Screen parent, String title, String message, Runnable onConfirm) {
+        this(parent, title, message, onConfirm, false);
+    }
+
+    public MaredConfirmDialog(Screen parent, String title, String message,
+                              Runnable onConfirm, boolean warning) {
         super(Component.literal(title));
         this.parent = parent;
         this.title = title;
         this.message = message;
         this.onConfirm = onConfirm;
+        this.warning = warning;
     }
 
     @Override
@@ -42,13 +50,18 @@ public class MaredConfirmDialog extends Screen {
         int btnY = panelY + panelH - 40;
         int btnGap = 20;
 
-        confirmBtn = addRenderableWidget(new MaredCompactButton(
-            panelX + panelW / 2 - btnW - btnGap / 2, btnY, btnW, 20,
-            Component.literal(MaredLang.get("mared.dialog.delete")), DANGER, this::onConfirm));
+        int accent = warning ? WARN : DANGER;
 
+        // FIX 0.2.6: Отмена — СЛЕВА, Действие — СПРАВА.
         cancelBtn = addRenderableWidget(new MaredCompactButton(
+            panelX + panelW / 2 - btnW - btnGap / 2, btnY, btnW, 20,
+            Component.literal(MaredLang.get("mared.dialog.cancel")),
+            0xFF55FF88, this::onCancel));
+
+        confirmBtn = addRenderableWidget(new MaredCompactButton(
             panelX + panelW / 2 + btnGap / 2, btnY, btnW, 20,
-            Component.literal(MaredLang.get("mared.dialog.cancel")), 0xFF55FF88, this::onCancel));
+            Component.literal(MaredLang.get("mared.dialog.confirm")),
+            accent, this::onConfirm));
     }
 
     private void onConfirm() { onConfirm.run(); onClose(); }
@@ -61,7 +74,6 @@ public class MaredConfirmDialog extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        // Фон экрана + панель — как в настройках, без blur.
         MaredUi.dialogBackground(g, this.width, this.height);
 
         int panelW = 320;
@@ -69,9 +81,10 @@ public class MaredConfirmDialog extends Screen {
         int panelX = (this.width - panelW) / 2;
         int panelY = (this.height - panelH) / 2;
 
-        MaredUi.dialogPanel(g, panelX, panelY, panelW, panelH, DANGER);
+        int accent = warning ? WARN : DANGER;
+        MaredUi.dialogPanel(g, panelX, panelY, panelW, panelH, accent);
 
-        MaredUi.text(g, this.font, title, panelX + 20, panelY + 20, DANGER);
+        MaredUi.text(g, this.font, title, panelX + 20, panelY + 20, accent);
         MaredUi.wrapped(g, this.font, message, panelX + 20, panelY + 50, panelW - 40, TEXT);
 
         super.render(g, mouseX, mouseY, partialTick);

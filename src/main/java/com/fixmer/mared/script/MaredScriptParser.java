@@ -3,33 +3,49 @@ package com.fixmer.mared.script;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fixmer.mared.script.commands.MaredAfterCommand;
 import com.fixmer.mared.script.commands.MaredAssertCommand;
+import com.fixmer.mared.script.commands.MaredAttackCommand;
 import com.fixmer.mared.script.commands.MaredBindCommand;
 import com.fixmer.mared.script.commands.MaredBlockCommand;
 import com.fixmer.mared.script.commands.MaredBreakCommand;
 import com.fixmer.mared.script.commands.MaredCallCommand;
 import com.fixmer.mared.script.commands.MaredContinueCommand;
 import com.fixmer.mared.script.commands.MaredDebugCommand;
+import com.fixmer.mared.script.commands.MaredDropCommand;
 import com.fixmer.mared.script.commands.MaredEvalCommand;
+import com.fixmer.mared.script.commands.MaredEveryCommand;
 import com.fixmer.mared.script.commands.MaredExitCommand;
+import com.fixmer.mared.script.commands.MaredFirstJoinCommand;
 import com.fixmer.mared.script.commands.MaredForCommand;
 import com.fixmer.mared.script.commands.MaredForInCommand;
 import com.fixmer.mared.script.commands.MaredFuncCommand;
 import com.fixmer.mared.script.commands.MaredGiveCommand;
 import com.fixmer.mared.script.commands.MaredIfCommand;
+import com.fixmer.mared.script.commands.MaredJumpCommand;
 import com.fixmer.mared.script.commands.MaredLogCommand;
+import com.fixmer.mared.script.commands.MaredLookAtCommand;
+import com.fixmer.mared.script.commands.MaredLookCommand;
 import com.fixmer.mared.script.commands.MaredMcCommand;
+import com.fixmer.mared.script.commands.MaredMoveCommand;
+import com.fixmer.mared.script.commands.MaredOffCommand;
 import com.fixmer.mared.script.commands.MaredOnCommand;
+import com.fixmer.mared.script.commands.MaredOnceCommand;
 import com.fixmer.mared.script.commands.MaredPrintCommand;
 import com.fixmer.mared.script.commands.MaredRepeatCommand;
 import com.fixmer.mared.script.commands.MaredReturnCommand;
 import com.fixmer.mared.script.commands.MaredSayCommand;
 import com.fixmer.mared.script.commands.MaredScriptCommand;
+import com.fixmer.mared.script.commands.MaredSelectSlotCommand;
 import com.fixmer.mared.script.commands.MaredSetCommand;
 import com.fixmer.mared.script.commands.MaredSetFromCallCommand;
+import com.fixmer.mared.script.commands.MaredStopCommand;
+import com.fixmer.mared.script.commands.MaredSwapCommand;
 import com.fixmer.mared.script.commands.MaredToggleCommand;
 import com.fixmer.mared.script.commands.MaredUnblockCommand;
+import com.fixmer.mared.script.commands.MaredUseCommand;
 import com.fixmer.mared.script.commands.MaredWaitCommand;
+import com.fixmer.mared.script.commands.MaredWaitUntilCommand;
 import com.fixmer.mared.script.commands.MaredWhileCommand;
 
 public class MaredScriptParser {
@@ -103,20 +119,124 @@ public class MaredScriptParser {
 
         String cmd = tokens.get(0);
         switch (cmd) {
-            case "if":     return parseIfChain(cur, tokens, startLine);
-            case "repeat": return parseRepeat(cur, tokens, startLine);
-            case "for":    return parseFor(cur, tokens, startLine);
-            case "while":  return parseWhile(cur, tokens, startLine);
-            case "func":   return parseFunc(cur, tokens, startLine);
-            case "bind":   return parseBind(cur, tokens, startLine);
-            case "on":     return parseOn(cur, tokens, startLine);
-            case "break":  return new MaredBreakCommand();
-            case "continue": return new MaredContinueCommand();
-            case "return": return parseReturn(tokens, startLine);
-            case "exit":   return new MaredExitCommand();
+            case "if":         return parseIfChain(cur, tokens, startLine);
+            case "repeat":     return parseRepeat(cur, tokens, startLine);
+            case "for":        return parseFor(cur, tokens, startLine);
+            case "while":      return parseWhile(cur, tokens, startLine);
+            case "func":       return parseFunc(cur, tokens, startLine);
+            case "bind":       return parseBind(cur, tokens, startLine);
+            case "on":         return parseOn(cur, tokens, startLine);
+            case "every":      return parseEvery(cur, tokens, startLine);
+            case "after":      return parseAfter(cur, tokens, startLine);
+            case "wait_until": return parseWaitUntil(cur, tokens, startLine);
+            case "once":       return parseOnce(cur, tokens, startLine);
+            case "first_join": return parseFirstJoin(cur, tokens, startLine);
+            case "break":      return new MaredBreakCommand();
+            case "continue":   return new MaredContinueCommand();
+            case "return":     return parseReturn(tokens, startLine);
+            case "exit":       return new MaredExitCommand();
+
+            // ---- Action API (0.2.5+) ----
+            case "look_at":     return parseLookAt(tokens, startLine);
+            case "look":        return parseLook(tokens, startLine);
+            case "move":        return parseMove(tokens, startLine);
+            case "stop":        return new MaredStopCommand();
+            case "jump":        return new MaredJumpCommand();
+            case "attack":      return new MaredAttackCommand();
+            case "use":         return new MaredUseCommand();
+            case "drop":        return new MaredDropCommand();
+            case "swap_hands":  return new MaredSwapCommand();
+            case "select_slot": return parseSelectSlot(tokens, startLine);
+
+            // ---- FIX 0.2.5+: снятие слушателей ----
+            case "off":         return parseOff(tokens, startLine);
+
             default: return parseLine(tokens, startLine);
         }
     }
+
+    // ============================================================
+    //  Action API
+    // ============================================================
+
+    private static MaredScriptCommand parseLookAt(List<String> tokens, int line) {
+        if (tokens.size() < 4) throw new ParseException(line, "look_at: expected x y z");
+        return new MaredLookAtCommand(tokens.get(1), tokens.get(2), tokens.get(3));
+    }
+
+    private static MaredScriptCommand parseLook(List<String> tokens, int line) {
+        if (tokens.size() < 3) throw new ParseException(line, "look: expected yaw pitch");
+        return new MaredLookCommand(tokens.get(1), tokens.get(2));
+    }
+
+    private static MaredScriptCommand parseMove(List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "move: expected direction");
+        String dir = tokens.get(1);
+        String mode = tokens.size() >= 3 ? tokens.get(2) : "on";
+        return new MaredMoveCommand(dir, mode);
+    }
+
+    private static MaredScriptCommand parseSelectSlot(List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "select_slot: expected number");
+        return new MaredSelectSlotCommand(tokens.get(1));
+    }
+
+    private static MaredScriptCommand parseOff(List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "off: expected event name or 'all'");
+        return new MaredOffCommand(tokens.get(1));
+    }
+
+    // ============================================================
+    //  Триггеры времени
+    // ============================================================
+
+    private static MaredScriptCommand parseEvery(Cursor cur, List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "every: missing period");
+        String periodStr = tokens.get(1);
+        int period;
+        try {
+            period = Integer.parseInt(periodStr);
+        } catch (NumberFormatException e) {
+            throw new ParseException(line, "every: invalid period: " + periodStr);
+        }
+        if (period < 1) throw new ParseException(line, "every: period must be >= 1");
+        List<MaredScriptCommand> body = parseBody(cur, line);
+        return new MaredEveryCommand(period, body);
+    }
+
+    private static MaredScriptCommand parseAfter(Cursor cur, List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "after: missing delay");
+        String delayStr = tokens.get(1);
+        int delay;
+        try {
+            delay = Integer.parseInt(delayStr);
+        } catch (NumberFormatException e) {
+            throw new ParseException(line, "after: invalid delay: " + delayStr);
+        }
+        if (delay < 1) throw new ParseException(line, "after: delay must be >= 1");
+        List<MaredScriptCommand> body = parseBody(cur, line);
+        return new MaredAfterCommand(delay, body);
+    }
+
+    private static MaredScriptCommand parseWaitUntil(Cursor cur, List<String> tokens, int line) {
+        if (tokens.size() < 2) throw new ParseException(line, "wait_until: missing condition");
+        String condition = join(tokens.subList(1, tokens.size()));
+        return new MaredWaitUntilCommand(condition);
+    }
+
+    private static MaredScriptCommand parseOnce(Cursor cur, List<String> tokens, int line) {
+        List<MaredScriptCommand> body = parseBody(cur, line);
+        return new MaredOnceCommand(body);
+    }
+
+    private static MaredScriptCommand parseFirstJoin(Cursor cur, List<String> tokens, int line) {
+        List<MaredScriptCommand> body = parseBody(cur, line);
+        return new MaredFirstJoinCommand(body);
+    }
+
+    // ============================================================
+    //  Существующие парсеры
+    // ============================================================
 
     private static MaredScriptCommand parseIfChain(Cursor cur, List<String> tokens, int line) {
         if (tokens.size() < 2) throw new ParseException(line, "if: missing condition");
@@ -323,6 +443,22 @@ public class MaredScriptParser {
             case "scroll_up": case "scroll_down":
             case "key_press": case "key_release":
             case "chat": case "tick_client": case "join": case "leave":
+            case "block_break": case "block_place": case "block_interact":
+            case "entity_kill": case "entity_hurt":
+            case "player_death": case "respawn":
+            case "item_pickup": case "item_crafted":
+            case "dimension_change":
+            case "hotbar_switch":
+            case "sneak_start": case "sneak_end":
+            case "sprint_start": case "sprint_end":
+            case "jump": case "use_item": case "attack":
+            case "first_join":
+            case "player_move":
+            case "health_change":
+            case "hunger_change":
+            case "xp_change":
+            case "item_drop":
+            case "gamemode_change":
                 return true;
             default: return false;
         }
@@ -395,7 +531,14 @@ public class MaredScriptParser {
             if (i > 1) raw.append(' ');
             raw.append(tokens.get(i));
         }
-        return new MaredPrintCommand(raw.toString());
+        String textWithArgs = raw.toString();
+        String scope = "";
+        int scopeIdx = textWithArgs.lastIndexOf(" scope=");
+        if (scopeIdx >= 0) {
+            scope = textWithArgs.substring(scopeIdx + " scope=".length()).trim();
+            textWithArgs = textWithArgs.substring(0, scopeIdx).trim();
+        }
+        return new MaredPrintCommand(textWithArgs, scope);
     }
 
     private static MaredScriptCommand parseWait(List<String> tokens, int lineNumber) {
@@ -419,18 +562,12 @@ public class MaredScriptParser {
         return new MaredGiveCommand(target, item, count);
     }
 
-    /**
-     * FIX G: "set x = call fn(...)" обрабатывается как SetFromCall только
-     * если вся правая часть — один call. Иначе — обычный Set с выражением,
-     * которое умеет call (через MaredExpr).
-     */
     private static MaredScriptCommand parseSet(List<String> tokens, int lineNumber) {
         if (tokens.size() < 4) throw new ParseException(lineNumber, "set: expected 'set name = value'");
         String name = tokens.get(1);
         if (name.startsWith("$")) name = name.substring(1);
         if (!tokens.get(2).equals("=")) throw new ParseException(lineNumber, "set: expected '=' after name");
 
-        // FIX G: только если ровно 5 токенов — 'set name = call fn(...)'
         if (tokens.size() == 5 && "call".equalsIgnoreCase(tokens.get(3))) {
             String callPart = tokens.get(4);
             int paren = callPart.indexOf('(');

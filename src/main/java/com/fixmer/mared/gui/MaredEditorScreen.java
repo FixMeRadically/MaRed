@@ -56,9 +56,10 @@ public class MaredEditorScreen extends Screen {
 
     private static List<MaredCommandRegistry.CommandInfo> MRED_COMMANDS = null;
 
-    // Позиция мыши (для Ctrl+C/Ctrl+A приоритетов)
     private double lastMouseX = -1;
     private double lastMouseY = -1;
+
+    private EditBox lastLogSearchBox = null;
 
     public MaredEditorScreen() { super(Component.literal("Mared Editor")); }
 
@@ -69,10 +70,10 @@ public class MaredEditorScreen extends Screen {
         MaredEditorLayout.update(this.width, this.height);
         MaredSettings.load();
         MaredLang.reload();
-        // FIX 0.2.4: перезагружаем справочник команд после смены языка —
-        // иначе описания остаются на старом языке (они кэшируются в CommandInfo).
         MaredCommandRegistry.reload();
         ensureMredCommands();
+
+        lastLogSearchBox = null;
 
         sidebar.reloadFiles(openTab);
         sidebar.refreshCommands(openTab, MRED_COMMANDS);
@@ -141,20 +142,21 @@ public class MaredEditorScreen extends Screen {
         }
     }
 
-    /** FIX 0.2.4: синхронизация searchBox в логе с widgets этого экрана. */
     private void updateLogSearchBox() {
-        EditBox current = logPanel.searchBox();
-        if (current != null) {
-            removeWidget(current);
+        if (lastLogSearchBox != null) {
+            removeWidget(lastLogSearchBox);
+            lastLogSearchBox = null;
         }
+
+        if (!logPanel.isSearchOpen()) return;
 
         int logTop = MaredEditorLayout.logTop(logCollapsed);
         int logW = MaredEditorLayout.logWidth();
         EditBox box = logPanel.ensureSearchBox(this.font, 0, logTop, logW);
-        if (box != null && !children().contains(box)) {
+        if (box != null) {
             addRenderableWidget(box);
-            // Если поиск только что открылся — фокусируемся
             box.setFocused(true);
+            lastLogSearchBox = box;
         }
     }
 
@@ -234,7 +236,8 @@ public class MaredEditorScreen extends Screen {
 
     private void onNew() {
         if ("scripts".equals(openTab)) {
-            Minecraft.getInstance().setScreen(new MaredNameDialog(this, "New script",
+            Minecraft.getInstance().setScreen(new MaredNameDialog(this,
+                MaredLang.get("mared.dialog.new_script"),
                 (name, persistent) -> {
                     if (MaredScriptStorage.createScript(name)) {
                         addLog(MaredLang.format("mared.log.info.created_script", name));
@@ -243,9 +246,14 @@ public class MaredEditorScreen extends Screen {
                         rebuildEditor();
                     } else addLog(MaredLang.format("mared.log.error.failed_create", name));
                 },
-                MaredEditorTabs.SCRIPTS_TOP, false));
+                MaredEditorTabs.SCRIPTS_TOP, false,
+                name -> MaredScriptStorage.listScripts().contains(name)
+                    ? MaredLang.format("mared.dialog.error.exists", name)
+                    : null
+            ));
         } else if ("commands".equals(openTab)) {
-            Minecraft.getInstance().setScreen(new MaredNameDialog(this, "New command file",
+            Minecraft.getInstance().setScreen(new MaredNameDialog(this,
+                MaredLang.get("mared.dialog.new_command_file"),
                 (name, persistent) -> {
                     if (MaredCommandStorage.createCommand(name)) {
                         if (persistent) {
@@ -265,23 +273,46 @@ public class MaredEditorScreen extends Screen {
                         rebuildEditor();
                     } else addLog(MaredLang.format("mared.log.error.failed_create", name));
                 },
-                MaredEditorTabs.COMMANDS_TOP, true));
+                MaredEditorTabs.COMMANDS_TOP, true,
+                name -> MaredCommandStorage.listCommands().contains(name)
+                    ? MaredLang.format("mared.dialog.error.exists", name)
+                    : null
+            ));
         }
     }
 
     private void onImport() { addLog(MaredLang.get("mared.log.warn.import")); }
 
     private void onDelete(String fileName) {
-        if (fileName == null) { addLog(MaredLang.get("mared.log.warn.no_file")); return; }
+        if (fileName == null) {
+            addLog(MaredLang.get("mared.log.warn.no_file"));
+            return;
+        }
         final boolean commandsTab = "commands".equals(openTab);
-        String type = "scripts".equals(openTab) ? "script" : "command file";
+        String type = commandsTab
+            ? MaredLang.get("mared.dialog.type_command")
+            : MaredLang.get("mared.dialog.type_script");
         final boolean wasPersistent = commandsTab && MaredPersistentStorage.isPersistent(fileName);
-        Minecraft.getInstance().setScreen(new MaredConfirmDialog(this,
-            "Delete " + type + "?", "\"" + fileName + "\" will be deleted.",
+
+        final String title;
+        final String message;
+        final boolean warning;
+
+        if (wasPersistent) {
+            title = MaredLang.format("mared.dialog.delete_persistent_title", fileName);
+            message = MaredLang.get("mared.dialog.delete_persistent_message");
+            warning = true;
+        } else {
+            title = MaredLang.format("mared.dialog.delete_title", type, fileName);
+            message = MaredLang.format("mared.dialog.delete_message", fileName);
+            warning = false;
+        }
+
+        Minecraft.getInstance().setScreen(new MaredConfirmDialog(this, title, message,
             () -> {
-                boolean ok = "scripts".equals(openTab)
-                    ? MaredScriptStorage.deleteScript(fileName)
-                    : MaredCommandStorage.deleteCommand(fileName);
+                boolean ok = commandsTab
+                    ? MaredCommandStorage.deleteCommand(fileName)
+                    : MaredScriptStorage.deleteScript(fileName);
                 if (ok) {
                     MaredPersistentStorage.remove(fileName);
                     if (wasPersistent) {
@@ -294,8 +325,12 @@ public class MaredEditorScreen extends Screen {
                     if (fileName.equals(sidebar.selectedFile())) sidebar.setSelectedFile(null);
                     sidebar.reloadFiles(openTab);
                     rebuildEditor();
-                } else addLog(MaredLang.format("mared.log.error.failed_delete", fileName));
-            }));
+                } else {
+                    addLog(MaredLang.format("mared.log.error.failed_delete", fileName));
+                }
+            },
+            warning
+        ));
     }
 
     private void onDelete() { onDelete(sidebar.selectedFile()); }
@@ -376,7 +411,7 @@ public class MaredEditorScreen extends Screen {
 
         MaredScriptContext ctx = new MaredScriptContext(initiator, server, this::addLog);
         ctx.setPersistent(isPersistent);
-        ctx.refreshPlayerData();
+        ctx.forceRefreshPlayerData();
         MaredScriptRunner.start(new MaredScriptExecutor(ctx, commands));
     }
 
@@ -436,10 +471,18 @@ public class MaredEditorScreen extends Screen {
         addLog(MaredLang.format("mared.log.run.done", cmdCount, blockCount));
     }
 
+    /**
+     * F9b FIX: учитываем escape-последовательности (\", \\).
+     */
     private static int countChar(String s, char c) {
-        int n = 0; boolean inString = false;
+        int n = 0;
+        boolean inString = false;
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
+            if (ch == '\\' && i + 1 < s.length()) {
+                i++;
+                continue;
+            }
             if (ch == '"') inString = !inString;
             if (!inString && ch == c) n++;
         }
@@ -473,7 +516,7 @@ public class MaredEditorScreen extends Screen {
 
         MaredScriptContext ctx = new MaredScriptContext(initiator, server, this::addLog);
         ctx.setPersistent(isPersistent);
-        ctx.refreshPlayerData();
+        ctx.forceRefreshPlayerData();
         MaredScriptRunner.start(new MaredScriptExecutor(ctx, commands));
     }
 
@@ -580,7 +623,6 @@ public class MaredEditorScreen extends Screen {
         }
 
         if (my >= logTop) {
-            // FIX 0.2.4: при клике на кнопку поиска — открыть/закрыть searchBox
             boolean wasSearchOpen = logPanel.isSearchOpen();
             if (logPanel.mouseClicked(mx, my, button, 0, logTop, logW,
                 MaredEditorLayout.logHeight(logCollapsed), this.font)) {
@@ -603,7 +645,6 @@ public class MaredEditorScreen extends Screen {
         EditBox searchBox = logPanel.searchBox();
         boolean searchFocused = searchBox != null && searchBox.isFocused();
 
-        // Если фокус на поиске — Esc закрывает, обычные клавиши отдаём EditBox
         if (searchFocused && keyCode == GLFW.GLFW_KEY_ESCAPE) {
             logPanel.closeSearch();
             updateLogSearchBox();
@@ -613,7 +654,6 @@ public class MaredEditorScreen extends Screen {
             return super.keyPressed(keyCode, scanCode, modifiers);
         }
 
-        // Мышь над логом?
         int logTop = MaredEditorLayout.logTop(logCollapsed);
         int logW = MaredEditorLayout.logWidth();
         boolean mouseOverLog = !logCollapsed
@@ -622,7 +662,6 @@ public class MaredEditorScreen extends Screen {
             && lastMouseY >= logTop
             && lastMouseY < MaredEditorLayout.screenH();
 
-        // FIX 0.2.4: Ctrl+F — открыть/закрыть поиск по логу
         if (ctrl && keyCode == GLFW.GLFW_KEY_F) {
             if (!logPanel.isSearchOpen()) {
                 openLogSearch();
@@ -635,7 +674,6 @@ public class MaredEditorScreen extends Screen {
             return true;
         }
 
-        // Ctrl+C — в редактор только если фокус + выделение + мышь НЕ над логом
         if (ctrl && keyCode == GLFW.GLFW_KEY_C) {
             if (editorFocused && editorHasSelection && !mouseOverLog) {
                 return super.keyPressed(keyCode, scanCode, modifiers);
@@ -644,7 +682,6 @@ public class MaredEditorScreen extends Screen {
             return true;
         }
 
-        // Ctrl+A — в лог, если мышь над логом; иначе в редактор
         if (ctrl && keyCode == GLFW.GLFW_KEY_A) {
             if (editorFocused && !mouseOverLog) {
                 return super.keyPressed(keyCode, scanCode, modifiers);
@@ -653,7 +690,6 @@ public class MaredEditorScreen extends Screen {
             return true;
         }
 
-        // Ctrl+S / Ctrl+Shift+S — экспорт лога / сохранение
         if (ctrl && keyCode == GLFW.GLFW_KEY_S && !editorFocused) {
             if (shift) {
                 onSave();
@@ -663,7 +699,6 @@ public class MaredEditorScreen extends Screen {
             return true;
         }
 
-        // Delete — удаление выбранного файла
         if (keyCode == GLFW.GLFW_KEY_DELETE
             && sidebar.selectedFile() != null && !editorFocused) {
             onDelete();
@@ -673,7 +708,6 @@ public class MaredEditorScreen extends Screen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    /** Открывает поиск в логе и фокусирует поле. */
     private void openLogSearch() {
         logPanel.setCollapsed(false);
         logPanel.setSearchOpen(true);
@@ -757,7 +791,6 @@ public class MaredEditorScreen extends Screen {
         int tabW = MaredEditorLayout.TAB_W();
         int toolbarH = MaredEditorLayout.TOOLBAR_H() + MaredEditorLayout.PAD();
 
-        // Автоскролл ДО рендера
         logPanel.tickAutoScroll();
 
         MaredUi.rect(g, 0, 0, screenW, screenH, BG);
@@ -802,7 +835,6 @@ public class MaredEditorScreen extends Screen {
                 false, mouseX, mouseY);
         }
 
-        // Автоскролл ПОСЛЕ рендера
         logPanel.tickAutoScroll();
 
         super.render(g, mouseX, mouseY, partialTick);
@@ -839,27 +871,27 @@ public class MaredEditorScreen extends Screen {
         }
     }
 
+    // ============================================================
+    //  MRED_COMMANDS
+    // ============================================================
+
     private static void ensureMredCommands() {
         if (MRED_COMMANDS != null) return;
         MRED_COMMANDS = new ArrayList<>();
 
         MRED_COMMANDS.add(mk("say", "Отправить сообщение в чат",
             "say \"Hello, $self\"",
-            args("text", "текст сообщения",
-                "say \"Hello!\"", "say $greeting")));
+            args("text", "текст сообщения", "say \"Hello!\"", "say $greeting")));
         MRED_COMMANDS.add(mk("wait", "Пауза в тиках/секундах",
             "wait 3 seconds",
             args("time", "время ожидания", "wait 3 seconds", "wait 100 ticks")));
         MRED_COMMANDS.add(mk("set", "Присвоить переменную",
             "set count = 5",
-            args("name = value", "имя и значение",
-                "set count = 5", "set name = \"Steve\""),
-            args("global.name", "глобальная переменная",
-                "set global.hp = 20", "set global.count = $global.count + 1")));
+            args("name = value", "имя и значение", "set count = 5", "set name = \"Steve\""),
+            args("global.name", "глобальная переменная", "set global.hp = 20", "set global.count = $global.count + 1")));
         MRED_COMMANDS.add(mk("array", "Объявить массив",
             "array items = [1, 2, 3]",
-            args("name = [values]", "массив значений",
-                "array items = [1, 2, 3]", "array names = [\"a\", \"b\"]")));
+            args("name = [values]", "массив значений", "array items = [1, 2, 3]", "array names = [\"a\", \"b\"]")));
         MRED_COMMANDS.add(mk("give", "Выдать предмет",
             "give @s diamond 5",
             args("target", "получатель", "give @s diamond 5"),
@@ -925,8 +957,146 @@ public class MaredEditorScreen extends Screen {
             args("", "", "say \"World: $world\"")));
         MRED_COMMANDS.add(mk("global", "Глобальная переменная",
             "set global.hp = 20",
-            args("set/get", "использование",
-                "set global.hp = 20", "say \"HP: $global.hp\"")));
+            args("set/get", "использование", "set global.hp = 20", "say \"HP: $global.hp\"")));
+
+        MRED_COMMANDS.add(mk("on block_break", "Сломан блок",
+            "on block_break { say \"$block_id\" }",
+            args("block_id", "ID блока", "minecraft:stone"),
+            args("block_x/y/z", "координаты блока", "10 64 20"),
+            args("block_name", "имя блока", "Stone")));
+        MRED_COMMANDS.add(mk("on block_place", "Поставлен блок",
+            "on block_place { say \"$block_id\" }",
+            args("block_id", "ID блока", "minecraft:oak_planks"),
+            args("block_x/y/z", "координаты", "10 65 20")));
+        MRED_COMMANDS.add(mk("on block_interact", "Клик по блоку",
+            "on block_interact { say \"clicked $block_id\" }",
+            args("block_id", "ID блока", "minecraft:chest"),
+            args("block_x/y/z", "координаты", "10 64 20")));
+        MRED_COMMANDS.add(mk("on entity_kill", "Убийство моба",
+            "on entity_kill { say \"killed $entity_id\" }",
+            args("entity_id", "ID сущности", "minecraft:zombie"),
+            args("entity_name", "имя сущности", "Zombie"),
+            args("entity_x/y/z", "координаты", "10 64 20")));
+        MRED_COMMANDS.add(mk("on entity_hurt", "Получен урон",
+            "on entity_hurt { say \"-$damage HP\" }",
+            args("damage", "урон", "5.0"),
+            args("hp", "текущее HP", "15"),
+            args("attacker", "кто атаковал", "Zombie")));
+        MRED_COMMANDS.add(mk("on player_death", "Смерть игрока",
+            "on player_death { say \"died at $x $y $z\" }",
+            args("death_cause", "причина", "zombie"),
+            args("killer", "убийца", "Zombie"),
+            args("x/y/z", "координаты", "10 64 20")));
+        MRED_COMMANDS.add(mk("on respawn", "Возрождение",
+            "on respawn { say \"respawned\" }",
+            args("x/y/z", "координаты", "0 64 0")));
+        MRED_COMMANDS.add(mk("on item_pickup", "Подобран предмет",
+            "on item_pickup { say \"picked $item_id\" }",
+            args("item_id", "ID предмета", "minecraft:diamond"),
+            args("item_count", "количество", "1")));
+        MRED_COMMANDS.add(mk("on item_crafted", "Скрафчен предмет",
+            "on item_crafted { say \"crafted $item_id\" }",
+            args("item_id", "ID предмета", "minecraft:stick"),
+            args("item_count", "количество", "4")));
+        MRED_COMMANDS.add(mk("on dimension_change", "Смена измерения",
+            "on dimension_change { say \"$from_dimension -> $to_dimension\" }",
+            args("from_dimension", "откуда", "overworld"),
+            args("to_dimension", "куда", "the_nether")));
+        MRED_COMMANDS.add(mk("on hotbar_switch", "Смена слота хотбара",
+            "on hotbar_switch { say \"slot $to_slot\" }",
+            args("from_slot", "было", "0"),
+            args("to_slot", "стало", "1")));
+        MRED_COMMANDS.add(mk("on sneak_start", "Начало подкрадывания",
+            "on sneak_start { say \"sneaking\" }"));
+        MRED_COMMANDS.add(mk("on sneak_end", "Конец подкрадывания",
+            "on sneak_end { say \"standing\" }"));
+        MRED_COMMANDS.add(mk("on sprint_start", "Начало спринта",
+            "on sprint_start { say \"running\" }"));
+        MRED_COMMANDS.add(mk("on sprint_end", "Конец спринта",
+            "on sprint_end { say \"stopped\" }"));
+        MRED_COMMANDS.add(mk("on jump", "Прыжок",
+            "on jump { say \"jumped\" }",
+            args("x/y/z", "координаты", "10 64 20")));
+        MRED_COMMANDS.add(mk("on use_item", "Использование предмета",
+            "on use_item { say \"used $item_id\" }",
+            args("item_id", "ID предмета", "minecraft:potion")));
+        MRED_COMMANDS.add(mk("on attack", "Атака сущности",
+            "on attack { say \"hit $target_id\" }",
+            args("target_id", "ID цели", "minecraft:zombie"),
+            args("target_name", "имя цели", "Zombie")));
+        MRED_COMMANDS.add(mk("on first_join", "Первый вход игрока",
+            "on first_join { say \"Welcome!\" }"));
+
+        MRED_COMMANDS.add(mk("every", "Каждые N тиков",
+            "every 20 ticks { say \"1 sec\" }",
+            args("N", "период в тиках (20 = 1 сек)", "every 20 ticks { ... }")));
+        MRED_COMMANDS.add(mk("after", "Через N тиков (один раз)",
+            "after 100 ticks { say \"5 sec passed\" }",
+            args("N", "задержка в тиках", "after 100 ticks { ... }")));
+        MRED_COMMANDS.add(mk("wait_until", "Ждать условие",
+            "wait_until $hp < 5",
+            args("condition", "условие", "wait_until $hp < 5")));
+        MRED_COMMANDS.add(mk("once", "Один раз за сессию",
+            "once { say \"initialized\" }",
+            args("block", "тело", "once { ... }")));
+        MRED_COMMANDS.add(mk("first_join", "Первый вход (синоним on first_join)",
+            "first_join { say \"Welcome!\" }",
+            args("block", "тело", "first_join { ... }")));
+
+        MRED_COMMANDS.add(mk("on player_move", "Игрок сдвинулся",
+            "on player_move { say \"$dx $dy $dz\" }",
+            args("dx/dy/dz", "смещение", "1 -1 0"),
+            args("from_x/y/z", "откуда", "10 64 20"),
+            args("x/y/z", "куда", "11 63 20")));
+        MRED_COMMANDS.add(mk("on health_change", "HP изменился",
+            "on health_change { say \"hp $old_hp -> $new_hp\" }",
+            args("old_hp", "старое HP", "20"),
+            args("new_hp", "новое HP", "15"),
+            args("delta", "разница", "-5")));
+        MRED_COMMANDS.add(mk("on hunger_change", "Голод изменился",
+            "on hunger_change { say \"food=$new_food\" }",
+            args("old_food", "старый", "20"),
+            args("new_food", "новый", "18"),
+            args("food_delta", "разница", "-2")));
+        MRED_COMMANDS.add(mk("on xp_change", "Опыт изменился",
+            "on xp_change { say \"+$xp_delta xp\" }",
+            args("old_xp", "старый", "0"),
+            args("new_xp", "новый", "5"),
+            args("xp_delta", "разница", "5")));
+        MRED_COMMANDS.add(mk("on item_drop", "Игрок выбросил предмет",
+            "on item_drop { say \"dropped $dropped\" }",
+            args("old_count", "было", "64"),
+            args("new_count", "стало", "63"),
+            args("dropped", "выброшено", "1")));
+        MRED_COMMANDS.add(mk("on gamemode_change", "Смена режима игры",
+            "on gamemode_change { say \"$old_gamemode -> $new_gamemode\" }",
+            args("old_gamemode", "было", "survival"),
+            args("new_gamemode", "стало", "creative")));
+
+        MRED_COMMANDS.add(mk("look_at", "Повернуть камеру на точку",
+            "look_at 100 64 200",
+            args("x/y/z", "координаты цели", "look_at $x $y ($z + 5)")));
+        MRED_COMMANDS.add(mk("look", "Установить углы камеры",
+            "look 90 0",
+            args("yaw", "поворот по горизонтали", "look 90 0"),
+            args("pitch", "наклон", "look 0 -45")));
+        MRED_COMMANDS.add(mk("move", "Зажать/отпустить клавишу движения",
+            "move forward on",
+            args("direction", "forward | back | left | right | sneak | sprint", "move forward on"),
+            args("mode", "on | off | toggle", "move forward off")));
+        MRED_COMMANDS.add(mk("stop", "Сбросить все действия", "stop"));
+        MRED_COMMANDS.add(mk("jump", "Прыжок (действие)", "jump"));
+        MRED_COMMANDS.add(mk("attack", "Атака (действие)", "attack"));
+        MRED_COMMANDS.add(mk("use", "Использовать предмет (ПКМ)", "use"));
+        MRED_COMMANDS.add(mk("drop", "Выбросить предмет", "drop"));
+        MRED_COMMANDS.add(mk("swap_hands", "Сменить руки", "swap_hands"));
+        MRED_COMMANDS.add(mk("select_slot", "Выбрать слот хотбара",
+            "select_slot 3",
+            args("n", "номер слота 0-8", "select_slot 0")));
+
+        MRED_COMMANDS.add(mk("off", "Снять слушателей событий",
+            "off all",
+            args("target", "имя события | every | after | all", "off tick_client", "off all")));
     }
 
     private static MaredCommandRegistry.Argument args(String value, String desc, String... examples) {

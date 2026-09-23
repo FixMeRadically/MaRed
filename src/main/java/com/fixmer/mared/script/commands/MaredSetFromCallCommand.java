@@ -3,14 +3,13 @@ package com.fixmer.mared.script.commands;
 import java.util.List;
 import java.util.Map;
 
+import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.script.MaredExpr;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
 
 /**
  * set x = call func(args) — вызвать функцию и присвоить результат переменной x.
- *
- * Аргументы передаются как объекты (см. MaredCallCommand.resolveArg).
  */
 public class MaredSetFromCallCommand extends MaredScriptCommand {
 
@@ -59,7 +58,11 @@ public class MaredSetFromCallCommand extends MaredScriptCommand {
                     e.clearReturnValue();
                 }
                 c.setVariable(targetVar, result);
-                c.log("[mared] set " + targetVar + " = " + MaredExpr.stringify(result));
+
+                // F9: только в verbose
+                if (MaredSettings.isVerboseScriptLog()) {
+                    c.log("[mared] set " + targetVar + " = " + MaredExpr.stringify(result));
+                }
 
                 return false;
             }

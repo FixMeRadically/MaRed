@@ -1,5 +1,8 @@
 package com.fixmer.mared;
 
+import java.util.List;
+
+import com.fixmer.mared.script.MaredActionRegistry;
 import com.fixmer.mared.script.MaredBindRegistry;
 import com.fixmer.mared.script.MaredKeyBlocker;
 import com.fixmer.mared.script.MaredKeyNames;
@@ -23,6 +26,10 @@ public final class MaredInputHandler {
         GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_SHIFT
       | GLFW.GLFW_MOD_ALT     | GLFW.GLFW_MOD_SUPER;
 
+    // ============================================================
+    //  Key press / release
+    // ============================================================
+
     @SubscribeEvent
     public static void onKey(InputEvent.Key event) {
         int key = event.getKey();
@@ -39,13 +46,20 @@ public final class MaredInputHandler {
     private static void handleKeyPress(int key, Minecraft mc) {
         int mods = currentMods() & MOD_MASK;
 
-        for (String keyStr : MaredBindRegistry.keys()) {
+        // FIX 0.2.5+: берём только бинды для этого keyCode — без парсинга всех.
+        List<String> keys = MaredBindRegistry.keysForCode(key);
+        if (keys.isEmpty()) return;
+
+        MinecraftServer server = mc.getSingleplayerServer();
+
+        int n = keys.size();
+        for (int i = 0; i < n; i++) {
+            String keyStr = keys.get(i);
+
             MaredKeyNames.ParsedKey pk = MaredKeyNames.parseAny(keyStr);
             if (pk == null) continue;
-            if (pk.keyCode != key) continue;
             if ((pk.modifiers & MOD_MASK) != mods) continue;
 
-            MinecraftServer server = mc.getSingleplayerServer();
             MaredBindRegistry.fire(keyStr, server);
             MaredBindRegistry.startHold(keyStr, server);
 
@@ -58,17 +72,27 @@ public final class MaredInputHandler {
     private static void handleKeyRelease(int key, Minecraft mc) {
         int mods = currentMods() & MOD_MASK;
 
-        for (String keyStr : MaredBindRegistry.keys()) {
+        List<String> keys = MaredBindRegistry.keysForCode(key);
+        if (keys.isEmpty()) return;
+
+        MinecraftServer server = mc.getSingleplayerServer();
+
+        int n = keys.size();
+        for (int i = 0; i < n; i++) {
+            String keyStr = keys.get(i);
+
             MaredKeyNames.ParsedKey pk = MaredKeyNames.parseAny(keyStr);
             if (pk == null) continue;
-            if (pk.keyCode != key) continue;
             if ((pk.modifiers & MOD_MASK) != mods) continue;
 
-            MinecraftServer server = mc.getSingleplayerServer();
             MaredBindRegistry.stopHold(keyStr);
             MaredBindRegistry.fireRelease(keyStr, server);
         }
     }
+
+    // ============================================================
+    //  Mouse
+    // ============================================================
 
     @SubscribeEvent
     public static void onMouseButton(InputEvent.MouseButton.Pre event) {
@@ -87,18 +111,19 @@ public final class MaredInputHandler {
             default: return;
         }
 
-        for (String keyStr : MaredBindRegistry.keys()) {
-            MaredKeyNames.ParsedKey pk = MaredKeyNames.parseAny(keyStr);
-            if (pk == null) continue;
-            if (pk.keyCode != maredCode) continue;
-
+        List<String> keys = MaredBindRegistry.keysForCode(maredCode);
+        if (!keys.isEmpty()) {
             MinecraftServer server = mc.getSingleplayerServer();
-            MaredBindRegistry.fire(keyStr, server);
+            int n = keys.size();
+            for (int i = 0; i < n; i++) {
+                String keyStr = keys.get(i);
+                MaredBindRegistry.fire(keyStr, server);
 
-            if (MaredBindRegistry.hasBlocking(keyStr)) {
-                MaredKeyBlocker.block(maredCode, keyStr);
-                event.setCanceled(true);
-                return;
+                if (MaredBindRegistry.hasBlocking(keyStr)) {
+                    MaredKeyBlocker.block(maredCode, keyStr);
+                    event.setCanceled(true);
+                    return;
+                }
             }
         }
 
@@ -107,8 +132,15 @@ public final class MaredInputHandler {
         }
     }
 
+    // ============================================================
+    //  Tick
+    // ============================================================
+
     @SubscribeEvent
     public static void onClientTickPre(ClientTickEvent.Pre event) {
+        // FIX 0.2.5+: применяем действия, заданные скриптом, до ванильного ввода
+        MaredActionRegistry.applyTick();
+
         MaredKeyBlocker.tick();
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
@@ -121,6 +153,10 @@ public final class MaredInputHandler {
     public static void onClientTickPost(ClientTickEvent.Post event) {
         MaredKeyBlocker.tick();
     }
+
+    // ============================================================
+    //  Модификаторы
+    // ============================================================
 
     private static int currentMods() {
         long window = Minecraft.getInstance().getWindow().getWindow();
@@ -136,9 +172,15 @@ public final class MaredInputHandler {
         return mods;
     }
 
+    // ============================================================
+    //  Server stopped
+    // ============================================================
+
     @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
         MaredBindRegistry.clearAll();
         MaredKeyBlocker.clear();
+        MaredActionRegistry.stopAll();
+        MaredKeyNames.clearCache();
     }
 }

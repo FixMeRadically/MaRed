@@ -1,0 +1,187 @@
+{
+  "commands": [
+    {
+      "name": "look_at",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Повернуть камеру на точку (x y z).",
+      "description_ru": "Повернуть камеру на точку (x y z).",
+      "example": "look_at 100 64 200",
+      "arguments": [
+        { "value": "x", "description": "X-координата цели", "description_ru": "X-координата цели", "examples": ["look_at $x $y ($z + 5)"] },
+        { "value": "y", "description": "Y-координата цели", "description_ru": "Y-координата цели", "examples": ["look_at 0 64 0"] },
+        { "value": "z", "description": "Z-координата цели", "description_ru": "Z-координата цели", "examples": ["look_at 100 64 200"] }
+      ]
+    },
+    {
+      "name": "look",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Установить углы камеры напрямую: yaw pitch.",
+      "description_ru": "Установить углы камеры напрямую: yaw pitch.",
+      "example": "look 90 0",
+      "arguments": [
+        { "value": "yaw", "description": "Поворот по горизонтали (-180..180)", "description_ru": "Поворот по горизонтали", "examples": ["look 90 0"] },
+        { "value": "pitch", "description": "Наклон (-90..90)", "description_ru": "Наклон", "examples": ["look 0 -45"] }
+      ]
+    },
+    {
+      "name": "move",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Зажать/отпустить клавишу движения.",
+      "description_ru": "Зажать/отпустить клавишу движения.",
+      "example": "move forward on",
+      "arguments": [
+        { "value": "direction", "description": "forward | back | left | right | sneak | sprint", "description_ru": "Направление", "examples": ["move forward on", "move sprint on"] },
+        { "value": "mode", "description": "on | off | toggle (по умолчанию on)", "description_ru": "Режим", "examples": ["move forward off"] }
+      ]
+    },
+    {
+      "name": "stop",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Сбросить все действия игрока (зажатые клавиши).",
+      "description_ru": "Сбросить все действия игрока (зажатые клавиши).",
+      "example": "stop"
+    },
+    {
+      "name": "jump",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Прыжок (действие).",
+      "description_ru": "Прыжок (действие).",
+      "example": "jump"
+    },
+    {
+      "name": "attack",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Атака (действие). Бьёт по сущности, на которую смотрит игрок.",
+      "description_ru": "Атака (действие).",
+      "example": "attack"
+    },
+    {
+      "name": "use",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Использовать предмет в главной руке (ПКМ).",
+      "description_ru": "Использовать предмет в главной руке (ПКМ).",
+      "example": "use"
+    },
+    {
+      "name": "drop",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Выбросить один предмет из главной руки.",
+      "description_ru": "Выбросить один предмет из главной руки.",
+      "example": "drop"
+    },
+    {
+      "name": "swap_hands",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Поменять предметы в руках (F).",
+      "description_ru": "Поменять предметы в руках.",
+      "example": "swap_hands"
+    },
+    {
+      "name": "select_slot",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Выбрать слот хотбара (0-8).",
+      "description_ru": "Выбрать слот хотбара (0-8).",
+      "example": "select_slot 3",
+      "arguments": [
+        { "value": "n", "description": "Номер слота 0-8", "description_ru": "Номер слота", "examples": ["select_slot 0", "select_slot 8"] }
+      ]
+    },
+
+    {
+      "name": "on player_move",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Игрок сдвинулся. data: from_x/y/z, x/y/z, dx/dy/dz.",
+      "description_ru": "Игрок сдвинулся.",
+      "example": "on player_move { say \"$dx $dy $dz\" }",
+      "arguments": [
+        { "value": "dx", "description": "Смещение по X", "description_ru": "Смещение по X", "examples": ["$dx"] },
+        { "value": "dy", "description": "Смещение по Y", "description_ru": "Смещение по Y", "examples": ["$dy"] },
+        { "value": "dz", "description": "Смещение по Z", "description_ru": "Смещение по Z", "examples": ["$dz"] }
+      ]
+    },
+    {
+      "name": "on health_change",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "HP изменился. data: old_hp, new_hp, delta.",
+      "description_ru": "HP изменился.",
+      "example": "on health_change { say \"hp $old_hp → $new_hp\" }"
+    },
+    {
+      "name": "on hunger_change",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Голод изменился. data: old_food, new_food, food_delta.",
+      "description_ru": "Голод изменился.",
+      "example": "on hunger_change { say \"food=$new_food\" }"
+    },
+    {
+      "name": "on xp_change",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Опыт изменился. data: old_xp, new_xp, xp_delta, old_xp_level, new_xp_level.",
+      "description_ru": "Опыт изменился.",
+      "example": "on xp_change { say \"+$xp_delta xp\" }"
+    },
+    {
+      "name": "on item_drop",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Игрок выбросил предмет. data: old_count, new_count, dropped.",
+      "description_ru": "Игрок выбросил предмет.",
+      "example": "on item_drop { say \"dropped $dropped\" }"
+    },
+    {
+      "name": "on gamemode_change",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Сменился режим игры. data: old_gamemode, new_gamemode.",
+      "description_ru": "Сменился режим игры.",
+      "example": "on gamemode_change { say \"$old_gamemode → $new_gamemode\" }"
+    },
+
+    {
+      "name": "$dist",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Расстояние между двумя точками: dist(x1,y1,z1, x2,y2,z2).",
+      "description_ru": "Расстояние между двумя точками.",
+      "example": "debug $dist($x,$y,$z, 0,64,0)"
+    },
+    {
+      "name": "$now",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Текущее время в миллисекундах (System.currentTimeMillis).",
+      "description_ru": "Текущее время в миллисекундах.",
+      "example": "debug $now()"
+    },
+    {
+      "name": "$uuid",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Случайный UUID.",
+      "description_ru": "Случайный UUID.",
+      "example": "debug $uuid()"
+    },
+    {
+      "name": "$lerp",
+      "category": "Mared",
+      "opLevel": 0,
+      "description": "Линейная интерполяция: lerp(a, b, t).",
+      "description_ru": "Линейная интерполяция.",
+      "example": "debug $lerp(0, 10, 0.5)"
+    }
+  ]
+}

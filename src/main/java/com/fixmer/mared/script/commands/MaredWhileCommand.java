@@ -2,6 +2,7 @@ package com.fixmer.mared.script.commands;
 
 import java.util.List;
 
+import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.script.MaredLang;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
@@ -10,9 +11,6 @@ import com.fixmer.mared.script.MaredScriptExecutor.LoopOwner;
 
 /**
  * while <условие> { ... }
- *
- * FIX: лимит снижен с 100_000 до 10_000 — защита от фриза клиента.
- * Если нужно больше итераций — добавь `wait 1 tick` в тело.
  */
 public class MaredWhileCommand extends MaredScriptCommand {
 
@@ -39,7 +37,10 @@ public class MaredWhileCommand extends MaredScriptCommand {
             public boolean onBodyFinished(MaredScriptContext c, MaredScriptExecutor ex, Frame bodyFrame) {
                 if (bodyFrame.breakRequested) {
                     bodyFrame.breakRequested = false;
-                    c.log("[mared] break — выход из while");
+                    // F9: только в verbose
+                    if (MaredSettings.isVerboseScriptLog()) {
+                        c.log("[mared] break — выход из while");
+                    }
                     return false;
                 }
                 if (bodyFrame.continueRequested) {

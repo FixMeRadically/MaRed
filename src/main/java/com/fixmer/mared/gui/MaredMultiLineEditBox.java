@@ -8,6 +8,7 @@ import java.util.List;
 import com.fixmer.mared.MaredSettings;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -55,6 +56,43 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     private final Deque<Snapshot> redoStack = new ArrayDeque<>();
     private boolean suppressUndoSnapshot = false;
 
+    // ============================================================
+    //  Кэш wrapped-строк
+    // ============================================================
+
+    /**
+     * Кэш на одну логическую строку:
+     *   physical — список физических строк (split по ширине)
+     *   charStart — индекс первого символа логической строки в physical[i]
+     *               (для pIdx=0 — 0, для pIdx>0 — позиция после пробелов)
+     */
+    private static final class LineWrap {
+        final List<String> physical;
+        final int[] charStart;
+
+        LineWrap(List<String> physical, int[] charStart) {
+            this.physical = physical;
+            this.charStart = charStart;
+        }
+    }
+
+    /** Кэш wrapped-строк по индексу логической строки. */
+    private final List<LineWrap> wrapCache = new ArrayList<>();
+    /** Версия контента — растёт при любой мутации lines. */
+    private int contentVersion = 0;
+    /** Версия ширины — растёт при изменении width. */
+    private int widthVersion = 0;
+    /** Для какой версии построен wrapCache. */
+    private int wrapCacheContentVersion = -1;
+    private int wrapCacheWidthVersion = -1;
+    private int wrapCacheAvailableWidth = -1;
+
+    /** Кэш «сколько физических строк до строки L». Растёт лениво. */
+    private int[] visualRowStarts = null;  // visualRowStarts[i] = визуальный ряд, с которого начинается логическая строка i
+    private int cachedTotalVisualRows = -1;
+    private int rowStartsContentVersion = -1;
+    private int rowStartsWidthVersion = -1;
+
     private static final class Snapshot {
         final List<String> lines;
         final int cursorLine;
@@ -89,9 +127,27 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
     public boolean isEditable() { return editable; }
 
+    /** Вызывать при изменении размеров виджета (width). */
+    private void invalidateWidth() {
+        widthVersion++;
+    }
+
+    /** Вызывать при любой мутации lines. */
+    private void invalidateContent() {
+        contentVersion++;
+    }
+
+    // ============================================================
+    //  Value
+    // ============================================================
+
     public String getValue() {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < lines.size(); i++) {
+        int n = lines.size();
+        if (n == 0) return "";
+        int totalLen = 0;
+        for (int i = 0; i < n; i++) totalLen += lines.get(i).length() + 1;
+        StringBuilder sb = new StringBuilder(totalLen);
+        for (int i = 0; i < n; i++) {
             if (i > 0) sb.append('\n');
             sb.append(lines.get(i));
         }
@@ -100,7 +156,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
     public void setValue(String text) {
         if (text != null) text = text.replace("\r", "");
-        // При программной установке значения НЕ создаём undo-снапшот
         suppressUndoSnapshot = true;
         lines.clear();
         String[] parts = text.split("\n", -1);
@@ -111,6 +166,8 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         undoStack.clear();
         redoStack.clear();
         suppressUndoSnapshot = false;
+        invalidateContent();
+        notifyChanged();
     }
 
     private void notifyChanged() {
@@ -121,13 +178,10 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     //  Undo / Redo
     // ============================================================
 
-    /** Снимок ДО изменения. Вызывать перед мутацией lines. */
     private void pushUndo() {
         if (suppressUndoSnapshot) return;
         undoStack.push(new Snapshot(lines, cursorLine, cursorCol));
         if (undoStack.size() > MAX_UNDO) {
-            // ArrayDeque не поддерживает removeLast — но у нас push/pop с головы,
-            // поэтому чтобы отрезать хвост, снимем весь стек в список.
             List<Snapshot> tmp = new ArrayList<>(undoStack);
             undoStack.clear();
             for (int i = 0; i < MAX_UNDO; i++) undoStack.push(tmp.get(i));
@@ -149,6 +203,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         clearSelection();
         ensureCursorVisible();
         suppressUndoSnapshot = false;
+        invalidateContent();
         notifyChanged();
     }
 
@@ -166,10 +221,11 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         clearSelection();
         ensureCursorVisible();
         suppressUndoSnapshot = false;
+        invalidateContent();
         notifyChanged();
     }
 
-    // ---- Selection (публично) ----
+    // ---- Selection ----
 
     public boolean hasSelection() {
         return selStartLine >= 0 && selEndLine >= 0
@@ -252,11 +308,14 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
         if (codePoint == '{' && shouldAutoIndentOnBrace()) {
             insertBraceBlock();
+            invalidateContent();
+            notifyChanged();
             return true;
         }
 
         lines.get(cursorLine).insert(cursorCol, codePoint);
         cursorCol++;
+        invalidateContent();
         notifyChanged();
         return true;
     }
@@ -269,12 +328,12 @@ public class MaredMultiLineEditBox extends AbstractWidget {
 
         if (ctrl) {
             switch (keyCode) {
-                case 67: copySelection(); return true;   // C
-                case 86: pasteFromClipboard(); return true; // V
-                case 88: cutSelection(); return true;    // X
-                case 65: selectAll(); return true;       // A
-                case 90: undo(); return true;            // Z
-                case 89: redo(); return true;            // Y
+                case 67: copySelection(); return true;
+                case 86: pasteFromClipboard(); return true;
+                case 88: cutSelection(); return true;
+                case 65: selectAll(); return true;
+                case 90: undo(); return true;
+                case 89: redo(); return true;
                 default: return false;
             }
         }
@@ -303,6 +362,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         pushUndo();
         Minecraft.getInstance().keyboardHandler.setClipboard(getSelectedText());
         deleteSelection();
+        invalidateContent();
         notifyChanged();
     }
 
@@ -332,6 +392,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             cursorCol = pasted[pasted.length - 1].length();
         }
         ensureCursorVisible();
+        invalidateContent();
         notifyChanged();
     }
 
@@ -357,11 +418,12 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         cursorLine++;
         cursorCol = indent.length();
         ensureCursorVisible();
+        invalidateContent();
         notifyChanged();
     }
 
     private void backspace() {
-        if (hasSelection()) { pushUndo(); deleteSelection(); notifyChanged(); return; }
+        if (hasSelection()) { pushUndo(); deleteSelection(); invalidateContent(); notifyChanged(); return; }
 
         if (cursorCol > 0 && MaredSettings.isBackspaceRemovesIndent()) {
             String line = lines.get(cursorLine).toString();
@@ -384,6 +446,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
                     pushUndo();
                     lines.get(cursorLine).delete(cursorCol - removeLen, cursorCol);
                     cursorCol -= removeLen;
+                    invalidateContent();
                     notifyChanged();
                     return;
                 }
@@ -394,6 +457,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             pushUndo();
             lines.get(cursorLine).deleteCharAt(cursorCol - 1);
             cursorCol--;
+            invalidateContent();
             notifyChanged();
         } else if (cursorLine > 0) {
             pushUndo();
@@ -404,21 +468,24 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             lines.remove(cursorLine);
             cursorLine--;
             ensureCursorVisible();
+            invalidateContent();
             notifyChanged();
         }
     }
 
     private void delete() {
-        if (hasSelection()) { pushUndo(); deleteSelection(); notifyChanged(); return; }
+        if (hasSelection()) { pushUndo(); deleteSelection(); invalidateContent(); notifyChanged(); return; }
         StringBuilder line = lines.get(cursorLine);
         if (cursorCol < line.length()) {
             pushUndo();
             line.deleteCharAt(cursorCol);
+            invalidateContent();
             notifyChanged();
         } else if (cursorLine < lines.size() - 1) {
             pushUndo();
             line.append(lines.get(cursorLine + 1));
             lines.remove(cursorLine + 1);
+            invalidateContent();
             notifyChanged();
         }
     }
@@ -461,10 +528,15 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     }
 
     private void ensureCursorVisible() {
-        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
+        int visibleLines = visibleLogicalRows();
         if (cursorLine < scrollLine) scrollLine = cursorLine;
         if (cursorLine >= scrollLine + visibleLines) scrollLine = cursorLine - visibleLines + 1;
         if (scrollLine < 0) scrollLine = 0;
+    }
+
+    /** Сколько логических строк влезает. Используется для скролла. */
+    private int visibleLogicalRows() {
+        return Math.max(1, (height - PADDING * 2) / LINE_HEIGHT);
     }
 
     // ============================================================
@@ -501,7 +573,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         cursorCol = bodyIndent.length();
 
         ensureCursorVisible();
-        notifyChanged();
     }
 
     private String computeIndentAtCursor() {
@@ -542,7 +613,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     public void onClick(double mx, double my) {
         if (!editable) return;
 
-        // Клик по скроллбару — начало drag
         if (isOverScrollbar(mx, my)) {
             beginScrollbarDrag(my);
             return;
@@ -579,26 +649,53 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         return super.mouseReleased(mx, my, button);
     }
 
+    // ============================================================
+    //  pixelToPos — быстрая версия (накопление ширины)
+    // ============================================================
+
     private int[] pixelToPos(double mx, double my) {
         int relX = (int) mx - getX() - PADDING - LINE_NUM_WIDTH;
         int relY = (int) my - getY() - PADDING;
         int clickedVisualRow = relY / LINE_HEIGHT + scrollLine;
-        clickedVisualRow = Mth.clamp(clickedVisualRow, 0, Math.max(0, lines.size() - 1));
-        String lineText = lines.get(clickedVisualRow).toString();
-        Minecraft mc = Minecraft.getInstance();
-        int col = lineText.length();
-        for (int i = 0; i <= lineText.length(); i++) {
-            int w = mc.font.width(lineText.substring(0, i));
-            if (w >= relX) { col = i; break; }
+        int maxVisual = Math.max(0, totalVisualRows() - 1);
+        clickedVisualRow = Mth.clamp(clickedVisualRow, 0, maxVisual);
+
+        // Найти логическую строку и позицию внутри неё
+        int logLine = findLogicalLineByVisualRow(clickedVisualRow);
+        LineWrap wrap = getWrapFor(logLine);
+        if (wrap == null) return new int[]{0, 0};
+
+        int physicalStart = visualRowStarts[logLine];
+        int physIdx = clickedVisualRow - physicalStart;
+        if (physIdx < 0) physIdx = 0;
+        if (physIdx >= wrap.physical.size()) physIdx = wrap.physical.size() - 1;
+
+        String physicalText = wrap.physical.get(physIdx);
+        int baseChar = wrap.charStart[physIdx];
+
+        // Накопление ширины
+        Font font = Minecraft.getInstance().font;
+        int accW = 0;
+        int col = physicalText.length();
+        for (int i = 0; i < physicalText.length(); i++) {
+            int chW = font.width(String.valueOf(physicalText.charAt(i)));
+            if (accW + chW >= relX) {
+                col = i;
+                break;
+            }
+            accW += chW;
         }
-        col = Mth.clamp(col, 0, lineText.length());
-        return new int[]{clickedVisualRow, col};
+
+        int logicalCol = baseChar + col;
+        String fullLine = lines.get(logLine).toString();
+        logicalCol = Mth.clamp(logicalCol, 0, fullLine.length());
+        return new int[]{logLine, logicalCol};
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double deltaX, double deltaY) {
         if (!this.isMouseOver(mx, my)) return false;
-        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
+        int visibleLines = visibleLogicalRows();
         int maxScroll = Math.max(0, lines.size() - visibleLines);
         if (deltaY < 0) scrollLine = Math.min(maxScroll, scrollLine + 1);
         else if (deltaY > 0) scrollLine = Math.max(0, scrollLine - 1);
@@ -608,8 +705,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     // ---- Скроллбар ----
 
     private boolean isScrollable() {
-        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
-        return lines.size() > visibleLines;
+        return lines.size() > visibleLogicalRows();
     }
 
     private boolean isOverScrollbar(double mx, double my) {
@@ -624,13 +720,13 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     }
 
     private int scrollbarThumbH() {
-        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
+        int visibleLines = visibleLogicalRows();
         int totalLines = lines.size();
         return Math.max(10, scrollbarTrackH() * visibleLines / Math.max(1, totalLines));
     }
 
     private int scrollbarThumbY() {
-        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
+        int visibleLines = visibleLogicalRows();
         int totalLines = lines.size();
         int maxScroll = Math.max(0, totalLines - visibleLines);
         if (maxScroll == 0) return getY() + 1;
@@ -645,7 +741,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     }
 
     private void dragScrollbar(double my) {
-        int visibleLines = (height - PADDING * 2) / LINE_HEIGHT;
+        int visibleLines = visibleLogicalRows();
         int totalLines = lines.size();
         int maxScroll = Math.max(0, totalLines - visibleLines);
         int travel = Math.max(1, scrollbarTrackH() - scrollbarThumbH());
@@ -653,21 +749,145 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         scrollLine = Mth.clamp(dragStartScroll + delta, 0, maxScroll);
     }
 
-    // ---- Render ----
+    // ============================================================
+    //  Wrap cache
+    // ============================================================
+
+    /** Доступная ширина для текста (без номеров строк и скроллбара). */
+    private int availableTextWidth() {
+        return width - PADDING * 2 - LINE_NUM_WIDTH - SCROLLBAR_W;
+    }
+
+    /** Построить (или вернуть из кэша) wrap-данные для одной строки. */
+    private LineWrap getWrapFor(int logLine) {
+        ensureWrapCache();
+
+        if (logLine < 0 || logLine >= lines.size()) return null;
+        LineWrap cached = wrapCache.get(logLine);
+        if (cached != null) return cached;
+
+        Font font = Minecraft.getInstance().font;
+        String text = lines.get(logLine).toString();
+        int availW = availableTextWidth();
+
+        List<String> physical = MaredUi.wrapLinesCached(font, text, availW);
+
+        int[] charStart = new int[physical.size()];
+        charStart[0] = 0;
+        int searchFrom = 0;
+        for (int i = 1; i < physical.size(); i++) {
+            int found = text.indexOf(physical.get(i), searchFrom);
+            if (found < 0) found = searchFrom;
+            // пропускаем пробелы
+            while (found < text.length() && text.charAt(found) == ' ') found++;
+            charStart[i] = found;
+            searchFrom = found + physical.get(i).length();
+        }
+
+        LineWrap lw = new LineWrap(physical, charStart);
+        wrapCache.set(logLine, lw);
+        return lw;
+    }
+
+    /** Перестроить wrapCache, если версии не совпадают. */
+    private void ensureWrapCache() {
+        if (wrapCacheContentVersion == contentVersion
+            && wrapCacheWidthVersion == widthVersion
+            && wrapCacheAvailableWidth == availableTextWidth()
+            && wrapCache.size() == lines.size()) {
+            return;
+        }
+
+        int n = lines.size();
+        wrapCache.clear();
+        for (int i = 0; i < n; i++) wrapCache.add(null);  // ленивая инициализация
+
+        wrapCacheContentVersion = contentVersion;
+        wrapCacheWidthVersion = widthVersion;
+        wrapCacheAvailableWidth = availableTextWidth();
+
+        // Инвалидируем rowStarts — они тоже зависят от wrap
+        rowStartsContentVersion = -1;
+    }
+
+    // ============================================================
+    //  Visual row starts (для быстрого поиска логической строки по visual row)
+    // ============================================================
+
+    /**
+     * visualRowStarts[i] = визуальный ряд, с которого начинается логическая строка i.
+     * cachedTotalVisualRows = общее количество визуальных рядов.
+     */
+    private void ensureVisualRowStarts() {
+        if (rowStartsContentVersion == contentVersion
+            && rowStartsWidthVersion == widthVersion
+            && visualRowStarts != null
+            && visualRowStarts.length == lines.size() + 1) {
+            return;
+        }
+
+        ensureWrapCache();
+
+        int n = lines.size();
+        int[] starts = new int[n + 1];
+        int total = 0;
+        for (int i = 0; i < n; i++) {
+            starts[i] = total;
+            LineWrap lw = getWrapFor(i);
+            total += (lw != null ? lw.physical.size() : 1);
+        }
+        starts[n] = total;
+
+        visualRowStarts = starts;
+        cachedTotalVisualRows = total;
+        rowStartsContentVersion = contentVersion;
+        rowStartsWidthVersion = widthVersion;
+    }
+
+    private int totalVisualRows() {
+        ensureVisualRowStarts();
+        return cachedTotalVisualRows;
+    }
+
+    /** Бинарный поиск логической строки по visual row. */
+    private int findLogicalLineByVisualRow(int visualRow) {
+        ensureVisualRowStarts();
+        int n = lines.size();
+        if (n == 0) return 0;
+        // visualRowStarts — отсортирован
+        int lo = 0, hi = n - 1;
+        while (lo < hi) {
+            int mid = (lo + hi + 1) >>> 1;
+            if (visualRowStarts[mid] <= visualRow) lo = mid;
+            else hi = mid - 1;
+        }
+        return lo;
+    }
+
+    // ============================================================
+    //  Render
+    // ============================================================
 
     @Override
     protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        Minecraft mc = Minecraft.getInstance();
+        Font font = Minecraft.getInstance().font;
 
         graphics.fill(getX(), getY(), getX() + width, getY() + height, COLOR_BG);
 
         graphics.enableScissor(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1);
 
         int visibleVisualRows = (height - PADDING * 2) / LINE_HEIGHT;
-        int availableWidth = width - PADDING * 2 - LINE_NUM_WIDTH - SCROLLBAR_W;
         int textX0 = getX() + PADDING + LINE_NUM_WIDTH;
         int lineNumX = getX() + PADDING;
 
+        ensureVisualRowStarts();
+        int totalVisual = cachedTotalVisualRows;
+
+        // Диапазон видимых visual rows: [scrollLine, scrollLine + visibleVisualRows)
+        int visualStart = scrollLine;
+        int visualEnd = Math.min(totalVisual, scrollLine + visibleVisualRows);
+
+        // Selection bounds (pre-compute)
         int selStartL = -1, selStartC = -1, selEndL = -1, selEndC = -1;
         if (hasSelection()) {
             int[] s = orderSelectionStart();
@@ -676,89 +896,89 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             selEndL = e[0]; selEndC = e[1];
         }
 
-        int visualRow = 0;
+        // Итерация по логическим строкам, начиная с той, что содержит visualStart
+        int startLog = findLogicalLineByVisualRow(visualStart);
 
-        Integer cursorVisualRow = null;
+        // Найти конец: логическая строка, которая содержит visualEnd (или последняя)
+        int endLog = (visualEnd > 0) ? findLogicalLineByVisualRow(visualEnd - 1) : startLog;
+        if (endLog >= lines.size()) endLog = lines.size() - 1;
+
+        int cursorVisualRow = -1;
         int cursorX = textX0;
-        int cursorBaseVisualRow = 0;
 
-        for (int li = 0; li < lines.size(); li++) {
-            String lineText = lines.get(li).toString();
-            List<String> physical = MaredUi.wrapLines(mc.font, lineText, availableWidth);
-            if (physical.isEmpty()) physical.add("");
+        for (int li = startLog; li <= endLog; li++) {
+            LineWrap wrap = getWrapFor(li);
+            if (wrap == null) continue;
 
-            if (visualRow + physical.size() <= scrollLine) {
-                visualRow += physical.size();
-                continue;
-            }
+            int physicalStart = visualRowStarts[li];
+            List<String> physical = wrap.physical;
+            int physCount = physical.size();
 
-            for (int pIdx = 0; pIdx < physical.size(); pIdx++) {
-                int currentVisual = visualRow;
-                visualRow++;
-
+            for (int pIdx = 0; pIdx < physCount; pIdx++) {
+                int currentVisual = physicalStart + pIdx;
                 if (currentVisual < scrollLine) continue;
-                int drawRow = currentVisual - scrollLine;
-                if (drawRow >= visibleVisualRows) continue;
+                if (currentVisual >= scrollLine + visibleVisualRows) break;
 
+                int drawRow = currentVisual - scrollLine;
                 int lineY = getY() + PADDING + drawRow * LINE_HEIGHT;
                 if (lineY >= getY() + height - PADDING) continue;
 
                 String physicalText = physical.get(pIdx);
+                int baseChar = wrap.charStart[pIdx];
 
+                // Номер строки — только для первой физической строки
                 if (pIdx == 0) {
                     String num = String.valueOf(li + 1);
-                    graphics.drawString(mc.font, num, lineNumX, lineY, COLOR_NUMBERS, false);
+                    graphics.drawString(font, num, lineNumX, lineY, COLOR_NUMBERS, false);
                 }
 
                 int curX = textX0;
-                int physCharStart = 0;
-                if (pIdx > 0) {
-                    int searchFrom = 0;
-                    for (int q = 0; q < pIdx; q++) {
-                        int found = lineText.indexOf(physical.get(q), searchFrom);
-                        if (found >= 0) searchFrom = found + physical.get(q).length();
-                    }
-                    while (searchFrom < lineText.length() && lineText.charAt(searchFrom) == ' ') {
-                        searchFrom++;
-                    }
-                    physCharStart = searchFrom;
-                }
-
-                for (int c = 0; c < physicalText.length(); c++) {
+                int physLen = physicalText.length();
+                for (int c = 0; c < physLen; c++) {
                     char rawChar = physicalText.charAt(c);
                     String ch = rawChar == '\t' ? "    " : String.valueOf(rawChar);
-                    int chWidth = mc.font.width(ch);
+                    int chWidth = font.width(ch);
 
-                    int logicalCol = physCharStart + c;
+                    int logicalCol = baseChar + c;
 
-                    if (hasSelection() && isCharSelected(li, logicalCol, selStartL, selStartC, selEndL, selEndC)) {
-                        graphics.fill(curX, lineY, curX + chWidth, lineY + LINE_HEIGHT - 1, COLOR_SELECT);
+                    // Selection
+                    if (selStartL >= 0) {
+                        boolean sel = isCharSelectedFast(li, logicalCol,
+                            selStartL, selStartC, selEndL, selEndC);
+                        if (sel) {
+                            graphics.fill(curX, lineY, curX + chWidth, lineY + LINE_HEIGHT - 1, COLOR_SELECT);
+                        }
                     }
 
-                    graphics.drawString(mc.font, ch, curX, lineY, COLOR_TEXT, false);
+                    graphics.drawString(font, ch, curX, lineY, COLOR_TEXT, false);
                     curX += chWidth;
 
                     if (cursorLine == li && cursorCol == logicalCol) {
                         cursorVisualRow = currentVisual;
                         cursorX = curX - chWidth;
-                        cursorBaseVisualRow = currentVisual;
                     }
                 }
 
-                if (cursorLine == li && cursorCol == physCharStart + physicalText.length()) {
+                // Курсор в конце физической строки
+                if (cursorLine == li && cursorCol == baseChar + physLen) {
                     cursorVisualRow = currentVisual;
                     cursorX = curX;
-                    cursorBaseVisualRow = currentVisual;
                 }
-            }
-
-            if (cursorLine == li && cursorCol == lineText.length()) {
-                int lastPhysRow = visualRow - 1;
-                cursorVisualRow = lastPhysRow;
             }
         }
 
-        if (editable && isFocused() && cursorVisualRow != null) {
+        // Курсор в самом конце логической строки (после последней физической)
+        if (cursorLine >= 0 && cursorLine < lines.size()
+            && cursorCol == lines.get(cursorLine).length()) {
+            int physStart = visualRowStarts[cursorLine];
+            LineWrap wrap = getWrapFor(cursorLine);
+            if (wrap != null) {
+                int lastPhys = physStart + wrap.physical.size() - 1;
+                cursorVisualRow = lastPhys;
+            }
+        }
+
+        if (editable && isFocused() && cursorVisualRow >= 0) {
             long now = System.currentTimeMillis();
             if (now - lastBlink > CURSOR_BLINK) {
                 cursorVisible = !cursorVisible;
@@ -783,17 +1003,17 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             int sbY = getY() + 1;
             int sbH = scrollbarTrackH();
 
-            // трек
             graphics.fill(sbX, sbY, sbX + SCROLLBAR_W, sbY + sbH, COLOR_SB_TRACK);
 
-            // ползунок
             int thumbH = scrollbarThumbH();
             int thumbY = scrollbarThumbY();
             graphics.fill(sbX, thumbY, sbX + SCROLLBAR_W, thumbY + thumbH, accentColor);
         }
     }
 
-    private boolean isCharSelected(int line, int col, int sl, int sc, int el, int ec) {
+    /** Fast selection check — inline, без массивов. */
+    private static boolean isCharSelectedFast(int line, int col,
+                                              int sl, int sc, int el, int ec) {
         if (line < sl || line > el) return false;
         if (line == sl && line == el) return col >= sc && col < ec;
         if (line == sl) return col >= sc;

@@ -3,7 +3,7 @@ package com.fixmer.mared.script.commands;
 import java.lang.reflect.Array;
 import java.util.List;
 
-import com.fixmer.mared.Mared;
+import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.script.MaredLang;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
@@ -45,9 +45,11 @@ public class MaredForInCommand extends MaredScriptCommand {
             return;
         }
 
-        ctx.log(MaredLang.format("mared.log.mared.for_in_start", var, arrayName, elements.length));
+        // F9: только в verbose
+        if (MaredSettings.isVerboseScriptLog()) {
+            ctx.log(MaredLang.format("mared.log.mared.for_in_start", var, arrayName, elements.length));
+        }
 
-        // FIX C: сохраняем старое значение
         final boolean hadVar = ctx.hasVariable(var);
         final Object oldVar = ctx.getVariable(var);
 
@@ -59,7 +61,10 @@ public class MaredForInCommand extends MaredScriptCommand {
             public boolean onBodyFinished(MaredScriptContext c, MaredScriptExecutor ex, Frame bodyFrame) {
                 if (bodyFrame.breakRequested) {
                     bodyFrame.breakRequested = false;
-                    c.log("[mared] break — выход из for-in");
+                    // F9: только в verbose
+                    if (MaredSettings.isVerboseScriptLog()) {
+                        c.log("[mared] break — выход из for-in");
+                    }
                     restoreVar(c);
                     return false;
                 }

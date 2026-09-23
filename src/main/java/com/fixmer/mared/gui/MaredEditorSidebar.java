@@ -49,14 +49,9 @@ public final class MaredEditorSidebar {
     public MaredEditorSidebar() {}
 
     // ============================================================
-    //  FIX 0.2.4: единый источник геометрии
+    //  Геометрия
     // ============================================================
 
-    /**
-     * Вся геометрия sidebar в одном месте.
-     * Раньше drawFull / handleClick / handleScroll / ensureFilterBox /
-     * drawCommandsList считали её отдельно и могли расходиться.
-     */
     public record SidebarGeometry(
         int tabW, int pad, int sidebarW,
         int listX, int listW,
@@ -173,6 +168,8 @@ public final class MaredEditorSidebar {
             commandFilterBox.setBordered(false);
             commandFilterBox.setMaxLength(64);
             commandFilterBox.setValue(commandFilter);
+            commandFilterBox.setTextColor(0xFFFFFFFF);
+            commandFilterBox.setTextColorUneditable(0xFFAAAAAA);
             commandFilterBox.setResponder(s -> {
                 commandFilter = s;
                 shouldRefreshCommands = true;
@@ -213,11 +210,10 @@ public final class MaredEditorSidebar {
         SidebarGeometry geo = computeGeometry(layout, logCollapsed, openTab);
         int pad = geo.pad();
 
-        // Заголовок
         MaredUi.text(g, font, MaredEditorTabs.title(openTab),
             geo.listX() + 2, MaredEditorLayout.arrowY() + (MaredEditorLayout.BTN_SZ() - 8) / 2, TEXT);
 
-        // Кнопка "+"
+        // "+"
         boolean plusHover = MaredUi.hovered(mouseX, mouseY,
             geo.plusX(), MaredEditorLayout.arrowY(),
             MaredEditorLayout.BTN_SZ(), MaredEditorLayout.BTN_SZ());
@@ -225,7 +221,7 @@ public final class MaredEditorSidebar {
             MaredEditorLayout.BTN_SZ(), MaredEditorLayout.BTN_SZ(), "+",
             plusHover ? BTN_HOVER : BTN_BG, accentTop, TEXT, plusHover);
 
-        // Кнопка "◄"
+        // "◄"
         boolean arrowHover = MaredUi.hovered(mouseX, mouseY,
             geo.arrowX(), MaredEditorLayout.arrowY(),
             MaredEditorLayout.BTN_SZ(), MaredEditorLayout.BTN_SZ());
@@ -257,7 +253,16 @@ public final class MaredEditorSidebar {
                         MaredUi.rect(gr, ix, iy, ix + stripeW, iy + ih, PERSISTENT_COLOR);
                     }
                     int textY = iy + (ih - 8) / 2;
-                    MaredUi.text(gr, f, fname, ix + pad, textY, TEXT);
+                    int textX = ix + pad;
+
+                    // FIX 0.2.6: обрезка длинных имён
+                    int maxTextW = iw - pad * 2 - delSz - MaredEditorLayout.px(8);
+                    String shown = fname;
+                    if (f.width(shown) > maxTextW) {
+                        int ellipsisW = f.width("...");
+                        shown = f.plainSubstrByWidth(fname, Math.max(0, maxTextW - ellipsisW)) + "...";
+                    }
+                    MaredUi.text(gr, f, shown, textX, textY, TEXT);
 
                     int delX = ix + iw - delSz - MaredEditorLayout.px(4);
                     int delY = iy + (ih - delSz) / 2;
@@ -278,11 +283,9 @@ public final class MaredEditorSidebar {
                                   int accentTop, int accentBottom, int selColor) {
         int pad = geo.pad();
 
-        // Разделитель
         MaredUi.rect(g, geo.tabW() + pad - 2, geo.commandsY() - 2,
             geo.tabW() + geo.sidebarW() - pad + 2, geo.commandsY(), 0xFF2A2A38);
 
-        // Заголовок
         int maxHeaderW = geo.toggleX() - geo.listX() - 4;
         String header = MaredLang.get("mared.ui.available_commands");
         if (maxHeaderW > 0 && font.width(header) > maxHeaderW) {
@@ -290,7 +293,6 @@ public final class MaredEditorSidebar {
         }
         MaredUi.text(g, font, header, geo.listX(), geo.commandsY() + 2, TEXT_DIM);
 
-        // Toggle MR/MC
         String toggleLabel = showMaredCommands ? "MR" : "MC";
         boolean toggleHover = MaredUi.hovered(mouseX, mouseY,
             geo.toggleX(), geo.toggleY(), geo.toggleW(), geo.toggleH());
@@ -299,7 +301,6 @@ public final class MaredEditorSidebar {
             geo.toggleW(), geo.toggleH(), toggleLabel,
             toggleHover ? BTN_HOVER : BTN_BG, bottom, TEXT, toggleHover);
 
-        // Filter
         MaredUi.rect(g, geo.listX(), geo.filterY(),
             geo.listX() + geo.listW(), geo.filterY() + MaredEditorLayout.FILTER_H(), FILTER_BG);
         MaredUi.outlineGradient(g, geo.listX(), geo.filterY(),
@@ -321,7 +322,15 @@ public final class MaredEditorSidebar {
             accentTop, bottom, selCol, ITEM_HOVER, ITEM_NORMAL,
             (gr, f, idx, ix, iy, iw, ih, hov, sel) -> {
                 int textY = iy + (ih - 8) / 2;
-                MaredUi.text(gr, f, filteredCommands.get(idx).name, ix + pad, textY, TEXT);
+                String cname = filteredCommands.get(idx).name;
+                // FIX 0.2.6: обрезка длинных имён команд
+                int maxTextW = iw - pad * 2;
+                String shown = cname;
+                if (f.width(shown) > maxTextW) {
+                    int ellipsisW = f.width("...");
+                    shown = f.plainSubstrByWidth(cname, Math.max(0, maxTextW - ellipsisW)) + "...";
+                }
+                MaredUi.text(gr, f, shown, ix + pad, textY, TEXT);
             },
             mouseX, mouseY);
     }

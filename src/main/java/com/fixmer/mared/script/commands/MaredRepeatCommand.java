@@ -2,6 +2,7 @@ package com.fixmer.mared.script.commands;
 
 import java.util.List;
 
+import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.script.MaredExpr;
 import com.fixmer.mared.script.MaredLang;
 import com.fixmer.mared.script.MaredScriptContext;
@@ -11,8 +12,6 @@ import com.fixmer.mared.script.MaredScriptExecutor.LoopOwner;
 
 /**
  * repeat N { ... }  или  repeat $n { ... }
- * Count вычисляется как выражение — поддерживает $переменные, арифметику.
- * Если count <= 0 — цикл не выполняется.
  */
 public class MaredRepeatCommand extends MaredScriptCommand {
 
@@ -45,7 +44,10 @@ public class MaredRepeatCommand extends MaredScriptCommand {
             public boolean onBodyFinished(MaredScriptContext c, MaredScriptExecutor ex, Frame bodyFrame) {
                 if (bodyFrame.breakRequested) {
                     bodyFrame.breakRequested = false;
-                    c.log("[mared] break — выход из repeat");
+                    // F9: только в verbose
+                    if (MaredSettings.isVerboseScriptLog()) {
+                        c.log("[mared] break — выход из repeat");
+                    }
                     return false;
                 }
                 if (bodyFrame.continueRequested) {

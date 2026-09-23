@@ -2,6 +2,7 @@ package com.fixmer.mared.script.commands;
 
 import java.util.List;
 
+import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.script.MaredExpr;
 import com.fixmer.mared.script.MaredLang;
 import com.fixmer.mared.script.MaredScriptContext;
@@ -41,7 +42,6 @@ public class MaredForCommand extends MaredScriptCommand {
         final int startValue = from;
         final int endValue   = to;
 
-        // FIX C: сохраняем старое значение переменной цикла
         final boolean hadVar = ctx.hasVariable(var);
         final Object oldVar = ctx.getVariable(var);
 
@@ -54,7 +54,10 @@ public class MaredForCommand extends MaredScriptCommand {
             public boolean onBodyFinished(MaredScriptContext c, MaredScriptExecutor ex, Frame bodyFrame) {
                 if (bodyFrame.breakRequested) {
                     bodyFrame.breakRequested = false;
-                    c.log("[mared] break — выход из for");
+                    // F9: только в verbose
+                    if (MaredSettings.isVerboseScriptLog()) {
+                        c.log("[mared] break — выход из for");
+                    }
                     restoreVar(c);
                     return false;
                 }

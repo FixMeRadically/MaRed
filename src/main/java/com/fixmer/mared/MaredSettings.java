@@ -41,6 +41,12 @@ public final class MaredSettings {
     private static IndentStyle indentStyle = IndentStyle.SPACES_4;
     private static boolean backspaceRemovesIndent = true;
 
+    /** FIX 0.2.5: логировать чат Mared в редактор. */
+    private static boolean logChatToEditor = true;
+
+    /** FIX 0.2.5+: логировать каждую команду скрипта (для отладки). По умолчанию — выкл. */
+    private static boolean verboseScriptLog = false;
+
     private static boolean loaded = false;
 
     // ---- Get / Set ----
@@ -53,6 +59,13 @@ public final class MaredSettings {
 
     public static boolean isBackspaceRemovesIndent() { return backspaceRemovesIndent; }
     public static void setBackspaceRemovesIndent(boolean v) { backspaceRemovesIndent = v; save(); }
+
+    public static boolean isLogChatToEditor() { return logChatToEditor; }
+    public static void setLogChatToEditor(boolean v) { logChatToEditor = v; save(); }
+
+    /** FIX 0.2.5+: логировать каждую команду скрипта. */
+    public static boolean isVerboseScriptLog() { return verboseScriptLog; }
+    public static void setVerboseScriptLog(boolean v) { verboseScriptLog = v; save(); }
 
     /** Строка отступа (Tab или пробелы). */
     public static String indentUnit() {
@@ -97,6 +110,12 @@ public final class MaredSettings {
             if (obj.has("backspaceRemovesIndent")) {
                 backspaceRemovesIndent = obj.get("backspaceRemovesIndent").getAsBoolean();
             }
+            if (obj.has("logChatToEditor")) {
+                logChatToEditor = obj.get("logChatToEditor").getAsBoolean();
+            }
+            if (obj.has("verboseScriptLog")) {
+                verboseScriptLog = obj.get("verboseScriptLog").getAsBoolean();
+            }
         } catch (Exception e) {
             Mared.LOGGER.error("Failed to load settings", e);
         }
@@ -110,6 +129,8 @@ public final class MaredSettings {
             obj.addProperty("autoIndent", autoIndent.name());
             obj.addProperty("indentStyle", indentStyle.name());
             obj.addProperty("backspaceRemovesIndent", backspaceRemovesIndent);
+            obj.addProperty("logChatToEditor", logChatToEditor);
+            obj.addProperty("verboseScriptLog", verboseScriptLog);
 
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
             Files.writeString(path, gson.toJson(obj), StandardCharsets.UTF_8);

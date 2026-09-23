@@ -1,5 +1,6 @@
 package com.fixmer.mared.script.commands;
 
+import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.script.MaredEventRegistry;
 import com.fixmer.mared.script.MaredExpr;
 import com.fixmer.mared.script.MaredScriptContext;
@@ -11,12 +12,9 @@ import net.minecraft.server.level.ServerPlayer;
 /**
  * say <текст> [scope=all|self|server]
  *
- * FIX 0.2.4:
- *   - убраны внешние кавычки в выводе
- *   - \t → 4 пробела
- *   - \n → отдельные строки чата
- *   - scope=self без initiator — молчим
- *   - FIX F: разэкранирование кавычек перед substitute/eval
+ * FIX 0.2.5: при MaredSettings.isLogChatToEditor() == true
+ * каждая строка, уходящая в чат, дублируется в лог редактора
+ * с префиксом [chat].
  */
 public class MaredSayCommand extends MaredScriptCommand {
 
@@ -43,6 +41,7 @@ public class MaredSayCommand extends MaredScriptCommand {
 
         String[] lines = resolved.split("\n", -1);
         boolean selfOnly = "self".equalsIgnoreCase(scope);
+        boolean logChat = MaredSettings.isLogChatToEditor();
 
         try {
             for (String line : lines) {
@@ -51,9 +50,11 @@ public class MaredSayCommand extends MaredScriptCommand {
                 if (selfOnly) {
                     if (initiator == null) continue;
                     initiator.sendSystemMessage(Component.literal(line));
+                    if (logChat) ctx.log("[chat] " + line);
                 } else {
                     Component msg = Component.literal(line);
                     server.getPlayerList().broadcastSystemMessage(msg, false);
+                    if (logChat) ctx.log("[chat] " + line);
                 }
             }
 
@@ -88,7 +89,6 @@ public class MaredSayCommand extends MaredScriptCommand {
     private String resolveText(String raw, MaredScriptContext ctx) {
         if (raw == null || raw.isEmpty()) return "";
 
-        // 1. Конкатенация ("a" + $b) → вычислить как выражение
         if (looksLikeConcat(raw)) {
             try {
                 Object v = MaredExpr.eval(raw, ctx);
@@ -96,7 +96,6 @@ public class MaredSayCommand extends MaredScriptCommand {
             } catch (Exception ignored) {}
         }
 
-        // 2. Обычная строка — снять кавычки, разэкранировать, подставить
         String stripped = stripOuterQuotes(raw);
         stripped = MaredDebugCommand.unescapeQuotes(stripped);
         return ctx.substitute(stripped);

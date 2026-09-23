@@ -2,12 +2,12 @@ package com.fixmer.mared.script.commands;
 
 import java.util.List;
 
+import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
 
 /**
  * func name($a, $b) { ... } — регистрирует функцию.
- * Само тело не выполняется. Оно выполнится при вызове `call`.
  */
 public class MaredFuncCommand extends MaredScriptCommand {
 
@@ -24,8 +24,12 @@ public class MaredFuncCommand extends MaredScriptCommand {
     @Override
     public boolean execute(MaredScriptContext ctx) {
         ctx.registerFunction(name, params, body);
-        ctx.log("[mared] функция объявлена: " + name
-            + "(" + String.join(", ", params) + ")");
+
+        // F9: только в verbose
+        if (MaredSettings.isVerboseScriptLog()) {
+            ctx.log("[mared] функция объявлена: " + name
+                + "(" + String.join(", ", params) + ")");
+        }
         return true;
     }
 

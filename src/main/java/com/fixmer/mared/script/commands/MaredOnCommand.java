@@ -2,6 +2,7 @@ package com.fixmer.mared.script.commands;
 
 import java.util.List;
 
+import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.script.MaredEventRegistry;
 import com.fixmer.mared.script.MaredScriptContext;
 import com.fixmer.mared.script.MaredScriptExecutor;
@@ -10,9 +11,6 @@ import com.fixmer.mared.script.MaredScriptExecutor;
  * on <event> [{ ... }]          — replace (по умолчанию)
  * on <event> add [{ ... }]      — add
  * on <event> replace [{ ... }]  — replace (явно)
- *
- * FIX 3: передаёт ctx.isPersistent() в реестр, чтобы событие
- * переживало выход из мира и не требовало перезапуска игры.
  */
 public class MaredOnCommand extends MaredScriptCommand {
 
@@ -32,12 +30,15 @@ public class MaredOnCommand extends MaredScriptCommand {
 
     @Override
     public void execute(MaredScriptContext ctx, MaredScriptExecutor exec) {
-        // ← FIX 3: пробрасываем persistent-флаг из контекста
         boolean persistent = ctx.isPersistent();
         MaredEventRegistry.register(eventType, body, ctx, replace, persistent);
-        String mode = replace ? "replace" : "add";
-        String pTag = persistent ? " [persistent]" : "";
-        ctx.log("[mared] on " + eventType + " " + mode + pTag + " (" + body.size() + " команд)");
+
+        // F9: только в verbose
+        if (MaredSettings.isVerboseScriptLog()) {
+            String mode = replace ? "replace" : "add";
+            String pTag = persistent ? " [persistent]" : "";
+            ctx.log("[mared] on " + eventType + " " + mode + pTag + " (" + body.size() + " команд)");
+        }
     }
 
     @Override public int getDelayTicks() { return 0; }

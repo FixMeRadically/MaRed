@@ -1,5 +1,8 @@
 package com.fixmer.mared.script;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.lwjgl.glfw.GLFW;
 
 public final class MaredKeyNames {
@@ -25,25 +28,54 @@ public final class MaredKeyNames {
     public static final int MOUSE_MIDDLE = -1003;
     public static final int MOUSE_MOVE   = -1004;
 
-    // ---- Клавиатура ----
+    // ============================================================
+    //  Кэш ParsedKey
+    // ============================================================
+
+    private static final Map<String, ParsedKey> CACHE = new HashMap<>(64);
+
+    // ============================================================
+    //  Парсинг
+    // ============================================================
 
     public static ParsedKey parse(String name) {
         if (name == null || name.isEmpty()) return null;
+
+        ParsedKey cached = CACHE.get(name);
+        if (cached != null) return cached;
+
+        ParsedKey parsed = parseUncached(name);
+        if (parsed != null) {
+            CACHE.put(name, parsed);
+        }
+        return parsed;
+    }
+
+    private static ParsedKey parseUncached(String name) {
         String raw = name;
         int mods = 0;
 
-        String[] parts = name.split("\\+");
-        for (int i = 0; i < parts.length - 1; i++) {
-            String m = parts[i].trim().toLowerCase();
-            switch (m) {
-                case "ctrl", "control" -> mods |= GLFW.GLFW_MOD_CONTROL;
-                case "shift"           -> mods |= GLFW.GLFW_MOD_SHIFT;
-                case "alt"             -> mods |= GLFW.GLFW_MOD_ALT;
-                case "super", "meta"   -> mods |= GLFW.GLFW_MOD_SUPER;
-                default -> { return null; }
+        // Ручной split по '+' без regex
+        int lastPlus = name.lastIndexOf('+');
+        if (lastPlus >= 0) {
+            // Разбираем модификаторы: "Ctrl+Shift+R"
+            int from = 0;
+            while (from <= lastPlus) {
+                int idx = name.indexOf('+', from);
+                if (idx < 0) idx = lastPlus;
+                String m = name.substring(from, idx).trim().toLowerCase();
+                switch (m) {
+                    case "ctrl", "control" -> mods |= GLFW.GLFW_MOD_CONTROL;
+                    case "shift"           -> mods |= GLFW.GLFW_MOD_SHIFT;
+                    case "alt"             -> mods |= GLFW.GLFW_MOD_ALT;
+                    case "super", "meta"   -> mods |= GLFW.GLFW_MOD_SUPER;
+                    default -> { return null; }
+                }
+                from = idx + 1;
             }
         }
-        String keyPart = parts[parts.length - 1].trim();
+
+        String keyPart = name.substring(lastPlus + 1).trim();
         int code = keyCode(keyPart);
         if (code < 0) return null;
         return new ParsedKey(code, mods, raw);
@@ -52,13 +84,52 @@ public final class MaredKeyNames {
     public static int keyCode(String name) {
         if (name == null || name.isEmpty()) return -1;
         String n = name.trim();
+        int len = n.length();
 
-        if (n.length() == 1) {
-            char c = Character.toUpperCase(n.charAt(0));
+        // Одиночный символ
+        if (len == 1) {
+            char c = n.charAt(0);
+            if (c >= 'a' && c <= 'z') return GLFW.GLFW_KEY_A + (c - 'a');
             if (c >= 'A' && c <= 'Z') return GLFW.GLFW_KEY_A + (c - 'A');
             if (c >= '0' && c <= '9') return GLFW.GLFW_KEY_0 + (c - '0');
         }
 
+        // F1..F25 — ручная проверка
+        if (len >= 2 && len <= 3 && (n.charAt(0) == 'F' || n.charAt(0) == 'f')) {
+            int num = 0;
+            boolean ok = true;
+            for (int i = 1; i < len; i++) {
+                char c = n.charAt(i);
+                if (c < '0' || c > '9') { ok = false; break; }
+                num = num * 10 + (c - '0');
+            }
+            if (ok && num >= 1 && num <= 25) {
+                return GLFW.GLFW_KEY_F1 + (num - 1);
+            }
+        }
+
+        // Numpad0..Numpad9 — ручная проверка
+        if (len == 7
+            && (n.charAt(0) == 'N' || n.charAt(0) == 'n')
+            && n.regionMatches(true, 1, "umpad", 0, 5)) {
+            char c = n.charAt(6);
+            if (c >= '0' && c <= '9') {
+                return GLFW.GLFW_KEY_KP_0 + (c - '0');
+            }
+        }
+
+        // Именованные клавиши — switch по нижнему регистру
+        // Чтобы не аллоцировать toLowerCase, работаем вручную:
+        // сначала быстрый switch по точному совпадению (частые случаи),
+        // затем — по lowercase.
+        switch (n) {
+            case "Space":      return GLFW.GLFW_KEY_SPACE;
+            case "Enter":      return GLFW.GLFW_KEY_ENTER;
+            case "Escape":     return GLFW.GLFW_KEY_ESCAPE;
+            case "Tab":        return GLFW.GLFW_KEY_TAB;
+        }
+
+        // Fallback — toLowerCase
         switch (n.toLowerCase()) {
             case "space":      return GLFW.GLFW_KEY_SPACE;
             case "enter":      return GLFW.GLFW_KEY_ENTER;
@@ -86,21 +157,16 @@ public final class MaredKeyNames {
             case "quote":      return GLFW.GLFW_KEY_APOSTROPHE;
         }
 
-        if (n.matches("[Ff][0-9]{1,2}")) {
-            int num = Integer.parseInt(n.substring(1));
-            if (num >= 1 && num <= 25) return GLFW.GLFW_KEY_F1 + (num - 1);
-        }
-
-        if (n.matches("[Nn]umpad[0-9]")) {
-            int num = n.charAt(6) - '0';
-            return GLFW.GLFW_KEY_KP_0 + num;
-        }
-
         return -1;
     }
 
+    // ============================================================
+    //  Display
+    // ============================================================
+
     public static String display(ParsedKey k) {
-        StringBuilder sb = new StringBuilder();
+        if (k == null) return "";
+        StringBuilder sb = new StringBuilder(16);
         if ((k.modifiers & GLFW.GLFW_MOD_CONTROL) != 0) sb.append("Ctrl+");
         if ((k.modifiers & GLFW.GLFW_MOD_SHIFT) != 0)   sb.append("Shift+");
         if ((k.modifiers & GLFW.GLFW_MOD_ALT) != 0)     sb.append("Alt+");
@@ -146,11 +212,14 @@ public final class MaredKeyNames {
         }
     }
 
-    // ---- Мышь ----
+    // ============================================================
+    //  Мышь
+    // ============================================================
 
     public static ParsedKey parseMouse(String name) {
         if (name == null) return null;
-        switch (name.toLowerCase()) {
+        String n = name.toLowerCase();
+        switch (n) {
             case "leftclick":   return new ParsedKey(MOUSE_LEFT, 0, name);
             case "rightclick":  return new ParsedKey(MOUSE_RIGHT, 0, name);
             case "middleclick": return new ParsedKey(MOUSE_MIDDLE, 0, name);
@@ -160,10 +229,21 @@ public final class MaredKeyNames {
         }
     }
 
-    /** Универсальный парсинг: клавиатура или мышь. */
+    /** Универсальный парсинг с кэшем: клавиатура или мышь. */
     public static ParsedKey parseAny(String name) {
+        if (name == null || name.isEmpty()) return null;
+
+        ParsedKey cached = CACHE.get(name);
+        if (cached != null) return cached;
+
         ParsedKey key = parse(name);
-        if (key != null) return key;
-        return parseMouse(name);
+        if (key == null) key = parseMouse(name);
+        if (key != null) CACHE.put(name, key);
+        return key;
+    }
+
+    /** Очистить кэш (например, при смене раскладки — на всякий случай). */
+    public static void clearCache() {
+        CACHE.clear();
     }
 }

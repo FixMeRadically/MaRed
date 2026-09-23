@@ -2,7 +2,6 @@ package com.fixmer.mared.script.commands;
 
 import java.util.List;
 
-import com.fixmer.mared.Mared;
 import com.fixmer.mared.script.MaredBindRegistry;
 import com.fixmer.mared.script.MaredKeyNames;
 import com.fixmer.mared.script.MaredLang;
@@ -10,13 +9,6 @@ import com.fixmer.mared.script.MaredScriptContext;
 
 /**
  * bind <key> [add|replace|clear|block|hold|release] [{ ... }]
- *
- * Режимы:
- *   DEFAULT / REPLACE — обычный бинд (срабатывает на нажатие, один раз)
- *   ADD               — добавить к существующим
- *   CLEAR             — удалить все бинды для клавиши
- *   HOLD              — тело выполняется каждый tick, пока клавиша удерживается
- *   RELEASE           — тело выполняется один раз при отпускании клавиши
  */
 public class MaredBindCommand extends MaredScriptCommand {
 
@@ -47,8 +39,6 @@ public class MaredBindCommand extends MaredScriptCommand {
     @Override
     public boolean execute(MaredScriptContext ctx) {
         String display = key != null ? MaredKeyNames.display(key) : keyRaw;
-        Mared.LOGGER.info("[Mared] MaredBindCommand.execute: key={}, mode={}, blockVanilla={}",
-            display, mode, blockVanilla);
 
         switch (mode) {
             case CLEAR -> {
@@ -81,5 +71,7 @@ public class MaredBindCommand extends MaredScriptCommand {
 
     @Override public int getDelayTicks() { return 0; }
 
-    @Override public String describe() { return "bind " + (key != null ? MaredKeyNames.display(key) : keyRaw); }
+    @Override public String describe() {
+        return "bind " + (key != null ? MaredKeyNames.display(key) : keyRaw);
+    }
 }

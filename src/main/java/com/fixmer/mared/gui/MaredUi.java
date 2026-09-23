@@ -1,7 +1,10 @@
 package com.fixmer.mared.gui;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -14,21 +17,13 @@ public final class MaredUi {
     //  Общие цвета фона (единые для всего UI)
     // ============================================================
 
-    /** Фон всего экрана редактора/диалогов. */
     public static final int SCREEN_BG   = 0xFF0A0A10;
-    /** Фон всплывающей панели (диалоги, настройки). */
     public static final int PANEL_BG    = 0xFF14141C;
-    /** Фон полей ввода / "утопленных" областей. */
     public static final int SUNKEN_BG   = 0xFF0A0A10;
-    /** Обычный текст. */
     public static final int TEXT        = 0xFFFFFFFF;
-    /** Приглушённый текст. */
     public static final int TEXT_DIM    = 0xFFAAAAAA;
-    /** Опасность (удаление, ошибки). */
     public static final int DANGER      = 0xFFFF4444;
-    /** Успех / подтверждение. */
     public static final int SUCCESS     = 0xFF55FF88;
-    /** Предупреждение. */
     public static final int WARN        = 0xFFFFAA00;
 
     // ============================================================
@@ -70,9 +65,6 @@ public final class MaredUi {
         outline(g, x, y, w, h, border);
     }
 
-    /**
-     * Универсальная 3D-панель с градиентной рамкой.
-     */
     public static void panel3D(GuiGraphics g, int x, int y, int w, int h,
                                int bg, int accentTop, int accentBottom) {
         g.fill(x, y, x + w, y + h, bg);
@@ -80,22 +72,13 @@ public final class MaredUi {
     }
 
     // ============================================================
-    //  Фон диалога / всплывающего экрана — как в настройках
+    //  Фон диалога
     // ============================================================
 
-    /**
-     * Затемнение под всплывающим экраном. Использует тот же фон, что
-     * MaredSettingsScreen (0xFF0A0A10), без ванильного blur.
-     * НЕ вызывает super.renderBackground — иначе MaredUi размажется.
-     */
     public static void dialogBackground(GuiGraphics g, int width, int height) {
         g.fill(0, 0, width, height, SCREEN_BG);
     }
 
-    /**
-     * Стандартная панель всплывающего экрана: тот же стиль, что в
-     * MaredSettingsScreen — panelGradient с accent-рамкой.
-     */
     public static void dialogPanel(GuiGraphics g, int x, int y, int w, int h, int accent) {
         panelGradient(g, x, y, w, h, PANEL_BG, accent, darken(accent, 0.4f));
     }
@@ -146,8 +129,13 @@ public final class MaredUi {
                                  int topColor, int bottomColor) {
         int h = y2 - y1;
         if (h <= 0) return;
+        if (h == 1) {
+            g.fill(x1, y1, x2, y1 + 1, topColor);
+            return;
+        }
+        int denom = h - 1;
         for (int i = 0; i < h; i++) {
-            int c = lerpColor(topColor, bottomColor, (float) i / Math.max(1, h - 1));
+            int c = lerpColor(topColor, bottomColor, (float) i / denom);
             g.fill(x1, y1 + i, x2, y1 + i + 1, c);
         }
     }
@@ -182,110 +170,119 @@ public final class MaredUi {
     }
 
     // ============================================================
-    //  Wrapped
+    //  Wrapped — оптимизированные версии
     // ============================================================
 
-    public static int wrapped(GuiGraphics g, Font f, String text, int x, int y, int maxW, int c) {
-        if (text == null || text.isEmpty()) return y;
-        StringBuilder line = new StringBuilder();
-        for (String word : text.split(" ")) {
-            while (f.width(word) > maxW) {
-                if (line.length() > 0) {
-                    g.drawString(f, line.toString(), x, y, c, true);
-                    y += 10;
-                    line = new StringBuilder();
-                }
-                int cut = 1;
-                while (cut < word.length() && f.width(word.substring(0, cut + 1)) <= maxW) cut++;
-                g.drawString(f, word.substring(0, cut), x, y, c, true);
-                y += 10;
-                word = word.substring(cut);
+    /** LRU-кэш высоты: (text + '\u0000' + maxW) → heightPx. */
+    private static final int HEIGHT_CACHE_MAX = 512;
+    private static final Map<String, Integer> HEIGHT_CACHE =
+        Collections.synchronizedMap(new LinkedHashMap<>(128, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, Integer> eldest) {
+                return size() > HEIGHT_CACHE_MAX;
             }
-            String test = line.length() == 0 ? word : line + " " + word;
-            if (f.width(test) > maxW) {
-                if (line.length() > 0) {
-                    g.drawString(f, line.toString(), x, y, c, true);
-                    y += 10;
-                }
-                line = new StringBuilder(word);
-            } else {
-                line = new StringBuilder(test);
+        });
+
+    /** LRU-кэш wrapped-строк: (text + '\u0000' + maxW) → List<String>. */
+    private static final int LINES_CACHE_MAX = 256;
+    private static final Map<String, List<String>> LINES_CACHE =
+        Collections.synchronizedMap(new LinkedHashMap<>(64, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, List<String>> eldest) {
+                return size() > LINES_CACHE_MAX;
             }
-        }
-        if (line.length() > 0) {
-            g.drawString(f, line.toString(), x, y, c, true);
-            y += 10;
-        }
-        return y;
+        });
+
+    private static String cacheKey(String text, int maxW) {
+        return text + '\u0000' + maxW;
     }
 
-    public static int wrappedHeight(Font f, String text, int maxW) {
-        if (text == null || text.isEmpty()) return 10;
-        int lines = 0;
-        StringBuilder line = new StringBuilder();
-        for (String word : text.split(" ")) {
-            while (f.width(word) > maxW) {
-                if (line.length() > 0) { lines++; line = new StringBuilder(); }
-                int cut = 1;
-                while (cut < word.length() && f.width(word.substring(0, cut + 1)) <= maxW) cut++;
-                lines++;
-                word = word.substring(cut);
-            }
-            String test = line.length() == 0 ? word : line + " " + word;
-            if (f.width(test) > maxW) {
-                if (line.length() > 0) lines++;
-                line = new StringBuilder(word);
-            } else {
-                line = new StringBuilder(test);
-            }
-        }
-        if (line.length() > 0) lines++;
-        return Math.max(1, lines) * 10;
-    }
-
+    /**
+     * Основная реализация. Разбивает текст на строки по ширине maxW.
+     * Использует font.width по словам, не по символам (быстро для нормального текста).
+     * Если слово не влезает — режет посимвольно.
+     *
+     * Возвращает новый список (не кэшированный).
+     * Для кэшированной версии — wrapLines().
+     */
     public static List<String> wrapLines(Font f, String text, int maxW) {
-        List<String> result = new ArrayList<>();
         if (text == null) text = "";
-        if (maxW <= 0) { result.add(text); return result; }
-        if (text.isEmpty()) { result.add(""); return result; }
-        if (f.width(text) <= maxW) { result.add(text); return result; }
+        if (maxW <= 0) return Collections.singletonList(text);
+        if (text.isEmpty()) return Collections.singletonList("");
 
-        StringBuilder current = new StringBuilder();
-        int i = 0;
+        // Быстрый путь: одна строка влезает целиком
+        if (f.width(text) <= maxW) return Collections.singletonList(text);
+
+        List<String> result = new ArrayList<>(4);
         int n = text.length();
+        int i = 0;
+
+        // Аккумулятор текущей строки
+        StringBuilder current = new StringBuilder(64);
+        int currentW = 0;
 
         while (i < n) {
+            // Находим конец слова
+            int wordStart = i;
+            while (i < n && text.charAt(i) == ' ') i++; // пропускаем пробелы
             int wordEnd = i;
             while (wordEnd < n && text.charAt(wordEnd) != ' ') wordEnd++;
-            String word = text.substring(i, wordEnd);
-            String space = (wordEnd < n) ? " " : "";
 
-            while (f.width(word) > maxW) {
-                int cut = 1;
-                while (cut < word.length()
-                       && f.width(word.substring(0, cut + 1)) <= maxW) {
-                    cut++;
-                }
-                if (current.length() > 0) {
-                    result.add(current.toString());
-                    current.setLength(0);
-                }
-                result.add(word.substring(0, cut));
-                word = word.substring(cut);
+            if (wordStart == wordEnd) {
+                // только пробелы до конца — выходим
+                break;
             }
 
-            String test = current.length() == 0 ? word : current + " " + word;
-            if (f.width(test) > maxW) {
+            String word = text.substring(wordStart, wordEnd);
+            int wordW = f.width(word);
+
+            // Слово не влезает в пустую строку — режем посимвольно
+            if (wordW > maxW) {
+                // Сбрасываем накопленное
                 if (current.length() > 0) {
                     result.add(current.toString());
                     current.setLength(0);
+                    currentW = 0;
                 }
+                // Режем слово
+                int wStart = 0;
+                int wn = word.length();
+                while (wStart < wn) {
+                    int wEnd = wStart + 1;
+                    int lastFit = wStart;
+                    // Ищем максимальный префикс, который влезает
+                    while (wEnd <= wn) {
+                        int ww = f.width(word.substring(wStart, wEnd));
+                        if (ww > maxW) break;
+                        lastFit = wEnd;
+                        wEnd++;
+                    }
+                    if (lastFit == wStart) lastFit = wStart + 1; // хотя бы 1 символ
+                    result.add(word.substring(wStart, lastFit));
+                    wStart = lastFit;
+                }
+                i = wordEnd;
+                continue;
+            }
+
+            // Проверяем, влезает ли слово с пробелом в текущую строку
+            if (current.length() == 0) {
                 current.append(word);
+                currentW = wordW;
             } else {
-                current = new StringBuilder(test);
+                int totalW = currentW + f.width(" ") + wordW;
+                if (totalW <= maxW) {
+                    current.append(' ').append(word);
+                    currentW = totalW;
+                } else {
+                    result.add(current.toString());
+                    current.setLength(0);
+                    current.append(word);
+                    currentW = wordW;
+                }
             }
 
-            i = wordEnd + space.length();
+            i = wordEnd;
         }
 
         if (current.length() > 0) {
@@ -293,6 +290,58 @@ public final class MaredUi {
         }
         if (result.isEmpty()) result.add("");
         return result;
+    }
+
+    /** Кэшированная версия wrapLines. */
+    public static List<String> wrapLinesCached(Font f, String text, int maxW) {
+        if (text == null) text = "";
+        if (maxW <= 0) return Collections.singletonList(text);
+        if (text.isEmpty()) return Collections.singletonList("");
+
+        String key = cacheKey(text, maxW);
+        List<String> cached = LINES_CACHE.get(key);
+        if (cached != null) return cached;
+
+        List<String> lines = wrapLines(f, text, maxW);
+        LINES_CACHE.put(key, lines);
+        return lines;
+    }
+
+    /**
+     * Рендерит wrapped-текст, возвращает y после последней строки.
+     */
+    public static int wrapped(GuiGraphics g, Font f, String text, int x, int y, int maxW, int c) {
+        if (text == null || text.isEmpty()) return y;
+        List<String> lines = wrapLines(f, text, maxW);
+        int n = lines.size();
+        for (int i = 0; i < n; i++) {
+            g.drawString(f, lines.get(i), x, y, c, true);
+            y += 10;
+        }
+        return y;
+    }
+
+    /**
+     * Высота wrapped-текста в пикселях (без рендера).
+     * Кэшируется — вызывается очень часто в InfoPanel.
+     */
+    public static int wrappedHeight(Font f, String text, int maxW) {
+        if (text == null || text.isEmpty()) return 10;
+        if (maxW <= 0) return 10;
+
+        String key = cacheKey(text, maxW);
+        Integer cached = HEIGHT_CACHE.get(key);
+        if (cached != null) return cached;
+
+        int h = wrapLines(f, text, maxW).size() * 10;
+        HEIGHT_CACHE.put(key, h);
+        return h;
+    }
+
+    /** Сбросить кэши (например, при смене шрифта / языка). */
+    public static void clearWrapCaches() {
+        HEIGHT_CACHE.clear();
+        LINES_CACHE.clear();
     }
 
     // ============================================================
@@ -313,9 +362,6 @@ public final class MaredUi {
         centered(g, f, label, x + w / 2, y + (h - 8) / 2, textColor);
     }
 
-    /**
-     * Универсальная 3D-кнопка с градиентной рамкой.
-     */
     public static void button3D(GuiGraphics g, Font f, int x, int y, int w, int h, String label,
                                 int bg, int accent, int textColor, boolean hovered) {
         int border = hovered ? accent : darken(accent, 0.3f);
@@ -327,10 +373,9 @@ public final class MaredUi {
     }
 
     // ============================================================
-    //  Специализированные кнопки (сокращение дублей в GUI)
+    //  Специализированные кнопки
     // ============================================================
 
-    /** Кнопка удаления — красная рамка + минус. */
     public static void drawDelButton(GuiGraphics g, int x, int y, int sz, boolean hovered) {
         int bg = hovered ? 0xFF663333 : 0xFF3A2020;
         rect(g, x, y, x + sz, y + sz, bg);
@@ -340,7 +385,6 @@ public final class MaredUi {
         drawMinus(g, cx, cy, sz / 2 - 2, DANGER);
     }
 
-    /** Кнопка разблокировки — зелёная рамка + "U". */
     public static void drawUnlockButton(GuiGraphics g, Font f, int x, int y, int sz, boolean hovered) {
         int bg = hovered ? 0xFF336633 : 0xFF203A20;
         rect(g, x, y, x + sz, y + sz, bg);
@@ -348,12 +392,10 @@ public final class MaredUi {
         centered(g, f, "U", x + sz / 2, y + sz / 2 - 4, SUCCESS);
     }
 
-    /** Значок «минус» — используется в кнопке удаления и в заголовке toggle. */
     public static void drawMinus(GuiGraphics g, int cx, int cy, int arm, int color) {
         rect(g, cx - arm, cy, cx + arm + 1, cy + 1, color);
     }
 
-    /** Чекбокс: рамка + (если checked) заливка. Используется в логе и настройках. */
     public static void drawCheckbox(GuiGraphics g, int x, int y, int sz, boolean checked,
                                     int border, int fill) {
         rect(g, x, y, x + sz, y + sz, SUNKEN_BG);
@@ -363,7 +405,6 @@ public final class MaredUi {
         }
     }
 
-    /** Чекбокс с галочкой (крест из двух полос). Используется в настройках. */
     public static void drawCheckMark(GuiGraphics g, int x, int y, int sz, boolean checked,
                                      int border, int fill) {
         rect(g, x, y, x + sz, y + sz, SUNKEN_BG);
@@ -377,7 +418,6 @@ public final class MaredUi {
         }
     }
 
-    /** Радиокнопка — квадрат с заливкой при selected. */
     public static void drawRadio(GuiGraphics g, int x, int y, int sz, boolean selected,
                                  int border, int fill) {
         rect(g, x, y, x + sz, y + sz, SUNKEN_BG);
@@ -387,7 +427,6 @@ public final class MaredUi {
         }
     }
 
-    /** Строка списка — фон + опциональная левая полоска. */
     public static void drawItemRow(GuiGraphics g, int x, int y, int w, int h,
                                    int bg, boolean selected,
                                    int stripeColor, int stripeW,
@@ -667,8 +706,8 @@ public final class MaredUi {
         public void dragScrollbar(double my, DragState drag) {
             int max = maxScroll();
             int travel = Math.max(1, drag.trackH - drag.thumbH);
-            offset = Math.max(0, Math.min(max,
-                (int) Math.round(drag.startOffset + (my - drag.startY) * max / travel)));
+            offset = Math.max(0, Math.min(max, (int) Math.round(
+                drag.startOffset + (my - drag.startY) * max / travel)));
         }
 
         public void wheel(double deltaY, int step) {
@@ -729,13 +768,16 @@ public final class MaredUi {
 
         public int height(Font f, int maxW) {
             int h = 0;
-            for (Row r : rows) h += r.height(f, maxW);
+            int n = rows.size();
+            for (int i = 0; i < n; i++) h += rows.get(i).height(f, maxW);
             return h;
         }
 
         public void render(GuiGraphics g, Font f, int x, int y, int maxW) {
             int cy = y;
-            for (Row r : rows) {
+            int n = rows.size();
+            for (int i = 0; i < n; i++) {
+                Row r = rows.get(i);
                 r.render(g, f, x, cy, maxW);
                 cy += r.height(f, maxW);
             }

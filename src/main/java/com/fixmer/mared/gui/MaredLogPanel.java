@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.List;
 
 import com.fixmer.mared.Mared;
+import com.fixmer.mared.script.MaredLang;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -40,10 +41,32 @@ public class MaredLogPanel {
     public static final int LOG_LINE   = 10;
     public static final int PANEL_H    = 140;
 
+    private static final int MAX_ENTRIES = 2000;
+
+    /** BUG-13 FIX: размер пачки удаления. */
+    private static final int TRIM_BATCH = 200;
+
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
     private static final int PAD = 4;
 
-    private final List<LogEntry> entries = Collections.synchronizedList(new ArrayList<>());
+    private static final int SEARCH_BOX_OFFSET_X  = 40;
+    private static final int SEARCH_BOX_RIGHT_PAD = 220;
+    private static final int SEARCH_BOX_Y_OFFSET  = 3;
+    private static final int SEARCH_BOX_HEIGHT    = 14;
+
+    private static final List<LogEntry> entries = Collections.synchronizedList(new ArrayList<>());
+    private static volatile boolean dirty = false;
+    private static boolean loadedFromDisk = false;
+
+    private List<LogEntry> visibleCache = null;
+    private int visibleCacheVersion = -1;
+    private int visibleCacheFilterVersion = -1;
+    private String visibleCacheQuery = null;
+
+    private static volatile int LOG_VERSION = 0;
+
+    private static void bumpLogVersion() { LOG_VERSION++; }
+
     private final MaredUi.ScrollArea scroll = new MaredUi.ScrollArea();
     private final MaredUi.PixelScroll filterScroll = new MaredUi.PixelScroll();
     private final MaredUi.DragState drag = new MaredUi.DragState();
@@ -65,7 +88,6 @@ public class MaredLogPanel {
     private Runnable onToggle = null;
     private boolean collapsed = false;
 
-    // === 0.2.4: Поиск по логу ===
     private boolean searchOpen = false;
     private String searchQuery = "";
     private EditBox searchBox;
@@ -73,7 +95,75 @@ public class MaredLogPanel {
     private int cachedX, cachedY, cachedW, cachedH;
     private Font cachedFont;
 
-    public MaredLogPanel() { MaredLogSettings.load(); }
+    public MaredLogPanel() {
+        MaredLogSettings.load();
+        if (!loadedFromDisk) {
+            loadedFromDisk = true;
+            loadFromDisk();
+        }
+    }
+
+    private static Path logFile() {
+        return FMLPaths.CONFIGDIR.get().resolve("mared").resolve("logs").resolve("current.log");
+    }
+
+    public static void saveToDisk() {
+        if (!dirty) return;
+        dirty = false;
+        try {
+            Path file = logFile();
+            Files.createDirectories(file.getParent());
+
+            StringBuilder sb = new StringBuilder(4096);
+            List<LogEntry> copy;
+            synchronized (entries) {
+                copy = new ArrayList<>(entries);
+            }
+            int n = copy.size();
+            for (int i = 0; i < n; i++) {
+                LogEntry e = copy.get(i);
+                sb.append('[').append(e.time).append("] ").append(e.text).append('\n');
+            }
+            Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            Mared.LOGGER.warn("[Mared] Failed to save current.log: {}", e.getMessage());
+        }
+    }
+
+    private static void loadFromDisk() {
+        if (!entries.isEmpty()) return;
+        Path file = logFile();
+        if (!Files.exists(file)) return;
+        try {
+            List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
+            synchronized (entries) {
+                int n = lines.size();
+                for (int i = 0; i < n; i++) {
+                    String line = lines.get(i);
+                    if (line.isEmpty()) continue;
+                    if (line.length() > 11 && line.charAt(0) == '[') {
+                        int close = line.indexOf(']');
+                        if (close > 0) {
+                            String time = line.substring(1, close);
+                            String text = line.substring(close + 1).trim();
+                            entries.add(new LogEntry(time, text));
+                        }
+                    }
+                }
+                // BUG-13 FIX: удаляем пачками
+                int size = entries.size();
+                if (size > MAX_ENTRIES) {
+                    int toRemove = size - MAX_ENTRIES + TRIM_BATCH;
+                    if (toRemove > size) toRemove = size;
+                    entries.subList(0, toRemove).clear();
+                }
+            }
+            bumpLogVersion();
+            Mared.LOGGER.info("[Mared] Log restored from disk: {} entries", entries.size());
+        } catch (IOException e) {
+            Mared.LOGGER.warn("[Mared] Failed to load current.log: {}", e.getMessage());
+        }
+    }
 
     public void setOnToggle(Runnable r) { this.onToggle = r; }
     public void setCollapsed(boolean c) {
@@ -82,31 +172,52 @@ public class MaredLogPanel {
     }
 
     public void add(String line) {
-        entries.add(new LogEntry(LocalTime.now().format(TIME_FMT), line));
-        if (entries.size() > 2000) entries.remove(0);
+        synchronized (entries) {
+            entries.add(new LogEntry(LocalTime.now().format(TIME_FMT), line));
+            // BUG-13 FIX: удаляем пачками
+            int size = entries.size();
+            if (size > MAX_ENTRIES) {
+                int toRemove = size - MAX_ENTRIES + TRIM_BATCH;
+                if (toRemove > size) toRemove = size;
+                entries.subList(0, toRemove).clear();
+            }
+        }
         scroll.offset = 0;
+        dirty = true;
+        bumpLogVersion();
+        invalidateVisibleCache();
     }
 
     public void clear() {
         synchronized (entries) { entries.clear(); }
         selStart = new Pos(-1, -1); selEnd = new Pos(-1, -1);
         scroll.offset = 0;
+        dirty = true;
+        bumpLogVersion();
+        invalidateVisibleCache();
+        saveToDisk();
     }
 
     public boolean isSettingsOpen() { return settingsOpen; }
     public boolean isSearchOpen() { return searchOpen; }
-    public void closeSettings() { settingsOpen = false; }
-    public void closeSearch() { searchOpen = false; }
 
-    /**
-     * FIX 0.2.4: публичный setter для поиска.
-     * Используется из MaredEditorScreen.openLogSearch() при Ctrl+F.
-     */
+    public void closeSearch() {
+        searchOpen = false;
+        searchQuery = "";
+        if (searchBox != null) searchBox.setFocused(false);
+        searchBox = null;
+        invalidateVisibleCache();
+    }
+
+    public void closeSettings() { settingsOpen = false; }
+
     public void setSearchOpen(boolean open) {
         this.searchOpen = open;
         if (!open) {
             this.searchQuery = "";
+            if (searchBox != null) searchBox.setFocused(false);
             this.searchBox = null;
+            invalidateVisibleCache();
         }
     }
 
@@ -114,65 +225,106 @@ public class MaredLogPanel {
         synchronized (entries) { return new ArrayList<>(entries); }
     }
 
-    /** Отфильтрованные + с учётом поиска. Используется везде, где раньше был snapshot(). */
+    private void invalidateVisibleCache() {
+        visibleCache = null;
+    }
+
     public List<LogEntry> getVisibleEntries() {
-        List<LogEntry> copy = snapshot();
-        List<LogEntry> result = new ArrayList<>();
-        String q = searchQuery == null ? "" : searchQuery.toLowerCase();
-        for (LogEntry e : copy) {
+        int logVer = LOG_VERSION;
+        int filtVer = MaredLogSettings.getVersion();
+        String q = searchQuery == null ? "" : searchQuery;
+
+        if (visibleCache != null
+            && visibleCacheVersion == logVer
+            && visibleCacheFilterVersion == filtVer
+            && q.equals(visibleCacheQuery)) {
+            return visibleCache;
+        }
+
+        List<LogEntry> copy;
+        synchronized (entries) {
+            copy = new ArrayList<>(entries);
+        }
+        int n = copy.size();
+        List<LogEntry> result = new ArrayList<>(n);
+        String qLower = q.isEmpty() ? "" : q.toLowerCase();
+
+        for (int i = 0; i < n; i++) {
+            LogEntry e = copy.get(i);
             if (!MaredLogSettings.shouldShow(e.text)) continue;
-            if (!q.isEmpty() && !e.text.toLowerCase().contains(q) && !e.time.contains(q)) continue;
+            // BUG-15 FIX: containsIgnoreCase вместо toLowerCase
+            if (!qLower.isEmpty()
+                && !containsIgnoreCase(e.text, qLower)
+                && !e.time.contains(q)) continue;
             result.add(e);
         }
+
+        visibleCache = result;
+        visibleCacheVersion = logVer;
+        visibleCacheFilterVersion = filtVer;
+        visibleCacheQuery = q;
         return result;
     }
 
-    // ============================================================
-    //  SearchBox
-    // ============================================================
+    /**
+     * BUG-15 FIX: поиск подстроки без аллокации новой строки.
+     */
+    private static boolean containsIgnoreCase(String haystack, String needleLower) {
+        if (needleLower.isEmpty()) return true;
+        int hLen = haystack.length();
+        int nLen = needleLower.length();
+        if (nLen > hLen) return false;
+        for (int i = 0; i <= hLen - nLen; i++) {
+            if (haystack.regionMatches(true, i, needleLower, 0, nLen)) return true;
+        }
+        return false;
+    }
 
     public EditBox searchBox() { return searchBox; }
+
+    private int searchBoxX(int x) { return x + SEARCH_BOX_OFFSET_X; }
+    private int searchBoxW(int w) { return Math.max(60, w - SEARCH_BOX_OFFSET_X - SEARCH_BOX_RIGHT_PAD); }
+    private int searchBoxY(int y) { return y + SEARCH_BOX_Y_OFFSET; }
 
     public EditBox ensureSearchBox(Font font, int x, int y, int w) {
         if (!searchOpen) { searchBox = null; return null; }
 
-        // Позиция — в шапке, между "Log" и кнопками
-        int boxX = x + 40;
-        int boxW = Math.max(60, w - 40 - 220);
-        int boxY = y + 3;
-        int boxH = 12;
+        int boxX = searchBoxX(x);
+        int boxW = searchBoxW(w);
+        int boxY = searchBoxY(y);
+        int boxH = SEARCH_BOX_HEIGHT;
 
         if (searchBox == null) {
-            searchBox = new EditBox(font, boxX, boxY, boxW, boxH, Component.literal("Search"));
+            searchBox = new EditBox(font, boxX, boxY, boxW, boxH,
+                Component.literal(MaredLang.get("mared.log.search_hint")));
             searchBox.setBordered(false);
             searchBox.setMaxLength(128);
             searchBox.setValue(searchQuery);
+            searchBox.setTextColor(0xFFFFFFFF);
+            searchBox.setTextColorUneditable(0xFFAAAAAA);
             searchBox.setResponder(s -> {
                 searchQuery = s == null ? "" : s;
                 scroll.offset = 0;
+                invalidateVisibleCache();
             });
         } else {
             searchBox.setX(boxX);
             searchBox.setY(boxY);
             searchBox.setWidth(boxW);
+            searchBox.setHeight(boxH);
         }
         return searchBox;
     }
 
-    // ============================================================
-    //  Шапка
-    // ============================================================
-
     private void drawHeader(GuiGraphics g, Font font, int x, int y, int w,
                             int mouseX, int mouseY) {
-        MaredUi.text(g, font, "Log", x + 6, y + 6, ACCENT);
+        MaredUi.text(g, font, MaredLang.get("mared.log.title"), x + 6, y + 6, ACCENT);
 
-        // Поиск — если открыт, место занято EditBox, рисуем только рамку
         if (searchOpen) {
-            int boxX = x + 40;
-            int boxW = Math.max(60, w - 40 - 220);
-            int boxY = y + 3;
-            int boxH = 12;
+            int boxX = searchBoxX(x);
+            int boxW = searchBoxW(w);
+            int boxY = searchBoxY(y);
+            int boxH = SEARCH_BOX_HEIGHT;
             MaredUi.rect(g, boxX - 1, boxY - 1, boxX + boxW + 1, boxY + boxH + 1, SEARCH_BG);
             MaredUi.outlineGradient(g, boxX - 1, boxY - 1, boxW + 2, boxH + 2, ACCENT, ACCENT);
         }
@@ -181,42 +333,42 @@ public class MaredLogPanel {
         int btnH = 14;
         int right = x + w - 6;
 
-        // Export
         right -= 50;
         boolean exportHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 50, btnH);
-        MaredUi.button3D(g, font, right, btnY, 50, btnH, "Export",
+        MaredUi.button3D(g, font, right, btnY, 50, btnH,
+            MaredLang.get("mared.log.button.export"),
             exportHover ? BTN_HOVER : BTN_BG, ACCENT, TEXT, exportHover);
 
-        // Clear
         right -= 4; right -= 44;
         boolean clearHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 44, btnH);
-        MaredUi.button3D(g, font, right, btnY, 44, btnH, "Clear",
+        MaredUi.button3D(g, font, right, btnY, 44, btnH,
+            MaredLang.get("mared.log.button.clear"),
             clearHover ? BTN_HOVER : BTN_BG, 0xFFFF5555, TEXT, clearHover);
 
-        // Copy
         right -= 4; right -= 44;
         boolean copyHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 44, btnH);
-        MaredUi.button3D(g, font, right, btnY, 44, btnH, "Copy",
+        MaredUi.button3D(g, font, right, btnY, 44, btnH,
+            MaredLang.get("mared.log.button.copy"),
             copyHover ? BTN_HOVER : BTN_BG, ACCENT, TEXT, copyHover);
 
-        // Search toggle
         right -= 4; right -= 18;
         boolean searchHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 18, btnH);
-        MaredUi.button3D(g, font, right, btnY, 18, btnH, "F",
+        MaredUi.button3D(g, font, right, btnY, 18, btnH,
+            MaredLang.get("mared.log.button.search"),
             searchHover ? BTN_HOVER : (searchOpen ? BTN_ACTIVE : BTN_BG),
             ACCENT, TEXT, searchHover);
 
-        // Settings
         right -= 4; right -= 18;
         boolean gearHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 18, btnH);
-        MaredUi.button3D(g, font, right, btnY, 18, btnH, "⚙",
+        MaredUi.button3D(g, font, right, btnY, 18, btnH,
+            MaredLang.get("mared.log.button.settings"),
             gearHover ? BTN_HOVER : (settingsOpen ? BTN_ACTIVE : BTN_BG),
             ACCENT, TEXT, gearHover);
 
-        // Toggle collapse
         right -= 4; right -= 18;
         boolean toggleHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 18, btnH);
-        MaredUi.button3D(g, font, right, btnY, 18, btnH, collapsed ? "▲" : "▼",
+        MaredUi.button3D(g, font, right, btnY, 18, btnH,
+            MaredLang.get("mared.log.button.toggle"),
             toggleHover ? BTN_HOVER : BTN_BG, ACCENT, TEXT, toggleHover);
     }
 
@@ -235,7 +387,12 @@ public class MaredLogPanel {
         right -= 4; right -= 18;
         if (MaredUi.hovered(mx, my, right, btnY, 18, btnH)) {
             searchOpen = !searchOpen;
-            if (!searchOpen) { searchQuery = ""; searchBox = null; }
+            if (!searchOpen) {
+                searchQuery = "";
+                if (searchBox != null) searchBox.setFocused(false);
+                searchBox = null;
+                invalidateVisibleCache();
+            }
             return true;
         }
         right -= 4; right -= 18;
@@ -250,10 +407,6 @@ public class MaredLogPanel {
         }
         return false;
     }
-
-    // ============================================================
-    //  Render
-    // ============================================================
 
     public void render(GuiGraphics g, Font font, int x, int y, int w, int h,
                        int mouseX, int mouseY) {
@@ -313,10 +466,6 @@ public class MaredLogPanel {
         scroll.drawScrollbar(g, ACCENT, SCROLLBAR_W);
     }
 
-    // ============================================================
-    //  Настройки фильтра
-    // ============================================================
-
     private int settingsContentHeight(Font font, int w) {
         int innerW = w - 12 - SCROLLBAR_W - 2;
         int lvlItemW = 70;
@@ -343,8 +492,8 @@ public class MaredLogPanel {
         int startY = y + 6 - filterScroll.offset;
         int innerW = w - 12 - SCROLLBAR_W - 2;
 
-        MaredUi.text(g, font, "Log filters", startX, startY, ACCENT);
-        MaredUi.text(g, font, "Levels:", startX, startY + 16, MaredUi.WARN);
+        MaredUi.text(g, font, MaredLang.get("mared.log.filter.title"), startX, startY, ACCENT);
+        MaredUi.text(g, font, MaredLang.get("mared.log.filter.levels"), startX, startY + 16, MaredUi.WARN);
 
         int lvlRowY = startY + 30;
         int lvlItemW = 70;
@@ -368,7 +517,7 @@ public class MaredLogPanel {
         int lvlRows = row + 1;
         lvlRowY += lvlRows * 14 + 8;
 
-        MaredUi.text(g, font, "Categories:", startX, lvlRowY, MaredUi.WARN);
+        MaredUi.text(g, font, MaredLang.get("mared.log.filter.categories"), startX, lvlRowY, MaredUi.WARN);
         lvlRowY += 14;
 
         int catItemW = 90;
@@ -393,10 +542,6 @@ public class MaredLogPanel {
         MaredUi.scissorOff(g);
         filterScroll.drawScrollbarGradient(g, ACCENT, ACCENT, SCROLLBAR_W);
     }
-
-    // ============================================================
-    //  Selection helpers
-    // ============================================================
 
     private boolean isLineSelected(int lineIdx) {
         if (!selStart.valid() || !selEnd.valid()) return false;
@@ -446,15 +591,9 @@ public class MaredLogPanel {
         return new Pos(idx, col);
     }
 
-    // ============================================================
-    //  Клик / drag / scroll
-    // ============================================================
-
     public boolean mouseClicked(double mx, double my, int button, int x, int y, int w, int h,
                                 Font font) {
-        // Шапка — включая клик по кнопкам
         if (my >= y && my < y + LOG_HEADER) {
-            // Если открыт поиск — не перехватываем клики по EditBox
             if (searchOpen && searchBox != null && searchBox.isMouseOver(mx, my)) {
                 return false;
             }
@@ -596,7 +735,9 @@ public class MaredLogPanel {
             int cx = startX + col * (lvlItemW + 4);
             int cy = lvlRowY + row * 14;
             if (MaredUi.hovered(mx, my, cx, cy, lvlItemW, 12)) {
-                MaredLogSettings.toggleLevel(lvl); return true;
+                MaredLogSettings.toggleLevel(lvl);
+                invalidateVisibleCache();
+                return true;
             }
             col++;
             if (col >= lvlCols) { col = 0; row++; }
@@ -613,7 +754,9 @@ public class MaredLogPanel {
             int cx = startX + col * (catItemW + 4);
             int cy = lvlRowY + row * 14;
             if (MaredUi.hovered(mx, my, cx, cy, catItemW, 12)) {
-                MaredLogSettings.toggleCategory(cat); return true;
+                MaredLogSettings.toggleCategory(cat);
+                invalidateVisibleCache();
+                return true;
             }
             col++;
             if (col >= catCols) { col = 0; row++; }
@@ -621,12 +764,8 @@ public class MaredLogPanel {
         return true;
     }
 
-    // ============================================================
-    //  Копирование / экспорт
-    // ============================================================
-
     public void copySelectedOrAll() {
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(1024);
         List<LogEntry> visible = getVisibleEntries();
 
         boolean hasRealSelection = selStart.valid() && selEnd.valid()
@@ -648,7 +787,9 @@ public class MaredLogPanel {
         } else {
             selStart = new Pos(-1, -1);
             selEnd = new Pos(-1, -1);
-            for (LogEntry e : visible) {
+            int n = visible.size();
+            for (int i = 0; i < n; i++) {
+                LogEntry e = visible.get(i);
                 sb.append('[').append(e.time).append("] ").append(e.text).append('\n');
             }
         }
@@ -670,10 +811,6 @@ public class MaredLogPanel {
         add("[info] all lines selected (" + visible.size() + ")");
     }
 
-    /**
-     * FIX 0.2.4: экспортирует только ОТФИЛЬТРОВАННЫЙ лог
-     * (учитывая настройки уровней/категорий и текущий поиск).
-     */
     public void exportLog() {
         try {
             Path dir = FMLPaths.CONFIGDIR.get().resolve("mared").resolve("logs");
@@ -683,8 +820,7 @@ public class MaredLogPanel {
             Path file = dir.resolve(name);
 
             List<LogEntry> visible = getVisibleEntries();
-            StringBuilder sb = new StringBuilder();
-            // Шапка файла — что было отфильтровано
+            StringBuilder sb = new StringBuilder(4096);
             sb.append("# Mared log export\n");
             sb.append("# Time: ").append(LocalDateTime.now()).append("\n");
             sb.append("# Lines: ").append(visible.size())
@@ -703,7 +839,9 @@ public class MaredLogPanel {
             }
             sb.append("\n\n");
 
-            for (LogEntry e : visible) {
+            int n = visible.size();
+            for (int i = 0; i < n; i++) {
+                LogEntry e = visible.get(i);
                 sb.append('[').append(e.time).append("] ").append(e.text).append('\n');
             }
             Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
@@ -718,6 +856,7 @@ public class MaredLogPanel {
     private int logColor(String line) {
         if (line.contains("[error]") || line.contains("[ошибка]")) return 0xFFFF5555;
         if (line.contains("[warn]") || line.contains("[предупр]")) return 0xFFFFAA00;
+        if (line.contains("[chat]"))       return 0xFF55FFFF;
         if (line.contains("[give error]")) return 0xFFFF5555;
         if (line.contains("[give]"))       return 0xFF55FF88;
         if (line.contains("[mc error]"))   return 0xFFFF5555;
@@ -738,6 +877,7 @@ public class MaredLogPanel {
         if (line.contains("[info]") || line.contains("[инфо]"))  return 0xFFAAAAAA;
         if (line.contains("[auto-save]") || line.contains("[автосейв]")) return 0xFF88DDFF;
         if (line.contains("[say]"))        return 0xFF88DDFF;
+        if (line.contains("[print]"))      return 0xFFCCCCFF;
         return TEXT;
     }
 

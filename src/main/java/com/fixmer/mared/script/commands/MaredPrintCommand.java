@@ -1,18 +1,38 @@
 package com.fixmer.mared.script.commands;
 
+import com.fixmer.mared.MaredSettings;
+import com.fixmer.mared.script.MaredEventRegistry;
 import com.fixmer.mared.script.MaredExpr;
 import com.fixmer.mared.script.MaredScriptContext;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+
 /**
- * print "..." — как say scope=self, но без префикса [say].
+ * print <текст> [scope=self|all]
  *
- * FIX F: разэкранирование кавычек перед substitute/eval.
+ * Без scope — только в лог редактора (как раньше).
+ * scope=self — в чат только инициатору.
+ * scope=all  — в чат всем.
+ *
+ * FIX 0.2.5: при MaredSettings.isLogChatToEditor() == true
+ * каждая строка, уходящая в чат, дублируется в лог редактора
+ * с префиксом [chat].
  */
 public class MaredPrintCommand extends MaredScriptCommand {
 
     private final String text;
+    private final String scope;
 
-    public MaredPrintCommand(String text) { this.text = text; }
+    public MaredPrintCommand(String text) {
+        this(text, "");
+    }
+
+    public MaredPrintCommand(String text, String scope) {
+        this.text = text;
+        this.scope = scope == null ? "" : scope;
+    }
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
@@ -31,9 +51,37 @@ public class MaredPrintCommand extends MaredScriptCommand {
             raw = ctx.substitute(raw);
         }
         raw = raw.replace("\t", "    ");
+
+        boolean chatMode = "self".equalsIgnoreCase(scope) || "all".equalsIgnoreCase(scope);
+        ServerPlayer initiator = ctx.getInitiator();
+        MinecraftServer server = ctx.getServer();
+        if (server == null && initiator != null) server = initiator.getServer();
+        boolean logChat = MaredSettings.isLogChatToEditor();
+
         for (String line : raw.split("\n", -1)) {
             ctx.log("[print] " + line);
+
+            if (!chatMode) continue;
+            if (line.isEmpty()) continue;
+
+            try {
+                if ("self".equalsIgnoreCase(scope)) {
+                    if (initiator != null) {
+                        initiator.sendSystemMessage(Component.literal(line));
+                        if (logChat) ctx.log("[chat] " + line);
+                    }
+                } else {
+                    if (server != null) {
+                        server.getPlayerList().broadcastSystemMessage(Component.literal(line), false);
+                        if (logChat) ctx.log("[chat] " + line);
+                    }
+                }
+            } catch (Exception e) {
+                ctx.log("[error] print: " + e.getMessage());
+            }
         }
+
+        if (chatMode) MaredEventRegistry.suppressChat(500);
         return true;
     }
 
@@ -55,6 +103,6 @@ public class MaredPrintCommand extends MaredScriptCommand {
         if (t.length() >= 2 && t.startsWith("\"") && t.endsWith("\"")) {
             t = t.substring(1, t.length() - 1);
         }
-        return "print \"" + t + "\"";
+        return "print \"" + t + "\"" + (scope.isEmpty() ? "" : " scope=" + scope);
     }
 }

@@ -13,7 +13,11 @@ import net.minecraft.network.chat.Component;
  * Верхняя панель с кнопками.
  * Ширина каждой кнопки = max(minBaseWidth, font.width(label) + 16).
  *
- * FIX 0.2.4: ButtonDef record вместо Object[][].
+ * FIX 0.2.6: новый порядок слева направо:
+ *   Close | Delete | Settings | Reload | Import | New | Save | Run
+ *
+ * Механика: список defs — СТРОГО справа налево (первая кнопка прижата
+ * к правому краю). Поэтому Run идёт первым в списке, Close — последним.
  */
 public final class MaredEditorToolbar {
 
@@ -24,7 +28,6 @@ public final class MaredEditorToolbar {
     public List<AbstractWidget> buttons() { return buttons; }
     public void clear() { buttons.clear(); }
 
-    /** FIX 0.2.4: типобезопасное описание кнопки. */
     private record ButtonDef(
         String labelKey,
         int baseW,
@@ -41,19 +44,20 @@ public final class MaredEditorToolbar {
         int right = ctx.screenW() - pad;
         boolean commandsTab = "commands".equals(ctx.openTab());
 
+        // Порядок в списке — СПРАВА НАЛЕВО.
+        // Итоговый порядок СЛЕВА НАПРАВО:
+        //   Close | Delete | Settings | Reload | Import | New | Save | Run
         List<ButtonDef> defs = new ArrayList<>();
-        defs.add(new ButtonDef("mared.ui.close",             60, 0xFF5555, false, ctx::onClose));
         defs.add(new ButtonDef("mared.ui.run",               50, 0x55FF55, false, ctx::onRun));
         defs.add(new ButtonDef("mared.ui.save",              70, 0x55AAFF, false, ctx::onSave));
-        defs.add(new ButtonDef("mared.ui.delete",            70, 0xFF4444, false, ctx::onDelete));
-        defs.add(new ButtonDef("mared.ui.import",            70, 0xFFAA00, false, ctx::onImport));
-        defs.add(new ButtonDef("mared.ui.settings",          80, 0xAAAAFF, true,  ctx::onSettings));
-        defs.add(new ButtonDef("mared.ui.reload_persistent", 80, 0x55FF88, true,  ctx::onReloadPersistent));
         defs.add(new ButtonDef("mared.ui.new",               60, 0xFF55FF, false, ctx::onNew));
+        defs.add(new ButtonDef("mared.ui.import",            70, 0xFFAA00, false, ctx::onImport));
+        defs.add(new ButtonDef("mared.ui.reload_persistent", 80, 0x55FF88, true,  ctx::onReloadPersistent));
+        defs.add(new ButtonDef("mared.ui.settings",          80, 0xAAAAFF, true,  ctx::onSettings));
+        defs.add(new ButtonDef("mared.ui.delete",            70, 0xFF4444, false, ctx::onDelete));
+        defs.add(new ButtonDef("mared.ui.close",             60, 0xFF5555, false, ctx::onClose));
 
-        // Идём с конца — кнопки прижимаются к правому краю
-        for (int i = defs.size() - 1; i >= 0; i--) {
-            ButtonDef def = defs.get(i);
+        for (ButtonDef def : defs) {
             if (def.onlyCommands() && !commandsTab) continue;
 
             String label = MaredLang.get(def.labelKey());

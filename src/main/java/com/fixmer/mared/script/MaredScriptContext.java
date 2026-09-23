@@ -25,7 +25,7 @@ public class MaredScriptContext {
 
     private ServerPlayer initiator;
     private final MinecraftServer server;
-    private final Map<String, Object> variables = new HashMap<>();
+    private final Map<String, Object> variables = new HashMap<>(64);
     private final Consumer<String> logger;
 
     private final Map<String, Func> functions = new HashMap<>();
@@ -40,6 +40,8 @@ public class MaredScriptContext {
     private int callDepth = 0;
     private static final int MAX_CALL_DEPTH = 256;
 
+    private long lastRefreshTick = -1;
+
     public MaredScriptContext(ServerPlayer initiator, MinecraftServer server, Consumer<String> logger) {
         this.initiator = initiator;
         this.server = server;
@@ -52,10 +54,6 @@ public class MaredScriptContext {
 
     public void log(String line) { if (logger != null) logger.accept(line); }
 
-    // ============================================================
-    //  Переменные
-    // ============================================================
-
     public void setVariable(String name, Object value) {
         if (name != null && name.startsWith("global.")) {
             MaredGlobalStorage.set(name, value);
@@ -67,9 +65,9 @@ public class MaredScriptContext {
     public Object getVariable(String name) {
         if (name == null) return null;
 
-        if (variables.containsKey(name)) {
-            return variables.get(name);
-        }
+        Object v = variables.get(name);
+        if (v != null) return v;
+        if (variables.containsKey(name)) return null;
 
         if (name.startsWith("global.")) {
             return MaredGlobalStorage.get(name);
@@ -88,12 +86,6 @@ public class MaredScriptContext {
         return null;
     }
 
-    /**
-     * FIX 0.2.4: hasVariable теперь согласован с getVariable.
-     * Для self/world возвращает true всегда — как и getVariable,
-     * который возвращает fallback ("console" / "unknown").
-     * Для global.* проверяет MaredGlobalStorage.
-     */
     public boolean hasVariable(String name) {
         if (name == null) return false;
         if (variables.containsKey(name)) return true;
@@ -105,15 +97,6 @@ public class MaredScriptContext {
 
     public Map<String, Object> getAllVariables() { return variables; }
 
-    // ============================================================
-    //  Синхронный вызов функции
-    // ============================================================
-
-    /**
-     * FIX A: убран лишний pushFunctionBodySync.
-     * FIX D: помечаем верхний кадр как functionCall = true,
-     *        чтобы return внутри функции не писал "return (вне функции)".
-     */
     public Object callFunction(String name, List<Object> args) {
         Func fn = functions.get(name);
         if (fn == null) {
@@ -125,11 +108,13 @@ public class MaredScriptContext {
         }
 
         Map<String, Object> backup = new HashMap<>();
-        for (String p : fn.params) {
+        int pn = fn.params.size();
+        for (int i = 0; i < pn; i++) {
+            String p = fn.params.get(i);
             backup.put(p, variables.get(p));
         }
 
-        for (int i = 0; i < fn.params.size(); i++) {
+        for (int i = 0; i < pn; i++) {
             String p = fn.params.get(i);
             Object value = (i < args.size()) ? args.get(i) : null;
             variables.put(p, value);
@@ -140,7 +125,6 @@ public class MaredScriptContext {
         try {
             MaredScriptExecutor exec = new MaredScriptExecutor(this, fn.body);
 
-            // FIX D: помечаем кадр функции, чтобы findEnclosingFunction его нашёл
             MaredScriptExecutor.Frame top = exec.peekTopFrame();
             if (top != null) top.functionCall = true;
 
@@ -164,10 +148,6 @@ public class MaredScriptContext {
         return result;
     }
 
-    // ============================================================
-    //  Встроенные данные
-    // ============================================================
-
     public void refreshPlayerData() {
         ServerPlayer player = initiator;
         if (player == null) {
@@ -176,6 +156,21 @@ public class MaredScriptContext {
             return;
         }
 
+        long nowTick = MaredTicks.get();
+        if (nowTick == lastRefreshTick && nowTick != 0) {
+            return;
+        }
+        lastRefreshTick = nowTick;
+
+        refreshPlayerDataImpl(player);
+    }
+
+    public void forceRefreshPlayerData() {
+        lastRefreshTick = -1;
+        refreshPlayerData();
+    }
+
+    private void refreshPlayerDataImpl(ServerPlayer player) {
         setVariable("player", player.getName().getString());
         setVariable("self", player.getName().getString());
         setVariable("uuid", player.getUUID().toString());
@@ -288,9 +283,10 @@ public class MaredScriptContext {
         }
 
         if (player.level() != null) {
-            long timeOfDay = player.level().getDayTime() % 24000L;
+            long dayTime = player.level().getDayTime();
+            long timeOfDay = dayTime % 24000L;
             setVariable("time", timeOfDay);
-            setVariable("day_count", player.level().getDayTime() / 24000L);
+            setVariable("day_count", dayTime / 24000L);
             setVariable("is_day", timeOfDay >= 0 && timeOfDay < 12000);
             setVariable("is_night", timeOfDay >= 12000);
             setVariable("is_raining", player.level().isRaining());
@@ -302,7 +298,7 @@ public class MaredScriptContext {
             else weather = "clear";
             setVariable("weather", weather);
 
-            setVariable("moon_phase", (long) (player.level().getDayTime() / 24000L % 8));
+            setVariable("moon_phase", (long) (dayTime / 24000L % 8));
 
             try {
                 if (player.level() instanceof ServerLevel sl) {
@@ -313,6 +309,9 @@ public class MaredScriptContext {
             } catch (Throwable t) {
                 setVariable("seed", 0L);
             }
+
+            setVariable("world", player.level().dimension().location().toString());
+            setVariable("world_name", player.level().dimension().location().getPath());
         } else {
             setVariable("time", 0L);
             setVariable("day_count", 0L);
@@ -323,12 +322,6 @@ public class MaredScriptContext {
             setVariable("weather", "clear");
             setVariable("moon_phase", 0L);
             setVariable("seed", 0L);
-        }
-
-        if (player.level() != null) {
-            setVariable("world", player.level().dimension().location().toString());
-            setVariable("world_name", player.level().dimension().location().getPath());
-        } else {
             setVariable("world", "unknown");
             setVariable("world_name", "unknown");
         }
@@ -364,36 +357,47 @@ public class MaredScriptContext {
     }
 
     // ============================================================
-    //  substitute
+    //  substitute — с BUG-16 FIX
     // ============================================================
 
-    /**
-     * FIX B: полный парсер подстановок.
-     * FIX C: isVarChar больше НЕ включает точку.
-     * FIX E: findExpressionEnd обрабатывает $fn(...) — вызов функции.
-     */
     public String substitute(String input) {
         if (input == null || input.isEmpty()) return input;
 
-        StringBuilder result = new StringBuilder();
+        StringBuilder result = new StringBuilder(input.length() + 16);
         int i = 0;
         int n = input.length();
 
         while (i < n) {
             char c = input.charAt(i);
 
+            // BUG-16 FIX: \$ → $ (escape, не подставлять)
+            if (c == '\\' && i + 1 < n && input.charAt(i + 1) == '$') {
+                result.append('$');
+                i += 2;
+                continue;
+            }
+
             // ${expr}
             if (c == '$' && i + 1 < n && input.charAt(i + 1) == '{') {
                 int start = i + 2;
                 int end = findMatchingBrace(input, start, n);
                 if (end < 0) {
-                    result.append("<UNCLOSED:").append(input.substring(i)).append(">");
+                    result.append("<UNCLOSED:").append(input, i, n).append(">");
                     break;
                 }
                 String expr = input.substring(start, end);
                 String value;
                 try {
-                    Object v = MaredExpr.eval(expr, this);
+                    String evalExpr = expr;
+                    if (!expr.isEmpty()) {
+                        char first = expr.charAt(0);
+                        if ((first >= 'a' && first <= 'z')
+                            || (first >= 'A' && first <= 'Z')
+                            || first == '_') {
+                            evalExpr = "$" + expr;
+                        }
+                    }
+                    Object v = MaredExpr.eval(evalExpr, this);
                     value = MaredExpr.stringify(v);
                 } catch (Exception e) {
                     value = "<ERR:" + e.getMessage() + ">";
@@ -403,7 +407,7 @@ public class MaredScriptContext {
                 continue;
             }
 
-            // $var или $var.method(...) или $fn(...) или $var + ...
+            // $var или $var.method(...)
             if (c == '$') {
                 int start = i + 1;
                 int end = start;
@@ -411,7 +415,6 @@ public class MaredScriptContext {
                 if (end > start) {
                     String varName = input.substring(start, end);
 
-                    // FIX E: $fn(...) — сразу открывающая скобка
                     if (end < n && input.charAt(end) == '(') {
                         int close = findMatchingParen(input, end, n);
                         if (close > 0) {
@@ -422,13 +425,10 @@ public class MaredScriptContext {
                                 result.append(MaredExpr.stringify(v));
                                 i = exprEnd;
                                 continue;
-                            } catch (Exception ignored) {
-                                // fallback ниже
-                            }
+                            } catch (Exception ignored) {}
                         }
                     }
 
-                    // Пробуем найти границы выражения и вычислить
                     int exprEnd = findExpressionEnd(input, end, n);
                     if (exprEnd > end) {
                         String fullExpr = input.substring(i + 1, exprEnd);
@@ -437,12 +437,9 @@ public class MaredScriptContext {
                             result.append(MaredExpr.stringify(v));
                             i = exprEnd;
                             continue;
-                        } catch (Exception ignored) {
-                            // откатываемся к простой подстановке
-                        }
+                        } catch (Exception ignored) {}
                     }
 
-                    // Простая подстановка переменной
                     if (hasVariable(varName)) {
                         Object value = getVariable(varName);
                         result.append(MaredExpr.stringify(value));
@@ -450,8 +447,7 @@ public class MaredScriptContext {
                         continue;
                     }
 
-                    // Не найдено — оставить как есть
-                    result.append("$").append(varName);
+                    result.append('$').append(varName);
                     i = end;
                     continue;
                 }
@@ -463,13 +459,9 @@ public class MaredScriptContext {
         return unescape(result.toString());
     }
 
-    /**
-     * FIX E: если start — открывающая скобка, это вызов $fn(...).
-     */
     private int findExpressionEnd(String s, int start, int n) {
         int i = start;
 
-        // $fn(...)
         if (i < n && s.charAt(i) == '(') {
             int close = findMatchingParen(s, i, n);
             if (close > 0) return close + 1;
@@ -489,7 +481,8 @@ public class MaredScriptContext {
                     i = close + 1;
                     continue;
                 }
-                break;
+                i = j;
+                continue;
             }
 
             if (c == '[') {
@@ -500,9 +493,6 @@ public class MaredScriptContext {
             }
 
             if (c == '+' || c == '-' || c == '*' || c == '/' || c == '%') {
-                if (i == start && (c == '+' || c == '-')) {
-                    // унарный
-                }
                 int j = i + 1;
                 while (j < n && s.charAt(j) == ' ') j++;
                 if (j < n && (Character.isLetterOrDigit(s.charAt(j)) || s.charAt(j) == '$'
@@ -598,12 +588,13 @@ public class MaredScriptContext {
         return -1;
     }
 
-    private boolean isVarChar(char c) {
-        return Character.isLetterOrDigit(c) || c == '_';
+    private static boolean isVarChar(char c) {
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9') || c == '_';
     }
 
-    private boolean isIdentChar(char c) {
-        return Character.isLetterOrDigit(c) || c == '_';
+    private static boolean isIdentChar(char c) {
+        return isVarChar(c);
     }
 
     private static String unescape(String s) {

@@ -20,13 +20,19 @@ public class MaredWaitCommand extends MaredScriptCommand {
 
     @Override
     public int getDelayTicks() {
-        double seconds = switch (unit.toLowerCase()) {
-            case "ticks", "t"          -> amount / 20.0;
-            case "ms", "milliseconds"  -> amount / 1000.0;
-            case "minutes", "m"        -> amount * 60.0;
-            case "seconds", "s", ""    -> amount;
-            default -> amount;
-        };
+        String u = unit.toLowerCase();
+        double seconds;
+        switch (u) {
+            // F8b FIX: tick / ticks / t
+            case "tick", "ticks", "t" -> seconds = amount / 20.0;
+            // F8b FIX: ms / millisecond / milliseconds
+            case "ms", "millisecond", "milliseconds" -> seconds = amount / 1000.0;
+            // F8b FIX: minute / minutes / m
+            case "minute", "minutes", "m" -> seconds = amount * 60.0;
+            // F8b FIX: second / seconds / s / ""
+            case "second", "seconds", "s", "" -> seconds = amount;
+            default -> seconds = amount;
+        }
         return (int) Math.round(seconds * 20);
     }
 

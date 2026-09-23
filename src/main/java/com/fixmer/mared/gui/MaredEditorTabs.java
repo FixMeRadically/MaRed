@@ -44,7 +44,6 @@ public final class MaredEditorTabs {
 
         for (int i = 0; i < TABS.length; i++) {
             int y = i * tabH;
-            // FIX: обрезка — не рисуем ниже экрана
             if (y >= screenH) break;
             int bottom = Math.min(y + tabH, screenH);
 
@@ -86,7 +85,12 @@ public final class MaredEditorTabs {
         };
     }
 
+    /**
+     * FIX 0.2.6: редактор активен только для вкладки "commands".
+     * Скрипты (scripts) временно отключены — как NPC/Events/Quests —
+     * до появления отдельного редактора скриптов.
+     */
     public static boolean isSupported(String tab) {
-        return "scripts".equals(tab) || "commands".equals(tab);
+        return "commands".equals(tab);
     }
 }
