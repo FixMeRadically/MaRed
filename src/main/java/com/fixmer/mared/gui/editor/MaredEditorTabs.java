@@ -1,11 +1,14 @@
 package com.fixmer.mared.gui.editor;
 
+import com.fixmer.mared.MaredLang;
+import com.fixmer.mared.gui.common.MaredUi;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import com.fixmer.mared.gui.common.MaredUi;
-import com.fixmer.mared.MaredLang;
 
 public final class MaredEditorTabs {
+
+    private MaredEditorTabs() {}
 
     public static final String[] TABS    = {"scripts", "commands", "npc", "events", "quests"};
     public static final String[] LETTERS = {"S", "C", "N", "E", "Q"};
@@ -25,14 +28,11 @@ public final class MaredEditorTabs {
     private static final int ITEM_HOVER = 0xFF3A3A4A;
     private static final int ITEM_NORMAL= 0xFF252530;
 
-    private MaredEditorTabs() {}
-
     public static int hitTab(double mx, double my) {
         if (mx < 0 || my < 0) return -1;
         int tabW = MaredEditorLayout.TAB_W();
-        int tabH = MaredEditorLayout.TAB_H();
         if (mx >= tabW) return -1;
-        int idx = (int) (my / tabH);
+        int idx = (int) (my / MaredEditorLayout.TAB_H());
         if (idx < 0 || idx >= TABS.length) return -1;
         return idx;
     }
@@ -41,6 +41,7 @@ public final class MaredEditorTabs {
         int tabW = MaredEditorLayout.TAB_W();
         int tabH = MaredEditorLayout.TAB_H();
         int screenH = MaredEditorLayout.screenH();
+        int textYOff = (tabH - 8) / 2 + 1;
 
         for (int i = 0; i < TABS.length; i++) {
             int y = i * tabH;
@@ -50,27 +51,41 @@ public final class MaredEditorTabs {
             boolean hovered = mouseX >= 0 && mouseX < tabW && mouseY >= y && mouseY < bottom;
             boolean active = TABS[i].equals(openTab);
 
-            int[] colors = colorsFor(TABS[i]);
-            int top = colors[0], bot = colors[1];
+            int top = topColor(TABS[i]);
+            int bot = bottomColor(TABS[i]);
 
             if (active) {
                 MaredUi.gradientV(g, 2, y + 2, tabW - 2, bottom - 2, top, bot);
-                MaredUi.centered(g, font, LETTERS[i], tabW / 2, y + (tabH - 8) / 2 + 1, TEXT);
+                MaredUi.centered(g, font, LETTERS[i], tabW / 2, y + textYOff, TEXT);
             } else {
                 int bg = hovered ? ITEM_HOVER : ITEM_NORMAL;
                 MaredUi.rect(g, 2, y + 2, tabW - 2, bottom - 2, bg);
-                MaredUi.centered(g, font, LETTERS[i], tabW / 2, y + (tabH - 8) / 2 + 1, top);
+                MaredUi.centered(g, font, LETTERS[i], tabW / 2, y + textYOff, top);
             }
         }
     }
 
-    public static int[] colorsFor(String tab) {
+    // ============================================================
+    //  Цвета — без аллокации массивов
+    // ============================================================
+
+    public static int topColor(String tab) {
         return switch (tab) {
-            case "scripts"  -> new int[]{SCRIPTS_TOP,  SCRIPTS_BOT};
-            case "commands" -> new int[]{COMMANDS_TOP, COMMANDS_BOT};
-            case "npc"      -> new int[]{NPC_TOP,      NPC_BOT};
-            case "events"   -> new int[]{EVENTS_TOP,   EVENTS_BOT};
-            default         -> new int[]{QUESTS_TOP,   QUESTS_BOT};
+            case "scripts"  -> SCRIPTS_TOP;
+            case "commands" -> COMMANDS_TOP;
+            case "npc"      -> NPC_TOP;
+            case "events"   -> EVENTS_TOP;
+            default         -> QUESTS_TOP;
+        };
+    }
+
+    public static int bottomColor(String tab) {
+        return switch (tab) {
+            case "scripts"  -> SCRIPTS_BOT;
+            case "commands" -> COMMANDS_BOT;
+            case "npc"      -> NPC_BOT;
+            case "events"   -> EVENTS_BOT;
+            default         -> QUESTS_BOT;
         };
     }
 
@@ -85,11 +100,6 @@ public final class MaredEditorTabs {
         };
     }
 
-    /**
-     * FIX 0.2.6: редактор активен только для вкладки "commands".
-     * Скрипты (scripts) временно отключены — как NPC/Events/Quests —
-     * до появления отдельного редактора скриптов.
-     */
     public static boolean isSupported(String tab) {
         return "commands".equals(tab);
     }

@@ -22,52 +22,36 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import com.fixmer.mared.Mared;
+import com.fixmer.mared.MaredLang;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.fixmer.mared.MaredLang;
 
-/**
- * Загрузчик справочника команд из JSON.
- *
- * FIX 0.2.5+:
- *   - Кэш FS-списка файлов (по mtime).
- *   - Кэш lowercase имён для search().
- *   - findByName через Map.
- *   - categories через LinkedHashSet.
- *   - reload() не перечитывает, если язык не изменился.
- */
 public class MaredCommandRegistry {
 
-    private static final String COMMANDS_DIR = "/mared/commands";
+    private MaredCommandRegistry() {}
 
-    // ---- Data classes ----
+    private static final String COMMANDS_DIR = "/mared/commands";
+    private static final Gson GSON = new Gson();
+
+    // ============================================================
+    //  Data classes
+    // ============================================================
 
     public static class NbtHint {
-        public final String tag;
-        public final String what;
-        public final String why;
-        public final String example;
-
+        public final String tag, what, why, example;
         public NbtHint(String tag, String what, String why, String example) {
-            this.tag = tag;
-            this.what = what;
-            this.why = why;
-            this.example = example;
+            this.tag = tag; this.what = what; this.why = why; this.example = example;
         }
     }
 
     public static class Argument {
-        public final String value;
-        public final String description;
+        public final String value, description;
         public final List<String> examples;
-
         public Argument(String value, String description, List<String> examples) {
-            this.value = value;
-            this.description = description;
-            this.examples = examples;
+            this.value = value; this.description = description; this.examples = examples;
         }
     }
 
@@ -79,11 +63,10 @@ public class MaredCommandRegistry {
         public final String example;
         public final List<Argument> arguments;
         public final List<NbtHint> nbtHints;
-
-        // Кэш lowercase имени — для search()
         final String lowerName;
 
-        public CommandInfo(String name, String category, int opLevel, String description, String example,
+        public CommandInfo(String name, String category, int opLevel,
+                           String description, String example,
                            List<Argument> arguments, List<NbtHint> nbtHints) {
             this.name = name;
             this.category = category;
@@ -96,22 +79,16 @@ public class MaredCommandRegistry {
         }
     }
 
-    // ---- Storage ----
+    // ============================================================
+    //  Storage
+    // ============================================================
 
-    private static final List<CommandInfo> COMMANDS = new ArrayList<>();
-    private static final Map<String, CommandInfo> BY_LOWER_NAME = new HashMap<>();
-    private static final Set<String> CATEGORIES_SET = new LinkedHashSet<>();
+    private static final List<CommandInfo> COMMANDS = new ArrayList<>(64);
+    private static final Map<String, CommandInfo> BY_LOWER_NAME = new HashMap<>(64);
+    private static final Set<String> CATEGORIES_SET = new LinkedHashSet<>(8);
 
     private static boolean loaded = false;
-
-    // ---- FS cache ----
-
-    /** Кэш списка файлов. null = не загружен. */
     private static List<String> cachedFileList = null;
-
-    // ---- Gson (один экземпляр) ----
-
-    private static final Gson GSON = new Gson();
 
     // ============================================================
     //  Load
@@ -131,7 +108,7 @@ public class MaredCommandRegistry {
             return;
         }
 
-        List<CommandInfo> raw = new ArrayList<>();
+        List<CommandInfo> raw = new ArrayList<>(64);
 
         int n = files.size();
         for (int i = 0; i < n; i++) {
@@ -152,55 +129,38 @@ public class MaredCommandRegistry {
         }
 
         int rawCount = raw.size();
-        List<CommandInfo> merged = mergeByName(raw);
-        COMMANDS.addAll(merged);
+        mergeByName(raw, COMMANDS);
 
-        // Индекс по lowercase-имени + категории
-        int m = merged.size();
+        int m = COMMANDS.size();
         for (int i = 0; i < m; i++) {
-            CommandInfo c = merged.get(i);
+            CommandInfo c = COMMANDS.get(i);
             BY_LOWER_NAME.put(c.lowerName, c);
-            if (c.category != null && !c.category.isEmpty()) {
-                CATEGORIES_SET.add(c.category);
-            }
+            if (c.category != null && !c.category.isEmpty()) CATEGORIES_SET.add(c.category);
         }
 
         Mared.LOGGER.info("Total commands loaded: {} ({} raw, merged to {} unique names)",
-            COMMANDS.size(), rawCount, merged.size());
+            COMMANDS.size(), rawCount, m);
     }
 
-    /** Перезагрузка — если игрок сменил язык в настройках. */
     public static void reload() {
         loaded = false;
-        COMMANDS.clear();
-        BY_LOWER_NAME.clear();
-        CATEGORIES_SET.clear();
         load();
     }
 
-    /** FIX 0.2.5+: сбросить только FS-кэш (например, при ручной правке папки). */
-    public static void invalidateFileCache() {
-        cachedFileList = null;
-    }
+    public static void invalidateFileCache() { cachedFileList = null; }
 
     // ============================================================
     //  Merge
     // ============================================================
 
-    private static List<CommandInfo> mergeByName(List<CommandInfo> raw) {
-        Map<String, CommandInfo> byName = new LinkedHashMap<>();
+    private static void mergeByName(List<CommandInfo> raw, List<CommandInfo> out) {
+        Map<String, CommandInfo> byName = new LinkedHashMap<>(raw.size() * 2);
         int n = raw.size();
         for (int i = 0; i < n; i++) {
             CommandInfo c = raw.get(i);
-            String key = c.lowerName;
-            CommandInfo existing = byName.get(key);
-            if (existing == null) {
-                byName.put(key, c);
-            } else {
-                byName.put(key, mergeTwo(existing, c));
-            }
+            byName.merge(c.lowerName, c, MaredCommandRegistry::mergeTwo);
         }
-        return new ArrayList<>(byName.values());
+        out.addAll(byName.values());
     }
 
     private static CommandInfo mergeTwo(CommandInfo a, CommandInfo b) {
@@ -236,12 +196,10 @@ public class MaredCommandRegistry {
         return new CommandInfo(a.name, category, opLevel, description, example, args, nbt);
     }
 
-    private static boolean isEmpty(String s) {
-        return s == null || s.isEmpty();
-    }
+    private static boolean isEmpty(String s) { return s == null || s.isEmpty(); }
 
     // ============================================================
-    //  FS-кэш
+    //  FS
     // ============================================================
 
     private static List<String> listCommandFilesCached() {
@@ -251,7 +209,7 @@ public class MaredCommandRegistry {
     }
 
     private static List<String> listCommandFiles() {
-        List<String> result = new ArrayList<>();
+        List<String> result = new ArrayList<>(8);
 
         try {
             URL url = MaredCommandRegistry.class.getResource(COMMANDS_DIR);
@@ -261,26 +219,9 @@ public class MaredCommandRegistry {
             }
 
             if ("jar".equals(url.getProtocol())) {
-                try {
-                    URI uri = url.toURI();
-                    try (FileSystem fs = FileSystems.newFileSystem(uri, Collections.emptyMap())) {
-                        Path dir = fs.getPath(COMMANDS_DIR);
-                        if (Files.exists(dir)) {
-                            try (Stream<Path> stream = Files.list(dir)) {
-                                stream.filter(Files::isRegularFile)
-                                      .map(p -> p.getFileName().toString())
-                                      .filter(n -> n.endsWith(".json"))
-                                      .sorted()
-                                      .forEach(result::add);
-                            }
-                        }
-                    }
-                } catch (URISyntaxException | IOException e) {
-                    Mared.LOGGER.error("Failed to list commands from JAR", e);
-                }
-            } else {
-                try {
-                    Path dir = Paths.get(url.toURI());
+                URI uri = url.toURI();
+                try (FileSystem fs = FileSystems.newFileSystem(uri, Collections.emptyMap())) {
+                    Path dir = fs.getPath(COMMANDS_DIR);
                     if (Files.exists(dir)) {
                         try (Stream<Path> stream = Files.list(dir)) {
                             stream.filter(Files::isRegularFile)
@@ -290,19 +231,27 @@ public class MaredCommandRegistry {
                                   .forEach(result::add);
                         }
                     }
-                } catch (URISyntaxException | IOException e) {
-                    Mared.LOGGER.error("Failed to list commands from folder", e);
+                }
+            } else {
+                Path dir = Paths.get(url.toURI());
+                if (Files.exists(dir)) {
+                    try (Stream<Path> stream = Files.list(dir)) {
+                        stream.filter(Files::isRegularFile)
+                              .map(p -> p.getFileName().toString())
+                              .filter(n -> n.endsWith(".json"))
+                              .sorted()
+                              .forEach(result::add);
+                    }
                 }
             }
-        } catch (Exception e) {
+        } catch (URISyntaxException | IOException e) {
             Mared.LOGGER.error("Failed to list commands", e);
         }
-
         return result;
     }
 
     // ============================================================
-    //  Парсинг JSON
+    //  JSON
     // ============================================================
 
     private static void parseJsonInto(String json, List<CommandInfo> out) {
@@ -326,50 +275,56 @@ public class MaredCommandRegistry {
             if (name.isEmpty()) continue;
             String category = optString(obj, "category", "Misc");
             int opLevel = obj.has("opLevel") ? obj.get("opLevel").getAsInt() : 2;
-
             String description = optStringLang(obj, "description");
             String example = optString(obj, "example", "/" + name);
 
-            List<Argument> args = new ArrayList<>();
-            if (obj.has("arguments")) {
-                JsonArray arrA = obj.getAsJsonArray("arguments");
-                int an = arrA.size();
-                for (int j = 0; j < an; j++) {
-                    JsonElement aEl = arrA.get(j);
-                    if (!aEl.isJsonObject()) continue;
-                    JsonObject a = aEl.getAsJsonObject();
-                    String value = optString(a, "value", "");
-                    if (value.isEmpty()) continue;
-                    String desc = optStringLang(a, "description");
-                    List<String> exs = new ArrayList<>();
-                    if (a.has("examples")) {
-                        JsonArray arrE = a.getAsJsonArray("examples");
-                        int en = arrE.size();
-                        for (int k = 0; k < en; k++) exs.add(arrE.get(k).getAsString());
-                    }
-                    args.add(new Argument(value, desc, exs));
-                }
-            }
-
-            List<NbtHint> nbt = new ArrayList<>();
-            if (obj.has("nbt")) {
-                JsonArray arrN = obj.getAsJsonArray("nbt");
-                int nn = arrN.size();
-                for (int j = 0; j < nn; j++) {
-                    JsonElement nEl = arrN.get(j);
-                    if (!nEl.isJsonObject()) continue;
-                    JsonObject nb = nEl.getAsJsonObject();
-                    nbt.add(new NbtHint(
-                        optString(nb, "tag", ""),
-                        optStringLang(nb, "what"),
-                        optStringLang(nb, "why"),
-                        optString(nb, "example", "")
-                    ));
-                }
-            }
+            List<Argument> args = parseArgs(obj);
+            List<NbtHint> nbt = parseNbt(obj);
 
             out.add(new CommandInfo(name, category, opLevel, description, example, args, nbt));
         }
+    }
+
+    private static List<Argument> parseArgs(JsonObject obj) {
+        if (!obj.has("arguments")) return new ArrayList<>(2);
+        JsonArray arrA = obj.getAsJsonArray("arguments");
+        int an = arrA.size();
+        List<Argument> args = new ArrayList<>(an);
+        for (int j = 0; j < an; j++) {
+            JsonElement aEl = arrA.get(j);
+            if (!aEl.isJsonObject()) continue;
+            JsonObject a = aEl.getAsJsonObject();
+            String value = optString(a, "value", "");
+            if (value.isEmpty()) continue;
+            String desc = optStringLang(a, "description");
+            List<String> exs = new ArrayList<>(2);
+            if (a.has("examples")) {
+                JsonArray arrE = a.getAsJsonArray("examples");
+                int en = arrE.size();
+                for (int k = 0; k < en; k++) exs.add(arrE.get(k).getAsString());
+            }
+            args.add(new Argument(value, desc, exs));
+        }
+        return args;
+    }
+
+    private static List<NbtHint> parseNbt(JsonObject obj) {
+        if (!obj.has("nbt")) return new ArrayList<>(2);
+        JsonArray arrN = obj.getAsJsonArray("nbt");
+        int nn = arrN.size();
+        List<NbtHint> nbt = new ArrayList<>(nn);
+        for (int j = 0; j < nn; j++) {
+            JsonElement nEl = arrN.get(j);
+            if (!nEl.isJsonObject()) continue;
+            JsonObject nb = nEl.getAsJsonObject();
+            nbt.add(new NbtHint(
+                optString(nb, "tag", ""),
+                optStringLang(nb, "what"),
+                optStringLang(nb, "why"),
+                optString(nb, "example", "")
+            ));
+        }
+        return nbt;
     }
 
     private static String optString(JsonObject o, String key, String def) {
@@ -397,35 +352,26 @@ public class MaredCommandRegistry {
         return COMMANDS;
     }
 
-    /** FIX 0.2.5+: O(1) поиск по имени. */
     public static CommandInfo findByName(String name) {
         if (!loaded) load();
         if (name == null) return null;
         return BY_LOWER_NAME.get(name.toLowerCase());
     }
 
-    /**
-     * FIX 0.2.5+: search с нормализованным запросом.
-     * lowercase-имена уже закэшированы в CommandInfo.lowerName.
-     */
     public static List<CommandInfo> search(String query) {
         if (!loaded) load();
-        List<CommandInfo> all = COMMANDS;
-        if (query == null || query.isEmpty()) return all;
+        if (query == null || query.isEmpty()) return COMMANDS;
 
         String q = query.toLowerCase();
-        List<CommandInfo> result = new ArrayList<>();
-        int n = all.size();
+        List<CommandInfo> result = new ArrayList<>(16);
+        int n = COMMANDS.size();
         for (int i = 0; i < n; i++) {
-            CommandInfo c = all.get(i);
-            if (c.lowerName.startsWith(q)) {
-                result.add(c);
-            }
+            CommandInfo c = COMMANDS.get(i);
+            if (c.lowerName.startsWith(q)) result.add(c);
         }
         return result;
     }
 
-    /** FIX 0.2.5+: через Set, без O(n²). */
     public static List<String> categories() {
         if (!loaded) load();
         return new ArrayList<>(CATEGORIES_SET);

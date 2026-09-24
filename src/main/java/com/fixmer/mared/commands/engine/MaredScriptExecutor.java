@@ -4,54 +4,41 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 
-import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.MaredLang;
+import com.fixmer.mared.MaredSettings;
 
+/**
+ * Executor стека кадров.
+ *
+ * Один tick = одна порция работы. Внутри tick'а мы можем выполнить
+ * до LOOP_BATCH_SIZE итераций циклов, чтобы не тормозить сервер.
+ */
 public class MaredScriptExecutor {
 
-    /** Сколько итераций цикла выполнять за один tick. */
     private static final int LOOP_BATCH_SIZE = 5000;
-
-    /** Размер пула Frame'ов. */
     private static final int FRAME_POOL_SIZE = 16;
+    private static final MaredScriptCommand[] EMPTY = new MaredScriptCommand[0];
 
-    public static class Frame {
-        public MaredScriptCommand[] commands;
+    // ============================================================
+    //  Frame
+    // ============================================================
+
+    public static final class Frame {
+        public MaredScriptCommand[] commands = EMPTY;
         public int index = 0;
         public int waitTicks = 0;
-        public boolean stop = false;
         public boolean loopBody = false;
         public LoopOwner loopOwner = null;
         public boolean breakRequested = false;
         public boolean continueRequested = false;
         public boolean functionCall = false;
 
-        public Frame(MaredScriptCommand[] commands) {
-            this.commands = commands;
-        }
+        boolean finished() { return index >= commands.length; }
 
-        public Frame(List<MaredScriptCommand> commands) {
-            this.commands = toArray(commands);
-        }
-
-        public boolean finished() {
-            return stop || index >= commands.length;
-        }
-
-        private static MaredScriptCommand[] toArray(List<MaredScriptCommand> list) {
-            if (list == null || list.isEmpty()) return EMPTY;
-            int n = list.size();
-            MaredScriptCommand[] arr = new MaredScriptCommand[n];
-            for (int i = 0; i < n; i++) arr[i] = list.get(i);
-            return arr;
-        }
-
-        /** Сброс Frame для переиспользования. */
         void reset() {
             commands = EMPTY;
             index = 0;
             waitTicks = 0;
-            stop = false;
             loopBody = false;
             loopOwner = null;
             breakRequested = false;
@@ -60,54 +47,51 @@ public class MaredScriptExecutor {
         }
     }
 
-    private static final MaredScriptCommand[] EMPTY = new MaredScriptCommand[0];
-
     public interface LoopOwner {
         boolean onBodyFinished(MaredScriptContext ctx, MaredScriptExecutor exec, Frame bodyFrame);
         String describe();
     }
 
+    // ============================================================
+    //  State
+    // ============================================================
+
     private final MaredScriptContext context;
-    private final Deque<Frame> stack = new ArrayDeque<>();
+    private final Deque<Frame> stack = new ArrayDeque<>(16);
     private final Deque<Frame> pool = new ArrayDeque<>(FRAME_POOL_SIZE);
+    private final boolean verboseLog;
+
     private boolean finished = false;
     private boolean aborted = false;
-
     private Object returnValue = null;
     private boolean hasReturnValue = false;
-
-    private final boolean verboseLog;
 
     public MaredScriptExecutor(MaredScriptContext context, List<MaredScriptCommand> commands) {
         this.context = context;
         this.verboseLog = MaredSettings.isVerboseScriptLog();
+
         if (commands != null && !commands.isEmpty()) {
-            stack.push(new Frame(commands));
+            stack.push(borrowFrame(toArray(commands)));
         } else {
             finished = true;
         }
     }
 
     // ============================================================
-    //  Пул Frame'ов
+    //  Frame pool
     // ============================================================
 
-    /** Взять Frame из пула или создать новый. */
     private Frame borrowFrame(MaredScriptCommand[] commands) {
         Frame f = pool.pollFirst();
-        if (f == null) f = new Frame(commands);
-        else f.commands = commands;
+        if (f == null) f = new Frame();
+        f.commands = commands;
         return f;
     }
 
-    /** Вернуть Frame в пул. */
-    private void returnFrame(Frame f) {
+    private void releaseFrame(Frame f) {
         if (f == null) return;
         f.reset();
-        if (pool.size() < FRAME_POOL_SIZE) {
-            pool.addLast(f);
-        }
-        // иначе — просто уйдёт на GC
+        if (pool.size() < FRAME_POOL_SIZE) pool.addLast(f);
     }
 
     // ============================================================
@@ -115,16 +99,17 @@ public class MaredScriptExecutor {
     // ============================================================
 
     public boolean isFinished() { return finished; }
+    public MaredScriptContext getContext() { return context; }
+    public boolean isStackEmpty() { return stack.isEmpty(); }
 
     public boolean isWaiting() {
         Frame top = stack.peek();
         return top != null && top.waitTicks > 0;
     }
 
-    public MaredScriptContext getContext() { return context; }
-    public boolean isStackEmpty() { return stack.isEmpty(); }
-
     public Frame peekTopFrame() { return stack.peek(); }
+
+    public int getStackDepth() { return stack.size(); }
 
     public Frame pushBody(List<MaredScriptCommand> body) {
         Frame f = borrowFrame(toArray(body));
@@ -149,14 +134,6 @@ public class MaredScriptExecutor {
         return f;
     }
 
-    private static MaredScriptCommand[] toArray(List<MaredScriptCommand> list) {
-        if (list == null || list.isEmpty()) return EMPTY;
-        int n = list.size();
-        MaredScriptCommand[] arr = new MaredScriptCommand[n];
-        for (int i = 0; i < n; i++) arr[i] = list.get(i);
-        return arr;
-    }
-
     public Frame findEnclosingLoop() {
         for (Frame f : stack) {
             if (f.loopBody) return f;
@@ -179,7 +156,7 @@ public class MaredScriptExecutor {
                 return;
             }
             stack.pop();
-            returnFrame(top);
+            releaseFrame(top);
         }
     }
 
@@ -191,7 +168,7 @@ public class MaredScriptExecutor {
                 return;
             }
             stack.pop();
-            returnFrame(top);
+            releaseFrame(top);
         }
     }
 
@@ -211,9 +188,7 @@ public class MaredScriptExecutor {
     public void stopAll() {
         aborted = true;
         while (!stack.isEmpty()) {
-            Frame f = stack.pop();
-            f.stop = true;
-            returnFrame(f);
+            releaseFrame(stack.pop());
         }
         finished = true;
     }
@@ -247,20 +222,15 @@ public class MaredScriptExecutor {
                 stack.pop();
                 if (f.loopBody && f.loopOwner != null) {
                     boolean repeat = f.loopOwner.onBodyFinished(context, this, f);
-                    // ВАЖНО: Frame уже в пуле или готов к возврату.
-                    // onBodyFinished мог вызвать pushLoopBody — тогда новый Frame в стеке.
-                    // Наш f уже не в стеке — возвращаем в пул.
-                    returnFrame(f);
+                    releaseFrame(f);
 
                     if (repeat) {
                         loopIterations++;
-                        if (loopIterations >= LOOP_BATCH_SIZE) {
-                            return;
-                        }
+                        if (loopIterations >= LOOP_BATCH_SIZE) return;
                         continue;
                     }
                 } else {
-                    returnFrame(f);
+                    releaseFrame(f);
                 }
                 continue;
             }
@@ -282,12 +252,6 @@ public class MaredScriptExecutor {
 
             if (finished) return;
 
-            if (f.stop) {
-                stack.pop();
-                returnFrame(f);
-                continue;
-            }
-
             int delay = cmd.getDelayTicks();
             if (delay > 0) {
                 f.waitTicks = delay;
@@ -297,20 +261,28 @@ public class MaredScriptExecutor {
                 return;
             }
 
-            if (f.breakRequested || f.continueRequested) {
-                return;
-            }
+            if (f.breakRequested || f.continueRequested) return;
         }
 
         if (stack.isEmpty()) {
             if (verboseLog) {
-                if (aborted) {
-                    context.log(MaredLang.get("mared.log.mared.aborted"));
-                } else {
-                    context.log(MaredLang.get("mared.log.mared.all_done"));
-                }
+                context.log(MaredLang.get(aborted
+                    ? "mared.log.mared.aborted"
+                    : "mared.log.mared.all_done"));
             }
             finished = true;
         }
+    }
+
+    // ============================================================
+    //  Util
+    // ============================================================
+
+    static MaredScriptCommand[] toArray(List<MaredScriptCommand> list) {
+        if (list == null || list.isEmpty()) return EMPTY;
+        int n = list.size();
+        MaredScriptCommand[] arr = new MaredScriptCommand[n];
+        for (int i = 0; i < n; i++) arr[i] = list.get(i);
+        return arr;
     }
 }

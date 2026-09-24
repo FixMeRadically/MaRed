@@ -2,9 +2,10 @@ package com.fixmer.mared.commands.expr;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 import com.fixmer.mared.commands.engine.MaredScriptContext;
 
 public final class MaredExpr {
@@ -30,53 +31,51 @@ public final class MaredExpr {
         final String text;
         final long intVal;
         final double floatVal;
-
         Token(TokType type, String text, long intVal, double floatVal) {
             this.type = type; this.text = text;
             this.intVal = intVal; this.floatVal = floatVal;
         }
     }
 
-    private static final Token T_PLUS    = new Token(TokType.PLUS, "+", 0, 0);
-    private static final Token T_MINUS   = new Token(TokType.MINUS, "-", 0, 0);
-    private static final Token T_STAR    = new Token(TokType.STAR, "*", 0, 0);
-    private static final Token T_SLASH   = new Token(TokType.SLASH, "/", 0, 0);
-    private static final Token T_PERCENT = new Token(TokType.PERCENT, "%", 0, 0);
-    private static final Token T_EQ      = new Token(TokType.EQ, "==", 0, 0);
-    private static final Token T_NEQ     = new Token(TokType.NEQ, "!=", 0, 0);
-    private static final Token T_LT      = new Token(TokType.LT, "<", 0, 0);
-    private static final Token T_GT      = new Token(TokType.GT, ">", 0, 0);
-    private static final Token T_LTE     = new Token(TokType.LTE, "<=", 0, 0);
-    private static final Token T_GTE     = new Token(TokType.GTE, ">=", 0, 0);
-    private static final Token T_AND     = new Token(TokType.AND, "&&", 0, 0);
-    private static final Token T_OR      = new Token(TokType.OR, "||", 0, 0);
-    private static final Token T_NOT     = new Token(TokType.NOT, "!", 0, 0);
-    private static final Token T_LPAREN  = new Token(TokType.LPAREN, "(", 0, 0);
-    private static final Token T_RPAREN  = new Token(TokType.RPAREN, ")", 0, 0);
-    private static final Token T_LBRACKET= new Token(TokType.LBRACKET, "[", 0, 0);
-    private static final Token T_RBRACKET= new Token(TokType.RBRACKET, "]", 0, 0);
-    private static final Token T_DOT     = new Token(TokType.DOT, ".", 0, 0);
-    private static final Token T_COMMA   = new Token(TokType.COMMA, ",", 0, 0);
-    private static final Token T_EOF     = new Token(TokType.EOF, "", 0, 0);
+    private static final Token T_PLUS     = new Token(TokType.PLUS, "+", 0, 0);
+    private static final Token T_MINUS    = new Token(TokType.MINUS, "-", 0, 0);
+    private static final Token T_STAR     = new Token(TokType.STAR, "*", 0, 0);
+    private static final Token T_SLASH    = new Token(TokType.SLASH, "/", 0, 0);
+    private static final Token T_PERCENT  = new Token(TokType.PERCENT, "%", 0, 0);
+    private static final Token T_EQ       = new Token(TokType.EQ, "==", 0, 0);
+    private static final Token T_NEQ      = new Token(TokType.NEQ, "!=", 0, 0);
+    private static final Token T_LT       = new Token(TokType.LT, "<", 0, 0);
+    private static final Token T_GT       = new Token(TokType.GT, ">", 0, 0);
+    private static final Token T_LTE      = new Token(TokType.LTE, "<=", 0, 0);
+    private static final Token T_GTE      = new Token(TokType.GTE, ">=", 0, 0);
+    private static final Token T_AND      = new Token(TokType.AND, "&&", 0, 0);
+    private static final Token T_OR       = new Token(TokType.OR, "||", 0, 0);
+    private static final Token T_NOT      = new Token(TokType.NOT, "!", 0, 0);
+    private static final Token T_LPAREN   = new Token(TokType.LPAREN, "(", 0, 0);
+    private static final Token T_RPAREN   = new Token(TokType.RPAREN, ")", 0, 0);
+    private static final Token T_LBRACKET = new Token(TokType.LBRACKET, "[", 0, 0);
+    private static final Token T_RBRACKET = new Token(TokType.RBRACKET, "]", 0, 0);
+    private static final Token T_DOT      = new Token(TokType.DOT, ".", 0, 0);
+    private static final Token T_COMMA    = new Token(TokType.COMMA, ",", 0, 0);
+    private static final Token T_EOF      = new Token(TokType.EOF, "", 0, 0);
+
+    private static final Token[] EMPTY_TOKENS = { T_EOF };
 
     // ============================================================
-    //  LRU-кэш токенов
+    //  Кэш токенов
     // ============================================================
 
     private static final int TOKEN_CACHE_MAX = 512;
-
-    private static final Map<String, Token[]> TOKEN_CACHE =
-        Collections.synchronizedMap(new LinkedHashMap<>(256, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<String, Token[]> eldest) {
-                return size() > TOKEN_CACHE_MAX;
-            }
-        });
+    private static final Map<String, Token[]> TOKEN_CACHE = new ConcurrentHashMap<>(256);
 
     private static Token[] tokenizeCached(String src) {
         Token[] cached = TOKEN_CACHE.get(src);
         if (cached != null) return cached;
+
         Token[] tokens = tokenize(src);
+        if (TOKEN_CACHE.size() >= TOKEN_CACHE_MAX) {
+            TOKEN_CACHE.clear();
+        }
         TOKEN_CACHE.put(src, tokens);
         return tokens;
     }
@@ -88,20 +87,15 @@ public final class MaredExpr {
     //  Public API
     // ============================================================
 
-    /**
-     * FIX 0.2.5b: fast-path для простых выражений через MaredExprFast.
-     * Если выражение не поддерживается — fallback к обычному парсингу.
-     */
     public static Object eval(String expr, MaredScriptContext ctx) {
         if (expr == null || expr.isEmpty()) return "";
 
-        // Fast-path: простые выражения (число, $var, $a op $b, ...)
         MaredExprFast.Evaluator fast = MaredExprFast.get(expr);
         if (fast != null) {
             try {
                 return fast.eval(ctx);
             } catch (Exception ignored) {
-                // откатываемся к полному парсингу
+                // fallback к полному парсингу
             }
         }
 
@@ -137,30 +131,12 @@ public final class MaredExpr {
         return v instanceof Double || v instanceof Float;
     }
 
-    public static boolean isNumber(Object v) {
-        return v instanceof Number;
-    }
-
+    public static boolean isNumber(Object v) { return v instanceof Number; }
     public static boolean isList(Object v) { return v instanceof List; }
 
     // ============================================================
-    //  Быстрые toNumber / toLong
+    //  toNumber / toLong
     // ============================================================
-
-    private static boolean isIntegerString(String s) {
-        int n = s.length();
-        if (n == 0) return false;
-        int i = 0;
-        if (s.charAt(0) == '-') {
-            if (n == 1) return false;
-            i = 1;
-        }
-        for (; i < n; i++) {
-            char c = s.charAt(i);
-            if (c < '0' || c > '9') return false;
-        }
-        return true;
-    }
 
     public static double toNumber(Object v) {
         if (v == null) return 0;
@@ -194,26 +170,39 @@ public final class MaredExpr {
         return 0;
     }
 
+    private static boolean isIntegerString(String s) {
+        int n = s.length();
+        if (n == 0) return false;
+        int i = 0;
+        if (s.charAt(0) == '-') {
+            if (n == 1) return false;
+            i = 1;
+        }
+        for (; i < n; i++) {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9') return false;
+        }
+        return true;
+    }
+
     public static Object num(double d) {
         long l = (long) d;
-        if ((double) l == d && !Double.isInfinite(d)) {
-            return l;
-        }
+        if ((double) l == d && !Double.isInfinite(d)) return l;
         return d;
     }
 
     // ============================================================
-    //  stringify
+    //  stringify / truthy
     // ============================================================
 
     public static String stringify(Object v) {
         if (v == null) return "";
+        if (v instanceof String s) return s;
         if (v instanceof Long l) return l.toString();
         if (v instanceof Integer i) return i.toString();
         if (v instanceof Double d) return String.valueOf(d);
         if (v instanceof Float f) return String.valueOf(f);
         if (v instanceof Boolean b) return b ? "true" : "false";
-        if (v instanceof String s) return s;
         if (v instanceof List<?> list) {
             int n = list.size();
             if (n == 0) return "[]";
@@ -255,21 +244,24 @@ public final class MaredExpr {
 
     private static Token[] tokenize(String src) {
         int n = src.length();
-        ArrayList<Token> out = new ArrayList<>(Math.max(8, n / 3));
+        if (n == 0) return EMPTY_TOKENS;
 
+        ArrayList<Token> out = new ArrayList<>(Math.max(8, n / 3));
         int i = 0;
+
         while (i < n) {
             char c = src.charAt(i);
 
             if (c == ' ' || c == '\t' || c == '\n' || c == '\r') { i++; continue; }
 
+            // Числа
             if (c >= '0' && c <= '9'
-                || (c == '.' && i + 1 < n && src.charAt(i + 1) >= '0' && src.charAt(i + 1) <= '9')) {
+                || (c == '.' && i + 1 < n && Character.isDigit(src.charAt(i + 1)))) {
                 int start = i;
                 boolean isFloat = false;
                 while (i < n) {
                     char ch = src.charAt(i);
-                    if (ch >= '0' && ch <= '9') { i++; }
+                    if (ch >= '0' && ch <= '9') i++;
                     else if (ch == '.' && !isFloat) { isFloat = true; i++; }
                     else break;
                 }
@@ -286,6 +278,7 @@ public final class MaredExpr {
                 continue;
             }
 
+            // Строки
             if (c == '"' || c == '\'') {
                 char quote = c;
                 i++;
@@ -296,12 +289,12 @@ public final class MaredExpr {
                         i++;
                         char esc = src.charAt(i);
                         switch (esc) {
-                            case 'n':  sb.append('\n'); break;
-                            case 't':  sb.append('\t'); break;
-                            case '\\': sb.append('\\'); break;
-                            case '"':  sb.append('"');  break;
-                            case '\'': sb.append('\''); break;
-                            default:   sb.append(esc);  break;
+                            case 'n'  -> sb.append('\n');
+                            case 't'  -> sb.append('\t');
+                            case '\\' -> sb.append('\\');
+                            case '"'  -> sb.append('"');
+                            case '\'' -> sb.append('\'');
+                            default   -> sb.append(esc);
                         }
                     } else {
                         sb.append(ch);
@@ -313,6 +306,7 @@ public final class MaredExpr {
                 continue;
             }
 
+            // Переменные
             if (c == '$') {
                 i++;
                 int start = i;
@@ -327,11 +321,11 @@ public final class MaredExpr {
                     if (k < n && src.charAt(k) == '(') break;
                     i = j;
                 }
-
                 out.add(new Token(TokType.VAR, src.substring(start, i), 0, 0));
                 continue;
             }
 
+            // Идентификаторы
             if (isIdentStart(c)) {
                 int start = i;
                 while (i < n && isIdentChar(src.charAt(i))) i++;
@@ -340,42 +334,42 @@ public final class MaredExpr {
             }
 
             switch (c) {
-                case '+': out.add(T_PLUS); i++; break;
-                case '-': out.add(T_MINUS); i++; break;
-                case '*': out.add(T_STAR); i++; break;
-                case '/': out.add(T_SLASH); i++; break;
-                case '%': out.add(T_PERCENT); i++; break;
-                case '(': out.add(T_LPAREN); i++; break;
-                case ')': out.add(T_RPAREN); i++; break;
-                case '[': out.add(T_LBRACKET); i++; break;
-                case ']': out.add(T_RBRACKET); i++; break;
-                case ',': out.add(T_COMMA); i++; break;
-                case '.': out.add(T_DOT); i++; break;
-                case '=':
+                case '+' -> { out.add(T_PLUS); i++; }
+                case '-' -> { out.add(T_MINUS); i++; }
+                case '*' -> { out.add(T_STAR); i++; }
+                case '/' -> { out.add(T_SLASH); i++; }
+                case '%' -> { out.add(T_PERCENT); i++; }
+                case '(' -> { out.add(T_LPAREN); i++; }
+                case ')' -> { out.add(T_RPAREN); i++; }
+                case '[' -> { out.add(T_LBRACKET); i++; }
+                case ']' -> { out.add(T_RBRACKET); i++; }
+                case ',' -> { out.add(T_COMMA); i++; }
+                case '.' -> { out.add(T_DOT); i++; }
+                case '=' -> {
                     if (i + 1 < n && src.charAt(i + 1) == '=') { out.add(T_EQ); i += 2; }
                     else { out.add(T_EQ); i++; }
-                    break;
-                case '!':
+                }
+                case '!' -> {
                     if (i + 1 < n && src.charAt(i + 1) == '=') { out.add(T_NEQ); i += 2; }
                     else { out.add(T_NOT); i++; }
-                    break;
-                case '<':
+                }
+                case '<' -> {
                     if (i + 1 < n && src.charAt(i + 1) == '=') { out.add(T_LTE); i += 2; }
                     else { out.add(T_LT); i++; }
-                    break;
-                case '>':
+                }
+                case '>' -> {
                     if (i + 1 < n && src.charAt(i + 1) == '=') { out.add(T_GTE); i += 2; }
                     else { out.add(T_GT); i++; }
-                    break;
-                case '&':
+                }
+                case '&' -> {
                     if (i + 1 < n && src.charAt(i + 1) == '&') { out.add(T_AND); i += 2; }
-                    else { i++; }
-                    break;
-                case '|':
+                    else i++;
+                }
+                case '|' -> {
                     if (i + 1 < n && src.charAt(i + 1) == '|') { out.add(T_OR); i += 2; }
-                    else { i++; }
-                    break;
-                default: i++;
+                    else i++;
+                }
+                default -> i++;
             }
         }
         out.add(T_EOF);
@@ -387,8 +381,7 @@ public final class MaredExpr {
     }
 
     private static boolean isIdentChar(char c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-            || (c >= '0' && c <= '9') || c == '_';
+        return isIdentStart(c) || (c >= '0' && c <= '9');
     }
 
     private static boolean isWhitespace(char c) {
@@ -409,7 +402,6 @@ public final class MaredExpr {
             this.ctx = ctx;
         }
 
-        Token peek() { return tokens[pos]; }
         Token next() { return tokens[pos++]; }
 
         void expect(TokType t) {
@@ -417,11 +409,6 @@ public final class MaredExpr {
                 throw new RuntimeException("expr: expected " + t + ", got " + tokens[pos].type);
             }
             pos++;
-        }
-
-        boolean match(TokType t) {
-            if (tokens[pos].type == t) { pos++; return true; }
-            return false;
         }
 
         Object parseExpression() { return parseOr(); }
@@ -452,12 +439,10 @@ public final class MaredExpr {
                 TokType t = tokens[pos].type;
                 if (t == TokType.EQ) {
                     pos++;
-                    Object right = parseComparison();
-                    left = equalsValue(left, right);
+                    left = equalsValue(left, parseComparison());
                 } else if (t == TokType.NEQ) {
                     pos++;
-                    Object right = parseComparison();
-                    left = !equalsValue(left, right);
+                    left = !equalsValue(left, parseComparison());
                 } else break;
             }
             return left;
@@ -473,12 +458,13 @@ public final class MaredExpr {
                     Object right = parseAdd();
                     double ln = toNumber(left);
                     double rn = toNumber(right);
-                    switch (t) {
-                        case LT  -> left = ln <  rn;
-                        case GT  -> left = ln >  rn;
-                        case LTE -> left = ln <= rn;
-                        case GTE -> left = ln >= rn;
-                    }
+                    left = switch (t) {
+                        case LT  -> ln <  rn;
+                        case GT  -> ln >  rn;
+                        case LTE -> ln <= rn;
+                        case GTE -> ln >= rn;
+                        default  -> left;
+                    };
                 } else break;
             }
             return left;
@@ -545,11 +531,8 @@ public final class MaredExpr {
                     pos++;
                     List<Object> args = parseArgs();
                     if (value instanceof String fnName && !fnName.isEmpty()) {
-                        if (ctx.hasFunction(fnName)) {
-                            value = ctx.callFunction(fnName, args);
-                        } else {
-                            value = MaredBuiltins.call(fnName, args, ctx);
-                        }
+                        if (ctx.hasFunction(fnName)) value = ctx.callFunction(fnName, args);
+                        else value = MaredBuiltins.call(fnName, args, ctx);
                     } else {
                         throw new RuntimeException("expr: cannot call non-function value");
                     }
@@ -559,13 +542,10 @@ public final class MaredExpr {
                     if (nameTok.type != TokType.IDENT) {
                         throw new RuntimeException("expr: expected method name after '.'");
                     }
-                    String method = nameTok.text;
                     expect(TokType.LPAREN);
                     List<Object> args = parseArgs();
-                    value = MaredMethods.call(value, method, args);
-                } else {
-                    break;
-                }
+                    value = MaredMethods.call(value, nameTok.text, args);
+                } else break;
             }
             return value;
         }
@@ -597,9 +577,7 @@ public final class MaredExpr {
                     if ("true".equals(varName))  return Boolean.TRUE;
                     if ("false".equals(varName)) return Boolean.FALSE;
                     if ("null".equals(varName))  return null;
-                    if (tokens[pos].type == TokType.LPAREN) {
-                        return varName;
-                    }
+                    if (tokens[pos].type == TokType.LPAREN) return varName;
                     return ctx.getVariable(varName);
                 }
 
@@ -632,18 +610,14 @@ public final class MaredExpr {
                         }
                         expect(TokType.LPAREN);
                         List<Object> args = parseArgs();
-                        if (ctx.hasFunction(nameTok.text)) {
-                            return ctx.callFunction(nameTok.text, args);
-                        }
+                        if (ctx.hasFunction(nameTok.text)) return ctx.callFunction(nameTok.text, args);
                         return MaredBuiltins.call(nameTok.text, args, ctx);
                     }
 
                     if (tokens[pos].type == TokType.LPAREN) {
                         pos++;
                         List<Object> args = parseArgs();
-                        if (ctx.hasFunction(text)) {
-                            return ctx.callFunction(text, args);
-                        }
+                        if (ctx.hasFunction(text)) return ctx.callFunction(text, args);
                         return MaredBuiltins.call(text, args, ctx);
                     }
 
@@ -654,7 +628,6 @@ public final class MaredExpr {
                     Object v = ctx.getVariable(text);
                     if (v != null) return v;
                     if (ctx.hasVariable(text)) return null;
-
                     return text;
                 }
 
@@ -665,7 +638,7 @@ public final class MaredExpr {
     }
 
     // ============================================================
-    //  Арифметика (публичные — используются MaredExprFast)
+    //  Арифметика
     // ============================================================
 
     private static Object indexValue(Object container, Object idx) {
@@ -731,42 +704,34 @@ public final class MaredExpr {
 
     public static Object divValues(Object a, Object b) {
         if (a instanceof Long la && b instanceof Long lb) {
-            if (lb == 0) return 0L;
-            return la / lb;
+            return lb == 0 ? 0L : la / lb;
         }
         if (a instanceof Number na && b instanceof Number nb) {
             if (a instanceof Double || b instanceof Double) {
                 double d = nb.doubleValue();
-                if (d == 0) return 0.0;
-                return na.doubleValue() / d;
+                return d == 0 ? 0.0 : na.doubleValue() / d;
             }
             long lb2 = nb.longValue();
-            if (lb2 == 0) return 0L;
-            return na.longValue() / lb2;
+            return lb2 == 0 ? 0L : na.longValue() / lb2;
         }
         double d = toNumber(b);
-        if (d == 0) return 0.0;
-        return toNumber(a) / d;
+        return d == 0 ? 0.0 : toNumber(a) / d;
     }
 
     public static Object modValues(Object a, Object b) {
         if (a instanceof Long la && b instanceof Long lb) {
-            if (lb == 0) return 0L;
-            return la % lb;
+            return lb == 0 ? 0L : la % lb;
         }
         if (a instanceof Number na && b instanceof Number nb) {
             if (a instanceof Double || b instanceof Double) {
                 double d = nb.doubleValue();
-                if (d == 0) return 0.0;
-                return na.doubleValue() % d;
+                return d == 0 ? 0.0 : na.doubleValue() % d;
             }
             long lb2 = nb.longValue();
-            if (lb2 == 0) return 0L;
-            return na.longValue() % lb2;
+            return lb2 == 0 ? 0L : na.longValue() % lb2;
         }
         double d = toNumber(b);
-        if (d == 0) return 0.0;
-        return toNumber(a) % d;
+        return d == 0 ? 0.0 : toNumber(a) % d;
     }
 
     public static boolean equalsValue(Object a, Object b) {

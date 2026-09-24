@@ -1,10 +1,11 @@
 package com.fixmer.mared.gui.common;
 
+import com.fixmer.mared.MaredLang;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import com.fixmer.mared.MaredLang;
 
 public class MaredConfirmDialog extends Screen {
 
@@ -12,8 +13,13 @@ public class MaredConfirmDialog extends Screen {
     private static final int DANGER = MaredUi.DANGER;
     private static final int WARN   = MaredUi.WARN;
 
+    private static final int PANEL_W = 320;
+    private static final int PANEL_H = 140;
+    private static final int BTN_W   = 120;
+    private static final int BTN_H   = 20;
+    private static final int BTN_GAP = 20;
+
     private final Screen parent;
-    private final String title;
     private final String message;
     private final Runnable onConfirm;
     private final boolean warning;
@@ -29,7 +35,6 @@ public class MaredConfirmDialog extends Screen {
                               Runnable onConfirm, boolean warning) {
         super(Component.literal(title));
         this.parent = parent;
-        this.title = title;
         this.message = message;
         this.onConfirm = onConfirm;
         this.warning = warning;
@@ -40,31 +45,24 @@ public class MaredConfirmDialog extends Screen {
         super.init();
         MaredLang.reload();
 
-        int panelW = 320;
-        int panelH = 140;
-        int panelX = (this.width - panelW) / 2;
-        int panelY = (this.height - panelH) / 2;
-
-        int btnW = 120;
-        int btnY = panelY + panelH - 40;
-        int btnGap = 20;
-
+        int panelX = (this.width - PANEL_W) / 2;
+        int panelY = (this.height - PANEL_H) / 2;
+        int btnY = panelY + PANEL_H - 40;
         int accent = warning ? WARN : DANGER;
 
-        // FIX 0.2.6: Отмена — СЛЕВА, Действие — СПРАВА.
         cancelBtn = addRenderableWidget(new MaredCompactButton(
-            panelX + panelW / 2 - btnW - btnGap / 2, btnY, btnW, 20,
+            panelX + PANEL_W / 2 - BTN_W - BTN_GAP / 2, btnY, BTN_W, BTN_H,
             Component.literal(MaredLang.get("mared.dialog.cancel")),
             0xFF55FF88, this::onCancel));
 
         confirmBtn = addRenderableWidget(new MaredCompactButton(
-            panelX + panelW / 2 + btnGap / 2, btnY, btnW, 20,
+            panelX + PANEL_W / 2 + BTN_GAP / 2, btnY, BTN_W, BTN_H,
             Component.literal(MaredLang.get("mared.dialog.confirm")),
-            accent, this::onConfirm));
+            accent, this::onConfirmInternal));
     }
 
-    private void onConfirm() { onConfirm.run(); onClose(); }
-    private void onCancel() { onClose(); }
+    private void onConfirmInternal() { onConfirm.run(); onClose(); }
+    private void onCancel()          { onClose(); }
 
     @Override
     public void onClose() {
@@ -75,23 +73,22 @@ public class MaredConfirmDialog extends Screen {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         MaredUi.dialogBackground(g, this.width, this.height);
 
-        int panelW = 320;
-        int panelH = 140;
-        int panelX = (this.width - panelW) / 2;
-        int panelY = (this.height - panelH) / 2;
-
+        int panelX = (this.width - PANEL_W) / 2;
+        int panelY = (this.height - PANEL_H) / 2;
         int accent = warning ? WARN : DANGER;
-        MaredUi.dialogPanel(g, panelX, panelY, panelW, panelH, accent);
+        MaredUi.dialogPanel(g, panelX, panelY, PANEL_W, PANEL_H, accent);
 
-        MaredUi.text(g, this.font, title, panelX + 20, panelY + 20, accent);
-        MaredUi.wrapped(g, this.font, message, panelX + 20, panelY + 50, panelW - 40, TEXT);
+        MaredUi.text(g, this.font, this.title.getString(),
+            panelX + 20, panelY + 20, accent);
+        MaredUi.wrapped(g, this.font, message,
+            panelX + 20, panelY + 50, PANEL_W - 40, TEXT);
 
         super.render(g, mouseX, mouseY, partialTick);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == 257 || keyCode == 335) { onConfirm(); return true; }
+        if (keyCode == 257 || keyCode == 335) { onConfirmInternal(); return true; }
         if (keyCode == 256) { onCancel(); return true; }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }

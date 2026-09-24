@@ -1,17 +1,18 @@
 package com.fixmer.mared.commands.input;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import net.minecraft.server.MinecraftServer;
 import com.fixmer.mared.commands.engine.MaredScriptCommand;
 import com.fixmer.mared.commands.engine.MaredScriptContext;
 import com.fixmer.mared.commands.engine.MaredScriptExecutor;
 import com.fixmer.mared.commands.engine.MaredScriptRunner;
-import com.fixmer.mared.MaredLang;
+
+import net.minecraft.server.MinecraftServer;
 
 public final class MaredBindRegistry {
 
@@ -36,12 +37,11 @@ public final class MaredBindRegistry {
         }
     }
 
-    private static final Map<String, List<Entry>> BINDINGS = new LinkedHashMap<>();
-
-    private static final Map<Integer, List<String>> BY_KEYCODE = new HashMap<>();
+    private static final Map<String, List<Entry>> BINDINGS = new LinkedHashMap<>(16);
+    private static final Map<Integer, List<String>> BY_KEYCODE = new HashMap<>(32);
     private static boolean indexDirty = true;
 
-    private static final List<String> ACTIVE_HOLDS = new ArrayList<>();
+    private static final List<String> ACTIVE_HOLDS = new ArrayList<>(4);
 
     // ============================================================
     //  Индекс по keyCode
@@ -61,12 +61,10 @@ public final class MaredBindRegistry {
     public static List<String> keysForCode(int keyCode) {
         rebuildIndexIfNeeded();
         List<String> list = BY_KEYCODE.get(keyCode);
-        return list != null ? list : java.util.Collections.emptyList();
+        return list != null ? list : Collections.emptyList();
     }
 
-    private static void markDirty() {
-        indexDirty = true;
-    }
+    private static void markDirty() { indexDirty = true; }
 
     // ============================================================
     //  Мутации
@@ -104,9 +102,7 @@ public final class MaredBindRegistry {
         List<Entry> list = BINDINGS.get(key);
         if (list == null) return;
         list.removeIf(e -> e.blockVanilla);
-        if (list.isEmpty()) {
-            BINDINGS.remove(key);
-        }
+        if (list.isEmpty()) BINDINGS.remove(key);
         markDirty();
     }
 
@@ -123,25 +119,11 @@ public final class MaredBindRegistry {
         MaredKeyBlocker.clear();
     }
 
-    public static void remove(String key, int index) {
-        List<Entry> list = BINDINGS.get(key);
-        if (list == null) return;
-        if (index < 0 || index >= list.size()) return;
-        list.remove(index);
-        if (list.isEmpty()) {
-            BINDINGS.remove(key);
-            removeBlock(key);
-        }
-        markDirty();
-    }
-
     // ============================================================
     //  Чтение
     // ============================================================
 
-    public static List<String> keys() {
-        return new ArrayList<>(BINDINGS.keySet());
-    }
+    public static List<String> keys() { return new ArrayList<>(BINDINGS.keySet()); }
 
     public static List<Entry> entries(String key) {
         return BINDINGS.getOrDefault(key, List.of());
@@ -175,8 +157,7 @@ public final class MaredBindRegistry {
         int n = list.size();
         for (int i = 0; i < n; i++) {
             Entry e = list.get(i);
-            if (e.mode != BindMode.PRESS) continue;
-            runEntry(e, key, server);
+            if (e.mode == BindMode.PRESS) runEntry(e, server);
         }
     }
 
@@ -186,8 +167,7 @@ public final class MaredBindRegistry {
         int n = list.size();
         for (int i = 0; i < n; i++) {
             Entry e = list.get(i);
-            if (e.mode != BindMode.RELEASE) continue;
-            runEntry(e, key, server);
+            if (e.mode == BindMode.RELEASE) runEntry(e, server);
         }
     }
 
@@ -200,45 +180,38 @@ public final class MaredBindRegistry {
             Entry e = list.get(i);
             if (e.mode != BindMode.HOLD) continue;
             hasHold = true;
-            runEntry(e, key, server);
+            runEntry(e, server);
         }
-        if (hasHold && !ACTIVE_HOLDS.contains(key)) {
-            ACTIVE_HOLDS.add(key);
-        }
+        if (hasHold && !ACTIVE_HOLDS.contains(key)) ACTIVE_HOLDS.add(key);
     }
 
-    public static void stopHold(String key) {
-        ACTIVE_HOLDS.remove(key);
-    }
+    public static void stopHold(String key) { ACTIVE_HOLDS.remove(key); }
 
     public static void tickHolds(MinecraftServer server) {
-        int size = ACTIVE_HOLDS.size();
-        if (size == 0) return;
+        if (ACTIVE_HOLDS.isEmpty()) return;
 
-        for (int i = 0; i < size; i++) {
-            if (i >= ACTIVE_HOLDS.size()) break;
-            String key = ACTIVE_HOLDS.get(i);
+        String[] snapshot = ACTIVE_HOLDS.toArray(new String[0]);
+        for (String key : snapshot) {
             List<Entry> list = BINDINGS.get(key);
-            if (list == null) {
-                ACTIVE_HOLDS.remove(i);
-                size--;
-                i--;
-                continue;
-            }
+            if (list == null) { ACTIVE_HOLDS.remove(key); continue; }
             int n = list.size();
-            for (int j = 0; j < n; j++) {
-                Entry e = list.get(j);
+            for (int i = 0; i < n; i++) {
+                Entry e = list.get(i);
                 if (e.mode != BindMode.HOLD) continue;
-                runEntry(e, key, server);
+                runEntry(e, server);
             }
         }
     }
 
-    private static void runEntry(Entry e, String key, MinecraftServer server) {
-        MaredScriptContext ctx = e.ctx != null
+    /**
+     * Каждый вызов — собственный контекст (fork), иначе переменные
+     * одного вызова перезаписываются другим.
+     */
+    private static void runEntry(Entry e, MinecraftServer server) {
+        MaredScriptContext base = e.ctx != null
             ? e.ctx
             : new MaredScriptContext(null, server, msg -> {});
-        // F9: убран ctx.log(MaredLang.format("mared.log.bind.fire", key)) — слишком шумно
+        MaredScriptContext ctx = base.fork();
         MaredScriptRunner.start(new MaredScriptExecutor(ctx, e.body));
     }
 
@@ -248,15 +221,27 @@ public final class MaredBindRegistry {
 
     private static void applyBlock(String keyStr) {
         MaredKeyNames.ParsedKey pk = MaredKeyNames.parseAny(keyStr);
-        if (pk != null) {
-            MaredKeyBlocker.block(pk.keyCode, keyStr);
-        }
+        if (pk != null) MaredKeyBlocker.block(pk.keyCode, keyStr);
     }
 
     private static void removeBlock(String keyStr) {
         MaredKeyNames.ParsedKey pk = MaredKeyNames.parseAny(keyStr);
-        if (pk != null) {
-            MaredKeyBlocker.unblock(pk.keyCode);
+        if (pk != null) MaredKeyBlocker.unblock(pk.keyCode);
+    }
+
+    // ============================================================
+    //  Прочее
+    // ============================================================
+
+    public static void remove(String key, int index) {
+        List<Entry> list = BINDINGS.get(key);
+        if (list == null) return;
+        if (index < 0 || index >= list.size()) return;
+        list.remove(index);
+        if (list.isEmpty()) {
+            BINDINGS.remove(key);
+            removeBlock(key);
         }
+        markDirty();
     }
 }

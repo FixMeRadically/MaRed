@@ -1,32 +1,27 @@
 package com.fixmer.mared.commands.server_cmd;
 
+import com.fixmer.mared.commands.engine.MaredScriptCommand;
+import com.fixmer.mared.commands.engine.MaredScriptContext;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import com.fixmer.mared.commands.engine.MaredScriptCommand;
-import com.fixmer.mared.commands.engine.MaredScriptContext;
 
 /**
  * mc <команда> — проксирует ванильную команду Minecraft.
- *
- * FIX F: разэкранирование кавычек перед substitute.
  */
 public class MaredMcCommand extends MaredScriptCommand {
 
     private final String command;
 
-    public MaredMcCommand(String command) {
-        this.command = command;
-    }
+    public MaredMcCommand(String command) { this.command = command; }
 
     public String getCommand() { return command; }
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        String raw = command == null ? "" : command;
-        raw = MaredDebugCommand.unescapeQuotes(raw);
-        String resolved = ctx.substitute(raw);
+        String resolved = ctx.substitute(MaredDebugCommand.unescapeQuotes(command));
         String cmd = resolved.startsWith("/") ? resolved.substring(1) : resolved;
 
         ServerPlayer initiator = ctx.getInitiator();
@@ -39,14 +34,12 @@ public class MaredMcCommand extends MaredScriptCommand {
                     initiator != null
                         ? initiator.createCommandSourceStack()
                         : server.createCommandSourceStack(),
-                    cmd
-                );
+                    cmd);
                 ctx.log("[mc] /" + cmd);
-                return true;
             } catch (Exception e) {
                 ctx.log("[mc error] /" + cmd + " — " + e.getMessage());
-                return true;
             }
+            return true;
         }
 
         LocalPlayer player = Minecraft.getInstance().player;
@@ -54,7 +47,6 @@ public class MaredMcCommand extends MaredScriptCommand {
             ctx.log("[warn] mc: no player connection");
             return true;
         }
-
         try {
             player.connection.sendCommand(cmd);
             ctx.log("[mc] /" + cmd);

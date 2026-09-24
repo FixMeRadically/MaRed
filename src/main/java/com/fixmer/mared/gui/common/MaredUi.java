@@ -9,25 +9,39 @@ import java.util.Map;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
+/**
+ * Единая UI-библиотека.
+ *
+ * Здесь живут примитивы рисования, кэши wrap-текста, скролл-модели
+ * и общие структуры (Content, ScrollArea, PixelScroll).
+ *
+ * Все цвета — ARGB int. Все методы — статические, кроме ScrollArea /
+ * PixelScroll / DragState / Content (это stateful-модели).
+ */
 public final class MaredUi {
 
     private MaredUi() {}
 
     // ============================================================
-    //  Общие цвета фона (единые для всего UI)
+    //  Палитра
     // ============================================================
 
-    public static final int SCREEN_BG   = 0xFF0A0A10;
-    public static final int PANEL_BG    = 0xFF14141C;
-    public static final int SUNKEN_BG   = 0xFF0A0A10;
-    public static final int TEXT        = 0xFFFFFFFF;
-    public static final int TEXT_DIM    = 0xFFAAAAAA;
-    public static final int DANGER      = 0xFFFF4444;
-    public static final int SUCCESS     = 0xFF55FF88;
-    public static final int WARN        = 0xFFFFAA00;
+    public static final int SCREEN_BG     = 0xFF0A0A10;
+    public static final int PANEL_BG      = 0xFF14141C;
+    public static final int PANEL_RAISED  = 0xFF1A1A24;
+    public static final int SUNKEN_BG     = 0xFF0A0A10;
+    public static final int TEXT          = 0xFFFFFFFF;
+    public static final int TEXT_DIM      = 0xFFAAAAAA;
+    public static final int DANGER        = 0xFFFF4444;
+    public static final int SUCCESS       = 0xFF55FF88;
+    public static final int WARN          = 0xFFFFAA00;
+    public static final int ACCENT_BLUE   = 0xFF55AAFF;
+    public static final int ACCENT_PURPLE = 0xFFFF55FF;
+    public static final int DIVIDER       = 0xFF333344;
+    public static final int SCROLL_TRACK  = 0xFF15151E;
 
     // ============================================================
-    //  Базовые примитивы
+    //  Примитивы
     // ============================================================
 
     public static void rect(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
@@ -50,7 +64,7 @@ public final class MaredUi {
     }
 
     // ============================================================
-    //  3D-панели
+    //  3D
     // ============================================================
 
     public static void panelLit(GuiGraphics g, int x, int y, int w, int h, int baseColor) {
@@ -71,8 +85,18 @@ public final class MaredUi {
         outlineGradient(g, x, y, w, h, accentTop, accentBottom);
     }
 
+    public static void button3D(GuiGraphics g, Font f, int x, int y, int w, int h,
+                                String label, int bg, int accent, int textColor, boolean hovered) {
+        int border = hovered ? accent : darken(accent, 0.3f);
+        int top = lighten(border, 0.15f);
+        int bottom = darken(border, 0.25f);
+        g.fill(x, y, x + w, y + h, bg);
+        outlineGradient(g, x, y, w, h, top, bottom);
+        centered(g, f, label, x + w / 2, y + (h - 8) / 2, textColor);
+    }
+
     // ============================================================
-    //  Фон диалога
+    //  Диалоговый фон
     // ============================================================
 
     public static void dialogBackground(GuiGraphics g, int width, int height) {
@@ -84,11 +108,11 @@ public final class MaredUi {
     }
 
     // ============================================================
-    //  Работа с цветом
+    //  Цвет
     // ============================================================
 
     public static int lighten(int color, float amount) {
-        int a = (color >> 24) & 0xFF;
+        int a = (color >>> 24);
         int r = (color >> 16) & 0xFF;
         int g = (color >> 8) & 0xFF;
         int b = color & 0xFF;
@@ -99,14 +123,26 @@ public final class MaredUi {
     }
 
     public static int darken(int color, float amount) {
-        int a = (color >> 24) & 0xFF;
-        int r = (color >> 16) & 0xFF;
-        int g = (color >> 8) & 0xFF;
-        int b = color & 0xFF;
-        r = (int) (r * (1 - amount));
-        g = (int) (g * (1 - amount));
-        b = (int) (b * (1 - amount));
+        int a = (color >>> 24);
+        int r = (int) (((color >> 16) & 0xFF) * (1 - amount));
+        int g = (int) (((color >> 8) & 0xFF) * (1 - amount));
+        int b = (int) ((color & 0xFF) * (1 - amount));
         return (a << 24) | (clamp255(r) << 16) | (clamp255(g) << 8) | clamp255(b);
+    }
+
+    public static int withAlpha(int color, int alpha) {
+        return (clamp255(alpha) << 24) | (color & 0x00FFFFFF);
+    }
+
+    public static int lerpColor(int a, int b, float t) {
+        if (t < 0) t = 0; else if (t > 1) t = 1;
+        int aa = a >>> 24, ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+        int ba = b >>> 24, br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+        int ra = (int) (aa + (ba - aa) * t);
+        int rr = (int) (ar + (br - ar) * t);
+        int rg = (int) (ag + (bg - ag) * t);
+        int rb = (int) (ab + (bb - ab) * t);
+        return (ra << 24) | (rr << 16) | (rg << 8) | rb;
     }
 
     private static int clamp255(int v) {
@@ -129,28 +165,11 @@ public final class MaredUi {
                                  int topColor, int bottomColor) {
         int h = y2 - y1;
         if (h <= 0) return;
-        if (h == 1) {
-            g.fill(x1, y1, x2, y1 + 1, topColor);
-            return;
-        }
+        if (h == 1) { g.fill(x1, y1, x2, y1 + 1, topColor); return; }
         int denom = h - 1;
         for (int i = 0; i < h; i++) {
-            int c = lerpColor(topColor, bottomColor, (float) i / denom);
-            g.fill(x1, y1 + i, x2, y1 + i + 1, c);
+            g.fill(x1, y1 + i, x2, y1 + i + 1, lerpColor(topColor, bottomColor, (float) i / denom));
         }
-    }
-
-    public static int lerpColor(int a, int b, float t) {
-        if (t < 0) t = 0; else if (t > 1) t = 1;
-        int aa = (a >> 24) & 0xFF, ar = (a >> 16) & 0xFF;
-        int ag = (a >> 8) & 0xFF, ab = a & 0xFF;
-        int ba = (b >> 24) & 0xFF, br = (b >> 16) & 0xFF;
-        int bg = (b >> 8) & 0xFF, bb = b & 0xFF;
-        int ra = (int) (aa + (ba - aa) * t);
-        int rr = (int) (ar + (br - ar) * t);
-        int rg = (int) (ag + (bg - ag) * t);
-        int rb = (int) (ab + (bb - ab) * t);
-        return (ra << 24) | (rr << 16) | (rg << 8) | rb;
     }
 
     // ============================================================
@@ -169,26 +188,32 @@ public final class MaredUi {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
 
+    /** Обрезает строку по ширине, добавляя "...". Возвращает исходную, если влезает. */
+    public static String ellipsize(Font f, String s, int maxW) {
+        if (s == null) return "";
+        if (f.width(s) <= maxW) return s;
+        int ellipsisW = f.width("...");
+        if (maxW <= ellipsisW) return "";
+        return f.plainSubstrByWidth(s, maxW - ellipsisW) + "...";
+    }
+
     // ============================================================
-    //  Wrapped — оптимизированные версии
+    //  Wrapped — с LRU-кэшами
     // ============================================================
 
-    /** LRU-кэш высоты: (text + '\u0000' + maxW) → heightPx. */
     private static final int HEIGHT_CACHE_MAX = 512;
+    private static final int LINES_CACHE_MAX = 256;
+
     private static final Map<String, Integer> HEIGHT_CACHE =
         Collections.synchronizedMap(new LinkedHashMap<>(128, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<String, Integer> eldest) {
+            @Override protected boolean removeEldestEntry(Map.Entry<String, Integer> e) {
                 return size() > HEIGHT_CACHE_MAX;
             }
         });
 
-    /** LRU-кэш wrapped-строк: (text + '\u0000' + maxW) → List<String>. */
-    private static final int LINES_CACHE_MAX = 256;
     private static final Map<String, List<String>> LINES_CACHE =
         Collections.synchronizedMap(new LinkedHashMap<>(64, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<String, List<String>> eldest) {
+            @Override protected boolean removeEldestEntry(Map.Entry<String, List<String>> e) {
                 return size() > LINES_CACHE_MAX;
             }
         });
@@ -197,67 +222,46 @@ public final class MaredUi {
         return text + '\u0000' + maxW;
     }
 
-    /**
-     * Основная реализация. Разбивает текст на строки по ширине maxW.
-     * Использует font.width по словам, не по символам (быстро для нормального текста).
-     * Если слово не влезает — режет посимвольно.
-     *
-     * Возвращает новый список (не кэшированный).
-     * Для кэшированной версии — wrapLines().
-     */
     public static List<String> wrapLines(Font f, String text, int maxW) {
         if (text == null) text = "";
         if (maxW <= 0) return Collections.singletonList(text);
         if (text.isEmpty()) return Collections.singletonList("");
-
-        // Быстрый путь: одна строка влезает целиком
         if (f.width(text) <= maxW) return Collections.singletonList(text);
 
         List<String> result = new ArrayList<>(4);
         int n = text.length();
         int i = 0;
-
-        // Аккумулятор текущей строки
-        StringBuilder current = new StringBuilder(64);
-        int currentW = 0;
+        StringBuilder cur = new StringBuilder(64);
+        int curW = 0;
 
         while (i < n) {
-            // Находим конец слова
             int wordStart = i;
-            while (i < n && text.charAt(i) == ' ') i++; // пропускаем пробелы
+            while (i < n && text.charAt(i) == ' ') i++;
             int wordEnd = i;
             while (wordEnd < n && text.charAt(wordEnd) != ' ') wordEnd++;
-
-            if (wordStart == wordEnd) {
-                // только пробелы до конца — выходим
-                break;
-            }
+            if (wordStart == wordEnd) break;
 
             String word = text.substring(wordStart, wordEnd);
             int wordW = f.width(word);
 
-            // Слово не влезает в пустую строку — режем посимвольно
             if (wordW > maxW) {
-                // Сбрасываем накопленное
-                if (current.length() > 0) {
-                    result.add(current.toString());
-                    current.setLength(0);
-                    currentW = 0;
+                if (cur.length() > 0) {
+                    result.add(cur.toString());
+                    cur.setLength(0);
+                    curW = 0;
                 }
-                // Режем слово
                 int wStart = 0;
                 int wn = word.length();
                 while (wStart < wn) {
                     int wEnd = wStart + 1;
                     int lastFit = wStart;
-                    // Ищем максимальный префикс, который влезает
                     while (wEnd <= wn) {
                         int ww = f.width(word.substring(wStart, wEnd));
                         if (ww > maxW) break;
                         lastFit = wEnd;
                         wEnd++;
                     }
-                    if (lastFit == wStart) lastFit = wStart + 1; // хотя бы 1 символ
+                    if (lastFit == wStart) lastFit = wStart + 1;
                     result.add(word.substring(wStart, lastFit));
                     wStart = lastFit;
                 }
@@ -265,34 +269,29 @@ public final class MaredUi {
                 continue;
             }
 
-            // Проверяем, влезает ли слово с пробелом в текущую строку
-            if (current.length() == 0) {
-                current.append(word);
-                currentW = wordW;
+            if (cur.length() == 0) {
+                cur.append(word);
+                curW = wordW;
             } else {
-                int totalW = currentW + f.width(" ") + wordW;
+                int totalW = curW + f.width(" ") + wordW;
                 if (totalW <= maxW) {
-                    current.append(' ').append(word);
-                    currentW = totalW;
+                    cur.append(' ').append(word);
+                    curW = totalW;
                 } else {
-                    result.add(current.toString());
-                    current.setLength(0);
-                    current.append(word);
-                    currentW = wordW;
+                    result.add(cur.toString());
+                    cur.setLength(0);
+                    cur.append(word);
+                    curW = wordW;
                 }
             }
-
             i = wordEnd;
         }
 
-        if (current.length() > 0) {
-            result.add(current.toString());
-        }
+        if (cur.length() > 0) result.add(cur.toString());
         if (result.isEmpty()) result.add("");
         return result;
     }
 
-    /** Кэшированная версия wrapLines. */
     public static List<String> wrapLinesCached(Font f, String text, int maxW) {
         if (text == null) text = "";
         if (maxW <= 0) return Collections.singletonList(text);
@@ -307,9 +306,6 @@ public final class MaredUi {
         return lines;
     }
 
-    /**
-     * Рендерит wrapped-текст, возвращает y после последней строки.
-     */
     public static int wrapped(GuiGraphics g, Font f, String text, int x, int y, int maxW, int c) {
         if (text == null || text.isEmpty()) return y;
         List<String> lines = wrapLines(f, text, maxW);
@@ -321,10 +317,6 @@ public final class MaredUi {
         return y;
     }
 
-    /**
-     * Высота wrapped-текста в пикселях (без рендера).
-     * Кэшируется — вызывается очень часто в InfoPanel.
-     */
     public static int wrappedHeight(Font f, String text, int maxW) {
         if (text == null || text.isEmpty()) return 10;
         if (maxW <= 0) return 10;
@@ -338,7 +330,6 @@ public final class MaredUi {
         return h;
     }
 
-    /** Сбросить кэши (например, при смене шрифта / языка). */
     public static void clearWrapCaches() {
         HEIGHT_CACHE.clear();
         LINES_CACHE.clear();
@@ -355,64 +346,31 @@ public final class MaredUi {
         centered(g, f, label, x + w / 2, y + (h - 8) / 2, textColor);
     }
 
-    public static void buttonGradient(GuiGraphics g, Font f, int x, int y, int w, int h, String label,
-                                      int bg, int topColor, int bottomColor, int textColor) {
+    public static void buttonGradient(GuiGraphics g, Font f, int x, int y, int w, int h,
+                                      String label, int bg, int topColor, int bottomColor,
+                                      int textColor) {
         g.fill(x, y, x + w, y + h, bg);
         outlineGradient(g, x, y, w, h, topColor, bottomColor);
         centered(g, f, label, x + w / 2, y + (h - 8) / 2, textColor);
     }
 
-    public static void button3D(GuiGraphics g, Font f, int x, int y, int w, int h, String label,
-                                int bg, int accent, int textColor, boolean hovered) {
-        int border = hovered ? accent : darken(accent, 0.3f);
-        int top = lighten(border, 0.15f);
-        int bottom = darken(border, 0.25f);
-        g.fill(x, y, x + w, y + h, bg);
-        outlineGradient(g, x, y, w, h, top, bottom);
-        centered(g, f, label, x + w / 2, y + (h - 8) / 2, textColor);
-    }
-
     // ============================================================
-    //  Специализированные кнопки
+    //  Чекбоксы / радиокнопки
     // ============================================================
 
-    public static void drawDelButton(GuiGraphics g, int x, int y, int sz, boolean hovered) {
-        int bg = hovered ? 0xFF663333 : 0xFF3A2020;
-        rect(g, x, y, x + sz, y + sz, bg);
-        outline(g, x, y, sz, sz, DANGER);
-        int cx = x + sz / 2;
-        int cy = y + sz / 2;
-        drawMinus(g, cx, cy, sz / 2 - 2, DANGER);
+    public static void drawCheckbox(GuiGraphics g, int x, int y, int sz,
+                                    boolean checked, int border, int fill) {
+        rect(g, x, y, x + sz, y + sz, SUNKEN_BG);
+        outline(g, x, y, sz, sz, border);
+        if (checked) rect(g, x + 3, y + 3, x + sz - 3, y + sz - 3, fill);
     }
 
-    public static void drawUnlockButton(GuiGraphics g, Font f, int x, int y, int sz, boolean hovered) {
-        int bg = hovered ? 0xFF336633 : 0xFF203A20;
-        rect(g, x, y, x + sz, y + sz, bg);
-        outline(g, x, y, sz, sz, SUCCESS);
-        centered(g, f, "U", x + sz / 2, y + sz / 2 - 4, SUCCESS);
-    }
-
-    public static void drawMinus(GuiGraphics g, int cx, int cy, int arm, int color) {
-        rect(g, cx - arm, cy, cx + arm + 1, cy + 1, color);
-    }
-
-    public static void drawCheckbox(GuiGraphics g, int x, int y, int sz, boolean checked,
-                                    int border, int fill) {
+    public static void drawCheckMark(GuiGraphics g, int x, int y, int sz,
+                                     boolean checked, int border, int fill) {
         rect(g, x, y, x + sz, y + sz, SUNKEN_BG);
         outline(g, x, y, sz, sz, border);
         if (checked) {
-            rect(g, x + 3, y + 3, x + sz - 3, y + sz - 3, fill);
-        }
-    }
-
-    public static void drawCheckMark(GuiGraphics g, int x, int y, int sz, boolean checked,
-                                     int border, int fill) {
-        rect(g, x, y, x + sz, y + sz, SUNKEN_BG);
-        outline(g, x, y, sz, sz, border);
-        if (checked) {
-            int cx = x + sz / 2;
-            int cy = y + sz / 2;
-            int arm = 3;
+            int cx = x + sz / 2, cy = y + sz / 2, arm = 3;
             rect(g, cx - arm, cy, cx + arm + 1, cy + 1, fill);
             rect(g, cx, cy - arm, cx + 1, cy + arm + 1, fill);
         }
@@ -422,21 +380,26 @@ public final class MaredUi {
                                  int border, int fill) {
         rect(g, x, y, x + sz, y + sz, SUNKEN_BG);
         outline(g, x, y, sz, sz, border);
-        if (selected) {
-            rect(g, x + 3, y + 3, x + sz - 3, y + sz - 3, fill);
-        }
+        if (selected) rect(g, x + 3, y + 3, x + sz - 3, y + sz - 3, fill);
     }
 
-    public static void drawItemRow(GuiGraphics g, int x, int y, int w, int h,
-                                   int bg, boolean selected,
-                                   int stripeColor, int stripeW,
-                                   int accentTop, int accentBottom) {
-        g.fill(x, y, x + w, y + h, bg);
-        if (selected) {
-            gradientV(g, x, y, x + stripeW, y + h, accentTop, accentBottom);
-        } else if (stripeColor != 0) {
-            rect(g, x, y, x + stripeW, y + h, stripeColor);
-        }
+    // ============================================================
+    //  Специальные кнопки
+    // ============================================================
+
+    public static void drawDelButton(GuiGraphics g, int x, int y, int sz, boolean hovered) {
+        int bg = hovered ? 0xFF663333 : 0xFF3A2020;
+        rect(g, x, y, x + sz, y + sz, bg);
+        outline(g, x, y, sz, sz, DANGER);
+        int cx = x + sz / 2, cy = y + sz / 2, arm = sz / 2 - 2;
+        rect(g, cx - arm, cy, cx + arm + 1, cy + 1, DANGER);
+    }
+
+    public static void drawUnlockButton(GuiGraphics g, Font f, int x, int y, int sz, boolean hovered) {
+        int bg = hovered ? 0xFF336633 : 0xFF203A20;
+        rect(g, x, y, x + sz, y + sz, bg);
+        outline(g, x, y, sz, sz, SUCCESS);
+        centered(g, f, "U", x + sz / 2, y + sz / 2 - 4, SUCCESS);
     }
 
     // ============================================================
@@ -444,23 +407,22 @@ public final class MaredUi {
     // ============================================================
 
     public static void dashedLine(GuiGraphics g, int x1, int y, int x2, int color) {
-        int dash = 4, gap = 3, x = x1;
+        int x = x1;
         while (x < x2) {
-            int e = Math.min(x + dash, x2);
+            int e = Math.min(x + 4, x2);
             g.fill(x, y, e, y + 1, color);
-            x += dash + gap;
+            x += 7;
         }
     }
 
     public static void dashedLineGradient(GuiGraphics g, int x1, int y, int x2,
                                           int leftColor, int rightColor) {
-        int dash = 4, gap = 3, x = x1;
+        int x = x1;
         int total = Math.max(1, x2 - x1);
         while (x < x2) {
-            int e = Math.min(x + dash, x2);
-            int c = lerpColor(leftColor, rightColor, (float) (x - x1) / total);
-            g.fill(x, y, e, y + 1, c);
-            x += dash + gap;
+            int e = Math.min(x + 4, x2);
+            g.fill(x, y, e, y + 1, lerpColor(leftColor, rightColor, (float) (x - x1) / total));
+            x += 7;
         }
     }
 
@@ -473,40 +435,29 @@ public final class MaredUi {
     }
 
     // ============================================================
-    //  Прокрутка
+    //  Скроллбар
     // ============================================================
 
-    public static void drawScrollbar(GuiGraphics g, int trackX, int trackY, int trackW, int trackH,
-                                     int thumbY, int thumbH, int accentTop, int accentBottom) {
-        g.fill(trackX, trackY, trackX + trackW, trackY + trackH, 0xFF15151E);
-        if (thumbH > 0) {
-            gradientV(g, trackX, thumbY, trackX + trackW, thumbY + thumbH, accentTop, accentBottom);
-        }
-    }
-
     public static void scrollbarTrack(GuiGraphics g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, 0xFF15151E);
+        g.fill(x, y, x + w, y + h, SCROLL_TRACK);
     }
 
     public static void scrollbarThumb(GuiGraphics g, int x, int y, int w, int h,
-                                      int accentTop, int accentBottom) {
-        gradientV(g, x, y, x + w, y + h, accentTop, accentBottom);
+                                      int topColor, int bottomColor) {
+        gradientV(g, x, y, x + w, y + h, topColor, bottomColor);
     }
 
-    // ============================================================
-    //  Строка списка (совместимость)
-    // ============================================================
-
-    public static void listRow(GuiGraphics g, int x, int y, int w, int h,
-                               int bg, boolean selected, int selAccentTop, int selAccentBottom) {
-        g.fill(x, y, x + w, y + h, bg);
-        if (selected) {
-            gradientV(g, x, y, x + 2, y + h, selAccentTop, selAccentBottom);
+    public static void drawScrollbar(GuiGraphics g, int trackX, int trackY, int trackW, int trackH,
+                                     int thumbY, int thumbH, int accentTop, int accentBottom) {
+        g.fill(trackX, trackY, trackX + trackW, trackY + trackH, SCROLL_TRACK);
+        if (thumbH > 0) {
+            gradientV(g, trackX, thumbY, trackX + trackW, thumbY + thumbH,
+                accentTop, accentBottom);
         }
     }
 
     // ============================================================
-    //  Drag
+    //  Drag state
     // ============================================================
 
     public enum DragKind { NONE, FILE_SCROLL, CMD_SCROLL, INFO_SCROLL, LOG_SCROLL, FILTER_SCROLL }
@@ -514,7 +465,9 @@ public final class MaredUi {
     public static class DragState {
         public DragKind kind = DragKind.NONE;
         public double startY;
-        public int startOffset, thumbH, trackH;
+        public int startOffset;
+        public int thumbH;
+        public int trackH;
 
         public void start(DragKind k, double my, int offset, int thumbH, int trackH) {
             this.kind = k;
@@ -525,12 +478,11 @@ public final class MaredUi {
         }
 
         public void clear() { kind = DragKind.NONE; }
-
         public boolean active() { return kind != DragKind.NONE; }
     }
 
     // ============================================================
-    //  ScrollArea
+    //  ScrollArea — по элементам фикс. высоты
     // ============================================================
 
     public static class ScrollArea {
@@ -551,10 +503,7 @@ public final class MaredUi {
             return this;
         }
 
-        public ScrollArea inverted(boolean inv) {
-            this.inverted = inv;
-            return this;
-        }
+        public ScrollArea inverted(boolean inv) { this.inverted = inv; return this; }
 
         public int visibleItems() {
             if (itemHeight <= 0) return 0;
@@ -562,13 +511,9 @@ public final class MaredUi {
         }
 
         public int trackH() { return visibleItems() * itemHeight; }
-
         public int maxScroll() { return Math.max(0, itemCount - visibleItems()); }
-
         public boolean scrollable() { return maxScroll() > 0; }
-
         public void clamp() { offset = Math.max(0, Math.min(maxScroll(), offset)); }
-
         public int contentW(int scrollbarWidth) { return w - scrollbarWidth - 2; }
 
         public int thumbH() {
@@ -586,24 +531,24 @@ public final class MaredUi {
             return y + travel * effOffset / max;
         }
 
-        public void drawScrollbar(GuiGraphics g, int scrollbarColor, int width) {
+        public void drawScrollbar(GuiGraphics g, int color, int width) {
             if (!scrollable()) return;
             int th = trackH();
             int trackX = x + w - width - 2;
-            MaredUi.scrollbarTrack(g, trackX, y, width, th);
-            MaredUi.scrollbarThumb(g, trackX, thumbY(), width, thumbH(),
-                scrollbarColor, scrollbarColor);
+            scrollbarTrack(g, trackX, y, width, th);
+            scrollbarThumb(g, trackX, thumbY(), width, thumbH(), color, color);
         }
 
         public void drawScrollbarGradient(GuiGraphics g, int topColor, int bottomColor, int width) {
             if (!scrollable()) return;
             int th = trackH();
             int trackX = x + w - width - 2;
-            MaredUi.scrollbarTrack(g, trackX, y, width, th);
-            MaredUi.scrollbarThumb(g, trackX, thumbY(), width, thumbH(), topColor, bottomColor);
+            scrollbarTrack(g, trackX, y, width, th);
+            scrollbarThumb(g, trackX, thumbY(), width, thumbH(), topColor, bottomColor);
         }
 
-        public boolean clickScrollbar(double mx, double my, int width, DragState drag, DragKind kind) {
+        public boolean clickScrollbar(double mx, double my, int width,
+                                      DragState drag, DragKind kind) {
             if (!scrollable()) return false;
             int th = trackH();
             int trackX = x + w - width - 2;
@@ -649,7 +594,7 @@ public final class MaredUi {
     }
 
     // ============================================================
-    //  PixelScroll
+    //  PixelScroll — пиксельная прокрутка
     // ============================================================
 
     public static class PixelScroll {
@@ -671,24 +616,23 @@ public final class MaredUi {
         public int maxScroll() { return Math.max(0, contentHeight - h); }
         public boolean scrollable() { return maxScroll() > 0; }
         public void clamp() { offset = Math.max(0, Math.min(maxScroll(), offset)); }
-
         public int thumbH() { return Math.max(10, h * h / Math.max(1, contentHeight)); }
 
         public int thumbY() {
             int max = maxScroll();
             if (max <= 0) return y;
-            int travel = h - thumbH();
-            return y + travel * offset / max;
+            return y + (h - thumbH()) * offset / max;
         }
 
         public void drawScrollbarGradient(GuiGraphics g, int topColor, int bottomColor, int width) {
             if (!scrollable()) return;
             int trackX = x + w - width - 2;
-            MaredUi.scrollbarTrack(g, trackX, y, width, h);
-            MaredUi.scrollbarThumb(g, trackX, thumbY(), width, thumbH(), topColor, bottomColor);
+            scrollbarTrack(g, trackX, y, width, h);
+            scrollbarThumb(g, trackX, thumbY(), width, thumbH(), topColor, bottomColor);
         }
 
-        public boolean clickScrollbar(double mx, double my, int width, DragState drag, DragKind kind) {
+        public boolean clickScrollbar(double mx, double my, int width,
+                                      DragState drag, DragKind kind) {
             if (!scrollable()) return false;
             int trackX = x + w - width - 2;
             if (!hovered(mx, my, trackX - 2, y, width + 4, h)) return false;
@@ -706,8 +650,8 @@ public final class MaredUi {
         public void dragScrollbar(double my, DragState drag) {
             int max = maxScroll();
             int travel = Math.max(1, drag.trackH - drag.thumbH);
-            offset = Math.max(0, Math.min(max, (int) Math.round(
-                drag.startOffset + (my - drag.startY) * max / travel)));
+            offset = Math.max(0, Math.min(max,
+                (int) Math.round(drag.startOffset + (my - drag.startY) * max / travel)));
         }
 
         public void wheel(double deltaY, int step) {
@@ -717,45 +661,11 @@ public final class MaredUi {
     }
 
     // ============================================================
-    //  List renderer
-    // ============================================================
-
-    public interface ItemRenderer {
-        void render(GuiGraphics g, Font f, int idx, int x, int y, int w, int h,
-                    boolean hovered, boolean selected);
-    }
-
-    public static void listGradient(GuiGraphics g, Font f, ScrollArea area,
-                                    int selectedIdx, int scrollbarWidth,
-                                    int topColor, int bottomColor,
-                                    int selColor, int hoverColor, int normalColor,
-                                    ItemRenderer renderer, int mouseX, int mouseY) {
-        if (area.itemCount == 0) return;
-        area.clamp();
-
-        int itemW = area.contentW(scrollbarWidth);
-        int visible = area.visibleItems();
-        for (int i = 0; i < visible; i++) {
-            int idx = i + area.offset;
-            if (idx >= area.itemCount) break;
-            int itemY = area.y + i * area.itemHeight;
-            boolean selected = idx == selectedIdx;
-            boolean hov = mouseX >= area.x && mouseX < area.x + itemW
-                       && mouseY >= itemY && mouseY < itemY + area.itemHeight - 2;
-            int bg = selected ? selColor : (hov ? hoverColor : normalColor);
-            listRow(g, area.x, itemY, itemW, area.itemHeight - 2, bg, selected,
-                topColor, bottomColor);
-            renderer.render(g, f, idx, area.x, itemY, itemW, area.itemHeight - 2, hov, selected);
-        }
-        area.drawScrollbarGradient(g, topColor, bottomColor, scrollbarWidth);
-    }
-
-    // ============================================================
-    //  Content
+    //  Content — построитель прокручиваемого контента
     // ============================================================
 
     public static class Content {
-        private final List<Row> rows = new ArrayList<>();
+        private final List<Row> rows = new ArrayList<>(16);
 
         public interface Row {
             int height(Font f, int maxW);
@@ -783,7 +693,7 @@ public final class MaredUi {
             }
         }
 
-        private static class TextRow implements Row {
+        private static final class TextRow implements Row {
             final String s; final int c;
             TextRow(String s, int c) { this.s = s; this.c = c; }
             public int height(Font f, int maxW) { return 10; }
@@ -792,20 +702,62 @@ public final class MaredUi {
             }
         }
 
-        private static class WrapRow implements Row {
+        private static final class WrapRow implements Row {
             final String s; final int c;
             WrapRow(String s, int c) { this.s = s; this.c = c; }
-            public int height(Font f, int maxW) { return MaredUi.wrappedHeight(f, s, maxW); }
+            public int height(Font f, int maxW) {
+                return MaredUi.wrappedHeight(f, s, maxW);
+            }
             public void render(GuiGraphics g, Font f, int x, int y, int maxW) {
                 MaredUi.wrapped(g, f, s, x, y, maxW, c);
             }
         }
 
-        private static class GapRow implements Row {
+        private static final class GapRow implements Row {
             final int px;
             GapRow(int px) { this.px = px; }
             public int height(Font f, int maxW) { return px; }
             public void render(GuiGraphics g, Font f, int x, int y, int maxW) {}
         }
+    }
+
+    // ============================================================
+    //  List renderer
+    // ============================================================
+
+    public interface ItemRenderer {
+        void render(GuiGraphics g, Font f, int idx, int x, int y, int w, int h,
+                    boolean hovered, boolean selected);
+    }
+
+    public static void listRow(GuiGraphics g, int x, int y, int w, int h,
+                               int bg, boolean selected, int selAccentTop, int selAccentBottom) {
+        g.fill(x, y, x + w, y + h, bg);
+        if (selected) gradientV(g, x, y, x + 2, y + h, selAccentTop, selAccentBottom);
+    }
+
+    public static void listGradient(GuiGraphics g, Font f, ScrollArea area,
+                                    int selectedIdx, int scrollbarWidth,
+                                    int topColor, int bottomColor,
+                                    int selColor, int hoverColor, int normalColor,
+                                    ItemRenderer renderer, int mouseX, int mouseY) {
+        if (area.itemCount == 0) return;
+        area.clamp();
+
+        int itemW = area.contentW(scrollbarWidth);
+        int visible = area.visibleItems();
+        for (int i = 0; i < visible; i++) {
+            int idx = i + area.offset;
+            if (idx >= area.itemCount) break;
+            int itemY = area.y + i * area.itemHeight;
+            boolean selected = idx == selectedIdx;
+            boolean hov = mouseX >= area.x && mouseX < area.x + itemW
+                       && mouseY >= itemY && mouseY < itemY + area.itemHeight - 2;
+            int bg = selected ? selColor : (hov ? hoverColor : normalColor);
+            listRow(g, area.x, itemY, itemW, area.itemHeight - 2, bg, selected,
+                topColor, bottomColor);
+            renderer.render(g, f, idx, area.x, itemY, itemW, area.itemHeight - 2, hov, selected);
+        }
+        area.drawScrollbarGradient(g, topColor, bottomColor, scrollbarWidth);
     }
 }

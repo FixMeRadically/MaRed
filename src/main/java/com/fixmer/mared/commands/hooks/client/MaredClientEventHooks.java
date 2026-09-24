@@ -4,6 +4,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.fixmer.mared.Mared;
+import com.fixmer.mared.commands.engine.MaredScriptRunner;
+import com.fixmer.mared.commands.engine.MaredStateTracker;
+import com.fixmer.mared.commands.events.MaredEventRegistry;
+import com.fixmer.mared.commands.input.MaredActionRegistry;
+import com.fixmer.mared.commands.input.MaredBindRegistry;
+import com.fixmer.mared.commands.input.MaredKeyBlocker;
+import com.fixmer.mared.commands.input.MaredKeyNames;
+import com.fixmer.mared.commands.storage.MaredGlobalStorage;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -22,25 +30,26 @@ import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import org.lwjgl.glfw.GLFW;
-import com.fixmer.mared.commands.engine.MaredStateTracker;
-import com.fixmer.mared.commands.events.MaredEventRegistry;
-import com.fixmer.mared.commands.input.MaredActionRegistry;
-import com.fixmer.mared.commands.input.MaredBindRegistry;
-import com.fixmer.mared.commands.input.MaredKeyBlocker;
 
 @EventBusSubscriber(modid = Mared.MOD_ID, value = Dist.CLIENT)
 public final class MaredClientEventHooks {
 
     private MaredClientEventHooks() {}
 
-    // === Состояние для отслеживания изменений ===
+    // ============================================================
+    //  Состояние для отслеживания изменений
+    // ============================================================
+
     private static int lastHotbarSlot = -1;
     private static boolean lastSneaking = false;
     private static boolean lastSprinting = false;
     private static boolean lastOnGround = true;
+    private static boolean lastIsAlive = true;
+    private static String lastDim = null;
+    private static int lastHeldCount = -1;
 
     // ============================================================
-    //  Клик мышью
+    //  Мышь
     // ============================================================
 
     @SubscribeEvent
@@ -49,87 +58,38 @@ public final class MaredClientEventHooks {
             if (event.getAction() != GLFW.GLFW_PRESS) return;
 
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen != null) return;
-            if (mc.player == null) return;
+            if (mc.screen != null || mc.player == null) return;
 
-            String type;
-            switch (event.getButton()) {
-                case GLFW.GLFW_MOUSE_BUTTON_RIGHT:  type = "right_click";  break;
-                case GLFW.GLFW_MOUSE_BUTTON_LEFT:   type = "left_click";   break;
-                case GLFW.GLFW_MOUSE_BUTTON_MIDDLE: type = "middle_click"; break;
-                default: return;
-            }
+            String type = switch (event.getButton()) {
+                case GLFW.GLFW_MOUSE_BUTTON_RIGHT  -> "right_click";
+                case GLFW.GLFW_MOUSE_BUTTON_LEFT   -> "left_click";
+                case GLFW.GLFW_MOUSE_BUTTON_MIDDLE -> "middle_click";
+                default -> null;
+            };
+            if (type == null || !MaredEventRegistry.has(type)) return;
 
-            if (!MaredEventRegistry.has(type)) return;
-
-            MinecraftServer server = mc.getSingleplayerServer();
-            Map<String, Object> data = buildClickData(mc);
-            MaredEventRegistry.fire(type, server, data);
+            MaredEventRegistry.fire(type, mc.getSingleplayerServer(),
+                buildClickData(mc));
         } catch (Throwable t) {
             Mared.LOGGER.error("[Mared] onMouseButton error", t);
         }
     }
 
-    private static Map<String, Object> buildClickData(Minecraft mc) {
-        Map<String, Object> data = new HashMap<>();
-        LocalPlayer player = mc.player;
-        if (player == null) return data;
-
-        data.put("player", player.getName().getString());
-        data.put("self", player.getName().getString());
-        data.put("world", player.level() != null
-            ? player.level().dimension().location().toString() : "unknown");
-
-        HitResult hit = mc.hitResult;
-        if (hit instanceof BlockHitResult bhr) {
-            data.put("block_x", bhr.getBlockPos().getX());
-            data.put("block_y", bhr.getBlockPos().getY());
-            data.put("block_z", bhr.getBlockPos().getZ());
-            data.put("block_face", bhr.getDirection().getName());
-
-            data.put("click_x", bhr.getBlockPos().getX());
-            data.put("click_y", bhr.getBlockPos().getY());
-            data.put("click_z", bhr.getBlockPos().getZ());
-            data.put("click_face", bhr.getDirection().getName());
-
-            try {
-                if (player.level() != null) {
-                    var state = player.level().getBlockState(bhr.getBlockPos());
-                    var key = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-                    data.put("click_block", key.toString());
-                    data.put("click_block_name", state.getBlock().getName().getString());
-                }
-            } catch (Throwable ignored) {}
-        }
-        return data;
-    }
-
-    // ============================================================
-    //  Scroll
-    // ============================================================
-
     @SubscribeEvent
     public static void onScroll(InputEvent.MouseScrollingEvent event) {
         try {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen != null) return;
-            if (mc.player == null) return;
+            if (mc.screen != null || mc.player == null) return;
 
             String type = event.getScrollDeltaY() > 0 ? "scroll_up" : "scroll_down";
             if (!MaredEventRegistry.has(type)) return;
 
-            MinecraftServer server = mc.getSingleplayerServer();
-            Map<String, Object> data = new HashMap<>();
-            data.put("player", mc.player.getName().getString());
-            MaredEventRegistry.fire(type, server, data);
+            MaredEventRegistry.fire(type, mc.getSingleplayerServer(),
+                playerData(mc.player));
         } catch (Throwable t) {
             Mared.LOGGER.error("[Mared] onScroll error", t);
         }
     }
-
-    // ============================================================
-    //  Key
-    // ============================================================
 
     @SubscribeEvent
     public static void onKey(InputEvent.Key event) {
@@ -138,8 +98,7 @@ public final class MaredClientEventHooks {
             if (key == GLFW.GLFW_KEY_ESCAPE) return;
 
             Minecraft mc = Minecraft.getInstance();
-            if (mc.screen != null) return;
-            if (mc.player == null) return;
+            if (mc.screen != null || mc.player == null) return;
 
             String type;
             if (event.getAction() == GLFW.GLFW_PRESS) type = "key_press";
@@ -148,25 +107,22 @@ public final class MaredClientEventHooks {
 
             if (!MaredEventRegistry.has(type)) return;
 
-            MinecraftServer server = mc.getSingleplayerServer();
-            Map<String, Object> data = new HashMap<>();
-            data.put("player", mc.player.getName().getString());
+            Map<String, Object> data = playerData(mc.player);
             data.put("key_code", event.getKey());
-            data.put("key_name", nameForKey(event.getKey()));
-            MaredEventRegistry.fire(type, server, data);
+            data.put("key_name", MaredKeyNames.nameForKeyCode(event.getKey()));
+            MaredEventRegistry.fire(type, mc.getSingleplayerServer(), data);
         } catch (Throwable t) {
             Mared.LOGGER.error("[Mared] onKey error", t);
         }
     }
 
     // ============================================================
-    //  Block interact
+    //  Блоки / предметы
     // ============================================================
 
     @SubscribeEvent
     public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
         try {
-            if (!MaredEventRegistry.has("block_interact")) return;
             if (!(event.getEntity() instanceof LocalPlayer lp)) return;
 
             Minecraft mc = Minecraft.getInstance();
@@ -176,36 +132,39 @@ public final class MaredClientEventHooks {
             var level = event.getLevel();
             MinecraftServer server = mc.getSingleplayerServer();
 
-            Map<String, Object> data = new HashMap<>();
-            data.put("player", lp.getName().getString());
-            data.put("self", lp.getName().getString());
-
-            data.put("block_x", pos.getX());
-            data.put("block_y", pos.getY());
-            data.put("block_z", pos.getZ());
-
-            try {
-                var state = level.getBlockState(pos);
-                var key = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-                data.put("block_id", key.toString());
-                data.put("block_name", state.getBlock().getName().getString());
-            } catch (Throwable t) {
-                data.put("block_id", "unknown");
-                data.put("block_name", "unknown");
+            if (MaredEventRegistry.has("block_interact")) {
+                Map<String, Object> data = playerData(lp);
+                data.put("block_x", pos.getX());
+                data.put("block_y", pos.getY());
+                data.put("block_z", pos.getZ());
+                fillBlockInfo(data, level, pos);
+                fillDimension(data, level);
+                MaredEventRegistry.fire("block_interact", server, data);
             }
 
-            data.put("world", level.dimension().location().toString());
-            data.put("dimension", level.dimension().location().getPath());
-
-            MaredEventRegistry.fire("block_interact", server, data);
+            if (MaredEventRegistry.has("block_place")) {
+                var held = lp.getItemInHand(event.getHand());
+                if (held.getItem() instanceof net.minecraft.world.item.BlockItem bi) {
+                    var placePos = pos.relative(event.getFace());
+                    Map<String, Object> data = playerData(lp);
+                    data.put("block_x", placePos.getX());
+                    data.put("block_y", placePos.getY());
+                    data.put("block_z", placePos.getZ());
+                    try {
+                        data.put("block_id", BuiltInRegistries.BLOCK.getKey(bi.getBlock()).toString());
+                        data.put("block_name", bi.getBlock().getName().getString());
+                    } catch (Throwable t) {
+                        data.put("block_id", "unknown");
+                        data.put("block_name", "unknown");
+                    }
+                    fillDimension(data, level);
+                    MaredEventRegistry.fire("block_place", server, data);
+                }
+            }
         } catch (Throwable t) {
             Mared.LOGGER.error("[Mared] onRightClickBlock error", t);
         }
     }
-
-    // ============================================================
-    //  Use item
-    // ============================================================
 
     @SubscribeEvent
     public static void onRightClickItem(PlayerInteractEvent.RightClickItem event) {
@@ -217,25 +176,17 @@ public final class MaredClientEventHooks {
             if (mc.screen != null) return;
 
             var stack = event.getItemStack();
-            MinecraftServer server = mc.getSingleplayerServer();
-
-            Map<String, Object> data = new HashMap<>();
-            data.put("player", lp.getName().getString());
-            data.put("self", lp.getName().getString());
-
+            Map<String, Object> data = playerData(lp);
             try {
-                var key = BuiltInRegistries.ITEM.getKey(stack.getItem());
-                data.put("item_id", key.toString());
+                data.put("item_id", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
             } catch (Throwable t) {
                 data.put("item_id", "unknown");
             }
             data.put("item_name", stack.getHoverName().getString());
             data.put("item_count", stack.getCount());
+            fillDimension(data, lp.level());
 
-            data.put("world", lp.level().dimension().location().toString());
-            data.put("dimension", lp.level().dimension().location().getPath());
-
-            MaredEventRegistry.fire("use_item", server, data);
+            MaredEventRegistry.fire("use_item", mc.getSingleplayerServer(), data);
         } catch (Throwable t) {
             Mared.LOGGER.error("[Mared] onRightClickItem error", t);
         }
@@ -248,31 +199,29 @@ public final class MaredClientEventHooks {
     @SubscribeEvent
     public static void onAttack(AttackEntityEvent event) {
         try {
-            if (!MaredEventRegistry.has("attack")) return;
             if (!(event.getEntity() instanceof LocalPlayer lp)) return;
 
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen != null) return;
 
             var target = event.getTarget();
-            MinecraftServer server = mc.getSingleplayerServer();
+            MaredClientStatePoller.trackAttackTarget(target);
 
-            Map<String, Object> data = new HashMap<>();
-            data.put("player", lp.getName().getString());
-            data.put("self", lp.getName().getString());
+            if (!MaredEventRegistry.has("attack")) return;
 
+            Map<String, Object> data = playerData(lp);
             try {
-                data.put("target_id", target.getType().builtInRegistryHolder().key().location().toString());
+                data.put("target_id",
+                    target.getType().builtInRegistryHolder().key().location().toString());
             } catch (Throwable t) {
                 data.put("target_id", "unknown");
             }
             data.put("target_name", target.getName().getString());
-
             data.put("target_x", (int) target.getX());
             data.put("target_y", (int) target.getY());
             data.put("target_z", (int) target.getZ());
 
-            MaredEventRegistry.fire("attack", server, data);
+            MaredEventRegistry.fire("attack", mc.getSingleplayerServer(), data);
         } catch (Throwable t) {
             Mared.LOGGER.error("[Mared] onAttack error", t);
         }
@@ -289,216 +238,330 @@ public final class MaredClientEventHooks {
             if (MaredEventRegistry.isChatSuppressed()) return;
 
             Minecraft mc = Minecraft.getInstance();
-            MinecraftServer server = mc.getSingleplayerServer();
-            Map<String, Object> data = new HashMap<>();
-            Component msg = event.getMessage();
-            data.put("message", msg.getString());
-            MaredEventRegistry.fire("chat", server, data);
+            Map<String, Object> data = new HashMap<>(2);
+            data.put("message", event.getMessage().getString());
+            MaredEventRegistry.fire("chat", mc.getSingleplayerServer(), data);
         } catch (Throwable t) {
             Mared.LOGGER.error("[Mared] onChat error", t);
         }
     }
 
     // ============================================================
-    //  Tick
+    //  Tick — основной
     // ============================================================
 
     @SubscribeEvent
     public static void onTick(ClientTickEvent.Post event) {
         try {
             Minecraft mc = Minecraft.getInstance();
-            if (mc.player == null) return;
-            MinecraftServer server = mc.getSingleplayerServer();
             LocalPlayer player = mc.player;
+            if (player == null) return;
 
-            // tick_client
-            if (MaredEventRegistry.has("tick_client")) {
-                Map<String, Object> data = new HashMap<>();
-                data.put("player", player.getName().getString());
-                MaredEventRegistry.fire("tick_client", server, data);
-            }
+            MinecraftServer server = mc.getSingleplayerServer();
+            Map<String, Object> playerData = playerData(player);
 
-            // hotbar_switch
-            int currentSlot = player.getInventory().selected;
-            if (lastHotbarSlot == -1) lastHotbarSlot = currentSlot;
-            if (currentSlot != lastHotbarSlot) {
-                if (MaredEventRegistry.has("hotbar_switch")) {
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("player", player.getName().getString());
-                    data.put("from_slot", lastHotbarSlot);
-                    data.put("to_slot", currentSlot);
-                    MaredEventRegistry.fire("hotbar_switch", server, data);
-                }
-                lastHotbarSlot = currentSlot;
-            }
+            fireTickClient(server, player);
+            checkHotbarSwitch(server, player);
+            checkSneak(server, player);
+            checkSprint(server, player);
+            checkJump(server, player);
+            checkDeathRespawn(server, player);
+            checkDimensionChange(server, player);
+            checkItemPickup(server, player);
 
-            // sneak_start / sneak_end
-            boolean sneaking = player.isShiftKeyDown();
-            if (sneaking != lastSneaking) {
-                String type = sneaking ? "sneak_start" : "sneak_end";
-                if (MaredEventRegistry.has(type)) {
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("player", player.getName().getString());
-                    MaredEventRegistry.fire(type, server, data);
-                }
-                lastSneaking = sneaking;
-            }
+            // Multiplexer polling-событий
+            MaredClientStatePoller.poll();
 
-            // sprint_start / sprint_end
-            boolean sprinting = player.isSprinting();
-            if (sprinting != lastSprinting) {
-                String type = sprinting ? "sprint_start" : "sprint_end";
-                if (MaredEventRegistry.has(type)) {
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("player", player.getName().getString());
-                    MaredEventRegistry.fire(type, server, data);
-                }
-                lastSprinting = sprinting;
-            }
+            // В мультиплеере executor'ы тикают клиентом
+            if (server == null) MaredScriptRunner.tick(null);
 
-            // jump
-            boolean onGround = player.onGround();
-            if (lastOnGround && !onGround) {
-                if (MaredEventRegistry.has("jump")) {
-                    Map<String, Object> data = new HashMap<>();
-                    data.put("player", player.getName().getString());
-                    data.put("x", (int) player.getX());
-                    data.put("y", (int) player.getY());
-                    data.put("z", (int) player.getZ());
-                    MaredEventRegistry.fire("jump", server, data);
-                }
-            }
-            lastOnGround = onGround;
-
-            // State tracker
+            // State diff
             MaredStateTracker.Diff diff = MaredStateTracker.poll();
             if (diff.hasChanges) {
-                if (diff.data.containsKey("dx")) {
-                    fireIfHas("player_move", server, player, diff.data);
-                }
-                if (diff.data.containsKey("new_hp")) {
-                    fireIfHas("health_change", server, player, diff.data);
-                }
-                if (diff.data.containsKey("new_food")) {
-                    fireIfHas("hunger_change", server, player, diff.data);
-                }
-                if (diff.data.containsKey("new_xp")) {
-                    fireIfHas("xp_change", server, player, diff.data);
-                }
-                if (diff.data.containsKey("dropped")) {
-                    fireIfHas("item_drop", server, player, diff.data);
-                }
-                if (diff.data.containsKey("new_gamemode")) {
-                    fireIfHas("gamemode_change", server, player, diff.data);
-                }
+                dispatchDiff(server, playerData, diff.data);
             }
         } catch (Throwable t) {
             Mared.LOGGER.error("[Mared] onTick error", t);
         }
     }
 
-    /**
-     * Единая точка запуска триггеров состояния.
-     */
-    private static void fireIfHas(String type, MinecraftServer server, LocalPlayer player,
-                                  Map<String, Object> data) {
+    // ============================================================
+    //  Login / Logout
+    // ============================================================
+
+    @SubscribeEvent
+    public static void onLogin(ClientPlayerNetworkEvent.LoggingIn event) {
         try {
-            if (!MaredEventRegistry.has(type)) return;
-            Map<String, Object> full = new HashMap<>(data);
-            full.put("player", player.getName().getString());
-            full.put("self", player.getName().getString());
-            MaredEventRegistry.fire(type, server, full);
+            Minecraft mc = Minecraft.getInstance();
+            LocalPlayer player = mc.player;
+            if (player == null) return;
+
+            MinecraftServer server = mc.getSingleplayerServer();
+            Map<String, Object> data = playerData(player);
+            data.put("uuid", player.getUUID().toString());
+            data.put("dimension", player.level().dimension().location().getPath());
+            data.put("world", player.level().dimension().location().toString());
+
+            if (MaredEventRegistry.has("join")) {
+                MaredEventRegistry.fire("join", server, data);
+            }
+
+            if (MaredEventRegistry.has("first_join")) {
+                String uuid = player.getUUID().toString();
+                String key = "global.__first_join_" + uuid;
+                if (!MaredGlobalStorage.has(key)) {
+                    MaredGlobalStorage.set(key, Boolean.TRUE);
+                    MaredEventRegistry.fire("first_join", server, new HashMap<>(data));
+                }
+            }
         } catch (Throwable t) {
-            Mared.LOGGER.error("[Mared] fireIfHas error for {}", type, t);
+            Mared.LOGGER.error("[Mared] onLogin error", t);
         }
     }
-
-    // ============================================================
-    //  Logout
-    // ============================================================
 
     @SubscribeEvent
     public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
         try {
             Minecraft mc = Minecraft.getInstance();
-            MinecraftServer server = mc.getSingleplayerServer();
 
             if (MaredEventRegistry.has("leave")) {
-                Map<String, Object> data = new HashMap<>();
-                if (event.getPlayer() != null) data.put("player", event.getPlayer().getName().getString());
-                else data.put("player", "unknown");
-                MaredEventRegistry.fire("leave", server, data);
+                Map<String, Object> data = new HashMap<>(2);
+                data.put("player", event.getPlayer() != null
+                    ? event.getPlayer().getName().getString() : "unknown");
+                MaredEventRegistry.fire("leave", mc.getSingleplayerServer(), data);
             }
 
             MaredBindRegistry.clearAll();
             MaredKeyBlocker.clear();
             MaredActionRegistry.stopAll();
             MaredStateTracker.reset();
+            MaredClientStatePoller.reset();
 
             lastHotbarSlot = -1;
             lastSneaking = false;
             lastSprinting = false;
             lastOnGround = true;
+            lastIsAlive = true;
+            lastDim = null;
+            lastHeldCount = -1;
         } catch (Throwable t) {
             Mared.LOGGER.error("[Mared] onLogout error", t);
         }
     }
 
     // ============================================================
-    //  Утилиты
+    //  Общие хелперы для data
     // ============================================================
 
-    private static String nameForKey(int code) {
-        if (code >= GLFW.GLFW_KEY_A && code <= GLFW.GLFW_KEY_Z)
-            return String.valueOf((char) ('A' + (code - GLFW.GLFW_KEY_A)));
-        if (code >= GLFW.GLFW_KEY_0 && code <= GLFW.GLFW_KEY_9)
-            return String.valueOf((char) ('0' + (code - GLFW.GLFW_KEY_0)));
-        if (code >= GLFW.GLFW_KEY_F1 && code <= GLFW.GLFW_KEY_F25)
-            return "F" + (code - GLFW.GLFW_KEY_F1 + 1);
-        if (code >= GLFW.GLFW_KEY_KP_0 && code <= GLFW.GLFW_KEY_KP_9)
-            return "Numpad" + (code - GLFW.GLFW_KEY_KP_0);
-
-        switch (code) {
-            case GLFW.GLFW_KEY_SPACE:        return "Space";
-            case GLFW.GLFW_KEY_ENTER:        return "Enter";
-            case GLFW.GLFW_KEY_ESCAPE:       return "Escape";
-            case GLFW.GLFW_KEY_TAB:          return "Tab";
-            case GLFW.GLFW_KEY_BACKSPACE:    return "Backspace";
-            case GLFW.GLFW_KEY_DELETE:       return "Delete";
-            case GLFW.GLFW_KEY_INSERT:       return "Insert";
-            case GLFW.GLFW_KEY_HOME:         return "Home";
-            case GLFW.GLFW_KEY_END:          return "End";
-            case GLFW.GLFW_KEY_PAGE_UP:      return "PageUp";
-            case GLFW.GLFW_KEY_PAGE_DOWN:    return "PageDown";
-            case GLFW.GLFW_KEY_UP:           return "Up";
-            case GLFW.GLFW_KEY_DOWN:         return "Down";
-            case GLFW.GLFW_KEY_LEFT:         return "Left";
-            case GLFW.GLFW_KEY_RIGHT:        return "Right";
-            case GLFW.GLFW_KEY_LEFT_SHIFT:   return "LShift";
-            case GLFW.GLFW_KEY_RIGHT_SHIFT:  return "RShift";
-            case GLFW.GLFW_KEY_LEFT_CONTROL: return "LCtrl";
-            case GLFW.GLFW_KEY_RIGHT_CONTROL:return "RCtrl";
-            case GLFW.GLFW_KEY_LEFT_ALT:     return "LAlt";
-            case GLFW.GLFW_KEY_RIGHT_ALT:    return "RAlt";
-            case GLFW.GLFW_KEY_LEFT_SUPER:   return "LSuper";
-            case GLFW.GLFW_KEY_RIGHT_SUPER:  return "RSuper";
-            case GLFW.GLFW_KEY_CAPS_LOCK:    return "CapsLock";
-            case GLFW.GLFW_KEY_NUM_LOCK:     return "NumLock";
-            case GLFW.GLFW_KEY_SCROLL_LOCK:  return "ScrollLock";
-            case GLFW.GLFW_KEY_PRINT_SCREEN: return "PrintScreen";
-            case GLFW.GLFW_KEY_PAUSE:        return "Pause";
-            case GLFW.GLFW_KEY_MINUS:        return "Minus";
-            case GLFW.GLFW_KEY_EQUAL:        return "Equal";
-            case GLFW.GLFW_KEY_LEFT_BRACKET: return "LBracket";
-            case GLFW.GLFW_KEY_RIGHT_BRACKET:return "RBracket";
-            case GLFW.GLFW_KEY_BACKSLASH:    return "Backslash";
-            case GLFW.GLFW_KEY_SEMICOLON:    return "Semicolon";
-            case GLFW.GLFW_KEY_APOSTROPHE:   return "Apostrophe";
-            case GLFW.GLFW_KEY_GRAVE_ACCENT: return "Grave";
-            case GLFW.GLFW_KEY_COMMA:        return "Comma";
-            case GLFW.GLFW_KEY_PERIOD:       return "Period";
-            case GLFW.GLFW_KEY_SLASH:        return "Slash";
-            default:                         return "Key#" + code;
+    private static Map<String, Object> playerData(LocalPlayer p) {
+        Map<String, Object> data = new HashMap<>(8);
+        String name = p.getName().getString();
+        data.put("player", name);
+        data.put("self", name);
+        if (p.level() != null) {
+            data.put("world", p.level().dimension().location().toString());
         }
+        return data;
+    }
+
+    private static void fillDimension(Map<String, Object> data, net.minecraft.world.level.Level level) {
+        if (level == null) return;
+        var loc = level.dimension().location();
+        data.put("world", loc.toString());
+        data.put("dimension", loc.getPath());
+    }
+
+    private static void fillBlockInfo(Map<String, Object> data,
+                                      net.minecraft.world.level.Level level,
+                                      net.minecraft.core.BlockPos pos) {
+        try {
+            var state = level.getBlockState(pos);
+            data.put("block_id", BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+            data.put("block_name", state.getBlock().getName().getString());
+        } catch (Throwable t) {
+            data.put("block_id", "unknown");
+            data.put("block_name", "unknown");
+        }
+    }
+
+    private static Map<String, Object> buildClickData(Minecraft mc) {
+        Map<String, Object> data = playerData(mc.player);
+
+        HitResult hit = mc.hitResult;
+        if (hit instanceof BlockHitResult bhr) {
+            var pos = bhr.getBlockPos();
+            data.put("block_x", pos.getX());
+            data.put("block_y", pos.getY());
+            data.put("block_z", pos.getZ());
+            data.put("block_face", bhr.getDirection().getName());
+
+            data.put("click_x", pos.getX());
+            data.put("click_y", pos.getY());
+            data.put("click_z", pos.getZ());
+            data.put("click_face", bhr.getDirection().getName());
+
+            fillBlockInfo(data, mc.player.level(), pos);
+            data.put("click_block", data.get("block_id"));
+            data.put("click_block_name", data.get("block_name"));
+        }
+        return data;
+    }
+
+    // ============================================================
+    //  Tick-детекторы
+    // ============================================================
+
+    private static void fireTickClient(MinecraftServer server, LocalPlayer player) {
+        if (!MaredEventRegistry.has("tick_client")) return;
+        Map<String, Object> data = new HashMap<>(2);
+        data.put("player", player.getName().getString());
+        MaredEventRegistry.fire("tick_client", server, data);
+    }
+
+    private static void checkHotbarSwitch(MinecraftServer server, LocalPlayer player) {
+        int slot = player.getInventory().selected;
+        if (lastHotbarSlot == -1) { lastHotbarSlot = slot; return; }
+        if (slot == lastHotbarSlot) return;
+        if (MaredEventRegistry.has("hotbar_switch")) {
+            Map<String, Object> data = new HashMap<>(4);
+            data.put("player", player.getName().getString());
+            data.put("from_slot", lastHotbarSlot);
+            data.put("to_slot", slot);
+            MaredEventRegistry.fire("hotbar_switch", server, data);
+        }
+        lastHotbarSlot = slot;
+    }
+
+    private static void checkSneak(MinecraftServer server, LocalPlayer player) {
+        boolean sneaking = player.isShiftKeyDown();
+        if (sneaking == lastSneaking) return;
+        String type = sneaking ? "sneak_start" : "sneak_end";
+        if (MaredEventRegistry.has(type)) {
+            Map<String, Object> data = new HashMap<>(2);
+            data.put("player", player.getName().getString());
+            MaredEventRegistry.fire(type, server, data);
+        }
+        lastSneaking = sneaking;
+    }
+
+    private static void checkSprint(MinecraftServer server, LocalPlayer player) {
+        boolean sprinting = player.isSprinting();
+        if (sprinting == lastSprinting) return;
+        String type = sprinting ? "sprint_start" : "sprint_end";
+        if (MaredEventRegistry.has(type)) {
+            Map<String, Object> data = new HashMap<>(2);
+            data.put("player", player.getName().getString());
+            MaredEventRegistry.fire(type, server, data);
+        }
+        lastSprinting = sprinting;
+    }
+
+    private static void checkJump(MinecraftServer server, LocalPlayer player) {
+        boolean onGround = player.onGround();
+        if (lastOnGround && !onGround && MaredEventRegistry.has("jump")) {
+            Map<String, Object> data = new HashMap<>(5);
+            data.put("player", player.getName().getString());
+            data.put("x", (int) player.getX());
+            data.put("y", (int) player.getY());
+            data.put("z", (int) player.getZ());
+            MaredEventRegistry.fire("jump", server, data);
+        }
+        lastOnGround = onGround;
+    }
+
+    private static void checkDeathRespawn(MinecraftServer server, LocalPlayer player) {
+        boolean isAlive = player.isAlive();
+        if (lastIsAlive == isAlive) return;
+
+        if (!isAlive && MaredEventRegistry.has("player_death")) {
+            Map<String, Object> data = new HashMap<>(8);
+            data.put("player", player.getName().getString());
+            data.put("self", player.getName().getString());
+            data.put("x", (int) player.getX());
+            data.put("y", (int) player.getY());
+            data.put("z", (int) player.getZ());
+            data.put("death_cause", "unknown");
+            data.put("killer", "");
+            MaredEventRegistry.fire("player_death", server, data);
+        } else if (isAlive && MaredEventRegistry.has("respawn")) {
+            Map<String, Object> data = new HashMap<>(5);
+            data.put("player", player.getName().getString());
+            data.put("self", player.getName().getString());
+            data.put("x", (int) player.getX());
+            data.put("y", (int) player.getY());
+            data.put("z", (int) player.getZ());
+            MaredEventRegistry.fire("respawn", server, data);
+        }
+        lastIsAlive = isAlive;
+    }
+
+    private static void checkDimensionChange(MinecraftServer server, LocalPlayer player) {
+        String cur = player.level().dimension().location().toString();
+        if (lastDim == null) { lastDim = cur; return; }
+        if (cur.equals(lastDim)) return;
+
+        if (MaredEventRegistry.has("dimension_change")) {
+            Map<String, Object> data = new HashMap<>(8);
+            data.put("player", player.getName().getString());
+            data.put("self", player.getName().getString());
+            data.put("from_dimension", extractPath(lastDim));
+            data.put("from_world", lastDim);
+            data.put("to_dimension", extractPath(cur));
+            data.put("to_world", cur);
+            data.put("dimension", extractPath(cur));
+            data.put("world", cur);
+            MaredEventRegistry.fire("dimension_change", server, data);
+        }
+        lastDim = cur;
+    }
+
+    private static void checkItemPickup(MinecraftServer server, LocalPlayer player) {
+        int count = player.getMainHandItem().getCount();
+        if (lastHeldCount == -1) { lastHeldCount = count; return; }
+        if (count <= lastHeldCount) { lastHeldCount = count; return; }
+
+        if (MaredEventRegistry.has("item_pickup")) {
+            var stack = player.getMainHandItem();
+            Map<String, Object> data = new HashMap<>(6);
+            data.put("player", player.getName().getString());
+            data.put("self", player.getName().getString());
+            try {
+                data.put("item_id", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+            } catch (Throwable t) {
+                data.put("item_id", "unknown");
+            }
+            data.put("item_name", stack.getHoverName().getString());
+            data.put("item_count", count - lastHeldCount);
+            MaredEventRegistry.fire("item_pickup", server, data);
+        }
+        lastHeldCount = count;
+    }
+
+    private static void dispatchDiff(MinecraftServer server, Map<String, Object> base,
+                                     Map<String, Object> diff) {
+        Map<String, Object> data = null;
+        if (diff.containsKey("dx"))          data = merged(base, diff, "player_move");
+        if (diff.containsKey("new_hp"))      data = merged(base, diff, "health_change");
+        if (diff.containsKey("new_food"))    data = merged(base, diff, "hunger_change");
+        if (diff.containsKey("new_xp"))      data = merged(base, diff, "xp_change");
+        if (diff.containsKey("dropped"))     data = merged(base, diff, "item_drop");
+        if (diff.containsKey("new_gamemode"))data = merged(base, diff, "gamemode_change");
+        if (data != null) { /* fired inside merged */ }
+    }
+
+    private static Map<String, Object> merged(Map<String, Object> base,
+                                              Map<String, Object> diff,
+                                              String type) {
+        if (!MaredEventRegistry.has(type)) return null;
+        Map<String, Object> full = new HashMap<>(base);
+        full.putAll(diff);
+        MaredEventRegistry.fire(type, Minecraft.getInstance().getSingleplayerServer(), full);
+        return full;
+    }
+
+    private static String extractPath(String full) {
+        if (full == null) return "unknown";
+        int idx = full.indexOf(':');
+        return idx >= 0 ? full.substring(idx + 1) : full;
     }
 }

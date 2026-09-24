@@ -12,6 +12,8 @@ import java.util.Collections;
 import java.util.List;
 
 import com.fixmer.mared.Mared;
+import com.fixmer.mared.MaredLang;
+import com.fixmer.mared.gui.editor.MaredEditorLayout;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -19,61 +21,59 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 import net.neoforged.fml.loading.FMLPaths;
-import com.fixmer.mared.gui.editor.MaredEditorLayout;
-import com.fixmer.mared.MaredLang;
 
 public class MaredLogPanel {
 
-    private static final int BG          = 0xFF101018;
-    private static final int TEXT        = MaredUi.TEXT;
-    private static final int TEXT_DIM    = MaredUi.TEXT_DIM;
-    private static final int BTN_BG      = 0xFF2D2D2D;
-    private static final int BTN_HOVER   = 0xFF3E3E42;
-    private static final int BTN_ACTIVE  = 0xFF3A6A3A;
-    private static final int ACCENT      = 0xFF55AAFF;
-    private static final int SELECT_BG   = 0x804466CC;
+    private static final int BG             = 0xFF101018;
+    private static final int TEXT           = MaredUi.TEXT;
+    private static final int TEXT_DIM       = MaredUi.TEXT_DIM;
+    private static final int BTN_BG         = 0xFF2D2D2D;
+    private static final int BTN_HOVER      = 0xFF3E3E42;
+    private static final int BTN_ACTIVE     = 0xFF3A6A3A;
+    private static final int ACCENT         = 0xFF55AAFF;
+    private static final int SELECT_BG      = 0x804466CC;
     private static final int PANEL_SETTINGS = 0xFF0E0E14;
-    private static final int SCROLLBAR_W = 6;
-    private static final int CHECK_ON    = MaredUi.SUCCESS;
-    private static final int CHECK_BRD   = 0xFF4A4A4A;
-    private static final int SEARCH_BG   = 0xFF0A0A10;
+    private static final int SCROLLBAR_W    = 6;
+    private static final int CHECK_ON       = MaredUi.SUCCESS;
+    private static final int CHECK_BRD      = 0xFF4A4A4A;
+    private static final int SEARCH_BG      = 0xFF0A0A10;
 
     public static final int LOG_HEADER = 20;
     public static final int LOG_LINE   = 10;
     public static final int PANEL_H    = 140;
 
     private static final int MAX_ENTRIES = 2000;
-
-    /** BUG-13 FIX: размер пачки удаления. */
-    private static final int TRIM_BATCH = 200;
-
-    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
-    private static final int PAD = 4;
+    private static final int TRIM_BATCH  = 200;
+    private static final int PAD         = 4;
 
     private static final int SEARCH_BOX_OFFSET_X  = 40;
     private static final int SEARCH_BOX_RIGHT_PAD = 220;
     private static final int SEARCH_BOX_Y_OFFSET  = 3;
     private static final int SEARCH_BOX_HEIGHT    = 14;
 
-    private static final List<LogEntry> entries = Collections.synchronizedList(new ArrayList<>());
+    private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+    // ============================================================
+    //  Static state
+    // ============================================================
+
+    private static final List<LogEntry> ENTRIES = Collections.synchronizedList(new ArrayList<>());
     private static volatile boolean dirty = false;
     private static boolean loadedFromDisk = false;
+    private static volatile int VERSION = 0;
 
-    private List<LogEntry> visibleCache = null;
-    private int visibleCacheVersion = -1;
-    private int visibleCacheFilterVersion = -1;
-    private String visibleCacheQuery = null;
+    private static void bumpVersion() { VERSION++; }
 
-    private static volatile int LOG_VERSION = 0;
-
-    private static void bumpLogVersion() { LOG_VERSION++; }
+    // ============================================================
+    //  Instance state
+    // ============================================================
 
     private final MaredUi.ScrollArea scroll = new MaredUi.ScrollArea();
     private final MaredUi.PixelScroll filterScroll = new MaredUi.PixelScroll();
     private final MaredUi.DragState drag = new MaredUi.DragState();
 
     private static final class Pos {
-        final int line; final int col;
+        final int line, col;
         Pos(int line, int col) { this.line = line; this.col = col; }
         boolean valid() { return line >= 0 && col >= 0; }
     }
@@ -96,6 +96,10 @@ public class MaredLogPanel {
     private int cachedX, cachedY, cachedW, cachedH;
     private Font cachedFont;
 
+    // ---- Единый кэш видимых записей ----
+    private List<LogEntry> visibleCache = null;
+    private int visibleCacheKey = 0;
+
     public MaredLogPanel() {
         MaredLogSettings.load();
         if (!loadedFromDisk) {
@@ -108,6 +112,10 @@ public class MaredLogPanel {
         return FMLPaths.CONFIGDIR.get().resolve("mared").resolve("logs").resolve("current.log");
     }
 
+    // ============================================================
+    //  Save / Load
+    // ============================================================
+
     public static void saveToDisk() {
         if (!dirty) return;
         dirty = false;
@@ -115,11 +123,10 @@ public class MaredLogPanel {
             Path file = logFile();
             Files.createDirectories(file.getParent());
 
-            StringBuilder sb = new StringBuilder(4096);
             List<LogEntry> copy;
-            synchronized (entries) {
-                copy = new ArrayList<>(entries);
-            }
+            synchronized (ENTRIES) { copy = new ArrayList<>(ENTRIES); }
+
+            StringBuilder sb = new StringBuilder(4096);
             int n = copy.size();
             for (int i = 0; i < n; i++) {
                 LogEntry e = copy.get(i);
@@ -132,69 +139,68 @@ public class MaredLogPanel {
     }
 
     private static void loadFromDisk() {
-        if (!entries.isEmpty()) return;
+        if (!ENTRIES.isEmpty()) return;
         Path file = logFile();
         if (!Files.exists(file)) return;
         try {
             List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
-            synchronized (entries) {
+            synchronized (ENTRIES) {
                 int n = lines.size();
                 for (int i = 0; i < n; i++) {
                     String line = lines.get(i);
-                    if (line.isEmpty()) continue;
-                    if (line.length() > 11 && line.charAt(0) == '[') {
-                        int close = line.indexOf(']');
-                        if (close > 0) {
-                            String time = line.substring(1, close);
-                            String text = line.substring(close + 1).trim();
-                            entries.add(new LogEntry(time, text));
-                        }
-                    }
+                    if (line.isEmpty() || line.charAt(0) != '[') continue;
+                    int close = line.indexOf(']');
+                    if (close <= 0) continue;
+                    String time = line.substring(1, close);
+                    String text = line.substring(close + 1).trim();
+                    ENTRIES.add(new LogEntry(time, text));
                 }
-                // BUG-13 FIX: удаляем пачками
-                int size = entries.size();
-                if (size > MAX_ENTRIES) {
-                    int toRemove = size - MAX_ENTRIES + TRIM_BATCH;
-                    if (toRemove > size) toRemove = size;
-                    entries.subList(0, toRemove).clear();
-                }
+                trimIfNeeded();
             }
-            bumpLogVersion();
-            Mared.LOGGER.info("[Mared] Log restored from disk: {} entries", entries.size());
+            bumpVersion();
+            Mared.LOGGER.info("[Mared] Log restored from disk: {} entries", ENTRIES.size());
         } catch (IOException e) {
             Mared.LOGGER.warn("[Mared] Failed to load current.log: {}", e.getMessage());
         }
     }
 
+    private static void trimIfNeeded() {
+        int size = ENTRIES.size();
+        if (size <= MAX_ENTRIES) return;
+        int toRemove = size - MAX_ENTRIES + TRIM_BATCH;
+        if (toRemove > size) toRemove = size;
+        ENTRIES.subList(0, toRemove).clear();
+    }
+
+    // ============================================================
+    //  Public
+    // ============================================================
+
     public void setOnToggle(Runnable r) { this.onToggle = r; }
+
     public void setCollapsed(boolean c) {
         this.collapsed = c;
         if (c) { settingsOpen = false; searchOpen = false; }
     }
 
     public void add(String line) {
-        synchronized (entries) {
-            entries.add(new LogEntry(LocalTime.now().format(TIME_FMT), line));
-            // BUG-13 FIX: удаляем пачками
-            int size = entries.size();
-            if (size > MAX_ENTRIES) {
-                int toRemove = size - MAX_ENTRIES + TRIM_BATCH;
-                if (toRemove > size) toRemove = size;
-                entries.subList(0, toRemove).clear();
-            }
+        synchronized (ENTRIES) {
+            ENTRIES.add(new LogEntry(LocalTime.now().format(TIME_FMT), line));
+            trimIfNeeded();
         }
         scroll.offset = 0;
         dirty = true;
-        bumpLogVersion();
+        bumpVersion();
         invalidateVisibleCache();
     }
 
     public void clear() {
-        synchronized (entries) { entries.clear(); }
-        selStart = new Pos(-1, -1); selEnd = new Pos(-1, -1);
+        synchronized (ENTRIES) { ENTRIES.clear(); }
+        selStart = new Pos(-1, -1);
+        selEnd = new Pos(-1, -1);
         scroll.offset = 0;
         dirty = true;
-        bumpLogVersion();
+        bumpVersion();
         invalidateVisibleCache();
         saveToDisk();
     }
@@ -223,37 +229,34 @@ public class MaredLogPanel {
     }
 
     public List<LogEntry> snapshot() {
-        synchronized (entries) { return new ArrayList<>(entries); }
+        synchronized (ENTRIES) { return new ArrayList<>(ENTRIES); }
     }
 
-    private void invalidateVisibleCache() {
-        visibleCache = null;
+    private void invalidateVisibleCache() { visibleCache = null; }
+
+    private int currentCacheKey() {
+        int h = 17;
+        h = h * 31 + VERSION;
+        h = h * 31 + MaredLogSettings.getVersion();
+        h = h * 31 + (searchQuery == null ? 0 : searchQuery.hashCode());
+        return h;
     }
 
     public List<LogEntry> getVisibleEntries() {
-        int logVer = LOG_VERSION;
-        int filtVer = MaredLogSettings.getVersion();
-        String q = searchQuery == null ? "" : searchQuery;
-
-        if (visibleCache != null
-            && visibleCacheVersion == logVer
-            && visibleCacheFilterVersion == filtVer
-            && q.equals(visibleCacheQuery)) {
-            return visibleCache;
-        }
+        int key = currentCacheKey();
+        if (visibleCache != null && visibleCacheKey == key) return visibleCache;
 
         List<LogEntry> copy;
-        synchronized (entries) {
-            copy = new ArrayList<>(entries);
-        }
+        synchronized (ENTRIES) { copy = new ArrayList<>(ENTRIES); }
+
         int n = copy.size();
         List<LogEntry> result = new ArrayList<>(n);
+        String q = searchQuery == null ? "" : searchQuery;
         String qLower = q.isEmpty() ? "" : q.toLowerCase();
 
         for (int i = 0; i < n; i++) {
             LogEntry e = copy.get(i);
             if (!MaredLogSettings.shouldShow(e.text)) continue;
-            // BUG-15 FIX: containsIgnoreCase вместо toLowerCase
             if (!qLower.isEmpty()
                 && !containsIgnoreCase(e.text, qLower)
                 && !e.time.contains(q)) continue;
@@ -261,15 +264,10 @@ public class MaredLogPanel {
         }
 
         visibleCache = result;
-        visibleCacheVersion = logVer;
-        visibleCacheFilterVersion = filtVer;
-        visibleCacheQuery = q;
+        visibleCacheKey = key;
         return result;
     }
 
-    /**
-     * BUG-15 FIX: поиск подстроки без аллокации новой строки.
-     */
     private static boolean containsIgnoreCase(String haystack, String needleLower) {
         if (needleLower.isEmpty()) return true;
         int hLen = haystack.length();
@@ -282,6 +280,10 @@ public class MaredLogPanel {
     }
 
     public EditBox searchBox() { return searchBox; }
+
+    // ============================================================
+    //  Search box
+    // ============================================================
 
     private int searchBoxX(int x) { return x + SEARCH_BOX_OFFSET_X; }
     private int searchBoxW(int w) { return Math.max(60, w - SEARCH_BOX_OFFSET_X - SEARCH_BOX_RIGHT_PAD); }
@@ -317,6 +319,10 @@ public class MaredLogPanel {
         return searchBox;
     }
 
+    // ============================================================
+    //  Header
+    // ============================================================
+
     private void drawHeader(GuiGraphics g, Font font, int x, int y, int w,
                             int mouseX, int mouseY) {
         MaredUi.text(g, font, MaredLang.get("mared.log.title"), x + 6, y + 6, ACCENT);
@@ -334,43 +340,34 @@ public class MaredLogPanel {
         int btnH = 14;
         int right = x + w - 6;
 
-        right -= 50;
-        boolean exportHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 50, btnH);
-        MaredUi.button3D(g, font, right, btnY, 50, btnH,
+        right = drawBtn(g, font, right, btnY, btnH, 50,
             MaredLang.get("mared.log.button.export"),
-            exportHover ? BTN_HOVER : BTN_BG, ACCENT, TEXT, exportHover);
-
-        right -= 4; right -= 44;
-        boolean clearHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 44, btnH);
-        MaredUi.button3D(g, font, right, btnY, 44, btnH,
+            mouseX, mouseY, BTN_BG, ACCENT, false, null);
+        right = drawBtn(g, font, right, btnY, btnH, 44,
             MaredLang.get("mared.log.button.clear"),
-            clearHover ? BTN_HOVER : BTN_BG, 0xFFFF5555, TEXT, clearHover);
-
-        right -= 4; right -= 44;
-        boolean copyHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 44, btnH);
-        MaredUi.button3D(g, font, right, btnY, 44, btnH,
+            mouseX, mouseY, BTN_BG, 0xFFFF5555, false, null);
+        right = drawBtn(g, font, right, btnY, btnH, 44,
             MaredLang.get("mared.log.button.copy"),
-            copyHover ? BTN_HOVER : BTN_BG, ACCENT, TEXT, copyHover);
-
-        right -= 4; right -= 18;
-        boolean searchHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 18, btnH);
-        MaredUi.button3D(g, font, right, btnY, 18, btnH,
+            mouseX, mouseY, BTN_BG, ACCENT, false, null);
+        right = drawBtn(g, font, right, btnY, btnH, 18,
             MaredLang.get("mared.log.button.search"),
-            searchHover ? BTN_HOVER : (searchOpen ? BTN_ACTIVE : BTN_BG),
-            ACCENT, TEXT, searchHover);
-
-        right -= 4; right -= 18;
-        boolean gearHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 18, btnH);
-        MaredUi.button3D(g, font, right, btnY, 18, btnH,
+            mouseX, mouseY, BTN_BG, ACCENT, searchOpen, null);
+        right = drawBtn(g, font, right, btnY, btnH, 18,
             MaredLang.get("mared.log.button.settings"),
-            gearHover ? BTN_HOVER : (settingsOpen ? BTN_ACTIVE : BTN_BG),
-            ACCENT, TEXT, gearHover);
-
-        right -= 4; right -= 18;
-        boolean toggleHover = MaredUi.hovered(mouseX, mouseY, right, btnY, 18, btnH);
-        MaredUi.button3D(g, font, right, btnY, 18, btnH,
+            mouseX, mouseY, BTN_BG, ACCENT, settingsOpen, null);
+        right = drawBtn(g, font, right, btnY, btnH, 18,
             MaredLang.get("mared.log.button.toggle"),
-            toggleHover ? BTN_HOVER : BTN_BG, ACCENT, TEXT, toggleHover);
+            mouseX, mouseY, BTN_BG, ACCENT, false, null);
+    }
+
+    private int drawBtn(GuiGraphics g, Font font, int right, int btnY, int btnH,
+                        int width, String label, int mouseX, int mouseY,
+                        int bgNormal, int accent, boolean active, Void unused) {
+        int bx = right - width;
+        boolean hover = MaredUi.hovered(mouseX, mouseY, bx, btnY, width, btnH);
+        int bg = hover ? BTN_HOVER : (active ? BTN_ACTIVE : bgNormal);
+        MaredUi.button3D(g, font, bx, btnY, width, btnH, label, bg, accent, TEXT, hover);
+        return bx - 4;
     }
 
     private boolean headerClick(double mx, double my, int x, int y, int w) {
@@ -409,6 +406,10 @@ public class MaredLogPanel {
         return false;
     }
 
+    // ============================================================
+    //  Render
+    // ============================================================
+
     public void render(GuiGraphics g, Font font, int x, int y, int w, int h,
                        int mouseX, int mouseY) {
         cachedX = x; cachedY = y; cachedW = w; cachedH = h; cachedFont = font;
@@ -440,16 +441,21 @@ public class MaredLogPanel {
 
         MaredUi.scissorOn(g, x, innerY, x + w, y + h);
 
+        int selMinL = -1, selMinC = -1, selMaxL = -1, selMaxC = -1;
+        if (selStart.valid() && selEnd.valid()) {
+            selMinL = selMinLine(); selMinC = selMinCol();
+            selMaxL = selMaxLine(); selMaxC = selMaxCol();
+        }
+
         for (int i = start; i < end && i < visible.size(); i++) {
             LogEntry e = visible.get(i);
             int row = i - start;
             int lineY = innerY + row * LOG_LINE;
-
             String fullLine = "[" + e.time + "] " + e.text;
 
-            if (isLineSelected(i)) {
-                int selFrom = (i == selMinLine()) ? selMinCol() : 0;
-                int selTo = (i == selMaxLine()) ? selMaxCol() : fullLine.length();
+            if (selMinL >= 0 && i >= selMinL && i <= selMaxL) {
+                int selFrom = (i == selMinL) ? selMinC : 0;
+                int selTo = (i == selMaxL) ? selMaxC : fullLine.length();
                 selFrom = Math.max(0, Math.min(fullLine.length(), selFrom));
                 selTo = Math.max(0, Math.min(fullLine.length(), selTo));
                 int xFrom = x + PAD + font.width(fullLine.substring(0, selFrom));
@@ -510,8 +516,7 @@ public class MaredLogPanel {
             MaredUi.rect(g, cx, cy, cx + lvlItemW, cy + 12, bg);
             MaredUi.outline(g, cx, cy, lvlItemW, 12, enabled ? CHECK_ON : CHECK_BRD);
             MaredUi.drawCheckbox(g, cx + 3, cy + 1, 10, enabled, CHECK_BRD, CHECK_ON);
-            MaredUi.text(g, font, lvl.name(), cx + 18, cy + 2,
-                enabled ? CHECK_ON : TEXT_DIM);
+            MaredUi.text(g, font, lvl.name(), cx + 18, cy + 2, enabled ? CHECK_ON : TEXT_DIM);
             col++;
             if (col >= lvlCols) { col = 0; row++; }
         }
@@ -534,8 +539,7 @@ public class MaredLogPanel {
             MaredUi.rect(g, cx, cy, cx + catItemW, cy + 12, bg);
             MaredUi.outline(g, cx, cy, catItemW, 12, enabled ? CHECK_ON : CHECK_BRD);
             MaredUi.drawCheckbox(g, cx + 3, cy + 1, 10, enabled, CHECK_BRD, CHECK_ON);
-            MaredUi.text(g, font, "[" + cat + "]", cx + 18, cy + 2,
-                enabled ? CHECK_ON : TEXT_DIM);
+            MaredUi.text(g, font, "[" + cat + "]", cx + 18, cy + 2, enabled ? CHECK_ON : TEXT_DIM);
             col++;
             if (col >= catCols) { col = 0; row++; }
         }
@@ -592,12 +596,14 @@ public class MaredLogPanel {
         return new Pos(idx, col);
     }
 
+    // ============================================================
+    //  Mouse
+    // ============================================================
+
     public boolean mouseClicked(double mx, double my, int button, int x, int y, int w, int h,
                                 Font font) {
         if (my >= y && my < y + LOG_HEADER) {
-            if (searchOpen && searchBox != null && searchBox.isMouseOver(mx, my)) {
-                return false;
-            }
+            if (searchOpen && searchBox != null && searchBox.isMouseOver(mx, my)) return false;
             return headerClick(mx, my, x, y, w);
         }
 
@@ -644,7 +650,7 @@ public class MaredLogPanel {
                                 int x, int y, int w, int h, Font font) {
         if (drag.active()) {
             switch (drag.kind) {
-                case LOG_SCROLL -> scroll.dragScrollbar(my, drag);
+                case LOG_SCROLL    -> scroll.dragScrollbar(my, drag);
                 case FILTER_SCROLL -> filterScroll.dragScrollbar(my, drag);
                 default -> {}
             }
@@ -698,26 +704,22 @@ public class MaredLogPanel {
         scroll.set(cachedX, cachedY + LOG_HEADER, cachedW, innerH)
               .inverted(true).items(LOG_LINE, visible.size());
 
-        if (autoScrollDir < 0) {
-            scroll.offset = Math.min(scroll.maxScroll(), scroll.offset + 1);
-        } else {
-            scroll.offset = Math.max(0, scroll.offset - 1);
-        }
+        if (autoScrollDir < 0) scroll.offset = Math.min(scroll.maxScroll(), scroll.offset + 1);
+        else scroll.offset = Math.max(0, scroll.offset - 1);
     }
 
     public boolean mouseScrolled(double mx, double my, double deltaY, int x, int y, int w, int h) {
-        if (my >= y && my < y + h && mx >= x && mx <= x + w) {
-            if (collapsed) return false;
-            if (settingsOpen) {
-                filterScroll.set(x, y + LOG_HEADER, w, h - LOG_HEADER);
-                filterScroll.wheel(deltaY, 15);
-                return true;
-            }
-            scroll.set(x, y + LOG_HEADER, w, h - LOG_HEADER);
-            scroll.wheelLog(deltaY, 3);
+        if (my < y || my >= y + h || mx < x || mx > x + w) return false;
+        if (collapsed) return false;
+
+        if (settingsOpen) {
+            filterScroll.set(x, y + LOG_HEADER, w, h - LOG_HEADER);
+            filterScroll.wheel(deltaY, 15);
             return true;
         }
-        return false;
+        scroll.set(x, y + LOG_HEADER, w, h - LOG_HEADER);
+        scroll.wheelLog(deltaY, 3);
+        return true;
     }
 
     private boolean settingsClick(double mx, double my, int x, int y, int w, int h) {
@@ -765,6 +767,10 @@ public class MaredLogPanel {
         return true;
     }
 
+    // ============================================================
+    //  Copy / Select / Export
+    // ============================================================
+
     public void copySelectedOrAll() {
         StringBuilder sb = new StringBuilder(1024);
         List<LogEntry> visible = getVisibleEntries();
@@ -807,8 +813,13 @@ public class MaredLogPanel {
 
     public void selectAll() {
         List<LogEntry> visible = getVisibleEntries();
-        if (visible.isEmpty()) { selStart = new Pos(-1, -1); selEnd = new Pos(-1, -1); }
-        else { selStart = new Pos(0, 0); selEnd = new Pos(visible.size() - 1, Integer.MAX_VALUE); }
+        if (visible.isEmpty()) {
+            selStart = new Pos(-1, -1);
+            selEnd = new Pos(-1, -1);
+        } else {
+            selStart = new Pos(0, 0);
+            selEnd = new Pos(visible.size() - 1, Integer.MAX_VALUE);
+        }
         add("[info] all lines selected (" + visible.size() + ")");
     }
 
@@ -854,31 +865,35 @@ public class MaredLogPanel {
         }
     }
 
+    // ============================================================
+    //  Color
+    // ============================================================
+
     private int logColor(String line) {
         if (line.contains("[error]") || line.contains("[ошибка]")) return 0xFFFF5555;
         if (line.contains("[warn]") || line.contains("[предупр]")) return 0xFFFFAA00;
-        if (line.contains("[chat]"))       return 0xFF55FFFF;
-        if (line.contains("[give error]")) return 0xFFFF5555;
-        if (line.contains("[give]"))       return 0xFF55FF88;
-        if (line.contains("[mc error]"))   return 0xFFFF5555;
-        if (line.contains("[mc]"))         return 0xFF88DDFF;
-        if (line.contains("[cmd error]"))  return 0xFFFF5555;
-        if (line.contains("[cmd]"))        return 0xFF88DDFF;
-        if (line.contains("[mared parse]"))return 0xFFFF5555;
-        if (line.contains("[log]"))        return 0xFFCCCCFF;
-        if (line.contains("[mared]"))      return 0xFF55FF88;
-        if (line.contains("[bind fire]"))  return 0xFFAA55FF;
-        if (line.contains("[bind]"))       return 0xFFFF55FF;
-        if (line.contains("[unblock]"))    return 0xFF55FF55;
-        if (line.contains("[block]"))      return 0xFFFFAA00;
-        if (line.contains("[toggle]"))     return 0xFF55AAFF;
-        if (line.contains("[assert fail]"))return 0xFFFF5555;
-        if (line.contains("[assert ok]"))  return 0xFF55FF88;
+        if (line.contains("[chat]"))        return 0xFF55FFFF;
+        if (line.contains("[give error]"))  return 0xFFFF5555;
+        if (line.contains("[give]"))        return 0xFF55FF88;
+        if (line.contains("[mc error]"))    return 0xFFFF5555;
+        if (line.contains("[mc]"))          return 0xFF88DDFF;
+        if (line.contains("[cmd error]"))   return 0xFFFF5555;
+        if (line.contains("[cmd]"))         return 0xFF88DDFF;
+        if (line.contains("[mared parse]")) return 0xFFFF5555;
+        if (line.contains("[log]"))         return 0xFFCCCCFF;
+        if (line.contains("[mared]"))       return 0xFF55FF88;
+        if (line.contains("[bind fire]"))   return 0xFFAA55FF;
+        if (line.contains("[bind]"))        return 0xFFFF55FF;
+        if (line.contains("[unblock]"))     return 0xFF55FF55;
+        if (line.contains("[block]"))       return 0xFFFFAA00;
+        if (line.contains("[toggle]"))      return 0xFF55AAFF;
+        if (line.contains("[assert fail]")) return 0xFFFF5555;
+        if (line.contains("[assert ok]"))   return 0xFF55FF88;
         if (line.contains("[run]") || line.contains("[запуск]")) return 0xFFFFD700;
         if (line.contains("[info]") || line.contains("[инфо]"))  return 0xFFAAAAAA;
         if (line.contains("[auto-save]") || line.contains("[автосейв]")) return 0xFF88DDFF;
-        if (line.contains("[say]"))        return 0xFF88DDFF;
-        if (line.contains("[print]"))      return 0xFFCCCCFF;
+        if (line.contains("[say]"))         return 0xFF88DDFF;
+        if (line.contains("[print]"))       return 0xFFCCCCFF;
         return TEXT;
     }
 

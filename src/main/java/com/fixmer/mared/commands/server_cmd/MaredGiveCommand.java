@@ -1,15 +1,15 @@
 package com.fixmer.mared.commands.server_cmd;
 
+import com.fixmer.mared.commands.engine.MaredScriptCommand;
+import com.fixmer.mared.commands.engine.MaredScriptContext;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import com.fixmer.mared.commands.engine.MaredScriptCommand;
-import com.fixmer.mared.commands.engine.MaredScriptContext;
 
 /**
  * give <target> <item> [count]
- * FIX F: разэкранирование кавычек.
  */
 public class MaredGiveCommand extends MaredScriptCommand {
 
@@ -24,21 +24,16 @@ public class MaredGiveCommand extends MaredScriptCommand {
     }
 
     public String getTarget() { return target; }
-    public String getItem() { return item; }
-    public int getCount() { return count; }
+    public String getItem()   { return item; }
+    public int getCount()     { return count; }
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        String rawTarget = target == null ? "" : target;
-        String rawItem = item == null ? "" : item;
-        rawTarget = MaredDebugCommand.unescapeQuotes(rawTarget);
-        rawItem = MaredDebugCommand.unescapeQuotes(rawItem);
+        String resolvedTarget = ctx.substitute(MaredDebugCommand.unescapeQuotes(target));
+        String resolvedItem = ctx.substitute(MaredDebugCommand.unescapeQuotes(item));
 
-        String resolvedTarget = ctx.substitute(rawTarget);
-        String resolvedItem = ctx.substitute(rawItem);
-
-        StringBuilder sb = new StringBuilder("give ");
-        sb.append(resolvedTarget).append(' ').append(resolvedItem);
+        StringBuilder sb = new StringBuilder(32);
+        sb.append("give ").append(resolvedTarget).append(' ').append(resolvedItem);
         if (count != 1) sb.append(' ').append(count);
         String command = sb.toString();
 
@@ -52,14 +47,12 @@ public class MaredGiveCommand extends MaredScriptCommand {
                     initiator != null
                         ? initiator.createCommandSourceStack()
                         : server.createCommandSourceStack(),
-                    command
-                );
+                    command);
                 ctx.log("[give] /" + command);
-                return true;
             } catch (Exception e) {
                 ctx.log("[give error] /" + command + " — " + e.getMessage());
-                return true;
             }
+            return true;
         }
 
         LocalPlayer player = Minecraft.getInstance().player;
@@ -67,7 +60,6 @@ public class MaredGiveCommand extends MaredScriptCommand {
             ctx.log("[warn] give: no player connection");
             return true;
         }
-
         try {
             player.connection.sendCommand(command);
             ctx.log("[give] /" + command);
@@ -79,5 +71,6 @@ public class MaredGiveCommand extends MaredScriptCommand {
 
     @Override public int getDelayTicks() { return 0; }
 
-    @Override public String describe() { return "give " + target + " " + item + " " + count; }
+    @Override
+    public String describe() { return "give " + target + " " + item + " " + count; }
 }

@@ -1,18 +1,19 @@
 package com.fixmer.mared.commands.engine;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
 import com.fixmer.mared.Mared;
+import com.fixmer.mared.MaredTicks;
+import com.fixmer.mared.commands.expr.MaredExpr;
+import com.fixmer.mared.commands.storage.MaredGlobalStorage;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import com.fixmer.mared.commands.expr.MaredExpr;
-import com.fixmer.mared.commands.storage.MaredGlobalStorage;
-import com.fixmer.mared.MaredTicks;
 
 public class MaredScriptContext {
 
@@ -25,39 +26,78 @@ public class MaredScriptContext {
         }
     }
 
-    private ServerPlayer initiator;
-    private final MinecraftServer server;
-    private final Map<String, Object> variables = new HashMap<>(64);
-    private final Consumer<String> logger;
-
-    private final Map<String, Func> functions = new HashMap<>();
-
-    private boolean breakRequested = false;
-    private boolean continueRequested = false;
-
-    private boolean persistent = false;
-    public boolean isPersistent() { return persistent; }
-    public void setPersistent(boolean p) { this.persistent = p; }
-
-    private int callDepth = 0;
     private static final int MAX_CALL_DEPTH = 256;
 
+    private ServerPlayer initiator;
+    private final MinecraftServer server;
+    private final Map<String, Object> variables;
+    private final Consumer<String> logger;
+
+    private final Map<String, Func> functions = new HashMap<>(8);
+
+    private boolean persistent = false;
+    private int callDepth = 0;
     private long lastRefreshTick = -1;
+
+    // per-tick кэш substitute
+    private final Map<String, String> substCache = new HashMap<>(16);
+    private long substCacheTick = -1;
 
     public MaredScriptContext(ServerPlayer initiator, MinecraftServer server, Consumer<String> logger) {
         this.initiator = initiator;
         this.server = server;
         this.logger = logger;
+        this.variables = new HashMap<>(64);
     }
+
+    // ============================================================
+    //  Fork — копия для одного вызова
+    // ============================================================
+
+    /**
+     * Копия контекста с тем же initiator/server/logger.
+     *
+     * Используется в BindRegistry / EventRegistry, чтобы каждый вызов
+     * обработчика имел собственные переменные — иначе параллельные
+     * вызовы могут перезаписать друг другу $v, $i, и т.п.
+     *
+     * Функции НЕ копируются: это статические определения.
+     */
+    public MaredScriptContext fork() {
+        MaredScriptContext copy = new MaredScriptContext(initiator, server, logger);
+        copy.functions.putAll(this.functions);
+        copy.persistent = this.persistent;
+        return copy;
+    }
+
+    /** Fork с новым initiator (для событий с известным игроком). */
+    public MaredScriptContext forkWith(ServerPlayer newInitiator) {
+        MaredScriptContext copy = new MaredScriptContext(newInitiator, server, logger);
+        copy.functions.putAll(this.functions);
+        copy.persistent = this.persistent;
+        return copy;
+    }
+
+    // ============================================================
+    //  Getters / Setters
+    // ============================================================
 
     public ServerPlayer getInitiator() { return initiator; }
     public void setInitiator(ServerPlayer player) { this.initiator = player; }
     public MinecraftServer getServer() { return server; }
 
+    public boolean isPersistent() { return persistent; }
+    public void setPersistent(boolean p) { this.persistent = p; }
+
     public void log(String line) { if (logger != null) logger.accept(line); }
 
+    // ============================================================
+    //  Переменные
+    // ============================================================
+
     public void setVariable(String name, Object value) {
-        if (name != null && name.startsWith("global.")) {
+        if (name == null) return;
+        if (name.startsWith("global.")) {
             MaredGlobalStorage.set(name, value);
         } else {
             variables.put(name, value);
@@ -67,13 +107,9 @@ public class MaredScriptContext {
     public Object getVariable(String name) {
         if (name == null) return null;
 
-        Object v = variables.get(name);
-        if (v != null) return v;
-        if (variables.containsKey(name)) return null;
+        if (variables.containsKey(name)) return variables.get(name);
 
-        if (name.startsWith("global.")) {
-            return MaredGlobalStorage.get(name);
-        }
+        if (name.startsWith("global.")) return MaredGlobalStorage.get(name);
 
         if ("self".equals(name)) {
             return initiator != null ? initiator.getName().getString() : "console";
@@ -84,7 +120,6 @@ public class MaredScriptContext {
             }
             return "unknown";
         }
-
         return null;
     }
 
@@ -92,55 +127,55 @@ public class MaredScriptContext {
         if (name == null) return false;
         if (variables.containsKey(name)) return true;
         if (name.startsWith("global.")) return MaredGlobalStorage.has(name);
-        if ("self".equals(name)) return true;
-        if ("world".equals(name)) return true;
+        if ("self".equals(name) || "world".equals(name)) return true;
         return false;
     }
 
     public Map<String, Object> getAllVariables() { return variables; }
 
+    // ============================================================
+    //  Функции
+    // ============================================================
+
+    public void registerFunction(String name, List<String> params, List<MaredScriptCommand> body) {
+        functions.put(name, new Func(params, body));
+    }
+
+    public boolean hasFunction(String name) { return functions.containsKey(name); }
+    public Func getFunction(String name) { return functions.get(name); }
+
     public Object callFunction(String name, List<Object> args) {
         Func fn = functions.get(name);
-        if (fn == null) {
-            throw new RuntimeException("unknown function: " + name);
-        }
+        if (fn == null) throw new RuntimeException("unknown function: " + name);
 
         if (callDepth >= MAX_CALL_DEPTH) {
             throw new RuntimeException("call stack overflow (max " + MAX_CALL_DEPTH + ")");
         }
 
-        Map<String, Object> backup = new HashMap<>();
         int pn = fn.params.size();
+        Map<String, Object> backup = new HashMap<>(pn * 2);
         for (int i = 0; i < pn; i++) {
             String p = fn.params.get(i);
             backup.put(p, variables.get(p));
         }
-
         for (int i = 0; i < pn; i++) {
             String p = fn.params.get(i);
-            Object value = (i < args.size()) ? args.get(i) : null;
-            variables.put(p, value);
+            variables.put(p, i < args.size() ? args.get(i) : null);
         }
 
         callDepth++;
         Object result = null;
         try {
             MaredScriptExecutor exec = new MaredScriptExecutor(this, fn.body);
-
             MaredScriptExecutor.Frame top = exec.peekTopFrame();
             if (top != null) top.functionCall = true;
 
             int safety = 100_000;
             while (!exec.isFinished() && safety-- > 0) {
                 exec.tick();
-                if (exec.isWaiting()) {
-                    break;
-                }
+                if (exec.isWaiting()) break;
             }
-
-            if (exec.hasReturnValue()) {
-                result = exec.getReturnValue();
-            }
+            if (exec.hasReturnValue()) result = exec.getReturnValue();
         } finally {
             callDepth--;
             for (Map.Entry<String, Object> e : backup.entrySet()) {
@@ -149,6 +184,10 @@ public class MaredScriptContext {
         }
         return result;
     }
+
+    // ============================================================
+    //  Refresh player data
+    // ============================================================
 
     public void refreshPlayerData() {
         ServerPlayer player = initiator;
@@ -159,9 +198,7 @@ public class MaredScriptContext {
         }
 
         long nowTick = MaredTicks.get();
-        if (nowTick == lastRefreshTick && nowTick != 0) {
-            return;
-        }
+        if (nowTick == lastRefreshTick && nowTick != 0) return;
         lastRefreshTick = nowTick;
 
         refreshPlayerDataImpl(player);
@@ -173,30 +210,30 @@ public class MaredScriptContext {
     }
 
     private void refreshPlayerDataImpl(ServerPlayer player) {
-        setVariable("player", player.getName().getString());
-        setVariable("self", player.getName().getString());
-        setVariable("uuid", player.getUUID().toString());
+        variables.put("player", player.getName().getString());
+        variables.put("self", player.getName().getString());
+        variables.put("uuid", player.getUUID().toString());
 
-        setVariable("x", (long) Math.floor(player.getX()));
-        setVariable("y", (long) Math.floor(player.getY()));
-        setVariable("z", (long) Math.floor(player.getZ()));
+        variables.put("x", (long) Math.floor(player.getX()));
+        variables.put("y", (long) Math.floor(player.getY()));
+        variables.put("z", (long) Math.floor(player.getZ()));
 
-        setVariable("x_exact", player.getX());
-        setVariable("y_exact", player.getY());
-        setVariable("z_exact", player.getZ());
+        variables.put("x_exact", player.getX());
+        variables.put("y_exact", player.getY());
+        variables.put("z_exact", player.getZ());
 
-        setVariable("yaw", (long) player.getYRot());
-        setVariable("pitch", (long) player.getXRot());
+        variables.put("yaw", (long) player.getYRot());
+        variables.put("pitch", (long) player.getXRot());
 
-        setVariable("hp", (long) player.getHealth());
-        setVariable("max_hp", (long) player.getMaxHealth());
-        setVariable("food", (long) player.getFoodData().getFoodLevel());
-        setVariable("saturation", (double) player.getFoodData().getSaturationLevel());
-        setVariable("air", (long) player.getAirSupply());
+        variables.put("hp", (long) player.getHealth());
+        variables.put("max_hp", (long) player.getMaxHealth());
+        variables.put("food", (long) player.getFoodData().getFoodLevel());
+        variables.put("saturation", (double) player.getFoodData().getSaturationLevel());
+        variables.put("air", (long) player.getAirSupply());
 
-        setVariable("xp", (long) player.totalExperience);
-        setVariable("xp_level", (long) player.experienceLevel);
-        setVariable("xp_total", (long) player.totalExperience);
+        variables.put("xp", (long) player.totalExperience);
+        variables.put("xp_level", (long) player.experienceLevel);
+        variables.put("xp_total", (long) player.totalExperience);
 
         String gamemode;
         try {
@@ -204,185 +241,219 @@ public class MaredScriptContext {
         } catch (Throwable t) {
             gamemode = "unknown";
         }
-        setVariable("gamemode", gamemode);
+        variables.put("gamemode", gamemode);
 
         if (player.level() != null) {
-            String dim = player.level().dimension().location().getPath();
-            setVariable("dimension", dim);
-            setVariable("dimension_full", player.level().dimension().location().toString());
+            var loc = player.level().dimension().location();
+            variables.put("dimension", loc.getPath());
+            variables.put("dimension_full", loc.toString());
         } else {
-            setVariable("dimension", "unknown");
-            setVariable("dimension_full", "unknown");
+            variables.put("dimension", "unknown");
+            variables.put("dimension_full", "unknown");
         }
 
-        setVariable("is_sneaking", player.isShiftKeyDown());
-        setVariable("is_sprinting", player.isSprinting());
-        setVariable("is_on_ground", player.onGround());
-        setVariable("is_in_water", player.isInWater());
-        setVariable("is_in_lava", player.isInLava());
-        setVariable("is_on_fire", player.isOnFire());
-        setVariable("is_flying", player.getAbilities().flying);
-        setVariable("is_alive", player.isAlive());
-        setVariable("is_swimming", player.isSwimming());
-        setVariable("is_using_item", player.isUsingItem());
-        setVariable("is_blocking", player.isBlocking());
+        variables.put("is_sneaking", player.isShiftKeyDown());
+        variables.put("is_sprinting", player.isSprinting());
+        variables.put("is_on_ground", player.onGround());
+        variables.put("is_in_water", player.isInWater());
+        variables.put("is_in_lava", player.isInLava());
+        variables.put("is_on_fire", player.isOnFire());
+        variables.put("is_flying", player.getAbilities().flying);
+        variables.put("is_alive", player.isAlive());
+        variables.put("is_swimming", player.isSwimming());
+        variables.put("is_using_item", player.isUsingItem());
+        variables.put("is_blocking", player.isBlocking());
 
+        refreshInventory(player);
+        refreshEffects(player);
+        refreshWorld(player);
+
+        if (server != null) {
+            try {
+                variables.put("player_count", (long) server.getPlayerCount());
+                variables.put("difficulty", server.getWorldData().getDifficulty().getKey());
+                variables.put("is_hardcore", server.getWorldData().isHardcore());
+            } catch (Throwable t) {
+                variables.put("player_count", 1L);
+                variables.put("difficulty", "normal");
+                variables.put("is_hardcore", false);
+            }
+        } else {
+            variables.put("player_count", 1L);
+            variables.put("difficulty", "normal");
+            variables.put("is_hardcore", false);
+        }
+
+        variables.put("tick", MaredTicks.get());
+        variables.put("now_ms", System.currentTimeMillis());
+        variables.put("mared_version", Mared.VERSION);
+        variables.put("mc_version", "1.21.1");
+    }
+
+    private void refreshInventory(ServerPlayer player) {
         try {
             var main = player.getMainHandItem();
             if (!main.isEmpty()) {
-                setVariable("held_item", main.getItem().toString());
-                setVariable("held_count", (long) main.getCount());
-                setVariable("held_name", main.getHoverName().getString());
+                variables.put("held_item", main.getItem().toString());
+                variables.put("held_count", (long) main.getCount());
+                variables.put("held_name", main.getHoverName().getString());
             } else {
-                setVariable("held_item", "");
-                setVariable("held_count", 0L);
-                setVariable("held_name", "");
+                variables.put("held_item", "");
+                variables.put("held_count", 0L);
+                variables.put("held_name", "");
             }
 
             var off = player.getOffhandItem();
             if (!off.isEmpty()) {
-                setVariable("offhand_item", off.getItem().toString());
-                setVariable("offhand_count", (long) off.getCount());
+                variables.put("offhand_item", off.getItem().toString());
+                variables.put("offhand_count", (long) off.getCount());
             } else {
-                setVariable("offhand_item", "");
-                setVariable("offhand_count", 0L);
+                variables.put("offhand_item", "");
+                variables.put("offhand_count", 0L);
             }
 
             var inv = player.getInventory();
-            setVariable("armor_helm", inv.getArmor(3).isEmpty() ? "" : inv.getArmor(3).getItem().toString());
-            setVariable("armor_chest", inv.getArmor(2).isEmpty() ? "" : inv.getArmor(2).getItem().toString());
-            setVariable("armor_legs", inv.getArmor(1).isEmpty() ? "" : inv.getArmor(1).getItem().toString());
-            setVariable("armor_boots", inv.getArmor(0).isEmpty() ? "" : inv.getArmor(0).getItem().toString());
+            variables.put("armor_helm",  inv.getArmor(3).isEmpty() ? "" : inv.getArmor(3).getItem().toString());
+            variables.put("armor_chest", inv.getArmor(2).isEmpty() ? "" : inv.getArmor(2).getItem().toString());
+            variables.put("armor_legs",  inv.getArmor(1).isEmpty() ? "" : inv.getArmor(1).getItem().toString());
+            variables.put("armor_boots", inv.getArmor(0).isEmpty() ? "" : inv.getArmor(0).getItem().toString());
         } catch (Throwable t) {
-            setVariable("held_item", "");
-            setVariable("held_count", 0L);
-            setVariable("held_name", "");
-            setVariable("offhand_item", "");
-            setVariable("offhand_count", 0L);
-            setVariable("armor_helm", "");
-            setVariable("armor_chest", "");
-            setVariable("armor_legs", "");
-            setVariable("armor_boots", "");
+            variables.put("held_item", "");
+            variables.put("held_count", 0L);
+            variables.put("held_name", "");
+            variables.put("offhand_item", "");
+            variables.put("offhand_count", 0L);
+            variables.put("armor_helm", "");
+            variables.put("armor_chest", "");
+            variables.put("armor_legs", "");
+            variables.put("armor_boots", "");
         }
+    }
 
+    private void refreshEffects(ServerPlayer player) {
         try {
-            var effects = new java.util.ArrayList<String>();
+            List<String> effects = new ArrayList<>(4);
             for (var effect : player.getActiveEffects()) {
                 effects.add(effect.getEffect().getKey().location().getPath());
             }
-            setVariable("effects", effects);
-            setVariable("effect_count", (long) effects.size());
+            variables.put("effects", effects);
+            variables.put("effect_count", (long) effects.size());
         } catch (Throwable t) {
-            setVariable("effects", new java.util.ArrayList<String>());
-            setVariable("effect_count", 0L);
+            variables.put("effects", new ArrayList<String>());
+            variables.put("effect_count", 0L);
         }
 
         try {
             var team = player.getTeam();
-            setVariable("team", team != null ? team.getName() : "");
+            variables.put("team", team != null ? team.getName() : "");
         } catch (Throwable t) {
-            setVariable("team", "");
+            variables.put("team", "");
+        }
+    }
+
+    private void refreshWorld(ServerPlayer player) {
+        if (player.level() == null) {
+            variables.put("time", 0L);
+            variables.put("day_count", 0L);
+            variables.put("is_day", true);
+            variables.put("is_night", false);
+            variables.put("is_raining", false);
+            variables.put("is_thundering", false);
+            variables.put("weather", "clear");
+            variables.put("moon_phase", 0L);
+            variables.put("seed", 0L);
+            variables.put("world", "unknown");
+            variables.put("world_name", "unknown");
+            return;
         }
 
-        if (player.level() != null) {
-            long dayTime = player.level().getDayTime();
-            long timeOfDay = dayTime % 24000L;
-            setVariable("time", timeOfDay);
-            setVariable("day_count", dayTime / 24000L);
-            setVariable("is_day", timeOfDay >= 0 && timeOfDay < 12000);
-            setVariable("is_night", timeOfDay >= 12000);
-            setVariable("is_raining", player.level().isRaining());
-            setVariable("is_thundering", player.level().isThundering());
+        long dayTime = player.level().getDayTime();
+        long timeOfDay = dayTime % 24000L;
+        variables.put("time", timeOfDay);
+        variables.put("day_count", dayTime / 24000L);
+        variables.put("is_day", timeOfDay >= 0 && timeOfDay < 12000);
+        variables.put("is_night", timeOfDay >= 12000);
+        variables.put("is_raining", player.level().isRaining());
+        variables.put("is_thundering", player.level().isThundering());
 
-            String weather;
-            if (player.level().isThundering()) weather = "thunder";
-            else if (player.level().isRaining()) weather = "rain";
-            else weather = "clear";
-            setVariable("weather", weather);
+        String weather;
+        if (player.level().isThundering()) weather = "thunder";
+        else if (player.level().isRaining()) weather = "rain";
+        else weather = "clear";
+        variables.put("weather", weather);
 
-            setVariable("moon_phase", (long) (dayTime / 24000L % 8));
+        variables.put("moon_phase", dayTime / 24000L % 8);
 
-            try {
-                if (player.level() instanceof ServerLevel sl) {
-                    setVariable("seed", sl.getSeed());
-                } else {
-                    setVariable("seed", 0L);
-                }
-            } catch (Throwable t) {
-                setVariable("seed", 0L);
+        try {
+            if (player.level() instanceof ServerLevel sl) {
+                variables.put("seed", sl.getSeed());
+            } else {
+                variables.put("seed", 0L);
             }
-
-            setVariable("world", player.level().dimension().location().toString());
-            setVariable("world_name", player.level().dimension().location().getPath());
-        } else {
-            setVariable("time", 0L);
-            setVariable("day_count", 0L);
-            setVariable("is_day", true);
-            setVariable("is_night", false);
-            setVariable("is_raining", false);
-            setVariable("is_thundering", false);
-            setVariable("weather", "clear");
-            setVariable("moon_phase", 0L);
-            setVariable("seed", 0L);
-            setVariable("world", "unknown");
-            setVariable("world_name", "unknown");
+        } catch (Throwable t) {
+            variables.put("seed", 0L);
         }
 
-        if (server != null) {
-            try {
-                setVariable("player_count", (long) server.getPlayerCount());
-                setVariable("difficulty", server.getWorldData().getDifficulty().getKey());
-                setVariable("is_hardcore", server.getWorldData().isHardcore());
-            } catch (Throwable t) {
-                setVariable("player_count", 1L);
-                setVariable("difficulty", "normal");
-                setVariable("is_hardcore", false);
-            }
-        } else {
-            setVariable("player_count", 1L);
-            setVariable("difficulty", "normal");
-            setVariable("is_hardcore", false);
-        }
-
-        setVariable("tick", MaredTicks.get());
-        setVariable("now_ms", System.currentTimeMillis());
-
-        setVariable("mared_version", Mared.VERSION);
-        setVariable("mc_version", "1.21.1");
+        var loc = player.level().dimension().location();
+        variables.put("world", loc.toString());
+        variables.put("world_name", loc.getPath());
     }
 
     public void refreshEventData(Map<String, Object> data) {
-        if (data == null) return;
+        if (data == null || data.isEmpty()) return;
         for (Map.Entry<String, Object> kv : data.entrySet()) {
-            setVariable(kv.getKey(), kv.getValue());
+            variables.put(kv.getKey(), kv.getValue());
         }
     }
 
     // ============================================================
-    //  substitute — с BUG-16 FIX
+    //  substitute — per-tick кэш
     // ============================================================
 
     public String substitute(String input) {
         if (input == null || input.isEmpty()) return input;
 
-        StringBuilder result = new StringBuilder(input.length() + 16);
-        int i = 0;
+        long nowTick = MaredTicks.get();
+        if (nowTick != substCacheTick) {
+            substCache.clear();
+            substCacheTick = nowTick;
+        } else {
+            String cached = substCache.get(input);
+            if (cached != null) return cached;
+        }
+
+        String result = doSubstitute(input);
+        if (substCache.size() < 128) substCache.put(input, result);
+        return result;
+    }
+
+    private String doSubstitute(String input) {
         int n = input.length();
+
+        boolean hasDollar = false;
+        boolean hasBackslash = false;
+        for (int i = 0; i < n; i++) {
+            char c = input.charAt(i);
+            if (c == '$') { hasDollar = true; break; }
+            if (c == '\\') hasBackslash = true;
+        }
+        if (!hasDollar) return hasBackslash ? unescape(input) : input;
+
+        StringBuilder result = new StringBuilder(n + 16);
+        int i = 0;
 
         while (i < n) {
             char c = input.charAt(i);
 
-            // BUG-16 FIX: \$ → $ (escape, не подставлять)
             if (c == '\\' && i + 1 < n && input.charAt(i + 1) == '$') {
                 result.append('$');
                 i += 2;
                 continue;
             }
 
-            // ${expr}
             if (c == '$' && i + 1 < n && input.charAt(i + 1) == '{') {
                 int start = i + 2;
-                int end = findMatchingBrace(input, start, n);
+                int end = findMatching(input, start, n, '{', '}');
                 if (end < 0) {
                     result.append("<UNCLOSED:").append(input, i, n).append(">");
                     break;
@@ -393,9 +464,7 @@ public class MaredScriptContext {
                     String evalExpr = expr;
                     if (!expr.isEmpty()) {
                         char first = expr.charAt(0);
-                        if ((first >= 'a' && first <= 'z')
-                            || (first >= 'A' && first <= 'Z')
-                            || first == '_') {
+                        if (Character.isLetter(first) || first == '_') {
                             evalExpr = "$" + expr;
                         }
                     }
@@ -409,7 +478,6 @@ public class MaredScriptContext {
                 continue;
             }
 
-            // $var или $var.method(...)
             if (c == '$') {
                 int start = i + 1;
                 int end = start;
@@ -418,7 +486,7 @@ public class MaredScriptContext {
                     String varName = input.substring(start, end);
 
                     if (end < n && input.charAt(end) == '(') {
-                        int close = findMatchingParen(input, end, n);
+                        int close = findMatching(input, end + 1, n, '(', ')');
                         if (close > 0) {
                             int exprEnd = close + 1;
                             String fullExpr = input.substring(i + 1, exprEnd);
@@ -465,9 +533,8 @@ public class MaredScriptContext {
         int i = start;
 
         if (i < n && s.charAt(i) == '(') {
-            int close = findMatchingParen(s, i, n);
-            if (close > 0) return close + 1;
-            return i;
+            int close = findMatching(s, i + 1, n, '(', ')');
+            return close > 0 ? close + 1 : i;
         }
 
         while (i < n) {
@@ -478,7 +545,7 @@ public class MaredScriptContext {
                 while (j < n && isIdentChar(s.charAt(j))) j++;
                 if (j == i + 1) break;
                 if (j < n && s.charAt(j) == '(') {
-                    int close = findMatchingParen(s, j, n);
+                    int close = findMatching(s, j + 1, n, '(', ')');
                     if (close < 0) break;
                     i = close + 1;
                     continue;
@@ -488,7 +555,7 @@ public class MaredScriptContext {
             }
 
             if (c == '[') {
-                int close = findMatchingBracket(s, i, n);
+                int close = findMatching(s, i + 1, n, '[', ']');
                 if (close < 0) break;
                 i = close + 1;
                 continue;
@@ -497,10 +564,13 @@ public class MaredScriptContext {
             if (c == '+' || c == '-' || c == '*' || c == '/' || c == '%') {
                 int j = i + 1;
                 while (j < n && s.charAt(j) == ' ') j++;
-                if (j < n && (Character.isLetterOrDigit(s.charAt(j)) || s.charAt(j) == '$'
-                        || s.charAt(j) == '"' || s.charAt(j) == '(' || s.charAt(j) == '-')) {
-                    i = j;
-                    continue;
+                if (j < n) {
+                    char nc = s.charAt(j);
+                    if (Character.isLetterOrDigit(nc) || nc == '$'
+                        || nc == '"' || nc == '(' || nc == '-') {
+                        i = j;
+                        continue;
+                    }
                 }
                 break;
             }
@@ -529,14 +599,12 @@ public class MaredScriptContext {
                 }
                 break;
             }
-
             break;
         }
-
         return i;
     }
 
-    private int findMatchingBrace(String s, int start, int n) {
+    private static int findMatching(String s, int start, int n, char open, char close) {
         int depth = 1;
         boolean inStr = false;
         char q = 0;
@@ -548,44 +616,11 @@ public class MaredScriptContext {
                 continue;
             }
             if (c == '"' || c == '\'') { inStr = true; q = c; continue; }
-            if (c == '{') depth++;
-            else if (c == '}') { depth--; if (depth == 0) return i; }
-        }
-        return -1;
-    }
-
-    private int findMatchingParen(String s, int openIdx, int n) {
-        int depth = 1;
-        boolean inStr = false;
-        char q = 0;
-        for (int i = openIdx + 1; i < n; i++) {
-            char c = s.charAt(i);
-            if (inStr) {
-                if (c == '\\' && i + 1 < n) { i++; continue; }
-                if (c == q) inStr = false;
-                continue;
+            if (c == open) depth++;
+            else if (c == close) {
+                depth--;
+                if (depth == 0) return i;
             }
-            if (c == '"' || c == '\'') { inStr = true; q = c; continue; }
-            if (c == '(') depth++;
-            else if (c == ')') { depth--; if (depth == 0) return i; }
-        }
-        return -1;
-    }
-
-    private int findMatchingBracket(String s, int openIdx, int n) {
-        int depth = 1;
-        boolean inStr = false;
-        char q = 0;
-        for (int i = openIdx + 1; i < n; i++) {
-            char c = s.charAt(i);
-            if (inStr) {
-                if (c == '\\' && i + 1 < n) { i++; continue; }
-                if (c == q) inStr = false;
-                continue;
-            }
-            if (c == '"' || c == '\'') { inStr = true; q = c; continue; }
-            if (c == '[') depth++;
-            else if (c == ']') { depth--; if (depth == 0) return i; }
         }
         return -1;
     }
@@ -595,27 +630,24 @@ public class MaredScriptContext {
             || (c >= '0' && c <= '9') || c == '_';
     }
 
-    private static boolean isIdentChar(char c) {
-        return isVarChar(c);
-    }
+    private static boolean isIdentChar(char c) { return isVarChar(c); }
 
     private static String unescape(String s) {
-        if (s == null) return null;
-        if (s.indexOf('\\') < 0) return s;
-
+        if (s == null || s.indexOf('\\') < 0) return s;
         StringBuilder out = new StringBuilder(s.length());
-        for (int i = 0; i < s.length(); i++) {
+        int n = s.length();
+        for (int i = 0; i < n; i++) {
             char c = s.charAt(i);
-            if (c == '\\' && i + 1 < s.length()) {
+            if (c == '\\' && i + 1 < n) {
                 char next = s.charAt(i + 1);
                 switch (next) {
-                    case 'n' -> { out.append('\n'); i++; }
-                    case 't' -> { out.append('\t'); i++; }
-                    case 'r' -> { out.append('\r'); i++; }
+                    case 'n'  -> { out.append('\n'); i++; }
+                    case 't'  -> { out.append('\t'); i++; }
+                    case 'r'  -> { out.append('\r'); i++; }
                     case '\\' -> { out.append('\\'); i++; }
-                    case '"' -> { out.append('"'); i++; }
+                    case '"'  -> { out.append('"'); i++; }
                     case '\'' -> { out.append('\''); i++; }
-                    default -> out.append(c);
+                    default   -> out.append(c);
                 }
             } else {
                 out.append(c);
@@ -623,17 +655,4 @@ public class MaredScriptContext {
         }
         return out.toString();
     }
-
-    public void requestBreak() { breakRequested = true; }
-    public void requestContinue() { continueRequested = true; }
-    public boolean isBreakRequested() { return breakRequested; }
-    public boolean isContinueRequested() { return continueRequested; }
-    public void clearBreakContinue() { breakRequested = false; continueRequested = false; }
-
-    public void registerFunction(String name, List<String> params, List<MaredScriptCommand> body) {
-        functions.put(name, new Func(params, body));
-    }
-
-    public boolean hasFunction(String name) { return functions.containsKey(name); }
-    public Func getFunction(String name) { return functions.get(name); }
 }

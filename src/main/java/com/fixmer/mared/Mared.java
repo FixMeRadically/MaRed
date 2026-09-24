@@ -11,9 +11,9 @@ import net.neoforged.fml.common.Mod;
 @Mod(Mared.MOD_ID)
 public class Mared {
 
-    public static final String MOD_ID = "mared";
-    public static final String VERSION = "0.2.5b";
-    public static final Logger LOGGER = LogUtils.getLogger();
+    public static final String MOD_ID  = "mared";
+    public static final String VERSION = "0.2.5c";
+    public static final Logger LOGGER  = LogUtils.getLogger();
 
     public Mared(IEventBus modEventBus, ModContainer modContainer) {
         LOGGER.info("Mared {} loading...", VERSION);

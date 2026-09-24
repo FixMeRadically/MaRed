@@ -20,13 +20,15 @@ public final class MaredSettings {
 
     private MaredSettings() {}
 
-    // ---- Режим авто-формата ----
+    // ============================================================
+    //  Enums
+    // ============================================================
 
     public enum AutoIndent {
-        OFF,        // ничего не делает
-        SIMPLE,     // { → новая строка + отступ + }
-        SMART,      // Enter сохраняет отступ
-        FULL        // оба
+        OFF,     // ничего не делает
+        SIMPLE,  // { → новая строка + отступ + }
+        SMART,   // Enter сохраняет отступ
+        FULL     // оба
     }
 
     public enum IndentStyle {
@@ -35,21 +37,33 @@ public final class MaredSettings {
         SPACES_2    // 2 пробела
     }
 
-    // ---- Значения ----
+    /**
+     * Режим работы с сервером.
+     *
+     * AUTO        — автоматически: singleplayer → FULL, multiplayer → CLIENT_ONLY
+     * CLIENT_ONLY — все Mared-команды работают локально, ванильные команды без OP не отправляются
+     * FULL        — разрешить отправку ванильных команд, если игрок имеет OP
+     */
+    public enum ServerMode {
+        AUTO, CLIENT_ONLY, FULL
+    }
 
-    private static AutoIndent autoIndent = AutoIndent.FULL;
-    private static IndentStyle indentStyle = IndentStyle.SPACES_4;
-    private static boolean backspaceRemovesIndent = true;
+    // ============================================================
+    //  Значения
+    // ============================================================
 
-    /** FIX 0.2.5: логировать чат Mared в редактор. */
-    private static boolean logChatToEditor = true;
-
-    /** FIX 0.2.5+: логировать каждую команду скрипта (для отладки). По умолчанию — выкл. */
-    private static boolean verboseScriptLog = false;
+    private static AutoIndent  autoIndent             = AutoIndent.FULL;
+    private static IndentStyle indentStyle            = IndentStyle.SPACES_4;
+    private static ServerMode  serverMode             = ServerMode.AUTO;
+    private static boolean backspaceRemovesIndent     = true;
+    private static boolean logChatToEditor            = true;
+    private static boolean verboseScriptLog           = false;
 
     private static boolean loaded = false;
 
-    // ---- Get / Set ----
+    // ============================================================
+    //  Getters / Setters
+    // ============================================================
 
     public static AutoIndent getAutoIndent() { return autoIndent; }
     public static void setAutoIndent(AutoIndent v) { autoIndent = v; save(); }
@@ -57,28 +71,32 @@ public final class MaredSettings {
     public static IndentStyle getIndentStyle() { return indentStyle; }
     public static void setIndentStyle(IndentStyle v) { indentStyle = v; save(); }
 
+    public static ServerMode getServerMode() { return serverMode; }
+    public static void setServerMode(ServerMode v) { serverMode = v; save(); }
+
     public static boolean isBackspaceRemovesIndent() { return backspaceRemovesIndent; }
     public static void setBackspaceRemovesIndent(boolean v) { backspaceRemovesIndent = v; save(); }
 
     public static boolean isLogChatToEditor() { return logChatToEditor; }
     public static void setLogChatToEditor(boolean v) { logChatToEditor = v; save(); }
 
-    /** FIX 0.2.5+: логировать каждую команду скрипта. */
     public static boolean isVerboseScriptLog() { return verboseScriptLog; }
     public static void setVerboseScriptLog(boolean v) { verboseScriptLog = v; save(); }
 
     /** Строка отступа (Tab или пробелы). */
     public static String indentUnit() {
         return switch (indentStyle) {
-            case TAB -> "\t";
+            case TAB      -> "\t";
             case SPACES_4 -> "    ";
             case SPACES_2 -> "  ";
         };
     }
 
-    // ---- Загрузка / сохранение ----
+    // ============================================================
+    //  Load / Save
+    // ============================================================
 
-    private static Path getConfigPath() {
+    private static Path configPath() {
         try {
             Path dir = Minecraft.getInstance().gameDirectory.toPath().resolve("config/mared");
             if (!Files.exists(dir)) Files.createDirectories(dir);
@@ -92,7 +110,8 @@ public final class MaredSettings {
     public static synchronized void load() {
         if (loaded) return;
         loaded = true;
-        Path path = getConfigPath();
+
+        Path path = configPath();
         if (path == null || !Files.exists(path)) return;
 
         try {
@@ -105,6 +124,10 @@ public final class MaredSettings {
             }
             if (obj.has("indentStyle")) {
                 try { indentStyle = IndentStyle.valueOf(obj.get("indentStyle").getAsString()); }
+                catch (Exception ignored) {}
+            }
+            if (obj.has("serverMode")) {
+                try { serverMode = ServerMode.valueOf(obj.get("serverMode").getAsString()); }
                 catch (Exception ignored) {}
             }
             if (obj.has("backspaceRemovesIndent")) {
@@ -122,12 +145,13 @@ public final class MaredSettings {
     }
 
     public static synchronized void save() {
-        Path path = getConfigPath();
+        Path path = configPath();
         if (path == null) return;
         try {
             JsonObject obj = new JsonObject();
             obj.addProperty("autoIndent", autoIndent.name());
             obj.addProperty("indentStyle", indentStyle.name());
+            obj.addProperty("serverMode", serverMode.name());
             obj.addProperty("backspaceRemovesIndent", backspaceRemovesIndent);
             obj.addProperty("logChatToEditor", logChatToEditor);
             obj.addProperty("verboseScriptLog", verboseScriptLog);

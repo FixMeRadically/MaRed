@@ -6,49 +6,43 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+
 import com.fixmer.mared.commands.engine.MaredScriptContext;
 
 public final class MaredMethods {
 
     private MaredMethods() {}
 
-    /** ThreadLocal-контекст для map/filter — не создаём новый на каждый вызов. */
-    private static final ThreadLocal<MaredScriptContext> MAP_FILTER_CTX =
-        ThreadLocal.withInitial(() -> new MaredScriptContext(null, null, msg -> {}));
+    private static final Random RND = new Random();
 
     public static Object call(Object target, String method, List<Object> args) {
         if (target == null) {
             throw new RuntimeException("method '" + method + "' on null");
         }
 
-        if (target instanceof String s) {
-            return stringMethod(s, method, args);
-        }
+        if (target instanceof String s) return stringMethod(s, method, args);
+        if (target instanceof List<?> list) return listMethod(list, method, args);
 
-        if (target instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<Object> list = (List<Object>) target;
-            return listMethod(list, method, args);
-        }
-
-        switch (method) {
-            case "str":   return MaredExpr.stringify(target);
-            case "num":   return MaredExpr.toNumber(target);
-            case "type":  return typeName(target);
-            case "abs":   return MaredExpr.num(Math.abs(MaredExpr.toNumber(target)));
-            default:
-                throw new RuntimeException("method '" + method + "' not found on " + typeName(target));
-        }
+        return switch (method) {
+            case "str"  -> MaredExpr.stringify(target);
+            case "num"  -> MaredExpr.toNumber(target);
+            case "type" -> typeName(target);
+            case "abs"  -> MaredExpr.num(Math.abs(MaredExpr.toNumber(target)));
+            default -> throw new RuntimeException(
+                "method '" + method + "' not found on " + typeName(target));
+        };
     }
 
     // ============================================================
     //  List methods
     // ============================================================
 
-    private static Object listMethod(List<Object> list, String method, List<Object> args) {
+    @SuppressWarnings("unchecked")
+    private static Object listMethod(List<?> raw, String method, List<Object> args) {
+        List<Object> list = (List<Object>) raw;
+
         switch (method) {
-            case "push":
-            case "add": {
+            case "push": case "add": {
                 list.add(arg(args, 0));
                 return list;
             }
@@ -56,18 +50,25 @@ public final class MaredMethods {
                 int n = list.size();
                 return n == 0 ? null : list.remove(n - 1);
             }
+            case "shift": {
+                return list.isEmpty() ? null : list.remove(0);
+            }
+            case "unshift": {
+                list.add(0, arg(args, 0));
+                return list;
+            }
             case "insert": {
                 int idx = (int) MaredExpr.toLong(arg(args, 0));
                 Object val = arg(args, 1);
-                if (idx < 0) idx = 0;
                 int n = list.size();
+                if (idx < 0) idx = Math.max(0, n + idx);
                 if (idx > n) idx = n;
                 list.add(idx, val);
                 return list;
             }
             case "remove": {
                 Object a = arg(args, 0);
-                if (a instanceof Long || a instanceof Double) {
+                if (a instanceof Number) {
                     int n = list.size();
                     int idx = (int) MaredExpr.toLong(a);
                     if (idx < 0) idx = n + idx;
@@ -85,22 +86,10 @@ public final class MaredMethods {
                 list.set(idx, val);
                 return list;
             }
-            case "clear": {
-                list.clear();
-                return list;
-            }
-            case "shuffle": {
-                Collections.shuffle(list, new Random());
-                return list;
-            }
-            case "sort": {
-                list.sort(MaredMethods::compareValues);
-                return list;
-            }
-            case "reverse": {
-                Collections.reverse(list);
-                return list;
-            }
+            case "clear": { list.clear(); return list; }
+            case "shuffle": { Collections.shuffle(list, RND); return list; }
+            case "sort": { list.sort(MaredMethods::compareValues); return list; }
+            case "reverse": { Collections.reverse(list); return list; }
             case "get": {
                 int n = list.size();
                 int idx = (int) MaredExpr.toLong(arg(args, 0));
@@ -108,17 +97,11 @@ public final class MaredMethods {
                 if (idx < 0 || idx >= n) return null;
                 return list.get(idx);
             }
-            case "size":
-            case "len":
-                return (long) list.size();
-            case "isEmpty":
-                return list.isEmpty();
-            case "contains":
-                return list.contains(arg(args, 0));
-            case "indexOf":
-                return (long) list.indexOf(arg(args, 0));
-            case "copy":
-                return new ArrayList<>(list);
+            case "size": case "len": return (long) list.size();
+            case "isEmpty": return list.isEmpty();
+            case "contains": return list.contains(arg(args, 0));
+            case "indexOf": return (long) list.indexOf(arg(args, 0));
+            case "copy": return new ArrayList<>(list);
             case "sorted": {
                 List<Object> copy = new ArrayList<>(list);
                 copy.sort(MaredMethods::compareValues);
@@ -137,7 +120,7 @@ public final class MaredMethods {
                 for (int i = 0; i < n; i++) {
                     if (i > 0) sb.append(sep);
                     Object item = list.get(i);
-                    if (item instanceof String) sb.append((String) item);
+                    if (item instanceof String s) sb.append(s);
                     else sb.append(MaredExpr.stringify(item));
                 }
                 return sb.toString();
@@ -153,31 +136,10 @@ public final class MaredMethods {
                 if (from > to) { int t = from; from = to; to = t; }
                 return new ArrayList<>(list.subList(from, to));
             }
-            case "first":
-                return list.isEmpty() ? null : list.get(0);
-            case "last":
-                return list.isEmpty() ? null : list.get(list.size() - 1);
-
-            // ---- агрегаты ----
-            case "sum": {
-                int n = list.size();
-                if (n == 0) return 0L;
-                long lsum = 0;
-                double dsum = 0;
-                boolean allInt = true;
-                for (int i = 0; i < n; i++) {
-                    Object v = list.get(i);
-                    if (v instanceof Long lv) {
-                        lsum += lv;
-                    } else {
-                        allInt = false;
-                        dsum += MaredExpr.toNumber(v);
-                    }
-                }
-                return allInt ? (Object) lsum : MaredExpr.num(lsum + dsum);
-            }
-            case "avg":
-            case "average": {
+            case "first": return list.isEmpty() ? null : list.get(0);
+            case "last":  return list.isEmpty() ? null : list.get(list.size() - 1);
+            case "sum":   return sumList(list);
+            case "avg": case "average": {
                 int n = list.size();
                 if (n == 0) return 0.0;
                 double total = 0;
@@ -185,17 +147,13 @@ public final class MaredMethods {
                 return total / n;
             }
             case "min": {
-                int n = list.size();
-                if (n == 0) return null;
+                if (list.isEmpty()) return null;
                 return reduceList(list, true);
             }
             case "max": {
-                int n = list.size();
-                if (n == 0) return null;
+                if (list.isEmpty()) return null;
                 return reduceList(list, false);
             }
-
-            // ---- take / drop / distinct / flatten ----
             case "take": {
                 int n = list.size();
                 int k = (int) MaredExpr.toLong(arg(args, 0));
@@ -210,12 +168,8 @@ public final class MaredMethods {
                 if (k > n) k = n;
                 return new ArrayList<>(list.subList(k, n));
             }
-            case "distinct":
-            case "unique": {
-                int n = list.size();
-                LinkedHashSet<Object> set = new LinkedHashSet<>(n * 2);
-                set.addAll(list);
-                return new ArrayList<>(set);
+            case "distinct": case "unique": {
+                return new ArrayList<>(new LinkedHashSet<>(list));
             }
             case "flatten": {
                 int n = list.size();
@@ -227,60 +181,44 @@ public final class MaredMethods {
                 }
                 return out;
             }
-
-            // ---- map / filter ----
             case "map": {
-                int n = list.size();
-                if (n == 0 || args.isEmpty()) return new ArrayList<>(list);
-                String expr = MaredExpr.stringify(args.get(0));
-                return applyMap(list, expr);
+                if (list.isEmpty() || args.isEmpty()) return new ArrayList<>(list);
+                return applyMap(list, MaredExpr.stringify(args.get(0)));
             }
             case "filter": {
-                int n = list.size();
-                if (n == 0 || args.isEmpty()) return new ArrayList<>(list);
-                String expr = MaredExpr.stringify(args.get(0));
-                return applyFilter(list, expr);
+                if (list.isEmpty() || args.isEmpty()) return new ArrayList<>(list);
+                return applyFilter(list, MaredExpr.stringify(args.get(0)));
             }
-            case "type":
-                return "list";
+            case "forEach": {
+                if (list.isEmpty() || args.isEmpty()) return null;
+                return applyForEach(list, MaredExpr.stringify(args.get(0)));
+            }
+            case "reduce": {
+                // reduce($acc, $v, expr)
+                if (list.isEmpty() || args.size() < 3) return null;
+                String accName = MaredExpr.stringify(args.get(0));
+                String vName = MaredExpr.stringify(args.get(1));
+                String expr = MaredExpr.stringify(args.get(2));
+                return applyReduce(list, accName, vName, expr);
+            }
+            case "type": return "list";
             default:
                 throw new RuntimeException("list method '" + method + "' not found");
         }
     }
 
-    private static Object applyMap(List<Object> list, String expr) {
-        MaredScriptContext ctx = MAP_FILTER_CTX.get();
+    private static Object sumList(List<?> list) {
         int n = list.size();
-        List<Object> result = new ArrayList<>(n);
+        if (n == 0) return 0L;
+        long lsum = 0;
+        double dsum = 0;
+        boolean allInt = true;
         for (int i = 0; i < n; i++) {
             Object v = list.get(i);
-            ctx.setVariable("v", v);
-            ctx.setVariable("i", (long) i);
-            try {
-                result.add(MaredExpr.eval(expr, ctx));
-            } catch (Exception e) {
-                result.add(null);
-            }
+            if (v instanceof Long lv) lsum += lv;
+            else { allInt = false; dsum += MaredExpr.toNumber(v); }
         }
-        return result;
-    }
-
-    private static Object applyFilter(List<Object> list, String expr) {
-        MaredScriptContext ctx = MAP_FILTER_CTX.get();
-        int n = list.size();
-        List<Object> result = new ArrayList<>(n);
-        for (int i = 0; i < n; i++) {
-            Object v = list.get(i);
-            ctx.setVariable("v", v);
-            ctx.setVariable("i", (long) i);
-            try {
-                Object r = MaredExpr.eval(expr, ctx);
-                if (MaredExpr.truthy(r)) result.add(v);
-            } catch (Exception e) {
-                result.add(v);
-            }
-        }
-        return result;
+        return allInt ? (Object) lsum : MaredExpr.num(lsum + dsum);
     }
 
     private static Object reduceList(List<?> list, boolean findMin) {
@@ -293,10 +231,7 @@ public final class MaredMethods {
                 Object v = list.get(i);
                 if (v instanceof Long lv) {
                     if (findMin ? lv < best : lv > best) best = lv;
-                } else {
-                    allInt = false;
-                    break;
-                }
+                } else { allInt = false; break; }
             }
             if (allInt) return best;
         }
@@ -308,27 +243,86 @@ public final class MaredMethods {
         return MaredExpr.num(best);
     }
 
+    /**
+     * ВАЖНО: для map/filter/forEach/reduce используем НОВЫЙ контекст,
+     * иначе вложенные вызовы перезаписывают $v/$i друг друга.
+     */
+    private static Object applyMap(List<?> list, String expr) {
+        MaredScriptContext ctx = new MaredScriptContext(null, null, msg -> {});
+        int n = list.size();
+        List<Object> result = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            Object v = list.get(i);
+            ctx.setVariable("v", v);
+            ctx.setVariable("i", (long) i);
+            try { result.add(MaredExpr.eval(expr, ctx)); }
+            catch (Exception e) { result.add(null); }
+        }
+        return result;
+    }
+
+    private static Object applyFilter(List<?> list, String expr) {
+        MaredScriptContext ctx = new MaredScriptContext(null, null, msg -> {});
+        int n = list.size();
+        List<Object> result = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            Object v = list.get(i);
+            ctx.setVariable("v", v);
+            ctx.setVariable("i", (long) i);
+            try {
+                if (MaredExpr.truthy(MaredExpr.eval(expr, ctx))) result.add(v);
+            } catch (Exception e) {
+                result.add(v);
+            }
+        }
+        return result;
+    }
+
+    private static Object applyForEach(List<?> list, String expr) {
+        MaredScriptContext ctx = new MaredScriptContext(null, null, msg -> {});
+        int n = list.size();
+        for (int i = 0; i < n; i++) {
+            Object v = list.get(i);
+            ctx.setVariable("v", v);
+            ctx.setVariable("i", (long) i);
+            try { MaredExpr.eval(expr, ctx); }
+            catch (Exception ignored) {}
+        }
+        return null;
+    }
+
+    private static Object applyReduce(List<?> list, String accName, String vName, String expr) {
+        MaredScriptContext ctx = new MaredScriptContext(null, null, msg -> {});
+        int n = list.size();
+        if (n == 0) return null;
+
+        // Первый элемент — начальное значение аккумулятора.
+        Object acc = list.get(0);
+        ctx.setVariable(accName, acc);
+
+        for (int i = 1; i < n; i++) {
+            ctx.setVariable(vName, list.get(i));
+            try {
+                acc = MaredExpr.eval(expr, ctx);
+                ctx.setVariable(accName, acc);
+            } catch (Exception ignored) {}
+        }
+        return acc;
+    }
+
     // ============================================================
     //  String methods
     // ============================================================
 
     private static Object stringMethod(String s, String method, List<Object> args) {
         switch (method) {
-            case "len":
-            case "size":
-                return (long) s.length();
-            case "upper":
-                return s.toUpperCase(Locale.ROOT);
-            case "lower":
-                return s.toLowerCase(Locale.ROOT);
-            case "trim":
-                return s.trim();
-            case "trimStart":
-                return s.stripLeading();
-            case "trimEnd":
-                return s.stripTrailing();
-            case "sub":
-            case "substring": {
+            case "len": case "size": return (long) s.length();
+            case "upper": return s.toUpperCase(Locale.ROOT);
+            case "lower": return s.toLowerCase(Locale.ROOT);
+            case "trim": return s.trim();
+            case "trimStart": return s.stripLeading();
+            case "trimEnd": return s.stripTrailing();
+            case "sub": case "substring": {
                 int n = s.length();
                 int from = (int) MaredExpr.toLong(arg(args, 0));
                 int to = args.size() >= 2 ? (int) MaredExpr.toLong(arg(args, 1)) : n;
@@ -339,8 +333,7 @@ public final class MaredMethods {
                 if (from > to) { int t = from; from = to; to = t; }
                 return s.substring(from, to);
             }
-            case "find":
-            case "indexOf":
+            case "find": case "indexOf":
                 return (long) s.indexOf(MaredExpr.stringify(arg(args, 0)));
             case "contains":
                 return s.contains(MaredExpr.stringify(arg(args, 0)));
@@ -349,13 +342,13 @@ public final class MaredMethods {
             case "endsWith":
                 return s.endsWith(MaredExpr.stringify(arg(args, 0)));
             case "replace":
-                return s.replace(
-                    MaredExpr.stringify(arg(args, 0)),
-                    MaredExpr.stringify(arg(args, 1)));
+                return s.replace(MaredExpr.stringify(arg(args, 0)),
+                                 MaredExpr.stringify(arg(args, 1)));
             case "replaceAll":
-                return s.replaceAll(
-                    MaredExpr.stringify(arg(args, 0)),
-                    MaredExpr.stringify(arg(args, 1)));
+                return s.replaceAll(MaredExpr.stringify(arg(args, 0)),
+                                    MaredExpr.stringify(arg(args, 1)));
+            case "matches":
+                return s.matches(MaredExpr.stringify(arg(args, 0)));
             case "repeat": {
                 int k = (int) MaredExpr.toLong(arg(args, 0));
                 return k <= 0 ? "" : s.repeat(k);
@@ -371,24 +364,19 @@ public final class MaredMethods {
                 if (i < 0 || i >= n) return "";
                 return String.valueOf(s.charAt(i));
             }
-            case "isEmpty":
-                return s.isEmpty();
-            case "num":
-            case "toNum":
+            case "isEmpty": return s.isEmpty();
+            case "num": case "toNum":
                 return MaredExpr.num(MaredExpr.toNumber(s));
-            case "type":
-                return "string";
+            case "type": return "string";
             default:
                 throw new RuntimeException("string method '" + method + "' not found");
         }
     }
 
-    /** Быстрый split без regex — тот же, что в MaredBuiltins. */
     private static List<Object> splitFast(String s, String sep) {
         List<Object> out = new ArrayList<>();
         if (sep.isEmpty()) {
             int n = s.length();
-            out = new ArrayList<>(n);
             for (int i = 0; i < n; i++) out.add(String.valueOf(s.charAt(i)));
             return out;
         }
@@ -396,10 +384,7 @@ public final class MaredMethods {
         int from = 0;
         while (true) {
             int idx = s.indexOf(sep, from);
-            if (idx < 0) {
-                out.add(s.substring(from));
-                return out;
-            }
+            if (idx < 0) { out.add(s.substring(from)); return out; }
             out.add(s.substring(from, idx));
             from = idx + sepLen;
         }
@@ -413,15 +398,10 @@ public final class MaredMethods {
         if (a == b) return 0;
         if (a == null) return -1;
         if (b == null) return 1;
-        if (a instanceof Long la && b instanceof Long lb) {
-            return Long.compare(la, lb);
-        }
-        if (a instanceof Number na && b instanceof Number nb) {
+        if (a instanceof Long la && b instanceof Long lb) return Long.compare(la, lb);
+        if (a instanceof Number na && b instanceof Number nb)
             return Double.compare(na.doubleValue(), nb.doubleValue());
-        }
-        if (a instanceof String sa && b instanceof String sb) {
-            return sa.compareTo(sb);
-        }
+        if (a instanceof String sa && b instanceof String sb) return sa.compareTo(sb);
         return MaredExpr.stringify(a).compareTo(MaredExpr.stringify(b));
     }
 

@@ -14,14 +14,15 @@ import com.fixmer.mared.commands.storage.MaredPersistentStorage;
 /**
  * Загрузчик persistent-скриптов.
  *
- * FIX 3: помечает контекст persistent=true, чтобы on-события
- * переживали выход из мира и не требовали перезапуска.
+ * Persistent-скрипты — это файлы в config/mared/commands с первой строкой
+ * "#persistent". При старте клиента они читаются, из них берутся только
+ * on-команды, которые регистрируются в MaredEventRegistry с флагом persistent.
  */
 public final class MaredPersistentLoader {
 
     private MaredPersistentLoader() {}
 
-    private static boolean loaded = false;
+    private static volatile boolean loaded = false;
 
     public static void loadAll() {
         if (loaded) {
@@ -38,17 +39,13 @@ public final class MaredPersistentLoader {
 
         Mared.LOGGER.info("[Mared] Loading {} persistent script(s)...", names.size());
 
-        List<String> validNames = new ArrayList<>();
+        List<String> validNames = new ArrayList<>(names.size());
         boolean needsRewrite = false;
 
         for (String name : names) {
             try {
-                boolean ok = loadScript(name);
-                if (ok) {
-                    validNames.add(name);
-                } else {
-                    needsRewrite = true;
-                }
+                if (loadScript(name)) validNames.add(name);
+                else needsRewrite = true;
             } catch (Exception e) {
                 Mared.LOGGER.error("[Mared] Failed to load persistent '{}': {}",
                     name, e.getMessage());
@@ -75,15 +72,14 @@ public final class MaredPersistentLoader {
             return false;
         }
 
-        String firstLine = text.split("\n", 2)[0].trim();
+        int firstNl = text.indexOf('\n');
+        String firstLine = (firstNl >= 0 ? text.substring(0, firstNl) : text).trim();
         if (!firstLine.startsWith("#persistent")) {
             Mared.LOGGER.warn("[Mared] '{}' not marked as #persistent — removing.", name);
             return false;
         }
 
-        String body = text;
-        int firstNl = text.indexOf('\n');
-        if (firstNl >= 0) body = text.substring(firstNl + 1);
+        String body = firstNl >= 0 ? text.substring(firstNl + 1) : "";
 
         List<MaredScriptCommand> commands;
         try {
@@ -98,7 +94,6 @@ public final class MaredPersistentLoader {
             return false;
         }
 
-        // ← FIX 3: помечаем контекст persistent
         MaredScriptContext ctx = new MaredScriptContext(null, null, msg -> {});
         ctx.setPersistent(true);
 
@@ -130,8 +125,5 @@ public final class MaredPersistentLoader {
         return true;
     }
 
-    public static void reset() {
-        loaded = false;
-        Mared.LOGGER.info("[Mared] PersistentLoader reset.");
-    }
+    public static void reset() { loaded = false; }
 }

@@ -1,74 +1,74 @@
 package com.fixmer.mared.commands.expr;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.fixmer.mared.commands.engine.MaredScriptContext;
 
 /**
- * Fast-path для простых выражений.
+ * Быстрый путь для простых выражений.
  *
- * FIX 0.2.5b: negative caching.
- * Если выражение не поддерживается — запоминаем это (sentinel),
- * чтобы не пытаться построить Evaluator повторно.
+ * Кэш: ConcurrentHashMap, эвикция по размеру (soft).
+ * Negative cache: если выражение не поддержано — храним NOT_SUPPORTED.
  */
 final class MaredExprFast {
 
     private MaredExprFast() {}
 
-    /** Sentinel: выражение не поддерживается. */
-    private static final Evaluator NOT_SUPPORTED = ctx -> { throw new UnsupportedOperationException(); };
+    private static final Evaluator NOT_SUPPORTED = ctx -> {
+        throw new UnsupportedOperationException();
+    };
 
+    @FunctionalInterface
     interface Evaluator {
         Object eval(MaredScriptContext ctx);
     }
 
     private static final int CACHE_MAX = 1024;
-    private static final Map<String, Evaluator> CACHE =
-        Collections.synchronizedMap(new LinkedHashMap<>(256, 0.75f, true) {
-            @Override
-            protected boolean removeEldestEntry(Map.Entry<String, Evaluator> eldest) {
-                return size() > CACHE_MAX;
-            }
-        });
+    private static final Map<String, Evaluator> CACHE = new ConcurrentHashMap<>(256);
+    private static final AtomicInteger SIZE = new AtomicInteger(0);
 
-    /**
-     * Получить Evaluator для выражения.
-     * Возвращает null, если выражение не поддерживается (или помечено NOT_SUPPORTED).
-     */
     static Evaluator get(String expr) {
         if (expr == null || expr.isEmpty()) return null;
+
         Evaluator cached = CACHE.get(expr);
-        if (cached != null) {
-            if (cached == NOT_SUPPORTED) return null;
-            return cached;
-        }
+        if (cached != null) return cached == NOT_SUPPORTED ? null : cached;
 
         Evaluator built = tryBuild(expr);
-        if (built != null) {
-            CACHE.put(expr, built);
-        } else {
-            // FIX: negative caching
-            CACHE.put(expr, NOT_SUPPORTED);
+        Evaluator stored = built != null ? built : NOT_SUPPORTED;
+
+        // Мягкая эвикция: если превысили лимит — просто чистим.
+        if (SIZE.get() >= CACHE_MAX) {
+            CACHE.clear();
+            SIZE.set(0);
         }
+        if (CACHE.putIfAbsent(expr, stored) == null) SIZE.incrementAndGet();
+
         return built;
     }
 
+    public static void clearCache() {
+        CACHE.clear();
+        SIZE.set(0);
+    }
+
+    public static int cacheSize() { return CACHE.size(); }
+
     // ============================================================
-    //  Построение Evaluator
+    //  Построение
     // ============================================================
 
     private static Evaluator tryBuild(String expr) {
         String s = expr.trim();
         if (s.isEmpty()) return null;
-
         int len = s.length();
 
-        // Строка "..." / '...'
+        // Строковый литерал
         if (len >= 2) {
             char c0 = s.charAt(0);
-            char cLast = s.charAt(len - 1);
-            if ((c0 == '"' && cLast == '"') || (c0 == '\'' && cLast == '\'')) {
+            char cl = s.charAt(len - 1);
+            if ((c0 == '"' && cl == '"') || (c0 == '\'' && cl == '\'')) {
                 String inner = s.substring(1, len - 1);
                 return ctx -> inner;
             }
@@ -76,18 +76,14 @@ final class MaredExprFast {
 
         // Унарный минус
         if (s.charAt(0) == '-') {
-            String inner = s.substring(1).trim();
-            Evaluator e = tryBuildUnary(inner, true);
-            if (e != null) return e;
+            Evaluator inner = tryBuildUnary(s.substring(1).trim(), true);
+            if (inner != null) return inner;
         }
 
         // NOT
         if (s.charAt(0) == '!') {
-            String inner = s.substring(1).trim();
-            Evaluator e = tryBuildUnary(inner, false);
-            if (e != null) {
-                return ctx -> !MaredExpr.truthy(e.eval(ctx));
-            }
+            Evaluator inner = tryBuildUnary(s.substring(1).trim(), false);
+            if (inner != null) return ctx -> !MaredExpr.truthy(inner.eval(ctx));
         }
 
         // Число
@@ -95,33 +91,29 @@ final class MaredExprFast {
             if (s.indexOf('.') >= 0) {
                 double d = Double.parseDouble(s);
                 return ctx -> d;
-            } else {
-                long l = Long.parseLong(s);
-                return ctx -> l;
             }
+            long l = Long.parseLong(s);
+            return ctx -> l;
         }
 
-        // Переменная $name или $name.field
+        // $var или $var.field
         if (s.charAt(0) == '$' && isVarPath(s.substring(1))) {
             String varName = s.substring(1);
             return ctx -> ctx.getVariable(varName);
         }
 
-        // Бинарные операции
         return buildBinary(s);
     }
 
     private static Evaluator tryBuildUnary(String inner, boolean minus) {
         Evaluator e = tryBuild(inner);
         if (e == null) return null;
-        if (minus) {
-            return ctx -> {
-                Object v = e.eval(ctx);
-                if (v instanceof Long l) return -l;
-                return -MaredExpr.toNumber(v);
-            };
-        }
-        return e;
+        if (!minus) return e;
+        return ctx -> {
+            Object v = e.eval(ctx);
+            if (v instanceof Long l) return -l;
+            return -MaredExpr.toNumber(v);
+        };
     }
 
     // ============================================================
@@ -156,22 +148,22 @@ final class MaredExprFast {
     }
 
     private static Evaluator buildBinOp(String op, Evaluator l, Evaluator r) {
-        switch (op) {
-            case "+":  return ctx -> MaredExpr.addValues(l.eval(ctx), r.eval(ctx));
-            case "-":  return ctx -> MaredExpr.subValues(l.eval(ctx), r.eval(ctx));
-            case "*":  return ctx -> MaredExpr.mulValues(l.eval(ctx), r.eval(ctx));
-            case "/":  return ctx -> MaredExpr.divValues(l.eval(ctx), r.eval(ctx));
-            case "%":  return ctx -> MaredExpr.modValues(l.eval(ctx), r.eval(ctx));
-            case "==": return ctx -> MaredExpr.equalsValue(l.eval(ctx), r.eval(ctx));
-            case "!=": return ctx -> !MaredExpr.equalsValue(l.eval(ctx), r.eval(ctx));
-            case "<":  return ctx -> MaredExpr.toNumber(l.eval(ctx)) <  MaredExpr.toNumber(r.eval(ctx));
-            case ">":  return ctx -> MaredExpr.toNumber(l.eval(ctx)) >  MaredExpr.toNumber(r.eval(ctx));
-            case "<=": return ctx -> MaredExpr.toNumber(l.eval(ctx)) <= MaredExpr.toNumber(r.eval(ctx));
-            case ">=": return ctx -> MaredExpr.toNumber(l.eval(ctx)) >= MaredExpr.toNumber(r.eval(ctx));
-            case "&&": return ctx -> MaredExpr.truthy(l.eval(ctx)) && MaredExpr.truthy(r.eval(ctx));
-            case "||": return ctx -> MaredExpr.truthy(l.eval(ctx)) || MaredExpr.truthy(r.eval(ctx));
-            default:   return null;
-        }
+        return switch (op) {
+            case "+"  -> ctx -> MaredExpr.addValues(l.eval(ctx), r.eval(ctx));
+            case "-"  -> ctx -> MaredExpr.subValues(l.eval(ctx), r.eval(ctx));
+            case "*"  -> ctx -> MaredExpr.mulValues(l.eval(ctx), r.eval(ctx));
+            case "/"  -> ctx -> MaredExpr.divValues(l.eval(ctx), r.eval(ctx));
+            case "%"  -> ctx -> MaredExpr.modValues(l.eval(ctx), r.eval(ctx));
+            case "==" -> ctx -> MaredExpr.equalsValue(l.eval(ctx), r.eval(ctx));
+            case "!=" -> ctx -> !MaredExpr.equalsValue(l.eval(ctx), r.eval(ctx));
+            case "<"  -> ctx -> MaredExpr.toNumber(l.eval(ctx)) <  MaredExpr.toNumber(r.eval(ctx));
+            case ">"  -> ctx -> MaredExpr.toNumber(l.eval(ctx)) >  MaredExpr.toNumber(r.eval(ctx));
+            case "<=" -> ctx -> MaredExpr.toNumber(l.eval(ctx)) <= MaredExpr.toNumber(r.eval(ctx));
+            case ">=" -> ctx -> MaredExpr.toNumber(l.eval(ctx)) >= MaredExpr.toNumber(r.eval(ctx));
+            case "&&" -> ctx -> MaredExpr.truthy(l.eval(ctx)) && MaredExpr.truthy(r.eval(ctx));
+            case "||" -> ctx -> MaredExpr.truthy(l.eval(ctx)) || MaredExpr.truthy(r.eval(ctx));
+            default   -> null;
+        };
     }
 
     private static int findTopLevelOp(String s, String op) {
@@ -194,7 +186,6 @@ final class MaredExprFast {
             if (c == '"' || c == '\'') { inStr = true; q = c; continue; }
             if (c == '(' || c == '[') { depth++; continue; }
             if (c == ')' || c == ']') { depth--; continue; }
-
             if (depth != 0) continue;
 
             if (s.startsWith(op, i)) {
@@ -206,6 +197,10 @@ final class MaredExprFast {
         }
         return lastFound;
     }
+
+    // ============================================================
+    //  Хелперы
+    // ============================================================
 
     private static boolean isNumber(String s) {
         if (s.isEmpty()) return false;
@@ -228,8 +223,7 @@ final class MaredExprFast {
 
     private static boolean isVarPath(String s) {
         if (s.isEmpty()) return false;
-        char first = s.charAt(0);
-        if (!isIdentStart(first)) return false;
+        if (!isIdentStart(s.charAt(0))) return false;
         int n = s.length();
         for (int i = 1; i < n; i++) {
             char c = s.charAt(i);
@@ -252,7 +246,4 @@ final class MaredExprFast {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
             || (c >= '0' && c <= '9') || c == '_';
     }
-
-    public static void clearCache() { CACHE.clear(); }
-    public static int cacheSize() { return CACHE.size(); }
 }

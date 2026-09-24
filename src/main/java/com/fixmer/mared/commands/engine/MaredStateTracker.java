@@ -3,9 +3,10 @@ package com.fixmer.mared.commands.engine;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.fixmer.mared.commands.events.MaredEventRegistry;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import com.fixmer.mared.commands.events.MaredEventRegistry;
 
 public final class MaredStateTracker {
 
@@ -28,26 +29,10 @@ public final class MaredStateTracker {
 
     private static final ThreadLocal<Diff> DIFF = ThreadLocal.withInitial(Diff::new);
 
-    // ============================================================
-    //  Cooldown per event type
-    // ============================================================
-
-    /** Минимальный интервал между событиями одного типа (в ms). */
-    private static final long PLAYER_MOVE_COOLDOWN_MS = 250;  // 4 раза/сек
-    private static final long STATE_COOLDOWN_MS = 100;        // 10 раз/сек
-
-    private static long lastPlayerMoveMs = 0;
-    private static long lastStateMs = 0;
-
-    // ============================================================
-    //  Пороги
-    // ============================================================
-
+    private static final long PLAYER_MOVE_COOLDOWN_MS = 250;
     private static final double MOVE_THRESHOLD = 0.1;
 
-    // ============================================================
-    //  Listener version cache
-    // ============================================================
+    private static long lastPlayerMoveMs = 0;
 
     private static final String[] STATE_EVENTS = {
         "player_move", "health_change", "hunger_change",
@@ -70,11 +55,8 @@ public final class MaredStateTracker {
         return anyListeners;
     }
 
-    // ============================================================
-    //  Предыдущее состояние
-    // ============================================================
-
-    private static double lastX = 0, lastY = 0, lastZ = 0;
+    // ---- Предыдущее состояние ----
+    private static double lastX, lastY, lastZ;
     private static boolean posInit = false;
     private static int lastHp = -1;
     private static int lastFood = -1;
@@ -83,10 +65,6 @@ public final class MaredStateTracker {
     private static int lastGamemode = -1;
     private static int lastHeldCount = -1;
     private static int lastSelectedSlot = -1;
-
-    // ============================================================
-    //  Poll
-    // ============================================================
 
     public static Diff poll() {
         Diff diff = DIFF.get();
@@ -108,10 +86,8 @@ public final class MaredStateTracker {
                 || dy > MOVE_THRESHOLD || dy < -MOVE_THRESHOLD
                 || dz > MOVE_THRESHOLD || dz < -MOVE_THRESHOLD) {
 
-                // Cooldown для player_move
                 if (now - lastPlayerMoveMs >= PLAYER_MOVE_COOLDOWN_MS) {
                     lastPlayerMoveMs = now;
-
                     diff.put("from_x", (int) lastX);
                     diff.put("from_y", (int) lastY);
                     diff.put("from_z", (int) lastZ);
@@ -162,9 +138,7 @@ public final class MaredStateTracker {
         // ---- Gamemode ----
         int gm = -1;
         try {
-            if (mc.gameMode != null) {
-                gm = mc.gameMode.getPlayerMode().getId();
-            }
+            if (mc.gameMode != null) gm = mc.gameMode.getPlayerMode().getId();
         } catch (Throwable ignored) {}
         if (lastGamemode >= 0 && gm != lastGamemode && gm >= 0) {
             diff.put("old_gamemode", gamemodeName(lastGamemode));
@@ -202,16 +176,15 @@ public final class MaredStateTracker {
         lastHeldCount = -1;
         lastSelectedSlot = -1;
         lastPlayerMoveMs = 0;
-        lastStateMs = 0;
     }
 
     private static String gamemodeName(int id) {
-        switch (id) {
-            case 0: return "survival";
-            case 1: return "creative";
-            case 2: return "adventure";
-            case 3: return "spectator";
-            default: return "unknown";
-        }
+        return switch (id) {
+            case 0 -> "survival";
+            case 1 -> "creative";
+            case 2 -> "adventure";
+            case 3 -> "spectator";
+            default -> "unknown";
+        };
     }
 }
