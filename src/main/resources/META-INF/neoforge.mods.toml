@@ -5,7 +5,7 @@ issueTrackerURL = "https://github.com/fixmer/mared/issues"
 
 [[mods]]
 modId = "mared"
-version = "0.2.0"
+version = "0.2.5b"
 displayName = "Mared"
 authors = "fixmer"
 description = '''

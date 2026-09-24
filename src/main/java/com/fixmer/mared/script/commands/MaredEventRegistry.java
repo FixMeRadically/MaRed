@@ -67,19 +67,10 @@ public final class MaredEventRegistry {
 
     private static long serverTickCounter = 0;
 
-    // ============================================================
-    //  VERSION (для кэша MaredStateTracker)
-    // ============================================================
-
     private static volatile int VERSION = 0;
 
     public static int getVersion() { return VERSION; }
-
     private static void bumpVersion() { VERSION++; }
-
-    // ============================================================
-    //  CURRENT_ENTRY (для exit внутри on)
-    // ============================================================
 
     private static final ThreadLocal<Entry> CURRENT_ENTRY = new ThreadLocal<>();
 
@@ -98,127 +89,146 @@ public final class MaredEventRegistry {
 
     public static void register(String type, List<MaredScriptCommand> body,
                                 MaredScriptContext ctx, boolean replace, boolean persistent) {
-        // F9: убран LOGGER.info
-        if (replace) {
-            List<Entry> list = REGISTRY.get(type);
-            if (list != null) {
-                if (persistent) {
-                    list.clear();
-                } else {
-                    list.removeIf(e -> !e.persistent);
+        synchronized (REGISTRY) {
+            if (replace) {
+                List<Entry> list = REGISTRY.get(type);
+                if (list != null) {
+                    if (persistent) {
+                        list.clear();
+                    } else {
+                        list.removeIf(e -> !e.persistent);
+                    }
+                    if (list.isEmpty()) REGISTRY.remove(type);
                 }
-                if (list.isEmpty()) REGISTRY.remove(type);
             }
+
+            REGISTRY.computeIfAbsent(type, k -> new ArrayList<>())
+                    .add(new Entry(type, body, ctx, persistent));
         }
-
-        REGISTRY.computeIfAbsent(type, k -> new ArrayList<>())
-                .add(new Entry(type, body, ctx, persistent));
-
         bumpVersion();
     }
 
     public static void registerEvery(int period, List<MaredScriptCommand> body,
                                      MaredScriptContext ctx, boolean persistent) {
-        EVERY_LISTENERS.add(new EveryListener(period, body, ctx, persistent));
-        // F9: убран LOGGER.info
+        synchronized (EVERY_LISTENERS) {
+            EVERY_LISTENERS.add(new EveryListener(period, body, ctx, persistent));
+        }
         bumpVersion();
     }
 
     public static void registerAfter(int delay, List<MaredScriptCommand> body,
                                      MaredScriptContext ctx) {
-        AFTER_LISTENERS.add(new AfterListener(delay, body, ctx));
-        // F9: убран LOGGER.info
+        synchronized (AFTER_LISTENERS) {
+            AFTER_LISTENERS.add(new AfterListener(delay, body, ctx));
+        }
         bumpVersion();
     }
 
     public static void clear(String type) {
-        REGISTRY.remove(type);
+        synchronized (REGISTRY) {
+            REGISTRY.remove(type);
+        }
         bumpVersion();
     }
 
     public static void clearAll() {
-        for (List<Entry> list : REGISTRY.values()) {
-            list.removeIf(e -> !e.persistent);
+        synchronized (REGISTRY) {
+            for (List<Entry> list : REGISTRY.values()) {
+                list.removeIf(e -> !e.persistent);
+            }
+            REGISTRY.entrySet().removeIf(e -> e.getValue().isEmpty());
         }
-        REGISTRY.entrySet().removeIf(e -> e.getValue().isEmpty());
-        EVERY_LISTENERS.removeIf(l -> !l.persistent);
-        AFTER_LISTENERS.clear();
+        synchronized (EVERY_LISTENERS) {
+            EVERY_LISTENERS.removeIf(l -> !l.persistent);
+        }
+        synchronized (AFTER_LISTENERS) {
+            AFTER_LISTENERS.clear();
+        }
         FIRING.clear();
         suppressUntilMs = 0;
         bumpVersion();
     }
 
     public static void clearAllPersistent() {
-        REGISTRY.clear();
-        EVERY_LISTENERS.clear();
-        AFTER_LISTENERS.clear();
+        synchronized (REGISTRY) { REGISTRY.clear(); }
+        synchronized (EVERY_LISTENERS) { EVERY_LISTENERS.clear(); }
+        synchronized (AFTER_LISTENERS) { AFTER_LISTENERS.clear(); }
         FIRING.clear();
         suppressUntilMs = 0;
         bumpVersion();
     }
 
     // ============================================================
-    //  Удаление слушателей
+    //  Удаление
     // ============================================================
 
     public static void removeAll(String type) {
-        REGISTRY.remove(type);
-        // F9: убран LOGGER.info
+        synchronized (REGISTRY) {
+            REGISTRY.remove(type);
+        }
         bumpVersion();
     }
 
     public static void removeAllEvents() {
-        REGISTRY.clear();
-        EVERY_LISTENERS.clear();
-        AFTER_LISTENERS.clear();
+        synchronized (REGISTRY) { REGISTRY.clear(); }
+        synchronized (EVERY_LISTENERS) { EVERY_LISTENERS.clear(); }
+        synchronized (AFTER_LISTENERS) { AFTER_LISTENERS.clear(); }
         FIRING.clear();
         bumpVersion();
     }
 
-    // F6 FIX: снять все every-слушатели
     public static void removeAllEvery() {
-        EVERY_LISTENERS.clear();
+        synchronized (EVERY_LISTENERS) { EVERY_LISTENERS.clear(); }
         bumpVersion();
     }
 
-    // F6 FIX: снять все after-слушатели
     public static void removeAllAfter() {
-        AFTER_LISTENERS.clear();
+        synchronized (AFTER_LISTENERS) { AFTER_LISTENERS.clear(); }
         bumpVersion();
     }
 
     public static boolean removeEntry(Entry entry) {
         if (entry == null) return false;
-        List<Entry> list = REGISTRY.get(entry.type);
-        if (list == null) return false;
-        boolean removed = list.remove(entry);
-        if (list.isEmpty()) REGISTRY.remove(entry.type);
-        if (removed) {
-            bumpVersion();
+        boolean removed = false;
+        synchronized (REGISTRY) {
+            List<Entry> list = REGISTRY.get(entry.type);
+            if (list != null) {
+                removed = list.remove(entry);
+                if (list.isEmpty()) REGISTRY.remove(entry.type);
+            }
         }
+        if (removed) bumpVersion();
         return removed;
     }
 
     public static boolean has(String type) {
-        List<Entry> list = REGISTRY.get(type);
-        return list != null && !list.isEmpty();
+        synchronized (REGISTRY) {
+            List<Entry> list = REGISTRY.get(type);
+            return list != null && !list.isEmpty();
+        }
     }
 
     public static int count(String type) {
-        List<Entry> list = REGISTRY.get(type);
-        return list != null ? list.size() : 0;
+        synchronized (REGISTRY) {
+            List<Entry> list = REGISTRY.get(type);
+            return list != null ? list.size() : 0;
+        }
     }
 
     public static int totalCount() {
-        int n = 0;
-        for (List<Entry> list : REGISTRY.values()) n += list.size();
-        n += EVERY_LISTENERS.size();
-        n += AFTER_LISTENERS.size();
-        return n;
+        synchronized (REGISTRY) {
+            int n = 0;
+            for (List<Entry> list : REGISTRY.values()) n += list.size();
+            n += EVERY_LISTENERS.size();
+            n += AFTER_LISTENERS.size();
+            return n;
+        }
     }
 
     public static List<String> types() {
-        return new ArrayList<>(REGISTRY.keySet());
+        synchronized (REGISTRY) {
+            return new ArrayList<>(REGISTRY.keySet());
+        }
     }
 
     // ============================================================
@@ -234,41 +244,49 @@ public final class MaredEventRegistry {
     }
 
     // ============================================================
-    //  Tick — every / after
+    //  Tick
     // ============================================================
 
     public static void tickServer(MinecraftServer server) {
         serverTickCounter++;
 
-        if (!EVERY_LISTENERS.isEmpty()) {
-            List<EveryListener> snapshot = new ArrayList<>(EVERY_LISTENERS);
-            for (EveryListener l : snapshot) {
-                if (serverTickCounter % l.period != 0) continue;
+        List<EveryListener> everySnapshot;
+        synchronized (EVERY_LISTENERS) {
+            if (EVERY_LISTENERS.isEmpty()) return;
+            everySnapshot = new ArrayList<>(EVERY_LISTENERS);
+        }
+        for (EveryListener l : everySnapshot) {
+            if (serverTickCounter % l.period != 0) continue;
+            try {
+                if (l.ctx != null) l.ctx.refreshPlayerData();
+                MaredScriptRunner.start(new MaredScriptExecutor(l.ctx, l.body));
+            } catch (Throwable t) {
+                Mared.LOGGER.error("[Mared] every listener error", t);
+            }
+        }
+
+        List<AfterListener> afterSnapshot;
+        synchronized (AFTER_LISTENERS) {
+            if (AFTER_LISTENERS.isEmpty()) return;
+            afterSnapshot = new ArrayList<>(AFTER_LISTENERS);
+        }
+        List<AfterListener> toRemove = new ArrayList<>();
+        for (AfterListener l : afterSnapshot) {
+            l.remaining--;
+            if (l.remaining <= 0) {
                 try {
                     if (l.ctx != null) l.ctx.refreshPlayerData();
                     MaredScriptRunner.start(new MaredScriptExecutor(l.ctx, l.body));
                 } catch (Throwable t) {
-                    Mared.LOGGER.error("[Mared] every listener error", t);
+                    Mared.LOGGER.error("[Mared] after listener error", t);
                 }
+                toRemove.add(l);
             }
         }
-
-        if (!AFTER_LISTENERS.isEmpty()) {
-            List<AfterListener> snapshot = new ArrayList<>(AFTER_LISTENERS);
-            List<AfterListener> toRemove = new ArrayList<>();
-            for (AfterListener l : snapshot) {
-                l.remaining--;
-                if (l.remaining <= 0) {
-                    try {
-                        if (l.ctx != null) l.ctx.refreshPlayerData();
-                        MaredScriptRunner.start(new MaredScriptExecutor(l.ctx, l.body));
-                    } catch (Throwable t) {
-                        Mared.LOGGER.error("[Mared] after listener error", t);
-                    }
-                    toRemove.add(l);
-                }
+        if (!toRemove.isEmpty()) {
+            synchronized (AFTER_LISTENERS) {
+                AFTER_LISTENERS.removeAll(toRemove);
             }
-            AFTER_LISTENERS.removeAll(toRemove);
         }
     }
 
@@ -282,8 +300,12 @@ public final class MaredEventRegistry {
         if (!FIRING.add(type)) return;
 
         try {
-            List<Entry> list = REGISTRY.get(type);
-            if (list == null || list.isEmpty()) return;
+            List<Entry> list;
+            synchronized (REGISTRY) {
+                List<Entry> registryList = REGISTRY.get(type);
+                if (registryList == null || registryList.isEmpty()) return;
+                list = new ArrayList<>(registryList);
+            }
 
             ServerPlayer initiator = resolveInitiator(server, data);
 

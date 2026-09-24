@@ -11,10 +11,12 @@ import com.fixmer.mared.script.MaredScriptExecutor.LoopOwner;
 
 /**
  * while <условие> { ... }
+ *
+ * FIX: MAX_ITER увеличен до 1_000_000 (защита через LOOP_BATCH_SIZE в executor'е).
  */
 public class MaredWhileCommand extends MaredScriptCommand {
 
-    private static final int MAX_ITER = 10_000;
+    private static final int MAX_ITER = 1_000_000;
 
     private final String condition;
     private final List<MaredScriptCommand> body;
@@ -37,7 +39,6 @@ public class MaredWhileCommand extends MaredScriptCommand {
             public boolean onBodyFinished(MaredScriptContext c, MaredScriptExecutor ex, Frame bodyFrame) {
                 if (bodyFrame.breakRequested) {
                     bodyFrame.breakRequested = false;
-                    // F9: только в verbose
                     if (MaredSettings.isVerboseScriptLog()) {
                         c.log("[mared] break — выход из while");
                     }

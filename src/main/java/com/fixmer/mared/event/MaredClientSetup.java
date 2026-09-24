@@ -13,7 +13,10 @@ public class MaredClientSetup {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
-        Mared.LOGGER.info("[Mared] Client setup — loading persistent scripts.");
+        Mared.LOGGER.info("========================================");
+        Mared.LOGGER.info("  Mared {} — starting", Mared.VERSION);
+        Mared.LOGGER.info("  Fast-path expressions + frame pool");
+        Mared.LOGGER.info("========================================");
         MaredPersistentLoader.loadAll();
     }
 }

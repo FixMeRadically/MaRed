@@ -1,17 +1,19 @@
 package com.fixmer.mared.script.commands;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import com.fixmer.mared.script.MaredExpr;
 import com.fixmer.mared.script.MaredScriptContext;
 
-/**
- * debug <выражение или "строка">
- *
- * FIX:
- *   - если аргумент в кавычках — это строка, разэкранируем кавычки и
- *     подставляем переменные (через substitute)
- *   - иначе — вычисляем выражение и выводим "expr = value"
- */
 public class MaredDebugCommand extends MaredScriptCommand {
+
+    /** Cooldown для одинаковых сообщений (ms). */
+    private static final long COOLDOWN_MS = 200;
+
+    /** LRU-кэш: сообщение → последний раз, когда писалось. */
+    private static final Map<String, Long> LAST_LOG = new HashMap<>();
+    private static final int MAX_CACHE = 256;
 
     private final String expr;
 
@@ -23,31 +25,42 @@ public class MaredDebugCommand extends MaredScriptCommand {
     public boolean execute(MaredScriptContext ctx) {
         String trimmed = expr == null ? "" : expr.trim();
 
-        // "строка в кавычках" — разэкранируем и substitute
+        String message;
         if (trimmed.length() >= 2
             && trimmed.startsWith("\"")
             && trimmed.endsWith("\"")) {
             String inner = trimmed.substring(1, trimmed.length() - 1);
             inner = unescapeQuotes(inner);
-            String resolved = ctx.substitute(inner);
-            ctx.log("[debug] " + resolved);
-            return true;
+            message = "[debug] " + ctx.substitute(inner);
+        } else {
+            Object value;
+            try {
+                value = MaredExpr.eval(trimmed, ctx);
+            } catch (Exception e) {
+                value = ctx.substitute(trimmed);
+            }
+            message = "[debug] " + trimmed + " = " + MaredExpr.stringify(value);
         }
 
-        // иначе — выражение
-        Object value;
-        try {
-            value = MaredExpr.eval(trimmed, ctx);
-        } catch (Exception e) {
-            value = ctx.substitute(trimmed);
+        // Cooldown — не пишем одно и то же сообщение чаще 1 раза в 200ms
+        long now = System.currentTimeMillis();
+        Long last = LAST_LOG.get(message);
+        if (last != null && now - last < COOLDOWN_MS) {
+            return true;
         }
-        ctx.log("[debug] " + trimmed + " = " + MaredExpr.stringify(value));
+        LAST_LOG.put(message, now);
+
+        // Ограничение размера кэша
+        if (LAST_LOG.size() > MAX_CACHE) {
+            LAST_LOG.clear();
+        }
+
+        ctx.log(message);
         return true;
     }
 
     /**
-     * Разэкранирует \" \' \\ \n \t.
-     * Нужно, потому что парсер скрипта оставляет бэкслеши в токене.
+     * Разэкранирует \" \' \\ \n \t \r.
      */
     static String unescapeQuotes(String s) {
         if (s == null || s.indexOf('\\') < 0) return s;
@@ -73,6 +86,5 @@ public class MaredDebugCommand extends MaredScriptCommand {
     }
 
     @Override public int getDelayTicks() { return 0; }
-
     @Override public String describe() { return "debug " + expr; }
 }

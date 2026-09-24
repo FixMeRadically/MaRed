@@ -12,7 +12,7 @@ import net.neoforged.fml.common.Mod;
 public class Mared {
 
     public static final String MOD_ID = "mared";
-    public static final String VERSION = "0.2.5a";
+    public static final String VERSION = "0.2.5b";
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public Mared(IEventBus modEventBus, ModContainer modContainer) {

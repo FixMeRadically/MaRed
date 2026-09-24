@@ -9,13 +9,10 @@ import net.minecraft.server.MinecraftServer;
 
 public class MaredScriptRunner {
 
-    /** BUG-14: максимальное количество активных executor'ов. */
-    private static final int MAX_ACTIVE = 500;
+    private static final int MAX_ACTIVE = 100;
+    private static final long MAX_LIFETIME_MS = 10_000;
+    private static final int MAX_ADD_PER_TICK = 50;
 
-    /** BUG-14: максимальное время жизни executor'а (30 сек). */
-    private static final long MAX_LIFETIME_MS = 30_000;
-
-    /** BUG-14: обёртка над executor'ом с временем создания. */
     private static final class Entry {
         final MaredScriptExecutor exec;
         final long createdAt;
@@ -28,6 +25,8 @@ public class MaredScriptRunner {
 
     private static final List<Entry> ACTIVE = new ArrayList<>();
 
+    private static int addedThisTick = 0;
+
     public static void start(MaredScriptExecutor executor) {
         synchronized (ACTIVE) {
             if (ACTIVE.size() >= MAX_ACTIVE) {
@@ -35,22 +34,34 @@ public class MaredScriptRunner {
                     ACTIVE.size());
                 return;
             }
+            if (addedThisTick >= MAX_ADD_PER_TICK) {
+                Mared.LOGGER.warn("[Mared] MAX_ADD_PER_TICK reached ({}), dropping executor",
+                    addedThisTick);
+                return;
+            }
             ACTIVE.add(new Entry(executor));
+            addedThisTick++;
         }
     }
 
     public static void stopAll() {
         synchronized (ACTIVE) {
             ACTIVE.clear();
+            addedThisTick = 0;
         }
     }
 
     public static void tick(MinecraftServer server) {
         MaredEventRegistry.tickServer(server);
 
+        // FIX: сбрасываем счётчик ВСЕГДА
+        synchronized (ACTIVE) {
+            addedThisTick = 0;
+            if (ACTIVE.isEmpty()) return;
+        }
+
         List<Entry> snapshot;
         synchronized (ACTIVE) {
-            if (ACTIVE.isEmpty()) return;
             snapshot = new ArrayList<>(ACTIVE);
         }
 
@@ -62,7 +73,6 @@ public class MaredScriptRunner {
             Entry entry = snapshot.get(i);
             MaredScriptExecutor executor = entry.exec;
 
-            // BUG-14: принудительный стоп по возрасту
             if (now - entry.createdAt > MAX_LIFETIME_MS) {
                 executor.stopAll();
                 Mared.LOGGER.warn("[Mared] Force-stopped executor (age > {}ms)",
@@ -74,8 +84,9 @@ public class MaredScriptRunner {
 
             try {
                 executor.tick();
-            } catch (Exception e) {
-                executor.getContext().log("[error] " + e.getMessage());
+            } catch (Throwable t) {
+                Mared.LOGGER.error("[Mared] Executor tick error", t);
+                executor.getContext().log("[error] " + t.getMessage());
                 if (toRemove == null) toRemove = new ArrayList<>(4);
                 toRemove.add(entry);
                 continue;

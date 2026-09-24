@@ -50,6 +50,9 @@ import com.fixmer.mared.script.commands.MaredWhileCommand;
 
 public class MaredScriptParser {
 
+    /** FIX: максимальное количество итераций без продвижения курсора. */
+    private static final int MAX_STUCK_ITERATIONS = 100;
+
     public static class ParseException extends RuntimeException {
         public final int line;
         public ParseException(int line, String message) {
@@ -96,12 +99,57 @@ public class MaredScriptParser {
         return depth == 0;
     }
 
+    /**
+     * FIX: защита от застревания + обработка блоков { } на верхнем уровне.
+     *
+     * Блок { ... } на верхнем уровне — это ГРУППИРОВКА команд, не отдельная команда.
+     * Содержимое блока добавляется в родительский список (плоская вставка).
+     * Пустой блок { } — OK, ничего не добавляется.
+     */
     private static List<MaredScriptCommand> parseStatements(Cursor cur, int line) {
         List<MaredScriptCommand> commands = new ArrayList<>();
+        int lastPos = -1;
+        int stuckCount = 0;
+
         while (true) {
             cur.skipSeparators();
             if (cur.eof()) break;
             if (cur.peekChar() == '}') break;
+
+            // FIX: проверка на застревание
+            int currentPos = cur.getPos();
+            if (currentPos == lastPos) {
+                stuckCount++;
+                if (stuckCount >= MAX_STUCK_ITERATIONS) {
+                    String remaining = cur.getRemaining(200);
+                    throw new ParseException(cur.line(),
+                        "parser stuck at pos " + currentPos + " — remaining: [" + remaining + "]");
+                }
+            } else {
+                stuckCount = 0;
+                lastPos = currentPos;
+            }
+
+            // FIX: { ... } на верхнем уровне — рекурсивно парсим как группу
+            if (cur.peekChar() == '{') {
+                int blockLine = cur.line();
+                cur.next();  // съедаем {
+
+                List<MaredScriptCommand> blockBody = parseStatements(cur, blockLine);
+
+                cur.skipSeparators();
+                if (cur.eof() || cur.peekChar() != '}') {
+                    throw new ParseException(blockLine, "block '{' not closed");
+                }
+                cur.next();  // съедаем }
+
+                // Плоская вставка: содержимое блока в родительский список
+                if (!blockBody.isEmpty()) {
+                    commands.addAll(blockBody);
+                }
+                continue;
+            }
+
             MaredScriptCommand cmd = parseStatement(cur);
             if (cmd != null) commands.add(cmd);
         }
@@ -737,6 +785,18 @@ public class MaredScriptParser {
         boolean eof() { return pos >= text.length(); }
         int line() { return line; }
         char peekChar() { return text.charAt(pos); }
+
+        /** FIX: текущая позиция — для диагностики застревания. */
+        int getPos() { return pos; }
+
+        /** FIX: остаток текста (ограниченной длины) — для диагностики. */
+        String getRemaining(int maxLen) {
+            if (pos >= text.length()) return "";
+            int end = Math.min(text.length(), pos + maxLen);
+            String s = text.substring(pos, end);
+            s = s.replace("\n", "\\n").replace("\r", "\\r");
+            return s;
+        }
 
         char next() {
             char c = text.charAt(pos++);

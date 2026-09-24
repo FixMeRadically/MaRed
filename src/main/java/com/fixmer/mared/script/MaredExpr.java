@@ -36,7 +36,6 @@ public final class MaredExpr {
         }
     }
 
-    // Частые токены
     private static final Token T_PLUS    = new Token(TokType.PLUS, "+", 0, 0);
     private static final Token T_MINUS   = new Token(TokType.MINUS, "-", 0, 0);
     private static final Token T_STAR    = new Token(TokType.STAR, "*", 0, 0);
@@ -88,8 +87,23 @@ public final class MaredExpr {
     //  Public API
     // ============================================================
 
+    /**
+     * FIX 0.2.5b: fast-path для простых выражений через MaredExprFast.
+     * Если выражение не поддерживается — fallback к обычному парсингу.
+     */
     public static Object eval(String expr, MaredScriptContext ctx) {
         if (expr == null || expr.isEmpty()) return "";
+
+        // Fast-path: простые выражения (число, $var, $a op $b, ...)
+        MaredExprFast.Evaluator fast = MaredExprFast.get(expr);
+        if (fast != null) {
+            try {
+                return fast.eval(ctx);
+            } catch (Exception ignored) {
+                // откатываемся к полному парсингу
+            }
+        }
+
         Token[] tokens = tokenizeCached(expr);
         Parser p = new Parser(tokens, ctx);
         Object result = p.parseExpression();
@@ -610,7 +624,6 @@ public final class MaredExpr {
                 case IDENT: {
                     String text = t.text;
 
-                    // call fn(...)
                     if ("call".equals(text)) {
                         Token nameTok = next();
                         if (nameTok.type != TokType.IDENT) {
@@ -624,7 +637,6 @@ public final class MaredExpr {
                         return MaredBuiltins.call(nameTok.text, args, ctx);
                     }
 
-                    // fn(...)
                     if (tokens[pos].type == TokType.LPAREN) {
                         pos++;
                         List<Object> args = parseArgs();
@@ -634,12 +646,10 @@ public final class MaredExpr {
                         return MaredBuiltins.call(text, args, ctx);
                     }
 
-                    // Литералы
                     if ("true".equals(text))  return Boolean.TRUE;
                     if ("false".equals(text)) return Boolean.FALSE;
                     if ("null".equals(text))  return null;
 
-                    // F4b FIX: ВСЕГДА пробуем переменную
                     Object v = ctx.getVariable(text);
                     if (v != null) return v;
                     if (ctx.hasVariable(text)) return null;
@@ -654,7 +664,7 @@ public final class MaredExpr {
     }
 
     // ============================================================
-    //  Арифметика
+    //  Арифметика (публичные — используются MaredExprFast)
     // ============================================================
 
     private static Object indexValue(Object container, Object idx) {
@@ -674,7 +684,7 @@ public final class MaredExpr {
         return null;
     }
 
-    private static Object addValues(Object a, Object b) {
+    public static Object addValues(Object a, Object b) {
         if (a instanceof List<?> la && b instanceof List<?> lb) {
             List<Object> merged = new ArrayList<>(la.size() + lb.size());
             merged.addAll(la);
@@ -696,7 +706,7 @@ public final class MaredExpr {
         return toNumber(a) + toNumber(b);
     }
 
-    private static Object subValues(Object a, Object b) {
+    public static Object subValues(Object a, Object b) {
         if (a instanceof Long la && b instanceof Long lb) return la - lb;
         if (a instanceof Number na && b instanceof Number nb) {
             if (a instanceof Double || b instanceof Double) {
@@ -707,7 +717,7 @@ public final class MaredExpr {
         return toNumber(a) - toNumber(b);
     }
 
-    private static Object mulValues(Object a, Object b) {
+    public static Object mulValues(Object a, Object b) {
         if (a instanceof Long la && b instanceof Long lb) return la * lb;
         if (a instanceof Number na && b instanceof Number nb) {
             if (a instanceof Double || b instanceof Double) {
@@ -718,7 +728,7 @@ public final class MaredExpr {
         return toNumber(a) * toNumber(b);
     }
 
-    private static Object divValues(Object a, Object b) {
+    public static Object divValues(Object a, Object b) {
         if (a instanceof Long la && b instanceof Long lb) {
             if (lb == 0) return 0L;
             return la / lb;
@@ -738,7 +748,7 @@ public final class MaredExpr {
         return toNumber(a) / d;
     }
 
-    private static Object modValues(Object a, Object b) {
+    public static Object modValues(Object a, Object b) {
         if (a instanceof Long la && b instanceof Long lb) {
             if (lb == 0) return 0L;
             return la % lb;
@@ -758,7 +768,7 @@ public final class MaredExpr {
         return toNumber(a) % d;
     }
 
-    private static boolean equalsValue(Object a, Object b) {
+    public static boolean equalsValue(Object a, Object b) {
         if (a == b) return true;
         if (a == null || b == null) return false;
         if (a instanceof Long la && b instanceof Long lb) return la.longValue() == lb.longValue();
