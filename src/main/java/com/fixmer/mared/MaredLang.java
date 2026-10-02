@@ -1,15 +1,18 @@
 package com.fixmer.mared;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.fixmer.mared.Mared;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import net.minecraft.client.Minecraft;
+import net.neoforged.fml.ModList;
 
 /**
  * Локализация Mared.
@@ -17,50 +20,45 @@ import net.minecraft.client.Minecraft;
  * Загружает строки из assets/mared/lang/<code>.json.
  * Fallback — en_us.
  * Автовыбор языка — по Minecraft.getLanguageManager().getSelected().
+ *
+ * 0.3.0: загрузка через ModList → modFile.findResource — работает в dev
+ * и production. Раньше через getResourceAsStream: в dev-runtime mod-ресурсы
+ * часто не попадают в classpath → ключи показывались сырыми.
  */
 public final class MaredLang {
 
     private MaredLang() {}
 
-    /** Текущий язык — код, который выбрал игрок в настройках. */
     private static String currentCode = "en_us";
 
-    /** Загруженные словари. */
     private static final Map<String, Map<String, String>> DICTS = new HashMap<>();
-
-    /** Флаг — загружено ли. */
     private static boolean loaded = false;
 
-    /** Fallback-язык. */
     private static final String FALLBACK = "en_us";
 
     // -------------------------------------------------------------------
     //  Public API
     // -------------------------------------------------------------------
 
-    /** Перевести ключ. */
     public static String get(String key) {
         ensureLoaded();
         Map<String, String> dict = DICTS.get(currentCode);
         if (dict != null && dict.containsKey(key)) return dict.get(key);
         Map<String, String> fallback = DICTS.get(FALLBACK);
         if (fallback != null && fallback.containsKey(key)) return fallback.get(key);
-        return key; // ключ, если перевода нет
+        return key;
     }
 
-    /** Перевести и подставить параметры. %s, %d — как в String.format. */
     public static String format(String key, Object... args) {
         return String.format(get(key), args);
     }
 
-    /** Перезагрузить — например, если игрок сменил язык в настройках. */
     public static void reload() {
         loaded = false;
         DICTS.clear();
         ensureLoaded();
     }
 
-    /** Установить язык вручную (для отладки). */
     public static void setLanguage(String code) {
         currentCode = code;
     }
@@ -75,7 +73,6 @@ public final class MaredLang {
         if (loaded) return;
         loaded = true;
 
-        // Определить язык из Minecraft
         try {
             Minecraft mc = Minecraft.getInstance();
             if (mc != null && mc.getLanguageManager() != null) {
@@ -86,20 +83,18 @@ public final class MaredLang {
         }
         if (currentCode == null || currentCode.isEmpty()) currentCode = FALLBACK;
 
-        // Загрузить текущий язык
         loadLanguage(currentCode);
 
-        // Загрузить fallback — если отличается
         if (!FALLBACK.equals(currentCode)) {
             loadLanguage(FALLBACK);
         }
     }
 
     private static void loadLanguage(String code) {
-        String path = "/assets/mared/lang/" + code + ".json";
-        try (InputStream in = MaredLang.class.getResourceAsStream(path)) {
+        String relative = "assets/mared/lang/" + code + ".json";
+        try (InputStream in = openModResource(relative)) {
             if (in == null) {
-                Mared.LOGGER.warn("Lang file not found: {}", path);
+                Mared.LOGGER.warn("[Mared] Lang file not found: {}", relative);
                 return;
             }
             String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
@@ -112,8 +107,29 @@ public final class MaredLang {
                 }
             }
             DICTS.put(code, dict);
+            Mared.LOGGER.debug("[Mared] Loaded lang {} ({} keys)", code, dict.size());
         } catch (Exception e) {
-            Mared.LOGGER.error("Failed to load lang {}", code, e);
+            Mared.LOGGER.error("[Mared] Failed to load lang {}", code, e);
         }
+    }
+
+    /**
+     * 0.3.0: mod-ресурсы читаются через ModList. Fallback — classpath
+     * (для unit-тестов или раннего старта).
+     */
+    private static InputStream openModResource(String relative) throws IOException {
+        try {
+            var modFile = ModList.get()
+                .getModFileById(Mared.MOD_ID)
+                .getFile();
+            Path found = modFile.findResource(relative);
+            if (found != null && Files.exists(found)) {
+                return Files.newInputStream(found);
+            }
+        } catch (Throwable t) {
+            Mared.LOGGER.debug("[Mared] ModList lookup failed for {}: {}",
+                relative, t.getMessage());
+        }
+        return MaredLang.class.getResourceAsStream("/" + relative);
     }
 }

@@ -5,7 +5,7 @@ issueTrackerURL = "https://github.com/fixmer/mared/issues"
 
 [[mods]]
 modId = "mared"
-version = "0.2.5b"
+version = "0.3.0"
 displayName = "Mared"
 authors = "fixmer"
 description = '''
@@ -27,3 +27,6 @@ type = "required"
 versionRange = "[1.21.1,1.22)"
 ordering = "NONE"
 side = "BOTH"
+
+[[mixins]]
+config = "mared.mixins.json"
