@@ -61,6 +61,8 @@ public class MaredScriptExecutor {
     private final Deque<Frame> pool = new ArrayDeque<>(FRAME_POOL_SIZE);
     private final boolean verboseLog;
 
+    private boolean debuggerPaused = false;
+
     private boolean finished = false;
     private boolean aborted = false;
     private Object returnValue = null;
@@ -185,6 +187,20 @@ public class MaredScriptExecutor {
         this.hasReturnValue = false;
     }
 
+    public void resumeFromDebugger() {
+        debuggerPaused = false;
+    }
+
+    public void pauseFromDebugger() {
+        debuggerPaused = true;
+    }
+
+    public void stepOverDebugger() {
+        debuggerPaused = false;
+        tick();
+        debuggerPaused = true;
+    }
+
     public void stopAll() {
         aborted = true;
         while (!stack.isEmpty()) {
@@ -204,6 +220,8 @@ public class MaredScriptExecutor {
 
     public void tick() {
         if (finished) return;
+
+        if (debuggerPaused) return;
 
         int loopIterations = 0;
 

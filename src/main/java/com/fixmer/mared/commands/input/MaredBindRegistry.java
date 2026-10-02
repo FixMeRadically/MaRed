@@ -44,7 +44,7 @@ public final class MaredBindRegistry {
     private static final List<String> ACTIVE_HOLDS = new ArrayList<>(4);
 
     // ============================================================
-    //  Индекс по keyCode
+    //  РРЅРґРµРєСЃ РїРѕ keyCode
     // ============================================================
 
     private static void rebuildIndexIfNeeded() {
@@ -67,7 +67,7 @@ public final class MaredBindRegistry {
     private static void markDirty() { indexDirty = true; }
 
     // ============================================================
-    //  Мутации
+    //  РњСѓС‚Р°С†РёРё
     // ============================================================
 
     public static void replace(String key, List<MaredScriptCommand> body, MaredScriptContext ctx,
@@ -120,7 +120,7 @@ public final class MaredBindRegistry {
     }
 
     // ============================================================
-    //  Чтение
+    //  Р§С‚РµРЅРёРµ
     // ============================================================
 
     public static List<String> keys() { return new ArrayList<>(BINDINGS.keySet()); }
@@ -204,8 +204,8 @@ public final class MaredBindRegistry {
     }
 
     /**
-     * Каждый вызов — собственный контекст (fork), иначе переменные
-     * одного вызова перезаписываются другим.
+     * РљР°Р¶РґС‹Р№ РІС‹Р·РѕРІ вЂ” СЃРѕР±СЃС‚РІРµРЅРЅС‹Р№ РєРѕРЅС‚РµРєСЃС‚ (fork), РёРЅР°С‡Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
+     * РѕРґРЅРѕРіРѕ РІС‹Р·РѕРІР° РїРµСЂРµР·Р°РїРёСЃС‹РІР°СЋС‚СЃСЏ РґСЂСѓРіРёРј.
      */
     private static void runEntry(Entry e, MinecraftServer server) {
         MaredScriptContext base = e.ctx != null
@@ -216,7 +216,7 @@ public final class MaredBindRegistry {
     }
 
     // ============================================================
-    //  Блокировка
+    //  Р‘Р»РѕРєРёСЂРѕРІРєР°
     // ============================================================
 
     private static void applyBlock(String keyStr) {
@@ -230,7 +230,7 @@ public final class MaredBindRegistry {
     }
 
     // ============================================================
-    //  Прочее
+    //  РџСЂРѕС‡РµРµ
     // ============================================================
 
     public static void remove(String key, int index) {
@@ -243,5 +243,5 @@ public final class MaredBindRegistry {
             removeBlock(key);
         }
         markDirty();
-    }
+}
 }
