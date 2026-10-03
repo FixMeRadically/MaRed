@@ -1,19 +1,29 @@
 package com.fixmer.mared.gui2.studio;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.lwjgl.glfw.GLFW;
+
+import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.gui2.docking.layout.DockLayoutCalculator;
 import com.fixmer.mared.gui2.docking.render.DockRenderer;
 import com.fixmer.mared.gui2.framework.core.Disposable;
 import com.fixmer.mared.gui2.framework.core.MaredComponent;
 import com.fixmer.mared.gui2.framework.core.MaredRenderContext;
 import com.fixmer.mared.gui2.framework.core.UiContext;
+import com.fixmer.mared.gui2.framework.overlay.ConfirmDialogOverlay;
 import com.fixmer.mared.gui2.framework.overlay.ContextMenuEntry;
 import com.fixmer.mared.gui2.framework.overlay.ContextMenuOverlay;
-import com.fixmer.mared.gui2.framework.render.MaredAnimState;
+import com.fixmer.mared.gui2.framework.render.animation.MaredAnimState;
 import com.fixmer.mared.gui2.framework.render.MaredScale;
 import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
+import com.fixmer.mared.gui2.studio.action.EditorAction;
+import com.fixmer.mared.gui2.studio.action.EditorActionArgs;
 import com.fixmer.mared.gui2.studio.action.StudioActions;
 import com.fixmer.mared.gui2.studio.events.StudioEvents;
 import com.fixmer.mared.gui2.studio.events.SubscriptionGroup;
+import com.fixmer.mared.gui2.studio.panels.workspace.WorkspaceComponent;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -21,12 +31,11 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
 /**
- * 0.3.1:
- *   - Screen сам создаёт UiContext и делает MaredScale.bind в init,
- *     unbind в removed. Session принимает готовый UiContext.
- *   - removed() вызывает session.shutdown() только при isClosing();
- *     при переключении Studio → Settings сессия сохраняется и
- *     переиспользуется при возврате.
+ * 0.3.2:
+ *   - Tab / Shift+Tab — focus traversal между focusable-компонентами.
+ *     Порядок — в FocusTraversal, регистрация — в controller.
+ *   - Narration: FocusTraversal.narrate() озвучивает новую цель, если
+ *     она реализует NarratableComponent.
  */
 public final class MaredStudioScreen extends Screen implements Disposable {
 
@@ -39,10 +48,6 @@ public final class MaredStudioScreen extends Screen implements Disposable {
 
     @Override
     public void dispose() { screenSubs.dispose(); }
-
-    // ============================================================
-    //  Lifecycle
-    // ============================================================
 
     @Override
     protected void init() {
@@ -69,20 +74,9 @@ public final class MaredStudioScreen extends Screen implements Disposable {
     @Override
     public void removed() {
         screenSubs.dispose();
-
-        // 0.3.1: shutdown — только при фактическом закрытии студии.
-        // При переходе Studio → Settings сессия выживает и будет
-        // переиспользована при возврате.
-        if (session.isClosing()) {
-            session.shutdown();
-        }
-
+        if (session.isClosing()) session.shutdown();
         MaredScale.unbind();
     }
-
-    // ============================================================
-    //  Bus subscriptions
-    // ============================================================
 
     private void subscribeBusEvents() {
         var bus = session.controller().bus();
@@ -92,71 +86,77 @@ public final class MaredStudioScreen extends Screen implements Disposable {
         screenSubs.add(bus.subscribe(StudioEvents.RequestReloadPersistentEvent.class,
             e -> session.executeAction(StudioActions.FILE_RELOAD_PERSISTENT)));
 
-        screenSubs.add(bus.subscribe(StudioEvents.RequestRenameFileEvent.class,
-            e -> onRenameFile(e.fileName())));
-        screenSubs.add(bus.subscribe(StudioEvents.RequestDuplicateFileEvent.class,
-            e -> onDuplicateFile(e.fileName())));
-        screenSubs.add(bus.subscribe(StudioEvents.RequestDeleteFileEvent.class,
-            e -> onDeleteFile(e.fileName())));
-
+        screenSubs.add(bus.subscribe(StudioEvents.RequestContextMenuForFileEvent.class,
+            e -> showFileContextMenu(e.x(), e.y(), e.fileName())));
         screenSubs.add(bus.subscribe(StudioEvents.RequestContextMenuEvent.class,
-            e -> openContextMenu(e.x(), e.y(), e.entries())));
+            e -> showRawContextMenu(e.x(), e.y(), e.entries())));
+
+        screenSubs.add(bus.subscribe(StudioEvents.RequestCloseDirtyDocumentEvent.class,
+            e -> showCloseDirtyConfirm(e.documentTitle())));
     }
 
-    // ============================================================
-    //  Per-file actions
-    // ============================================================
-
-    private void onRenameFile(String oldName) {
-        ScreenNavigator.openRenameDialog(this, oldName, (newName, persistent) -> {
-            var r = session.commands().rename(oldName, newName);
-            session.publish(r);
-            if (r.ok()) {
-                session.controller().bus().publish(
-                    new StudioEvents.FileRenamedEvent(oldName, newName));
-                session.refreshExplorer();
-            }
-        });
-    }
-
-    private void onDuplicateFile(String fileName) {
-        var r = session.commands().duplicate(fileName);
-        session.publish(r);
-        if (r.ok()) session.refreshExplorer();
-    }
-
-    private void onDeleteFile(String fileName) {
-        if (!session.commands().exists(fileName)) {
-            session.log("[studio] delete skipped: file does not exist: " + fileName);
-            session.refreshExplorer();
-            return;
-        }
-        boolean persistent = session.commands().isPersistent(fileName);
-        ScreenNavigator.openDeleteConfirm(this, fileName, persistent, () -> {
-            var r = session.commands().delete(fileName);
-            session.publish(r);
-            if (r.ok()) {
-                session.controller().bus().publish(
-                    new StudioEvents.FileDeletedEvent(fileName));
-                session.refreshExplorer();
-            }
-        });
-    }
-
-    private void openContextMenu(int x, int y,
-                                 java.util.List<ContextMenuEntry> entries) {
+    private void showFileContextMenu(int x, int y, String fileName) {
         if (session.overlayManager() == null) return;
+        if (session.actions() == null || session.actionContext() == null) return;
+
+        EditorActionArgs args = EditorActionArgs.of("fileName", fileName);
+        List<ContextMenuEntry> items = new ArrayList<>();
+
+        for (String id : StudioActions.FILE_CONTEXT_MENU) {
+            if (StudioActions.isSeparator(id)) {
+                items.add(ContextMenuEntry.divider());
+                continue;
+            }
+            EditorAction a = session.actions().byId(id);
+            if (a == null) continue;
+            if (!a.isEnabled(session.actionContext(), args)) continue;
+            final String actionId = id;
+            items.add(ContextMenuEntry.of(
+                MaredLang.get(a.titleKey()),
+                () -> session.executeAction(actionId, args)
+            ));
+        }
+        stripRedundantDividers(items);
+        if (items.isEmpty()) return;
+        session.overlayManager().push(new ContextMenuOverlay(x, y, items));
+    }
+
+    private void showRawContextMenu(int x, int y, List<ContextMenuEntry> entries) {
+        if (session.overlayManager() == null) return;
+        if (entries == null || entries.isEmpty()) return;
         session.overlayManager().push(new ContextMenuOverlay(x, y, entries));
     }
 
-    // ============================================================
-    //  Close guard
-    // ============================================================
+    private static void stripRedundantDividers(List<ContextMenuEntry> items) {
+        while (!items.isEmpty() && items.get(0).separator()) items.remove(0);
+        while (!items.isEmpty() && items.get(items.size() - 1).separator()) {
+            items.remove(items.size() - 1);
+        }
+        for (int i = items.size() - 1; i > 0; i--) {
+            if (items.get(i).separator() && items.get(i - 1).separator()) {
+                items.remove(i);
+            }
+        }
+    }
+
+    private void showCloseDirtyConfirm(String title) {
+        if (session.overlayManager() == null) return;
+        WorkspaceComponent wc = workspace();
+        if (wc == null) return;
+
+        session.overlayManager().push(new ConfirmDialogOverlay(
+            MaredLang.get("mared.dialog.unsaved_title"),
+            MaredLang.format("mared.dialog.unsaved_message_named", title),
+            () -> wc.confirmPendingClose(WorkspaceComponent.CloseAction.DISCARD),
+            true
+        ));
+    }
 
     @Override
     public void onClose() {
-        if (session.hasUnsavedChanges()) {
-            ScreenNavigator.openUnsavedConfirm(this, () -> {
+        WorkspaceComponent wc = workspace();
+        if (wc != null && wc.hasAnyDirty()) {
+            ScreenNavigator.openUnsavedConfirm(session.overlayManager(), () -> {
                 session.markClosing();
                 session.overlayManager().clear();
                 MaredStudioScreen.super.onClose();
@@ -166,6 +166,11 @@ public final class MaredStudioScreen extends Screen implements Disposable {
         session.markClosing();
         if (session.overlayManager() != null) session.overlayManager().clear();
         super.onClose();
+    }
+
+    private WorkspaceComponent workspace() {
+        var ws = session.controller().workspacePanel();
+        return ws == null ? null : ws.workspaceComponent();
     }
 
     // ============================================================
@@ -255,6 +260,9 @@ public final class MaredStudioScreen extends Screen implements Disposable {
     public boolean mouseScrolled(double mx, double my,
                                  double scrollX, double scrollY) {
         if (session.overlayManager() != null
+            && session.overlayManager().mouseScrolled(mx, my, scrollX, scrollY))
+            return true;
+        if (session.overlayManager() != null
             && session.overlayManager().shouldBlockGenericInput()) return true;
         if (super.mouseScrolled(mx, my, scrollX, scrollY)) return true;
         return DockRenderer.dispatchScroll(session.controller().dockManager(),
@@ -269,15 +277,29 @@ public final class MaredStudioScreen extends Screen implements Disposable {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // 1. Overlay первым.
         if (session.overlayManager() != null
             && session.overlayManager().keyPressed(keyCode, scanCode, modifiers))
             return true;
 
+        // 2. Vanilla.
         if (super.keyPressed(keyCode, scanCode, modifiers)) return true;
 
+        // 3. Панели — focused-обработчики.
         if (DockRenderer.dispatchKey(session.controller().dockManager(),
             keyCode, scanCode, modifiers)) return true;
 
+        // 4. Tab / Shift+Tab — focus traversal.
+        //    Ctrl+Tab уже обрабатывается Workspace'ом (переключение табов).
+        if (keyCode == GLFW.GLFW_KEY_TAB && (modifiers & GLFW.GLFW_MOD_CONTROL) == 0) {
+            boolean shift = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+            if (session.focusTraversal() != null
+                && session.focusTraversal().handleTab(shift ? -1 : +1)) {
+                return true;
+            }
+        }
+
+        // 5. Actions.
         if (session.actionContext() != null
             && session.actions() != null
             && session.actions().executeByKey(keyCode, modifiers,
@@ -291,7 +313,12 @@ public final class MaredStudioScreen extends Screen implements Disposable {
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (session.overlayManager() != null
+            && session.overlayManager().charTyped(codePoint, modifiers))
+            return true;
+
+        if (session.overlayManager() != null
             && session.overlayManager().shouldBlockGenericInput()) return true;
+
         if (super.charTyped(codePoint, modifiers)) return true;
         return DockRenderer.dispatchChar(session.controller().dockManager(),
             codePoint, modifiers);

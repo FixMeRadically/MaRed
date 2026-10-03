@@ -387,5 +387,82 @@
   "mared.action.file.run.title": "Запуск",
   "mared.action.file.reload_persistent.title": "Перезагр.",
   "mared.action.view.settings.title": "Настройки",
-  "mared.action.studio.close.title": "Закрыть"
+  "mared.action.studio.close.title": "Закрыть",
+
+  "mared.action.file.open.title": "Открыть",
+  "mared.action.file.rename.title": "Переименовать...",
+  "mared.action.file.duplicate.title": "Дублировать",
+  "mared.action.file.delete.title": "Удалить...",
+
+  "mared.key.left_click": "ЛКМ",
+  "mared.key.right_click": "ПКМ",
+  "mared.key.middle_click": "СКМ",
+  "mared.key.mouse_move": "Движение мыши",
+  "mared.key.space": "Пробел",
+  "mared.key.enter": "Enter",
+  "mared.key.escape": "Escape",
+  "mared.key.tab": "Tab",
+  "mared.key.backspace": "Backspace",
+  "mared.key.delete": "Delete",
+  "mared.key.shift": "Shift",
+  "mared.key.ctrl": "Ctrl",
+  "mared.key.alt": "Alt",
+
+  "mared.action.view.command_palette.title": "Палитра команд",
+  "mared.palette.no_match": "нет совпадений",
+  "mared.palette.hint": "↑↓ · Enter · Esc",
+
+  "mared.narration.editor.title": "Текстовый редактор",
+  "mared.narration.editor.empty": "Пустой текстовый редактор",
+  "mared.narration.editor.position": "Текстовый редактор. Строк: %d. Строка %d, колонка %d.",
+  "mared.narration.editor.position_selection": "Текстовый редактор. Строк: %d. Строка %d, колонка %d. Выделено символов: %d.",
+
+  "mared.dialog.unsaved_message_named": "«%s» содержит несохранённые изменения. Закрыть без сохранения?",
+  "mared.workspace.no_files": "Нет открытых файлов",
+  "mared.workspace.untitled": "(без имени)",
+  "mared.workspace.close_tab": "Закрыть",
+  "mared.workspace.save_all": "Сохранить всё",
+
+  "mared.narration.workspace.empty": "Рабочая область. Нет открытых файлов.",
+  "mared.narration.workspace.empty_active": "Рабочая область. Нет активного документа.",
+  "mared.narration.workspace.title": "Рабочая область. Документ: %s.",
+  "mared.narration.workspace.dirty": "Есть несохранённые изменения.",
+  "mared.narration.workspace.deleted": "Файл удалён извне.",
+  "mared.narration.workspace.position": "Строк: %d. Строка %d, колонка %d.",
+  "mared.narration.workspace.multi": "Открыто документов: %d.",
+  "mared.narration.console.summary": "Консоль. Всего %d записей, видимых %d.",
+  "mared.narration.explorer.summary": "Проводник. Файлов: %d, команд: %d.",
+  "mared.narration.explorer.selected": "Выбранный файл: %s.",
+
+  "mared.settings.category.general": "ОБЩИЕ",
+  "mared.settings.category.appearance": "ВНЕШНИЙ ВИД",
+  "mared.settings.category.editor": "РЕДАКТОР",
+  "mared.settings.category.advanced": "ДОПОЛНИТЕЛЬНО",
+  "mared.settings.category.about": "О МОДЕ",
+
+  "mared.settings.theme.preview": "Предпросмотр",
+  "mared.settings.theme.preview.title": "Заголовок",
+  "mared.settings.theme.preview.body": "Вторичный текст",
+  "mared.settings.theme.preview.faint": "Приглушённая подсказка",
+  "mared.settings.theme.preview.button": "Кнопка",
+
+  "mared.settings.theme.reduced_motion": "Меньше анимации",
+  "mared.settings.theme.reduced_motion_hint": "Отключает частицы, параллакс, анимированные кольца и тяжёлые узоры.",
+
+  "mared.settings.keybinds.search_hint": "Поиск по клавише или действию...",
+  "mared.settings.keybinds.rebind": "Переназначить",
+  "mared.settings.keybinds.awaiting": "Нажмите клавишу (Esc — отмена)...",
+  "mared.settings.keybinds.awaiting_short": "Нажмите клавишу...",
+  "mared.settings.keybinds.conflict": "Клавиша «%s» уже назначена",
+  "mared.settings.keybinds.rename_failed": "Не удалось переназначить",
+
+  "mared.settings.layout.button_position": "Кнопка на Pause/Title",
+  "mared.settings.layout.button_position.top_right": "Правый верх",
+  "mared.settings.layout.button_position.top_left": "Левый верх",
+  "mared.settings.layout.button_position.bottom_right": "Правый низ",
+  "mared.settings.layout.button_position.bottom_left": "Левый низ",
+  "mared.settings.layout.button_offset": "Отступ кнопки",
+
+  "mared.narration.list.count": "Список, элементов: %d.",
+  "mared.narration.list.selected": "Выбрано: %s."
 }

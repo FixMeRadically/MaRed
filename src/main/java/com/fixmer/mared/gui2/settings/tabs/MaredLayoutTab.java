@@ -4,7 +4,7 @@ import java.util.function.IntConsumer;
 
 import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.MaredLayoutPreset;
-import com.fixmer.mared.gui2.framework.render.MaredUi;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
 import com.fixmer.mared.gui2.settings.MaredSettingsTab;
 import com.fixmer.mared.gui2.settings.SettingsContext;
 import com.fixmer.mared.services.settings.LayoutConstraints;

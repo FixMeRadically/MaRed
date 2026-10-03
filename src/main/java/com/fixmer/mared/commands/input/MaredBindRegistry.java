@@ -44,7 +44,7 @@ public final class MaredBindRegistry {
     private static final List<String> ACTIVE_HOLDS = new ArrayList<>(4);
 
     // ============================================================
-    //  РРЅРґРµРєСЃ РїРѕ keyCode
+    //  Индекс по keyCode
     // ============================================================
 
     private static void rebuildIndexIfNeeded() {
@@ -67,7 +67,7 @@ public final class MaredBindRegistry {
     private static void markDirty() { indexDirty = true; }
 
     // ============================================================
-    //  РњСѓС‚Р°С†РёРё
+    //  Мутации
     // ============================================================
 
     public static void replace(String key, List<MaredScriptCommand> body, MaredScriptContext ctx,
@@ -95,6 +95,55 @@ public final class MaredBindRegistry {
         stopHold(key);
     }
 
+    /**
+     * 0.3.2 (audit #100): перенести все бинды с oldKey на newKey.
+     *
+     * Возвращает false, если:
+     *   - oldKey отсутствует,
+     *   - newKey уже занят,
+     *   - oldKey == newKey,
+     *   - oldKey или newKey null.
+     *
+     * Переносит blockVanilla: снимает блокировку с oldKey, ставит
+     * на newKey, если хотя бы один Entry имел blockVanilla.
+     */
+    public static boolean rename(String oldKey, String newKey) {
+        if (oldKey == null || newKey == null) return false;
+        if (oldKey.equals(newKey)) return false;
+        if (!BINDINGS.containsKey(oldKey)) return false;
+        if (BINDINGS.containsKey(newKey)) return false;
+
+        List<Entry> oldList = BINDINGS.remove(oldKey);
+        if (oldList == null || oldList.isEmpty()) return false;
+
+        List<Entry> newList = new ArrayList<>(oldList.size());
+        boolean hadBlock = false;
+        for (Entry e : oldList) {
+            if (e.blockVanilla) hadBlock = true;
+            newList.add(new Entry(newKey, e.body, e.ctx, e.blockVanilla, e.mode));
+        }
+        BINDINGS.put(newKey, newList);
+        markDirty();
+
+        // Снять блокировку со старого keyCode.
+        MaredKeyNames.ParsedKey oldPk = MaredKeyNames.parseAny(oldKey);
+        if (oldPk != null) {
+            MaredKeyBlocker.unblock(oldPk.keyCode);
+        }
+
+        // Поставить блокировку на новый keyCode, если был хоть один
+        // blocking entry.
+        if (hadBlock) {
+            MaredKeyNames.ParsedKey newPk = MaredKeyNames.parseAny(newKey);
+            if (newPk != null) {
+                MaredKeyBlocker.block(newPk.keyCode, newKey);
+            }
+        }
+
+        stopHold(oldKey);
+        return true;
+    }
+
     public static void unblock(String key) {
         MaredKeyNames.ParsedKey pk = MaredKeyNames.parseAny(key);
         if (pk != null) MaredKeyBlocker.unblock(pk.keyCode);
@@ -120,7 +169,7 @@ public final class MaredBindRegistry {
     }
 
     // ============================================================
-    //  Р§С‚РµРЅРёРµ
+    //  Чтение
     // ============================================================
 
     public static List<String> keys() { return new ArrayList<>(BINDINGS.keySet()); }
@@ -203,10 +252,6 @@ public final class MaredBindRegistry {
         }
     }
 
-    /**
-     * РљР°Р¶РґС‹Р№ РІС‹Р·РѕРІ вЂ” СЃРѕР±СЃС‚РІРµРЅРЅС‹Р№ РєРѕРЅС‚РµРєСЃС‚ (fork), РёРЅР°С‡Рµ РїРµСЂРµРјРµРЅРЅС‹Рµ
-     * РѕРґРЅРѕРіРѕ РІС‹Р·РѕРІР° РїРµСЂРµР·Р°РїРёСЃС‹РІР°СЋС‚СЃСЏ РґСЂСѓРіРёРј.
-     */
     private static void runEntry(Entry e, MinecraftServer server) {
         MaredScriptContext base = e.ctx != null
             ? e.ctx
@@ -216,7 +261,7 @@ public final class MaredBindRegistry {
     }
 
     // ============================================================
-    //  Р‘Р»РѕРєРёСЂРѕРІРєР°
+    //  Блокировка
     // ============================================================
 
     private static void applyBlock(String keyStr) {
@@ -229,10 +274,6 @@ public final class MaredBindRegistry {
         if (pk != null) MaredKeyBlocker.unblock(pk.keyCode);
     }
 
-    // ============================================================
-    //  РџСЂРѕС‡РµРµ
-    // ============================================================
-
     public static void remove(String key, int index) {
         List<Entry> list = BINDINGS.get(key);
         if (list == null) return;
@@ -243,5 +284,5 @@ public final class MaredBindRegistry {
             removeBlock(key);
         }
         markDirty();
-}
+    }
 }

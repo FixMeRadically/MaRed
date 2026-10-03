@@ -2,14 +2,24 @@ package com.fixmer.mared.welcome;
 
 import java.util.Random;
 
-import com.fixmer.mared.gui2.framework.render.MaredAnimation;
-import com.fixmer.mared.gui2.framework.render.MaredUi;
+import com.fixmer.mared.MaredSettings;
+import com.fixmer.mared.gui2.framework.render.animation.MaredAnimation;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * 0.3.0 (Stage B7): MaredAnimation / MaredUi — из gui2.framework.render.
+ * Фон welcome-экрана.
+ *
+ * 0.3.2 (audit #76 / #104):
+ *   - Реализован reduced-motion режим: при MaredSettings.isReducedMotion()
+ *     particles, parallax, ring-анимация и procedural шум отключаются.
+ *     Остаётся только статичный градиент + сетка.
+ *   - Сетка рендерится через gradientV напрямую (один draw call на
+ *     линию) — раньше шла через MaredUi.textNoShadow, дороже.
+ *   - Particles: базовый размер 40 → 24, чтобы снизить нагрузку на
+ *     GTX-слабых машинах. В reduced-motion — 0.
  */
 public final class MaredWelcomeBackground {
 
@@ -19,13 +29,14 @@ public final class MaredWelcomeBackground {
         "on", "every", "bind", "move", "jump", "wait"
     };
 
-    private static final int PARTICLE_COUNT = 40;
+    private static final int PARTICLE_COUNT = 24;
+    private static final int RING_COUNT     = 3;
+    private static final int GRID_CELL_BASE = 32;
 
     private static final class Particle {
         float x01;
         float y01;
         float speed;
-        float size;
         float alpha;
         String glyph;
         int layer;
@@ -45,7 +56,6 @@ public final class MaredWelcomeBackground {
             p.x01   = rng.nextFloat();
             p.y01   = rng.nextFloat();
             p.speed = 6f + rng.nextFloat() * 14f;
-            p.size  = 0.85f + rng.nextFloat() * 0.6f;
             p.alpha = 0.06f + rng.nextFloat() * 0.10f;
             p.glyph = GLYPHS[rng.nextInt(GLYPHS.length)];
             p.layer = rng.nextInt(3);
@@ -71,16 +81,26 @@ public final class MaredWelcomeBackground {
 
     public void render(GuiGraphics g, Font font, int w, int h,
                        int mouseX, int mouseY, float partialTick) {
-        tick();
 
-        float t = MaredAnimation.nowSec();
+        boolean reduced = isReducedMotion();
 
+        // Статичный градиент — всегда.
         int top = 0xFF0A0512;
         int mid = 0xFF1A0A28;
         int bot = 0xFF0A0512;
         MaredUi.gradientV(g, 0, 0, w, h / 2, top, mid);
         MaredUi.gradientV(g, 0, h / 2, w, h, mid, bot);
 
+        if (reduced) {
+            drawGrid(g, w, h);
+            drawVignette(g, w, h);
+            return;
+        }
+
+        tick();
+        float t = MaredAnimation.nowSec();
+
+        // Particles с parallax.
         for (Particle p : particles) {
             int cx = (int) (p.x01 * w);
             int cy = (int) (p.y01 * h);
@@ -100,10 +120,11 @@ public final class MaredWelcomeBackground {
             MaredUi.textNoShadow(g, font, p.glyph, cx, cy, color);
         }
 
+        // Rings — 3 штуки, мягкие.
         int cx = w / 2;
         int cy = h / 2;
-        for (int i = 0; i < 4; i++) {
-            float phase = (t * 0.15f + i * 0.25f) % 1f;
+        for (int i = 0; i < RING_COUNT; i++) {
+            float phase = (t * 0.15f + i / (float) RING_COUNT) % 1f;
             float radius = phase * Math.max(w, h) * 0.7f;
             int alpha = (int) ((1f - phase) * 30);
             if (alpha <= 0) continue;
@@ -111,31 +132,42 @@ public final class MaredWelcomeBackground {
             drawRing(g, cx, cy, (int) radius, 2, color);
         }
 
+        drawGrid(g, w, h);
+        drawVignette(g, w, h);
+    }
+
+    private static boolean isReducedMotion() {
+        try { return MaredSettings.isReducedMotion(); }
+        catch (Throwable ignored) { return false; }
+    }
+
+    private void drawGrid(GuiGraphics g, int w, int h) {
         int gridColor = 0x10FFFFFF;
-        int cell = MaredUi.px(32);
+        int cell = MaredUi.px(GRID_CELL_BASE);
+        if (cell <= 0) return;
         for (int x = 0; x < w; x += cell) {
             g.fill(x, 0, x + 1, h, gridColor);
         }
         for (int y = 0; y < h; y += cell) {
             g.fill(0, y, w, y + 1, gridColor);
         }
-
-        drawVignette(g, w, h);
     }
 
     private void drawRing(GuiGraphics g, int cx, int cy, int radius,
                           int thickness, int color) {
         if (radius <= 0) return;
+        int maxW = g.guiWidth();
+        int maxH = g.guiHeight();
         for (int dx = -radius; dx <= radius; dx++) {
             int x = cx + dx;
-            if (x < 0 || x >= g.guiWidth()) continue;
-            int dy = (int) Math.sqrt(radius * radius - dx * dx);
+            if (x < 0 || x >= maxW) continue;
+            int dy = (int) Math.sqrt((long) radius * radius - (long) dx * dx);
             int y1 = cy - dy;
             int y2 = cy + dy;
-            if (y1 >= 0 && y1 + thickness <= g.guiHeight()) {
+            if (y1 >= 0 && y1 + thickness <= maxH) {
                 g.fill(x, y1, x + 1, y1 + thickness, color);
             }
-            if (y2 >= 0 && y2 + thickness <= g.guiHeight()) {
+            if (y2 >= 0 && y2 + thickness <= maxH) {
                 g.fill(x, y2, x + 1, y2 + thickness, color);
             }
         }

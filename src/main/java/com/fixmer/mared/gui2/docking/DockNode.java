@@ -10,32 +10,25 @@ import com.fixmer.mared.gui2.docking.layout.DockBounds;
  * Узел Dock-дерева MaRed.
  *
  * 0.3.1 (audit #30/#31):
- *   Введён activeIndex. Раньше при нескольких panels в одном узле
- *   renderer рисовал все сразу в одних bounds (панели накладывались
- *   друг на друга), а input шёл всем.
+ *   activeIndex — единственная активная панель в узле.
  *
- *   Теперь: узел хранит активную панель, renderer рисует только её,
- *   input уходит только ей. Tab bar показывает остальные панели,
- *   клик по табу переключает activeIndex.
+ * 0.3.2 (collapse):
+ *   collapsed — если true, узел занимает минимум места (28 px для
+ *   LEFT/RIGHT, 22 px для BOTTOM), рендерится только header со
+ *   стрелкой. Состояние сохраняется в DockState.collapsed.
  *
- *   Семантика:
- *     - panels пустой  → activeIndex = 0 (невалидно, рендер пропустится);
- *     - panels.size==1 → tabs не показываются, активна единственная;
- *     - panels.size>1  → активна ровно одна, индекс в [0, size).
+ *   TOP и CENTER не сворачиваются — TOP сам по себе header-only,
+ *   CENTER — основная рабочая область.
  */
 public final class DockNode {
 
     private final DockPosition position;
-
     private final List<DockPanel> panels = new ArrayList<>();
-
-    /** Индекс активной панели в panels. Валиден, если panels непустой. */
     private int activeIndex = 0;
-
-    /**
-     * Текущая геометрия области.
-     */
     private DockBounds bounds = new DockBounds(0, 0, 0, 0);
+
+    // 0.3.2: collapse state.
+    private boolean collapsed = false;
 
     public DockNode(DockPosition position) {
         this.position = position;
@@ -54,7 +47,6 @@ public final class DockNode {
         if (panels.contains(panel)) return;
 
         panels.add(panel);
-        // Первый panel становится активным.
         if (panels.size() == 1) activeIndex = 0;
     }
 
@@ -68,7 +60,6 @@ public final class DockNode {
             activeIndex = 0;
             return;
         }
-        // Активный удалён или вышел за границы — прижимаем к последнему.
         if (activeIndex >= panels.size()) {
             activeIndex = panels.size() - 1;
         }
@@ -78,9 +69,6 @@ public final class DockNode {
         return !panels.isEmpty();
     }
 
-    /**
-     * Только для чтения. Мутации — через add()/remove().
-     */
     public List<DockPanel> panels() {
         return Collections.unmodifiableList(panels);
     }
@@ -96,7 +84,6 @@ public final class DockNode {
     public int activeIndex() {
         if (panels.isEmpty()) return -1;
         if (activeIndex < 0 || activeIndex >= panels.size()) {
-            // self-healing
             activeIndex = 0;
         }
         return activeIndex;
@@ -108,10 +95,6 @@ public final class DockNode {
         return panels.get(idx);
     }
 
-    /**
-     * Активировать панель по индексу. Идемпотентно.
-     * @return true, если панель была активирована (индекс валиден).
-     */
     public boolean activate(int index) {
         if (panels.isEmpty()) return false;
         if (index < 0 || index >= panels.size()) return false;
@@ -120,10 +103,6 @@ public final class DockNode {
         return true;
     }
 
-    /**
-     * Активировать конкретную панель.
-     * @return true, если панель была найдена и стала активной.
-     */
     public boolean activate(DockPanel panel) {
         int idx = panels.indexOf(panel);
         if (idx < 0) return false;
@@ -141,5 +120,30 @@ public final class DockNode {
     public void setBounds(DockBounds bounds) {
         if (bounds == null) return;
         this.bounds = bounds;
+    }
+
+    // ============================================================
+    //  Collapse (0.3.2)
+    // ============================================================
+
+    public boolean isCollapsed() {
+        return collapsed;
+    }
+
+    public void setCollapsed(boolean value) {
+        this.collapsed = value;
+    }
+
+    /** @return новое состояние (true — свёрнут). */
+    public boolean toggleCollapsed() {
+        this.collapsed = !this.collapsed;
+        return this.collapsed;
+    }
+
+    /** Может ли узел быть свёрнут. TOP/CENTER — нет. */
+    public boolean isCollapsible() {
+        return position == DockPosition.LEFT
+            || position == DockPosition.RIGHT
+            || position == DockPosition.BOTTOM;
     }
 }

@@ -2,7 +2,7 @@ package com.fixmer.mared.gui2.settings.tabs;
 
 import com.fixmer.mared.Mared;
 import com.fixmer.mared.MaredLang;
-import com.fixmer.mared.gui2.framework.render.MaredUi;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
 import com.fixmer.mared.gui2.settings.MaredSettingsTab;
 import com.fixmer.mared.gui2.settings.SettingsContext;
 

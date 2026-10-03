@@ -2,37 +2,29 @@ package com.fixmer.mared.gui2.studio;
 
 import com.fixmer.mared.gui2.framework.core.Disposable;
 import com.fixmer.mared.gui2.framework.core.FocusManager;
+import com.fixmer.mared.gui2.framework.core.FocusTraversal;
 import com.fixmer.mared.gui2.framework.core.PointerCaptureManager;
 import com.fixmer.mared.gui2.framework.core.UiContext;
 import com.fixmer.mared.gui2.framework.overlay.OverlayManager;
 import com.fixmer.mared.gui2.framework.overlay.ToastOverlay;
+import com.fixmer.mared.gui2.studio.action.EditorActionArgs;
 import com.fixmer.mared.gui2.studio.action.EditorActionContext;
 import com.fixmer.mared.gui2.studio.action.EditorActionRegistry;
 import com.fixmer.mared.gui2.studio.action.StudioActions;
 import com.fixmer.mared.gui2.studio.events.StudioEvents;
+import com.fixmer.mared.plugin.PluginRegistry;
 import com.fixmer.mared.services.command.CommandFileService;
 import com.fixmer.mared.services.logging.LogSettings;
 
 import net.minecraft.client.gui.screens.Screen;
 
-/**
- * Состояние одного экземпляра Studio.
- *
- * 0.3.1:
- *   - Session больше не владеет MaredScale.bind/unbind. Это делает
- *     Screen в init()/removed(). Причина: Minecraft.setScreen()
- *     всегда вызывает removed() у старого экрана, даже когда это
- *     временный переход Studio → Settings. Если Session управляет
- *     bind'ом, Settings остаётся без контекста и падает на MaredUi.px().
- *   - Session принимает готовый UiContext.
- *   - shutdown() вызывается Screen'ом только при isClosing()==true.
- */
 public final class StudioSession implements Disposable {
 
     private final MaredStudioController controller = new MaredStudioController();
     private final CommandFileService commandService = new CommandFileService();
 
     private FocusManager focusManager;
+    private FocusTraversal focusTraversal;
     private PointerCaptureManager pointerManager;
     private OverlayManager overlayManager;
     private ToastOverlay toastOverlay;
@@ -44,14 +36,8 @@ public final class StudioSession implements Disposable {
     private boolean initialized;
     private boolean closing;
 
-    /**
-     * @param screen    родительский Screen
-     * @param uiContext уже привязанный к MaredScale контекст
-     */
     public void initialize(Screen screen, UiContext uiContext) {
         if (initialized) {
-            // Повторный init того же Screen (возврат из Settings) —
-            // обновляем только ссылки, UiContext уже пересоздан Screen'ом.
             this.screen = screen;
             this.uiContext = uiContext;
             return;
@@ -62,17 +48,26 @@ public final class StudioSession implements Disposable {
         this.closing = false;
 
         focusManager = new FocusManager();
+        focusTraversal = new FocusTraversal();
+        focusTraversal.setFocusManager(focusManager);
         pointerManager = new PointerCaptureManager();
         overlayManager = new OverlayManager();
 
         toastOverlay = new ToastOverlay();
         overlayManager.push(toastOverlay);
 
-        controller.initialize(focusManager, pointerManager);
+        controller.initialize(focusManager, pointerManager, focusTraversal);
 
         actionRegistry = new EditorActionRegistry();
         StudioActions.registerAll(actionRegistry);
-        actionContext = new EditorActionContext(screen, controller, commandService);
+
+        // 0.3.2: применить плагинные actions к свежему реестру.
+        PluginRegistry.applyPendingActions(actionRegistry);
+
+        controller.setActionRegistry(actionRegistry);
+
+        actionContext = new EditorActionContext(screen, controller,
+            commandService, overlayManager);
 
         var topBar = controller.topBarPanel();
         if (topBar != null) {
@@ -88,16 +83,11 @@ public final class StudioSession implements Disposable {
             LogSettings.Level.INFO, "studio", "session started", null));
     }
 
-    /**
-     * Полное разрушение сессии.
-     * Вызывается ТОЛЬКО когда Screen реально закрывается
-     * (isClosing()==true), а не при временном переключении на
-     * другой экран.
-     */
     public void shutdown() {
         if (!initialized) return;
 
         if (focusManager != null) focusManager.clear();
+        if (focusTraversal != null) focusTraversal.clear();
         if (pointerManager != null) pointerManager.releaseAll();
         if (overlayManager != null) overlayManager.clear();
         if (actionRegistry != null) actionRegistry.clear();
@@ -105,6 +95,7 @@ public final class StudioSession implements Disposable {
         controller.shutdown();
 
         focusManager = null;
+        focusTraversal = null;
         pointerManager = null;
         overlayManager = null;
         toastOverlay = null;
@@ -121,6 +112,7 @@ public final class StudioSession implements Disposable {
     public MaredStudioController controller() { return controller; }
     public CommandFileService commands() { return commandService; }
     public FocusManager focusManager() { return focusManager; }
+    public FocusTraversal focusTraversal() { return focusTraversal; }
     public PointerCaptureManager pointerManager() { return pointerManager; }
     public OverlayManager overlayManager() { return overlayManager; }
     public ToastOverlay toast() { return toastOverlay; }
@@ -135,17 +127,20 @@ public final class StudioSession implements Disposable {
     public void markClosing() { this.closing = true; }
 
     public boolean executeAction(String actionId) {
+        return executeAction(actionId, EditorActionArgs.EMPTY);
+    }
+
+    public boolean executeAction(String actionId, EditorActionArgs args) {
         if (actionRegistry == null || actionContext == null) return false;
-        return actionRegistry.execute(actionId, actionContext);
+        return actionRegistry.execute(actionId, actionContext,
+            args == null ? EditorActionArgs.EMPTY : args);
     }
 
     public boolean hasUnsavedChanges() {
         var ws = controller.workspacePanel();
         if (ws == null) return false;
         var wc = ws.workspaceComponent();
-        return wc != null
-            && wc.currentFileName() != null
-            && wc.isDirty();
+        return wc != null && wc.hasAnyDirty();
     }
 
     public void refreshExplorer() {

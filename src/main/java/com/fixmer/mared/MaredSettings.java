@@ -1,30 +1,21 @@
 package com.fixmer.mared;
 
+import com.fixmer.mared.services.settings.LayoutSettings;
 import com.fixmer.mared.services.settings.SettingsService;
 
 /**
- * Глобальные настройки Mared.
+ * Глобальные настройки Mared. Тонкий фасад над SettingsService.
  *
- * 0.3.0 (Phase F1): тонкий фасад над SettingsService.
- * 0.3.0 (Phase F3b): Snapshot.apply() делает один commit вместо серии
- * save-вызовов.
- * 0.3.1: Snapshot помечен @Deprecated — legacy UI compatibility,
- *        уйдёт в 0.4.
- *
- * Хранится: config/mared/settings.json
+ * 0.3.2:
+ *   - isReducedMotion() — аудит #76/#104.
+ *   - getMaRedButtonCorner()/getMaRedButtonOffset() — аудит #114.
  */
 public final class MaredSettings {
 
     private MaredSettings() {}
 
-    // ============================================================
-    //  ENUMS
-    // ============================================================
-
     public enum AutoIndent { OFF, SIMPLE, SMART, FULL }
-
     public enum IndentStyle { TAB, SPACES_4, SPACES_2 }
-
     public enum ServerMode { AUTO, CLIENT_ONLY, FULL }
 
     // ============================================================
@@ -133,8 +124,17 @@ public final class MaredSettings {
         SettingsService.get().theme().setTornEdgesEnabled(value);
     }
 
+    // 0.3.2 (audit #76 / #104)
+    public static boolean isReducedMotion() {
+        return SettingsService.get().theme().reducedMotion();
+    }
+
+    public static void setReducedMotion(boolean value) {
+        SettingsService.get().theme().setReducedMotion(value);
+    }
+
     // ============================================================
-    //  SETTINGS TAB (UI state)
+    //  SETTINGS TAB
     // ============================================================
 
     public static String getSettingsActiveTab() {
@@ -287,6 +287,28 @@ public final class MaredSettings {
     }
 
     // ============================================================
+    //  MARED BUTTON (PauseScreen / TitleScreen) — 0.3.2
+    // ============================================================
+
+    public static LayoutSettings.ButtonCorner getMaRedButtonCorner() {
+        return SettingsService.get().layout().buttonCorner();
+    }
+
+    public static void setMaRedButtonCorner(LayoutSettings.ButtonCorner c) {
+        SettingsService.get().layout().setButtonCorner(c);
+        save();
+    }
+
+    public static int getMaRedButtonOffset() {
+        return SettingsService.get().layout().buttonOffset();
+    }
+
+    public static void setMaRedButtonOffset(int v) {
+        SettingsService.get().layout().setButtonOffset(v);
+        save();
+    }
+
+    // ============================================================
     //  LOAD / SAVE
     // ============================================================
 
@@ -298,21 +320,12 @@ public final class MaredSettings {
         SettingsService.get().save();
     }
 
-    public static void flush() {
-        save();
-    }
+    public static void flush() { save(); }
 
     // ============================================================
     //  Snapshot
     // ============================================================
 
-    /**
-     * Draft-копия настроек для UI-экрана.
-     *
-     * @deprecated after 0.4.0 — legacy UI compatibility mechanism.
-     * Новые подсистемы не должны зависеть от этого типа.
-     * Используйте SettingsContext + SettingsService.commit().
-     */
     @Deprecated
     public static class Snapshot {
 
@@ -328,6 +341,7 @@ public final class MaredSettings {
         public boolean monotoneTabs;
         public boolean patternsEnabled;
         public boolean tornEdgesEnabled;
+        public boolean reducedMotion;
 
         public String layoutPreset;
         public boolean layoutShowSidebar;
@@ -349,6 +363,9 @@ public final class MaredSettings {
         public String layoutSidebarState;
         public boolean layoutLogCollapsed;
 
+        public String maredButtonCorner = "TOP_RIGHT";
+        public int maredButtonOffset = 10;
+
         public static Snapshot capture() {
             Snapshot s = new Snapshot();
 
@@ -364,6 +381,7 @@ public final class MaredSettings {
             s.monotoneTabs     = isMonotoneTabs();
             s.patternsEnabled  = isPatternsEnabled();
             s.tornEdgesEnabled = isTornEdgesEnabled();
+            s.reducedMotion    = isReducedMotion();
 
             s.layoutPreset         = getLayoutPreset().name();
             s.layoutShowSidebar    = isLayoutShowSidebar();
@@ -381,13 +399,16 @@ public final class MaredSettings {
             s.layoutSplitRatio     = getLayoutSplitRatio();
             s.layoutSplitFileRight = getLayoutSplitFileRight();
             s.layoutActiveColumn   = getLayoutActiveColumn();
+            s.layoutActiveTab      = getLayoutActiveTab();
+            s.layoutSidebarState   = getLayoutSidebarState();
+            s.layoutLogCollapsed   = isLayoutLogCollapsed();
+
+            s.maredButtonCorner = getMaRedButtonCorner().name();
+            s.maredButtonOffset = getMaRedButtonOffset();
 
             return s;
         }
 
-        /**
-         * 0.3.0 (Phase F3b): один commit вместо серии setter+save.
-         */
         public void apply() {
             SettingsService.get().commit(this);
         }

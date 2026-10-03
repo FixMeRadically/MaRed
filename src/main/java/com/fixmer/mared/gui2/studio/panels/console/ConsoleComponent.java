@@ -1,9 +1,11 @@
 package com.fixmer.mared.gui2.studio.panels.console;
 
+import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.gui2.framework.components.console.MaredLogPanel;
 import com.fixmer.mared.gui2.framework.core.Disposable;
 import com.fixmer.mared.gui2.framework.core.MaredComponent;
 import com.fixmer.mared.gui2.framework.core.MaredRenderContext;
+import com.fixmer.mared.gui2.framework.core.NarratableComponent;
 import com.fixmer.mared.gui2.framework.render.legacy.LegacyFontBridge;
 import com.fixmer.mared.gui2.studio.events.StudioEventBus;
 import com.fixmer.mared.gui2.studio.events.StudioEvents;
@@ -12,13 +14,18 @@ import com.fixmer.mared.services.logging.LogSettings;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 
 /**
  * Консоль MaRed Studio.
  *
  * 0.3.1: подписка на LogEvent принимает structured-событие.
+ * 0.3.2 (accessibility):
+ *   - Реализует NarratableComponent — FocusTraversal озвучивает
+ *     число записей и видимых по фильтру.
  */
-public final class ConsoleComponent extends MaredComponent implements Disposable {
+public final class ConsoleComponent extends MaredComponent
+        implements Disposable, NarratableComponent {
 
     private final MaredLogPanel logPanel;
     private final SubscriptionGroup subs = new SubscriptionGroup();
@@ -105,5 +112,17 @@ public final class ConsoleComponent extends MaredComponent implements Disposable
             mx, my, scrollY,
             bounds.x(), bounds.y(), bounds.width(), bounds.height()
         );
+    }
+
+    // ============================================================
+    //  Narration (0.3.2 accessibility)
+    // ============================================================
+
+    @Override
+    public Component narrationText() {
+        int visible = logPanel.getVisibleEntries().size();
+        int total = logPanel.snapshot().size();
+        return Component.literal(MaredLang.format(
+            "mared.narration.console.summary", total, visible));
     }
 }

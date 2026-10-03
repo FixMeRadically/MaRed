@@ -2,7 +2,7 @@ package com.fixmer.mared.gui2.docking;
 
 
 import com.fixmer.mared.gui2.framework.core.MaredComponent;
-import com.fixmer.mared.gui2.theme.ModuleType;
+import com.fixmer.mared.gui2.modules.theme.ModuleType;
 
 
 
@@ -155,4 +155,12 @@ public interface DockPanel {
     }
 
 
+
+
+    /**
+     * Default accent for docking chrome.
+     */
+    default int accentColor() {
+        return 0xFF55AAFF;
+    }
 }

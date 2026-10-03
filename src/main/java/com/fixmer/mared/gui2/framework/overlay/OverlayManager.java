@@ -10,13 +10,7 @@ import net.minecraft.client.gui.GuiGraphics;
 /**
  * Владелец overlay'ев на уровне Screen.
  *
- * 0.3.1: instance-based замена статическому MaredContextMenu.
- *
- * Render order: TOAST → MODAL → POPUP (по возрастанию z).
- * Dispatch order: POPUP → MODAL → TOAST (по убыванию z).
- *
- * POPUP-слой имеет особую семантику: клик вне верхнего POPUP'а
- * закрывает его.
+ * 0.3.2: charTyped + mouseScrolled dispatch.
  */
 public final class OverlayManager {
 
@@ -24,10 +18,6 @@ public final class OverlayManager {
         Comparator.comparingInt(o -> o.layer().z());
 
     private final List<Overlay> overlays = new ArrayList<>(4);
-
-    // ============================================================
-    //  Управление
-    // ============================================================
 
     public void push(Overlay overlay) {
         if (overlay == null) return;
@@ -63,10 +53,6 @@ public final class OverlayManager {
         overlays.clear();
     }
 
-    // ============================================================
-    //  Диагностика
-    // ============================================================
-
     public boolean isEmpty() { return overlays.isEmpty(); }
 
     public boolean hasLayer(OverlayLayer layer) {
@@ -87,24 +73,16 @@ public final class OverlayManager {
         return false;
     }
 
-    /** Topmost overlay без учёта слоя. */
     public Overlay top() {
         if (overlays.isEmpty()) return null;
         Overlay best = null;
         int bestZ = Integer.MIN_VALUE;
         for (Overlay o : overlays) {
             int z = o.layer().z();
-            if (z >= bestZ) { // >= чтобы взять последний добавленный
-                best = o;
-                bestZ = z;
-            }
+            if (z >= bestZ) { best = o; bestZ = z; }
         }
         return best;
     }
-
-    // ============================================================
-    //  Render
-    // ============================================================
 
     public void render(GuiGraphics g, Font font,
                        int screenW, int screenH,
@@ -115,9 +93,8 @@ public final class OverlayManager {
         ordered.sort(BY_LAYER);
 
         for (Overlay o : ordered) {
-            try {
-                o.render(g, font, screenW, screenH, mouseX, mouseY);
-            } catch (Throwable ignored) { }
+            try { o.render(g, font, screenW, screenH, mouseX, mouseY); }
+            catch (Throwable ignored) { }
         }
     }
 
@@ -125,10 +102,6 @@ public final class OverlayManager {
     //  Input dispatch
     // ============================================================
 
-    /**
-     * @return true, если событие поглощено (handled или barrier).
-     * Клик вне верхнего POPUP'а (без барьера) закрывает его.
-     */
     public boolean mouseClicked(double mx, double my, int button) {
         if (overlays.isEmpty()) return false;
 
@@ -136,14 +109,27 @@ public final class OverlayManager {
 
         for (Overlay o : ordered) {
             boolean handled = o.mouseClicked(mx, my, button);
+            if (o.consumeCloseRequest()) { remove(o); return true; }
             if (handled) return true;
 
-            // Если это POPUP и клик был вне — закрыть.
             if (o.layer() == OverlayLayer.POPUP) {
                 remove(o);
                 return true;
             }
+            if (o.isInputBarrier()) return true;
+        }
+        return false;
+    }
 
+    public boolean mouseScrolled(double mx, double my,
+                                 double scrollX, double scrollY) {
+        if (overlays.isEmpty()) return false;
+
+        List<Overlay> ordered = sortedDescending();
+        for (Overlay o : ordered) {
+            boolean handled = o.mouseScrolled(mx, my, scrollX, scrollY);
+            if (o.consumeCloseRequest()) { remove(o); return true; }
+            if (handled) return true;
             if (o.isInputBarrier()) return true;
         }
         return false;
@@ -154,18 +140,29 @@ public final class OverlayManager {
 
         List<Overlay> ordered = sortedDescending();
 
-        // Escape закрывает верхний overlay с closeOnEscape().
         if (keyCode == 256) {
             for (Overlay o : ordered) {
-                if (o.closeOnEscape()) {
-                    remove(o);
-                    return true;
-                }
+                if (o.closeOnEscape()) { remove(o); return true; }
             }
         }
 
         for (Overlay o : ordered) {
-            if (o.keyPressed(keyCode, scanCode, modifiers)) return true;
+            boolean handled = o.keyPressed(keyCode, scanCode, modifiers);
+            if (o.consumeCloseRequest()) { remove(o); return true; }
+            if (handled) return true;
+            if (o.isInputBarrier()) return true;
+        }
+        return false;
+    }
+
+    public boolean charTyped(char codePoint, int modifiers) {
+        if (overlays.isEmpty()) return false;
+
+        List<Overlay> ordered = sortedDescending();
+        for (Overlay o : ordered) {
+            boolean handled = o.charTyped(codePoint, modifiers);
+            if (o.consumeCloseRequest()) { remove(o); return true; }
+            if (handled) return true;
             if (o.isInputBarrier()) return true;
         }
         return false;
@@ -174,10 +171,6 @@ public final class OverlayManager {
     public boolean shouldBlockGenericInput() {
         return hasBarrier();
     }
-
-    // ============================================================
-    //  Internals
-    // ============================================================
 
     private List<Overlay> sortedDescending() {
         List<Overlay> ordered = new ArrayList<>(overlays);

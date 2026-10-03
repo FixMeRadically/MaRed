@@ -7,7 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.fixmer.mared.gui2.theme.ModuleType;
+import com.fixmer.mared.gui2.modules.theme.ModuleType;
 
 /**
  * Единый реестр модулей MaRed Studio.

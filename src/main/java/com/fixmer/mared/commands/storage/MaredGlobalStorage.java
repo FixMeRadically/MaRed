@@ -2,8 +2,10 @@ package com.fixmer.mared.commands.storage;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -15,6 +17,18 @@ import com.google.gson.JsonParser;
 
 import net.neoforged.fml.loading.FMLPaths;
 
+/**
+ * Глобальные переменные MaRed (сохраняются в visited.json).
+ *
+ * 0.3.2 (audit #87):
+ *   - revision-based save: dirty сбрасывается только если за время
+ *     записи не пришли новые set/remove. Раньше dirty = false
+ *     выставлялся до записи, и при IOException данные терялись
+ *     до следующего flush.
+ *   - atomic write через .tmp + ATOMIC_MOVE.
+ *   - maybeSave() вызывается из set/remove только для ключей с
+ *     префиксом "__" (служебные, типа __once_...).
+ */
 public final class MaredGlobalStorage {
 
     private MaredGlobalStorage() {}
@@ -24,10 +38,11 @@ public final class MaredGlobalStorage {
 
     private static volatile boolean loaded = false;
     private static volatile boolean dirty = false;
+    private static volatile long dataRevision = 0;
     private static long lastSaveMs = 0;
 
-    /** Минимальный интервал между сохранениями visited.json. */
     private static final long SAVE_INTERVAL_MS = 5000;
+    private static final String TMP_SUFFIX = ".tmp";
 
     private static Path visitedFile() {
         return FMLPaths.CONFIGDIR.get().resolve("mared").resolve("visited.json");
@@ -51,6 +66,7 @@ public final class MaredGlobalStorage {
         else GLOBALS.put(key, value);
 
         if (key.startsWith("__")) {
+            dataRevision++;
             dirty = true;
             maybeSave();
         }
@@ -67,6 +83,7 @@ public final class MaredGlobalStorage {
         if (key == null) return;
         GLOBALS.remove(key);
         if (key.startsWith("__")) {
+            dataRevision++;
             dirty = true;
             maybeSave();
         }
@@ -77,7 +94,7 @@ public final class MaredGlobalStorage {
     public static Map<String, Object> all() { return GLOBALS; }
     public static int size() { return GLOBALS.size(); }
 
-    /** Принудительно сохранить, если есть изменения. Вызывать при выходе. */
+    /** Принудительно сохранить, если есть изменения. */
     public static void flush() {
         if (dirty) saveVisited();
     }
@@ -107,11 +124,11 @@ public final class MaredGlobalStorage {
             }
             Mared.LOGGER.info("[Mared] Loaded {} visited entries", n);
         } catch (Exception e) {
-            Mared.LOGGER.warn("[Mared] Failed to load visited.json: {}", e.getMessage());
+            Mared.LOGGER.warn("[Mared] Failed to load visited.json: {}",
+                e.getMessage());
         }
     }
 
-    /** Троттлинг: не чаще раза в SAVE_INTERVAL_MS, кроме случаев flush(). */
     private static void maybeSave() {
         long now = System.currentTimeMillis();
         if (now - lastSaveMs < SAVE_INTERVAL_MS) return;
@@ -119,8 +136,16 @@ public final class MaredGlobalStorage {
         saveVisited();
     }
 
+    /**
+     * 0.3.2: revision-based.
+     * dirty сбрасывается только если dataRevision не изменился
+     * за время записи. Иначе следующая попытка подхватит изменения.
+     */
     private static synchronized void saveVisited() {
-        dirty = false;
+        if (!dirty) return;
+
+        long myRev = dataRevision;
+
         Path file = visitedFile();
         try {
             Files.createDirectories(file.getParent());
@@ -130,9 +155,27 @@ public final class MaredGlobalStorage {
                     obj.addProperty(e.getKey(), Boolean.TRUE.equals(e.getValue()));
                 }
             }
-            Files.writeString(file, GSON.toJson(obj), StandardCharsets.UTF_8);
+
+            Path tmp = file.resolveSibling(
+                file.getFileName().toString() + TMP_SUFFIX);
+            Files.writeString(tmp, GSON.toJson(obj), StandardCharsets.UTF_8);
+            try {
+                Files.move(tmp, file,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException e) {
+                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            // 0.3.2: dirty сбрасываем только если ничего не пришло
+            // за время записи.
+            if (dataRevision == myRev) {
+                dirty = false;
+            }
         } catch (IOException e) {
-            Mared.LOGGER.warn("[Mared] Failed to save visited.json: {}", e.getMessage());
+            Mared.LOGGER.warn("[Mared] Failed to save visited.json: {}",
+                e.getMessage());
+            // dirty намеренно НЕ сбрасываем — попробуем при flush().
         }
     }
 }

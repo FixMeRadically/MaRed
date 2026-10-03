@@ -5,16 +5,24 @@ import net.minecraft.client.gui.GuiGraphics;
 /**
  * Шумовые узоры.
  *
- * 0.3.0 (Phase E2b): вынесено из MaredPatterns.
+ * 0.3.2: area cap. Noise генерирует (w/step)×(h/step) прямоугольников
+ * на кадр — на full-screen panel это ~2000+ fill'ов. Ограничиваем
+ * площадь генерации до PATTERN_MAX_AREA.
+ *
  * Детерминированный seeded-шум — узор не дрожит между кадрами.
  */
 public final class NoisePattern {
 
     private NoisePattern() {}
 
+    /** Максимальная площадь (в px²) для процедурной генерации. */
+    static final long PATTERN_MAX_AREA = 200_000L;
+
     public static void noise(GuiGraphics g, int x, int y, int w, int h,
                              int seed, float density, int alpha) {
         if (w <= 0 || h <= 0) return;
+        if ((long) w * h > PATTERN_MAX_AREA) return;
+
         int step = Math.max(2, (int) (1f / Math.max(0.01f, density)));
         int a = PatternUtils.clamp255(alpha);
         for (int px = 0; px < w; px += step) {
@@ -35,6 +43,8 @@ public final class NoisePattern {
     public static void paperTexture(GuiGraphics g, int x, int y, int w, int h,
                                     int seed, int intensity) {
         if (w <= 0 || h <= 0) return;
+        if ((long) w * h > PATTERN_MAX_AREA) return;
+
         int a = Math.min(60, Math.max(5, intensity));
         for (int px = 0; px < w; px += 2) {
             for (int py = 0; py < h; py += 2) {
@@ -51,6 +61,8 @@ public final class NoisePattern {
     public static void tornCorner(GuiGraphics g, int x, int y, int w, int h,
                                   int corner, int size, int seed, int color) {
         if (size <= 0) return;
+        if ((long) w * h > PATTERN_MAX_AREA) return;
+
         int cx = switch (corner) {
             case 1 -> x + w - size;
             case 2 -> x;

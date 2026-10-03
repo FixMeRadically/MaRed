@@ -10,19 +10,23 @@ import com.fixmer.mared.gui2.docking.layout.DockLayoutCalculator;
 import com.fixmer.mared.gui2.docking.style.DockStyle;
 import com.fixmer.mared.gui2.framework.core.MaredBounds;
 import com.fixmer.mared.gui2.framework.core.MaredRenderContext;
+import com.fixmer.mared.gui2.framework.theme.MaredTheme;
+import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
+import com.fixmer.mared.gui2.modules.theme.ModuleColorRegistry;
+import com.fixmer.mared.gui2.modules.theme.ModuleTheme;
+import com.fixmer.mared.gui2.modules.theme.ModuleType;
+
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * Главный renderer и input-dispatcher Dock системы.
  *
- * 0.3.0:
- *   - Разделители между панелями (5px hit, 1px линия).
- *   - Drag разделителей меняет ratios.
- *
- * 0.3.1 (audit #30/#31):
- *   - renderNode рисует ТОЛЬКО активную панель узла.
- *   - В узлах с > 1 панелью рисуется tab bar; клик по табу
- *     переключает activeIndex.
- *   - dispatch* направляет input только активной панели узла.
+ * 0.3.0: разделители между панелями, drag меняет ratios.
+ * 0.3.1 (audit #30/#31): renderNode рисует только активную панель,
+ * tab bar для multi-panel узлов, dispatch — только активной.
+ * 0.3.2: collapsed-узлы рендерятся как header-only, клик по стрелке
+ * или по всей панели переключает collapse.
  */
 public final class DockRenderer {
 
@@ -95,6 +99,9 @@ public final class DockRenderer {
         int yTop    = topH;
         int yBottom = screenHeight - bottomH;
 
+        // 0.3.2: свёрнутые панели не тянутся — разделитель всё равно
+        // рисуем (для консистентности), но drag его не двигает,
+        // если панель collapsed (см. beginDividerDrag).
         drawVerticalDivider(context, leftW, yTop, yBottom,
             activeDrag == DividerKind.LEFT_CENTER,
             isNearX(mouseX, leftW) && mouseY >= yTop && mouseY < yBottom,
@@ -145,7 +152,7 @@ public final class DockRenderer {
     }
 
     // ============================================================
-    //  Узел: только активная панель
+    //  Узел
     // ============================================================
 
     private static void renderNode(DockNode node, MaredRenderContext context) {
@@ -153,12 +160,17 @@ public final class DockRenderer {
         if (!node.hasPanels()) return;
 
         DockBounds b = node.bounds();
-        int headerH = DockStyle.HEADER_HEIGHT;
 
+        // 0.3.2: collapsed — рисуем только header.
+        if (node.isCollapsed()) {
+            renderCollapsedNode(node, context, b);
+            return;
+        }
+
+        int headerH = DockStyle.HEADER_HEIGHT;
         DockPanel active = node.activePanel();
         if (active == null) return;
 
-        // Малая высота — рендерим без header'а.
         if (b.height() < MIN_HEIGHT_FOR_HEADER) {
             active.component().layout(new MaredBounds(
                 b.x(), b.y(), b.width(), b.height()));
@@ -174,7 +186,6 @@ public final class DockRenderer {
         active.component().layout(new MaredBounds(
             contentX, contentY, contentW, contentH));
 
-        // Header: tabs при > 1 панели, обычный рендер при одной.
         if (node.panelCount() > 1) {
             DockPanelRenderer.renderTabs(node, context,
                 b.x(), b.y(), b.width(), headerH);
@@ -184,6 +195,69 @@ public final class DockRenderer {
         }
 
         active.component().render(context);
+    }
+
+    /**
+     * 0.3.2: collapsed — рисуется только header. Стрелка и заголовок
+     * в центре панели. Для LEFT/RIGHT панель узкая, поэтому заголовок
+     * не помещается — только стрелка. Для BOTTOM — стрелка + title.
+     */
+    private static void renderCollapsedNode(DockNode node,
+                                             MaredRenderContext ctx,
+                                             DockBounds b) {
+        MaredTheme t = MaredThemeRegistry.active();
+        GuiGraphics g = ctx.graphics();
+        Font font = ctx.font();
+
+        DockPosition pos = node.position();
+
+        // Accent-цвет — по модулю активной панели.
+        int accent = t.accent;
+        DockPanel active = node.activePanel();
+        if (active != null) {
+            ModuleTheme mt = ModuleColorRegistry.get(active.moduleType());
+            if (mt != null) accent = mt.accent();
+        }
+
+        // Фон.
+        g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(),
+            t.bgPanelRaised);
+
+        // Accent-полоска по стороне.
+        if (pos == DockPosition.LEFT || pos == DockPosition.RIGHT) {
+            g.fill(b.x(), b.y(),
+                b.x() + DockStyle.ACCENT_HEIGHT, b.y() + b.height(),
+                accent);
+        } else {
+            g.fill(b.x(), b.y(),
+                b.x() + b.width(), b.y() + DockStyle.ACCENT_HEIGHT,
+                accent);
+        }
+
+        // Стрелка разворота.
+        String arrow;
+        switch (pos) {
+            case LEFT   -> arrow = "▶";
+            case RIGHT  -> arrow = "◀";
+            case BOTTOM -> arrow = "▲";
+            default     -> arrow = "?";
+        }
+
+        int aw = font.width(arrow);
+
+        if (pos == DockPosition.BOTTOM && active != null) {
+            // Full-width — рисуем стрелку слева + заголовок.
+            int ax = b.x() + DockStyle.PADDING;
+            int ay = b.y() + (b.height() - 8) / 2;
+            g.drawString(font, arrow, ax, ay, t.text, false);
+            g.drawString(font, active.title(),
+                ax + aw + 8, ay, t.text, false);
+        } else {
+            // Узкая панель — стрелка по центру.
+            int ax = b.x() + (b.width() - aw) / 2;
+            int ay = b.y() + (b.height() - 8) / 2;
+            g.drawString(font, arrow, ax, ay, t.text, false);
+        }
     }
 
     // ============================================================
@@ -198,6 +272,10 @@ public final class DockRenderer {
 
         DividerKind kind = hitDivider(manager, mx, my, screenWidth, screenHeight);
         if (kind == DividerKind.NONE) return false;
+
+        // 0.3.2: свёрнутая панель не даёт тянуть себя.
+        DockNode node = manager.layout().node(kind.position);
+        if (node != null && node.isCollapsed()) return false;
 
         activeDrag = kind;
         dragStartMx = mx;
@@ -267,11 +345,25 @@ public final class DockRenderer {
     public static boolean dispatchClick(DockManager manager,
                                         double mx, double my, int button) {
         MaredRenderContext ctx = currentContext;
+
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
             if (!contains(node.bounds(), mx, my)) continue;
 
-            // 0.3.1: сначала — вкладки.
+            // 0.3.2: collapse.
+            if (node.isCollapsible()
+                && DockPanelRenderer.hitCollapseArrow(
+                    node, (int) mx, (int) my)) {
+                node.toggleCollapsed();
+                return true;
+            }
+            // collapsed: клик в любом месте — разворот.
+            if (node.isCollapsed()) {
+                node.toggleCollapsed();
+                return true;
+            }
+
+            // Вкладки.
             if (node.panelCount() > 1 && ctx != null) {
                 int idx = DockPanelRenderer.hitTab(node, ctx,
                     node.bounds().x(), node.bounds().y(),
@@ -297,6 +389,7 @@ public final class DockRenderer {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
             if (!contains(node.bounds(), mx, my)) continue;
+            if (node.isCollapsed()) return true;
 
             DockPanel active = node.activePanel();
             if (active != null
@@ -326,6 +419,7 @@ public final class DockRenderer {
                                        double dragX, double dragY) {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
+            if (node.isCollapsed()) continue;
 
             DockPanel active = node.activePanel();
             if (active != null
@@ -342,6 +436,7 @@ public final class DockRenderer {
                                          double scrollX, double scrollY) {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
+            if (node.isCollapsed()) continue;
             if (!contains(node.bounds(), mx, my)) continue;
 
             DockPanel active = node.activePanel();
@@ -358,6 +453,7 @@ public final class DockRenderer {
                                       int keyCode, int scanCode, int modifiers) {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
+            if (node.isCollapsed()) continue;
 
             DockPanel active = node.activePanel();
             if (active != null
@@ -372,6 +468,7 @@ public final class DockRenderer {
                                        char codePoint, int modifiers) {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
+            if (node.isCollapsed()) continue;
 
             DockPanel active = node.activePanel();
             if (active != null
@@ -385,6 +482,7 @@ public final class DockRenderer {
     public static void dispatchMove(DockManager manager, double mx, double my) {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
+            if (node.isCollapsed()) continue;
 
             DockPanel active = node.activePanel();
             if (active != null) {
@@ -402,13 +500,6 @@ public final class DockRenderer {
     //  Current render context (для tab hit-test)
     // ============================================================
 
-    /**
-     * 0.3.1: dispatchClick нужен context, чтобы посчитать ширину вкладок
-     * через font. Кэшируем последний context из render().
-     *
-     * Не идеально (static), но приемлемо до полного перехода
-     * DockRenderer на instance API.
-     */
     private static MaredRenderContext currentContext;
 
     public static void beginFrame(MaredRenderContext context) {

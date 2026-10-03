@@ -1,17 +1,23 @@
 package com.fixmer.mared.gui2.settings;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.lwjgl.glfw.GLFW;
 
-import com.fixmer.mared.gui2.studio.MaredStudioScreen;
+import com.fixmer.mared.Mared;
 import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.gui2.framework.core.UiContext;
+import com.fixmer.mared.gui2.framework.overlay.OverlayManager;
+import com.fixmer.mared.gui2.framework.overlay.ToastOverlay;
 import com.fixmer.mared.gui2.framework.render.MaredScale;
-import com.fixmer.mared.gui2.framework.render.MaredUi;
-import com.fixmer.mared.gui2.framework.render.MaredWidgets;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredWidgets;
 import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
+import com.fixmer.mared.gui2.studio.MaredStudioScreen;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -21,29 +27,39 @@ import net.minecraft.network.chat.Component;
 /**
  * Экран настроек Mared.
  *
- * 0.3.0 (Stage B5): перенос legacy gui.settings.MaredSettingsScreen в gui2.
- * 0.3.0 (Phase F3a): load() до capture(), onSave → ctx.apply().
- * 0.3.1:
- *   - Screen сам делает MaredScale.bind в init и unbind в removed.
- *     Раньше этого не было — Settings открывался поверх Studio и
- *     падал на MaredUi.px() → MaredScale.context().
- *   - Если layout изменился — Studio пересоздаётся.
+ * 0.3.2 (audit #96):
+ *   Sidebar вместо top-tabs. Категории слева, вкладки — вертикально.
+ *   Раньше 6+ табов в горизонтальной полосе рисковали переполнением
+ *   на узких экранах; sidebar масштабируется до 15+ страниц.
+ *
+ * 0.3.2 (audit #97):
+ *   Key events идут СНАЧАЛА в активный таб (может перехватить,
+ *   например, при rebind или search), потом — screen-level tab
+ *   switching. Раньше Left/Right всегда переключали таб, что
+ *   конфликтовало с будущими слайдерами/полями ввода.
+ *
+ * 0.3.2 (audit #92):
+ *   Вкладки берутся из SettingsPageRegistry (уже было).
  */
 public class MaredSettingsScreen extends Screen {
 
     private static final int BG            = 0xFF0A0A10;
     private static final int PANEL_BG      = 0xFF14141C;
     private static final int PANEL_RAISED  = 0xFF1A1A24;
+    private static final int SIDEBAR_BG    = 0xFF15151E;
     private static final int TEXT          = 0xFFFFFFFF;
     private static final int TEXT_DIM      = 0xFFAAAAAA;
+    private static final int TEXT_HEADER   = 0xFF888888;
 
-    private static final int TAB_STRIP_H   = 28;
-    private static final int TAB_MIN_W     = 90;
-    private static final int TAB_MAX_W     = 140;
+    private static final int SIDEBAR_W     = 180;
+    private static final int SIDEBAR_PAD   = 8;
+    private static final int CATEGORY_H    = 22;
+    private static final int TAB_ROW_H     = 24;
     private static final int BUTTON_H      = 20;
+    private static final int CONTENT_PAD   = 20;
 
     private final Screen parent;
-    private final List<MaredSettingsTab> tabs = MaredSettingsTabs.createAll();
+    private final List<MaredSettingsTab> tabs;
     private int activeIndex = 0;
 
     private final MaredSettings.Snapshot snapshot;
@@ -55,11 +71,15 @@ public class MaredSettingsScreen extends Screen {
     private final boolean initialShowStatusBar;
     private final boolean initialShowToolbar;
 
-    private int[] tabX;
-    private int[] tabW;
+    // Sidebar layout cache.
+    private int[] sidebarY = new int[0];
+    private int[] sidebarHeaderY = new int[0]; // -1 if no header before tab
 
     private int saveX, saveY, saveW, saveH;
     private int cancelX, cancelY, cancelW, cancelH;
+
+    private OverlayManager overlayManager;
+    private ToastOverlay toastOverlay;
 
     public MaredSettingsScreen(Screen parent) {
         super(Component.literal("Mared Settings"));
@@ -72,6 +92,12 @@ public class MaredSettingsScreen extends Screen {
         this.initialShowConsole    = MaredSettings.isLayoutShowConsole();
         this.initialShowStatusBar  = MaredSettings.isLayoutShowStatusBar();
         this.initialShowToolbar    = MaredSettings.isLayoutShowToolbar();
+
+        this.tabs = SettingsPageRegistry.instantiateAll();
+        if (this.tabs.isEmpty()) {
+            Mared.LOGGER.error(
+                "[settings] no pages registered — screen may be empty");
+        }
 
         this.snapshot = MaredSettings.Snapshot.capture();
         this.ctx = new SettingsContext(snapshot);
@@ -90,7 +116,6 @@ public class MaredSettingsScreen extends Screen {
         MaredLang.reload();
         MaredSettings.load();
 
-        // 0.3.1: свой UiContext для этого Screen.
         Minecraft mc = Minecraft.getInstance();
         int physW = mc.getWindow().getWidth();
         int physH = mc.getWindow().getHeight();
@@ -100,7 +125,11 @@ public class MaredSettingsScreen extends Screen {
             physW, physH, mcGuiScale, MaredThemeRegistry.active());
         MaredScale.bind(uiCtx);
 
-        computeTabLayout();
+        overlayManager = new OverlayManager();
+        toastOverlay = new ToastOverlay();
+        overlayManager.push(toastOverlay);
+
+        computeSidebarLayout();
         computeButtonLayout();
 
         if (activeIndex >= 0 && activeIndex < tabs.size()) {
@@ -110,27 +139,30 @@ public class MaredSettingsScreen extends Screen {
 
     @Override
     public void removed() {
+        if (overlayManager != null) overlayManager.clear();
         MaredScale.unbind();
     }
 
-    private void computeTabLayout() {
+    private void computeSidebarLayout() {
         int n = tabs.size();
-        tabX = new int[n];
-        tabW = new int[n];
+        sidebarY = new int[n];
+        sidebarHeaderY = new int[n];
 
-        int totalAvailable = this.width - MaredUi.px(40);
-        int gap = MaredUi.px(4);
-
-        int tw = Math.min(MaredUi.px(TAB_MAX_W),
-            Math.max(MaredUi.px(TAB_MIN_W),
-                (totalAvailable - gap * (n - 1)) / n));
-
-        int totalW = n * tw + gap * (n - 1);
-        int startX = (this.width - totalW) / 2;
-
+        int y = SIDEBAR_PAD;
+        String prevCat = null;
         for (int i = 0; i < n; i++) {
-            tabX[i] = startX + i * (tw + gap);
-            tabW[i] = tw;
+            SettingsPageDescriptor d = SettingsPageRegistry.byId(tabs.get(i).id());
+            String cat = d != null ? d.category()
+                : SettingsPageDescriptor.CATEGORY_GENERAL;
+            if (!cat.equals(prevCat)) {
+                sidebarHeaderY[i] = y;
+                y += CATEGORY_H;
+                prevCat = cat;
+            } else {
+                sidebarHeaderY[i] = -1;
+            }
+            sidebarY[i] = y;
+            y += TAB_ROW_H;
         }
     }
 
@@ -149,8 +181,6 @@ public class MaredSettingsScreen extends Screen {
 
         saveX = startX + saveW + gap;
         saveY = y;
-        saveW = MaredUi.px(100);
-        saveH = saveH;
     }
 
     private void switchTab(int idx) {
@@ -174,98 +204,115 @@ public class MaredSettingsScreen extends Screen {
             initialShowToolbar    != MaredSettings.isLayoutShowToolbar();
 
         if (layoutChanged) {
-            // Studio пересоздаётся — старый Session будет уничтожен при
-            // removed() (isClosing остаётся false, но Studio закрывается
-            // через setScreen и больше не вернётся).
             Minecraft.getInstance().setScreen(new MaredStudioScreen());
             return;
         }
-
         onClose();
     }
 
-    private void onCancel() {
-        onClose();
-    }
+    private void onCancel() { onClose(); }
 
     @Override
     public void onClose() {
         if (activeIndex >= 0 && activeIndex < tabs.size()) {
             tabs.get(activeIndex).onClose(ctx);
         }
+        if (overlayManager != null) overlayManager.clear();
         if (this.minecraft != null) this.minecraft.setScreen(parent);
     }
 
-    private int contentY() {
-        return MaredUi.px(TAB_STRIP_H) + MaredUi.px(4);
+    private int contentX()      { return SIDEBAR_W + CONTENT_PAD; }
+    private int contentY()      { return CONTENT_PAD; }
+    private int contentW()      { return this.width - contentX() - CONTENT_PAD; }
+    private int contentH()      {
+        return this.height - contentY() - MaredUi.px(BUTTON_H + 40);
     }
 
-    private int contentH() {
-        return this.height - contentY() - MaredUi.px(BUTTON_H + 26);
-    }
+    // ============================================================
+    //  Render
+    // ============================================================
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         g.fill(0, 0, this.width, this.height, BG);
 
-        renderTabStrip(g, mouseX, mouseY);
+        drawSidebar(g, mouseX, mouseY);
+        drawContent(g, mouseX, mouseY);
+        drawButtons(g, mouseX, mouseY);
 
-        int cy = contentY();
-        int ch = contentH();
-        if (cy < this.height && ch > 0) {
-            MaredUi.rect(g, 0, cy - 1, this.width, this.height, PANEL_BG);
-            tabs.get(activeIndex).render(g, this.font,
-                MaredUi.px(20), cy, this.width - MaredUi.px(40), ch,
-                ctx, mouseX, mouseY);
+        if (overlayManager != null) {
+            overlayManager.render(g, this.font,
+                this.width, this.height, mouseX, mouseY);
         }
-
-        renderButtons(g, mouseX, mouseY);
     }
 
-    private void renderTabStrip(GuiGraphics g, int mouseX, int mouseY) {
-        int stripY = MaredUi.px(6);
-        int stripH = MaredUi.px(TAB_STRIP_H);
+    private void drawSidebar(GuiGraphics g, int mouseX, int mouseY) {
+        MaredUi.rect(g, 0, 0, SIDEBAR_W, this.height, SIDEBAR_BG);
+        MaredUi.rect(g, SIDEBAR_W - 1, 0, SIDEBAR_W, this.height, 0x40FFFFFF);
 
-        MaredUi.rect(g, 0, 0, this.width, stripY + stripH, PANEL_RAISED);
-        MaredUi.rect(g, 0, stripY + stripH, this.width, stripY + stripH + 1,
-            0x40FFFFFF);
-
+        String prevCat = null;
         for (int i = 0; i < tabs.size(); i++) {
             MaredSettingsTab tab = tabs.get(i);
-            int x = tabX[i];
-            int w = tabW[i];
-            int y = stripY;
+            SettingsPageDescriptor d = SettingsPageRegistry.byId(tab.id());
+            String cat = d != null ? d.category()
+                : SettingsPageDescriptor.CATEGORY_GENERAL;
 
-            boolean active = i == activeIndex;
-            boolean hover = MaredUi.hovered(mouseX, mouseY, x, y, w, stripH);
-
-            int accent = tab.accentColor();
-
-            if (active) {
-                MaredUi.gradientV(g, x, y, x + w, y + stripH,
-                    accent, MaredUi.darken(accent, 0.4f));
-                MaredUi.rect(g, x, y + stripH - 2, x + w, y + stripH, accent);
-            } else if (hover) {
-                MaredUi.rect(g, x, y, x + w, y + stripH, 0xFF23232E);
-            } else {
-                MaredUi.rect(g, x, y, x + w, y + stripH, PANEL_BG);
+            if (!cat.equals(prevCat)) {
+                String label = MaredLang.get("mared.settings.category." + cat);
+                MaredUi.text(g, this.font, label,
+                    SIDEBAR_PAD, sidebarY[i] - CATEGORY_H + 7,
+                    TEXT_HEADER);
+                prevCat = cat;
             }
 
-            MaredUi.outline(g, x, y, w, stripH,
-                active ? accent : (hover ? MaredUi.lighten(accent, 0.1f)
-                    : 0xFF333344));
+            int rowX = SIDEBAR_PAD;
+            int rowW = SIDEBAR_W - SIDEBAR_PAD * 2;
+            int rowY = sidebarY[i];
+            int rowH = TAB_ROW_H - 2;
 
-            String label = tab.displayName();
-            int textColor = active ? 0xFF000000 : (hover ? TEXT : TEXT_DIM);
-            MaredUi.centered(g, this.font, label, x + w / 2,
-                y + (stripH - 8) / 2, textColor);
+            boolean active = i == activeIndex;
+            boolean hover = MaredUi.hovered(mouseX, mouseY, rowX, rowY, rowW, rowH);
+
+            if (active) {
+                MaredUi.rect(g, rowX, rowY, rowX + rowW, rowY + rowH, PANEL_BG);
+                MaredUi.rect(g, rowX, rowY, rowX + 3, rowY + rowH,
+                    tab.accentColor());
+            } else if (hover) {
+                MaredUi.rect(g, rowX, rowY, rowX + rowW, rowY + rowH, 0xFF23232E);
+            }
+
+            MaredUi.text(g, this.font, tab.displayName(),
+                rowX + 12, rowY + 6,
+                active ? TEXT : TEXT_DIM);
         }
-
-        MaredUi.text(g, this.font, MaredLang.get("mared.settings.title"),
-            MaredUi.px(8), MaredUi.px(4) + (stripH - 8) / 2, TEXT_DIM);
     }
 
-    private void renderButtons(GuiGraphics g, int mouseX, int mouseY) {
+    private void drawContent(GuiGraphics g, int mouseX, int mouseY) {
+        int cx = contentX();
+        int cy = contentY();
+        int cw = contentW();
+        int ch = contentH();
+        if (ch <= 0) return;
+
+        MaredUi.text(g, this.font,
+            tabs.isEmpty() ? "" : tabs.get(activeIndex).displayName(),
+            cx, cy, TEXT);
+
+        int innerY = cy + 18;
+        int innerH = ch - 18;
+        if (innerH <= 0) return;
+
+        MaredUi.rect(g, cx - 4, innerY - 4,
+            cx + cw + 4, innerY + innerH + 4, PANEL_BG);
+
+        if (!tabs.isEmpty()) {
+            tabs.get(activeIndex).render(g, this.font,
+                cx, innerY, cw, innerH,
+                ctx, mouseX, mouseY);
+        }
+    }
+
+    private void drawButtons(GuiGraphics g, int mouseX, int mouseY) {
         boolean cancelHover = MaredUi.hovered(mouseX, mouseY,
             cancelX, cancelY, cancelW, cancelH);
         MaredWidgets.button3D(g, this.font, cancelX, cancelY,
@@ -282,20 +329,30 @@ public class MaredSettingsScreen extends Screen {
             0xFF55FF88, TEXT, saveHover);
     }
 
+    // ============================================================
+    //  Input
+    // ============================================================
+
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        if (overlayManager != null
+            && overlayManager.mouseClicked(mx, my, button)) return true;
+
         if (button != 0) return super.mouseClicked(mx, my, button);
 
-        int stripY = MaredUi.px(6);
-        int stripH = MaredUi.px(TAB_STRIP_H);
-
+        // Sidebar hit
         for (int i = 0; i < tabs.size(); i++) {
-            if (MaredUi.hovered(mx, my, tabX[i], stripY, tabW[i], stripH)) {
+            int rowX = SIDEBAR_PAD;
+            int rowW = SIDEBAR_W - SIDEBAR_PAD * 2;
+            int rowY = sidebarY[i];
+            int rowH = TAB_ROW_H - 2;
+            if (MaredUi.hovered(mx, my, rowX, rowY, rowW, rowH)) {
                 switchTab(i);
                 return true;
             }
         }
 
+        // Buttons
         if (MaredUi.hovered(mx, my, cancelX, cancelY, cancelW, cancelH)) {
             onCancel();
             return true;
@@ -305,13 +362,14 @@ public class MaredSettingsScreen extends Screen {
             return true;
         }
 
-        if (my >= contentY() && my < contentY() + contentH()) {
-            int cx = MaredUi.px(20);
-            int cy = contentY();
-            int cw = this.width - MaredUi.px(40);
-            int ch = contentH();
-            if (tabs.get(activeIndex).mouseClicked(mx, my, button,
-                cx, cy, cw, ch, ctx)) {
+        // Content
+        if (my >= contentY() + 18 && my < contentY() + contentH()) {
+            int cx = contentX();
+            int cy = contentY() + 18;
+            int cw = contentW();
+            int ch = contentH() - 18;
+            if (!tabs.isEmpty() && tabs.get(activeIndex).mouseClicked(
+                    mx, my, button, cx, cy, cw, ch, ctx)) {
                 return true;
             }
         }
@@ -321,11 +379,15 @@ public class MaredSettingsScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double dx, double dy) {
-        if (my >= contentY() && my < contentY() + contentH()) {
-            int cx = MaredUi.px(20);
-            int cy = contentY();
-            int cw = this.width - MaredUi.px(40);
-            int ch = contentH();
+        if (overlayManager != null
+            && overlayManager.mouseScrolled(mx, my, dx, dy)) return true;
+
+        if (!tabs.isEmpty()
+            && my >= contentY() + 18 && my < contentY() + contentH()) {
+            int cx = contentX();
+            int cy = contentY() + 18;
+            int cw = contentW();
+            int ch = contentH() - 18;
             if (tabs.get(activeIndex).mouseScrolled(mx, my, dy,
                 cx, cy, cw, ch, ctx)) {
                 return true;
@@ -336,11 +398,25 @@ public class MaredSettingsScreen extends Screen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (overlayManager != null
+            && overlayManager.keyPressed(keyCode, scanCode, modifiers))
+            return true;
+
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
             onCancel();
             return true;
         }
 
+        // 0.3.2 (audit #97): tab handles key FIRST — может перехватить
+        // (rebind, search).
+        if (!tabs.isEmpty()) {
+            if (tabs.get(activeIndex).keyPressed(keyCode, scanCode,
+                    modifiers, ctx)) {
+                return true;
+            }
+        }
+
+        // Screen-level tab switching (после tab).
         if (keyCode == GLFW.GLFW_KEY_LEFT) {
             switchTab(Math.max(0, activeIndex - 1));
             return true;
@@ -350,11 +426,11 @@ public class MaredSettingsScreen extends Screen {
             return true;
         }
         if (keyCode == GLFW.GLFW_KEY_TAB && (modifiers & 2) != 0) {
-            switchTab((activeIndex + 1) % tabs.size());
-            return true;
-        }
-
-        if (tabs.get(activeIndex).keyPressed(keyCode, scanCode, modifiers, ctx)) {
+            boolean shift = (modifiers & 1) != 0;
+            int next = shift
+                ? (activeIndex - 1 + tabs.size()) % tabs.size()
+                : (activeIndex + 1) % tabs.size();
+            switchTab(next);
             return true;
         }
 
@@ -363,7 +439,12 @@ public class MaredSettingsScreen extends Screen {
 
     @Override
     public boolean charTyped(char c, int modifiers) {
-        if (tabs.get(activeIndex).charTyped(c, modifiers, ctx)) return true;
+        if (overlayManager != null
+            && overlayManager.charTyped(c, modifiers)) return true;
+
+        if (!tabs.isEmpty()) {
+            if (tabs.get(activeIndex).charTyped(c, modifiers, ctx)) return true;
+        }
         return super.charTyped(c, modifiers);
     }
 

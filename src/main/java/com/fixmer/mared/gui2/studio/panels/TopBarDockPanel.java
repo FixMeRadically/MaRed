@@ -3,7 +3,7 @@ package com.fixmer.mared.gui2.studio.panels;
 import com.fixmer.mared.gui2.docking.MaredDockPanel;
 import com.fixmer.mared.gui2.studio.events.StudioEventBus;
 import com.fixmer.mared.gui2.studio.panels.topbar.StudioTopBar;
-import com.fixmer.mared.gui2.theme.ModuleType;
+import com.fixmer.mared.gui2.modules.theme.ModuleType;
 
 /**
  * Верхняя панель Studio.

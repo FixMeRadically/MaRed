@@ -3,7 +3,8 @@ package com.fixmer.mared.gui2.settings.tabs;
 import java.util.List;
 
 import com.fixmer.mared.MaredLang;
-import com.fixmer.mared.gui2.framework.render.MaredUi;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
+import com.fixmer.mared.gui2.framework.render.Render;
 import com.fixmer.mared.gui2.framework.theme.MaredTheme;
 import com.fixmer.mared.gui2.settings.MaredSettingsTab;
 import com.fixmer.mared.gui2.settings.SettingsContext;
@@ -12,22 +13,29 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * 0.3.0 (Phase B5): перенос legacy gui.settings.tabs.MaredThemeTab.
- * 0.3.0 (Phase E2a): работает через ctx.theme().
- * 0.3.0 (Phase F2): не дёргает MaredThemeRegistry.
- * 0.3.0 (Phase F3b): px-размеры, tornEdges checkbox, button guard, scroll clamp.
- * 0.3.0 (fix): убран двойной пересчёт scroll при hit-test.
+ * Theme tab.
+ *
+ * 0.3.2 (audit #98):
+ *   - Live preview panel: рендерит мини-UI с реальными цветами выбранной
+ *     темы. Раньше карточка показывала только палитру; теперь —
+ *     несколько компонентов (текст, кнопка, панель, accent).
+ *
+ * 0.3.2 (audit #76 / #104):
+ *   - Checkbox "Reduced motion".
  */
 public final class MaredThemeTab implements MaredSettingsTab {
 
     private int scroll = 0;
     private int contentHeight = 0;
 
+    private int previewY = 0;
     private int firstCardY = 0;
     private int monotoneY = 0;
     private int patternsY = 0;
     private int tornEdgesY = 0;
+    private int reducedMotionY = 0;
 
+    private static final int PREVIEW_H = 110;
     private static final int CARD_H = 90;
     private static final int CARD_GAP = 8;
     private static final int CARDS_PER_ROW = 3;
@@ -48,6 +56,17 @@ public final class MaredThemeTab implements MaredSettingsTab {
 
         int cy = y - scroll;
 
+        // --- Live preview ---
+        MaredUi.text(g, font, MaredLang.get("mared.settings.theme.preview"),
+            x, cy, 0xFFFFAA00);
+        cy += 14;
+        previewY = cy;
+
+        MaredTheme previewTheme = th.themeById(th.themeId());
+        drawPreview(g, font, x, cy, w - 8, PREVIEW_H, previewTheme);
+        cy += PREVIEW_H + 16;
+
+        // --- Theme cards ---
         MaredUi.text(g, font, MaredLang.get("mared.settings.theme.pick"),
             x, cy, 0xFFFFAA00);
         cy += 16;
@@ -92,9 +111,91 @@ public final class MaredThemeTab implements MaredSettingsTab {
         cy = drawCheckbox(g, font, x, cy, w,
             MaredLang.get("mared.settings.theme.torn_edges"), th.tornEdgesEnabled());
 
+        reducedMotionY = cy;
+        cy = drawCheckbox(g, font, x, cy, w,
+            MaredLang.get("mared.settings.theme.reduced_motion"),
+            th.reducedMotion());
+
+        // Hint про reduced motion.
+        MaredUi.text(g, font,
+            MaredLang.get("mared.settings.theme.reduced_motion_hint"),
+            x + 20, cy, 0xFF888888);
+        cy += 14;
+
         contentHeight = cy - (y - scroll) + 20;
 
         g.disableScissor();
+    }
+
+    // ============================================================
+    //  Live preview
+    // ============================================================
+
+    private void drawPreview(GuiGraphics g, Font font,
+                             int x, int y, int w, int h,
+                             MaredTheme t) {
+        if (t == null) t = MaredThemeRegistryFallback.get();
+
+        // Фон окна.
+        Render.rect(g, x, y, x + w, y + h, t.bgScreen);
+        Render.outline(g, x, y, w, h, t.border);
+
+        // Левая панель (имитация explorer).
+        int leftW = 60;
+        Render.rect(g, x + 4, y + 4, x + 4 + leftW, y + h - 4, t.bgPanelRaised);
+        Render.rect(g, x + 4, y + 4, x + 4 + leftW, y + 8, t.accent);
+
+        // Правая панель (имитация inspector).
+        int rightW = 70;
+        int rightX = x + w - 4 - rightW;
+        Render.rect(g, rightX, y + 4, x + w - 4, y + h - 4, t.bgPanelRaised);
+        Render.rect(g, rightX, y + 4, x + w - 4, y + 8, t.accentAlt);
+
+        // Центральная область с "текстом".
+        int centerX = x + 4 + leftW + 6;
+        int centerW = rightX - centerX - 6;
+        if (centerW < 20) centerW = 20;
+
+        Render.rect(g, centerX, y + 4, centerX + centerW, y + h - 4, t.bgPanel);
+
+        g.drawString(font, MaredLang.get("mared.settings.theme.preview.title"),
+            centerX + 8, y + 12, t.text, false);
+        g.drawString(font, MaredLang.get("mared.settings.theme.preview.body"),
+            centerX + 8, y + 26, t.textDim, false);
+        g.drawString(font, MaredLang.get("mared.settings.theme.preview.faint"),
+            centerX + 8, y + 38, t.textFaint, false);
+
+        // Кнопка.
+        int btnY = y + h - 30;
+        Render.rect(g, centerX + 8, btnY, centerX + 8 + 80, btnY + 18,
+            t.bgPanelRaised);
+        Render.outline(g, centerX + 8, btnY, 80, 18, t.accent);
+        g.drawString(font, MaredLang.get("mared.settings.theme.preview.button"),
+            centerX + 20, btnY + 5, t.text, false);
+
+        // Вторая кнопка — danger.
+        Render.rect(g, centerX + 96, btnY, centerX + 96 + 60, btnY + 18,
+            t.bgPanelRaised);
+        Render.outline(g, centerX + 96, btnY, 60, 18, t.danger);
+        g.drawString(font, "Delete", centerX + 108, btnY + 5, t.danger, false);
+
+        // Цветные точки.
+        int dotY = y + 52;
+        int[] colors = { t.success, t.warn, t.danger, t.info, t.accent };
+        for (int i = 0; i < colors.length; i++) {
+            int dx = centerX + 8 + i * 14;
+            Render.rect(g, dx, dotY, dx + 10, dotY + 10, colors[i]);
+        }
+
+        // Левая панель — псевдо-список.
+        g.drawString(font, "File 1", x + 10, y + 14, t.text, false);
+        g.drawString(font, "File 2", x + 10, y + 26, t.textDim, false);
+        g.drawString(font, "File 3", x + 10, y + 38, t.textDim, false);
+
+        // Правая панель — псевдо-инспектор.
+        g.drawString(font, "Inspector", rightX + 6, y + 14, t.accent, false);
+        g.drawString(font, "value=1", rightX + 6, y + 26, t.textDim, false);
+        g.drawString(font, "value=2", rightX + 6, y + 38, t.textDim, false);
     }
 
     private void drawThemeCard(GuiGraphics g, Font font, MaredTheme t,
@@ -174,6 +275,10 @@ public final class MaredThemeTab implements MaredSettingsTab {
             th.setTornEdgesEnabled(!th.tornEdgesEnabled());
             return true;
         }
+        if (my >= reducedMotionY && my < reducedMotionY + 18) {
+            th.setReducedMotion(!th.reducedMotion());
+            return true;
+        }
 
         return false;
     }
@@ -197,6 +302,22 @@ public final class MaredThemeTab implements MaredSettingsTab {
         int cols = Math.max(1, Math.min(CARDS_PER_ROW,
             (w - 4) / (cardW + cardGap)));
         int rows = (themeCount + cols - 1) / cols;
-        return 16 + rows * (cardH + cardGap) + 20 + 16 + 3 * 18 + 20;
+        return 14 + PREVIEW_H + 16 + 16 + rows * (cardH + cardGap)
+             + 20 + 16 + 4 * 18 + 14 + 20;
+    }
+
+    // ---- Fallback helper ----
+    private static final class MaredThemeRegistryFallback {
+        static MaredTheme get() {
+            try { return MaredThemeRegistryFallbackRegistry.active(); }
+            catch (Throwable ignored) { return null; }
+        }
+    }
+
+    private static final class MaredThemeRegistryFallbackRegistry {
+        static MaredTheme active() {
+            return com.fixmer.mared.gui2.framework.theme
+                .MaredThemeRegistry.active();
+        }
     }
 }

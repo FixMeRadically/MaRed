@@ -7,11 +7,11 @@ import com.fixmer.mared.services.logging.LogEntry;
 import com.fixmer.mared.services.logging.LogService;
 import com.fixmer.mared.services.logging.LogSettings;
 import com.fixmer.mared.MaredLang;
-import com.fixmer.mared.gui2.framework.render.DragKind;
-import com.fixmer.mared.gui2.framework.render.DragState;
-import com.fixmer.mared.gui2.framework.render.MaredUi;
-import com.fixmer.mared.gui2.framework.render.PixelScroll;
-import com.fixmer.mared.gui2.framework.render.ScrollArea;
+import com.fixmer.mared.gui2.framework.render.interaction.DragKind;
+import com.fixmer.mared.gui2.framework.render.interaction.DragState;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
+import com.fixmer.mared.gui2.framework.render.layout.PixelScroll;
+import com.fixmer.mared.gui2.framework.render.layout.ScrollArea;
 import com.fixmer.mared.gui2.studio.events.StudioEvents;
 
 import net.minecraft.client.Minecraft;

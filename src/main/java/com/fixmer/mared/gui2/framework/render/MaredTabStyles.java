@@ -14,12 +14,24 @@ import net.minecraft.client.gui.GuiGraphics;
  *
  * 0.3.0 (Phase B3b1): перенос legacy gui.common.MaredTabStyles.
  * 0.3.0 (Phase E2b): делегирует к patterns/* вместо MaredPatterns.
+ * 0.3.2 (performance):
+ *   - drawBackgroundPattern активно использует PatternCache через
+ *     GridPattern/DiagonalPattern (кэшируются по размеру и параметрам).
+ *   - NoisePattern/WavePattern теперь с area cap: full-screen панель
+ *     не генерирует десятки тысяч fill() на кадр — они просто
+ *     пропускаются.
+ *   - Кэш автоматически сбрасывается при смене активной темы
+ *     (см. MaredThemeRegistry.setActive → PatternCache.clear).
  */
 public final class MaredTabStyles {
 
     private MaredTabStyles() {}
 
     public enum Pattern { NONE, NOISE, GRID, DIAGONAL, DOTS, WAVES, ZIGZAG, DIAMONDS, HEX }
+
+    // ============================================================
+    //  Цвета
+    // ============================================================
 
     public static int topColor(String tab) {
         MaredTheme t = MaredThemeRegistry.active();
@@ -42,6 +54,10 @@ public final class MaredTabStyles {
         return MaredColor.darken(topColor(tab), 0.55f);
     }
 
+    // ============================================================
+    //  Pattern per tab
+    // ============================================================
+
     public static Pattern pattern(String tab) {
         MaredTheme t = MaredThemeRegistry.active();
         if (t.monotoneTabs) return Pattern.NOISE;
@@ -55,51 +71,81 @@ public final class MaredTabStyles {
         };
     }
 
+    // ============================================================
+    //  Background patterns
+    // ============================================================
+
+    /**
+     * Нарисовать процедурный узор на области панели.
+     *
+     * 0.3.2: grid/dots/diamonds/diagonal — через PatternCache
+     * (per (w,h,params,color)). Noise/wave/zigzag — с area cap,
+     * без кэша (зависят от абсолютных координат).
+     */
     public static void drawBackgroundPattern(GuiGraphics g, int x, int y,
                                              int w, int h, String tab,
                                              int baseAlpha) {
+        if (w <= 0 || h <= 0) return;
+
         Pattern p = pattern(tab);
         int accent = topColor(tab);
+
         switch (p) {
             case GRID -> GridPattern.grid(g, x, y, w, h,
                 Math.max(8, MaredScale.px(24)),
                 MaredColor.withAlpha(accent, baseAlpha / 2));
+
             case DIAGONAL -> DiagonalPattern.diagonal(g, x, y, w, h,
                 Math.max(6, MaredScale.px(20)),
                 MaredColor.withAlpha(accent, baseAlpha / 3));
+
             case DOTS -> GridPattern.dots(g, x, y, w, h,
                 Math.max(8, MaredScale.px(22)), 1,
                 MaredColor.withAlpha(accent, baseAlpha / 2));
+
             case WAVES -> WavePattern.waves(g, x, y, w, h,
                 Math.max(2, MaredScale.px(4)),
                 Math.max(20, MaredScale.px(60)),
                 MaredColor.withAlpha(accent, baseAlpha / 4));
+
             case ZIGZAG -> WavePattern.zigzag(g, x, y, w, h,
                 Math.max(4, MaredScale.px(10)),
                 Math.max(2, MaredScale.px(4)),
                 MaredColor.withAlpha(accent, baseAlpha / 3));
+
             case DIAMONDS -> GridPattern.diamonds(g, x, y, w, h,
                 Math.max(12, MaredScale.px(36)),
                 Math.max(3, MaredScale.px(6)),
                 MaredColor.withAlpha(accent, baseAlpha / 3));
+
             case HEX -> GridPattern.hexGrid(g, x, y, w, h,
                 Math.max(4, MaredScale.px(10)),
                 MaredColor.withAlpha(accent, baseAlpha / 4));
+
             case NOISE -> NoisePattern.noise(g, x, y, w, h, 0, 0.3f,
                 baseAlpha / 2);
-            case NONE -> {}
+
+            case NONE -> { /* nothing */ }
         }
     }
 
+    // ============================================================
+    //  Torn edges
+    // ============================================================
+
     public static void drawTornEdges(GuiGraphics g, int x, int y, int w, int h,
                                      String tab) {
+        if (w <= 0 || h <= 0) return;
+
         int accent = topColor(tab);
         int color = MaredColor.withAlpha(accent, 40);
         int size = MaredScale.px(16);
         long seed = System.identityHashCode(tab);
-        NoisePattern.tornCorner(g, x, y, w, h, 0,
-            size, (int) seed, color);
-        NoisePattern.tornCorner(g, x, y, w, h, 3,
-            size, (int) (seed ^ 0xAAAA), color);
+
+        // Два противоположных угла — 0 (top-left) и 3 (bottom-right).
+        NoisePattern.tornCorner(g, x, y, w, h, 0, size,
+            (int) seed, color);
+        NoisePattern.tornCorner(g, x, y, w, h, 3, size,
+            (int) (seed ^ 0xAAAA), color);
     }
 }

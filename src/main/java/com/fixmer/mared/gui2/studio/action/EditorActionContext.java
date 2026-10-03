@@ -1,5 +1,6 @@
 package com.fixmer.mared.gui2.studio.action;
 
+import com.fixmer.mared.gui2.framework.overlay.OverlayManager;
 import com.fixmer.mared.gui2.studio.MaredStudioController;
 import com.fixmer.mared.gui2.studio.events.StudioEvents;
 import com.fixmer.mared.gui2.studio.panels.explorer.ExplorerComponent;
@@ -9,30 +10,29 @@ import com.fixmer.mared.services.command.CommandFileService;
 import net.minecraft.client.gui.screens.Screen;
 
 /**
- * Контекст выполнения action'а.
- *
- * 0.3.1:
- *   - log(String) использует LogEvent.legacy — переходный путь для
- *     call-sites, которые ещё публикуют готовые строки.
- *   - log(Level, category, message) — новый structured-путь.
+ * 0.3.2: overlays() — доступ к OverlayManager через action context.
  */
 public final class EditorActionContext {
 
     private final Screen screen;
     private final MaredStudioController controller;
     private final CommandFileService commandService;
+    private final OverlayManager overlayManager;
 
     public EditorActionContext(Screen screen,
                                MaredStudioController controller,
-                               CommandFileService commandService) {
+                               CommandFileService commandService,
+                               OverlayManager overlayManager) {
         this.screen = screen;
         this.controller = controller;
         this.commandService = commandService;
+        this.overlayManager = overlayManager;
     }
 
     public Screen screen() { return screen; }
     public MaredStudioController controller() { return controller; }
     public CommandFileService commands() { return commandService; }
+    public OverlayManager overlays() { return overlayManager; }
 
     public WorkspaceComponent workspace() {
         var ws = controller.workspacePanel();

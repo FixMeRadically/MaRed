@@ -5,7 +5,12 @@ import net.minecraft.client.gui.GuiGraphics;
 /**
  * Волновые и зигзагообразные узоры.
  *
- * 0.3.0 (Phase E2b): вынесено из MaredPatterns.
+ * 0.3.2: area cap. Wave/zigzag генерируют очень много мелких fill'ов
+ * (amplitude rows × w pixels, шаг может быть 1 px). Ограничиваем
+ * площадь до PATTERN_MAX_AREA.
+ *
+ * Эти узоры не кэшируются — зависят от абсолютного x (wave phase),
+ * поэтому не укладываются в key-only-by-size схему.
  */
 public final class WavePattern {
 
@@ -13,7 +18,9 @@ public final class WavePattern {
 
     public static void waves(GuiGraphics g, int x, int y, int w, int h,
                              int amplitude, int period, int color) {
-        if (period <= 0 || amplitude <= 0) return;
+        if (period <= 0 || amplitude <= 0 || w <= 0 || h <= 0) return;
+        if ((long) w * h > NoisePattern.PATTERN_MAX_AREA) return;
+
         int a = (color >>> 24) & 0xFF;
         int rgb = color & 0x00FFFFFF;
         int lineColor = (a << 24) | rgb;
@@ -31,7 +38,9 @@ public final class WavePattern {
 
     public static void zigzag(GuiGraphics g, int x, int y, int w, int h,
                               int step, int offset, int color) {
-        if (step <= 0) return;
+        if (step <= 0 || w <= 0 || h <= 0) return;
+        if ((long) w * h > NoisePattern.PATTERN_MAX_AREA) return;
+
         int a = (color >>> 24) & 0xFF;
         int rgb = color & 0x00FFFFFF;
         int lineColor = (a << 24) | rgb;

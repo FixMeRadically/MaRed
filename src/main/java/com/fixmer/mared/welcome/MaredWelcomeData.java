@@ -4,24 +4,40 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import com.fixmer.mared.MaredLang;
-
 /**
  * Набор страниц онбординга.
  *
- * Пока статический. Можно будет загружать из JSON в будущем.
+ * 0.3.2 (audit #105):
+ *   Страницы строятся один раз, но содержат translation keys, а не
+ *   готовые строки. Данные не зависят от текущего языка — reload()
+ *   нужен только если сам набор страниц меняется (например, из JSON
+ *   в будущем), а не при смене языка.
  */
 public final class MaredWelcomeData {
 
     private MaredWelcomeData() {}
 
-    private static List<MaredWelcomePage> pages = null;
+    private static volatile List<MaredWelcomePage> pages = null;
 
     public static List<MaredWelcomePage> pages() {
-        if (pages == null) pages = build();
-        return Collections.unmodifiableList(pages);
+        List<MaredWelcomePage> p = pages;
+        if (p == null) {
+            synchronized (MaredWelcomeData.class) {
+                p = pages;
+                if (p == null) {
+                    p = build();
+                    pages = p;
+                }
+            }
+        }
+        return Collections.unmodifiableList(p);
     }
 
+    /**
+     * Сбрасывает кэш. Нужен при смене набора страниц (например,
+     * подгрузка онбординга из внешнего источника). Смена языка
+     * не требует reload — MaredWelcomePage резолвит ключи сам.
+     */
     public static void reload() { pages = null; }
 
     private static List<MaredWelcomePage> build() {
@@ -29,45 +45,45 @@ public final class MaredWelcomeData {
 
         list.add(new MaredWelcomePage(
             MaredWelcomePage.Kind.INTRO,
-            MaredLang.get("mared.welcome.intro.title"),
-            MaredLang.get("mared.welcome.intro.subtitle"),
-            MaredLang.get("mared.welcome.intro.b1"),
-            MaredLang.get("mared.welcome.intro.b2"),
-            MaredLang.get("mared.welcome.intro.b3")
+            "mared.welcome.intro.title",
+            "mared.welcome.intro.subtitle",
+            "mared.welcome.intro.b1",
+            "mared.welcome.intro.b2",
+            "mared.welcome.intro.b3"
         ));
 
         list.add(new MaredWelcomePage(
             MaredWelcomePage.Kind.INTERFACE,
-            MaredLang.get("mared.welcome.ui.title"),
-            MaredLang.get("mared.welcome.ui.subtitle"),
-            MaredLang.get("mared.welcome.ui.b1"),
-            MaredLang.get("mared.welcome.ui.b2"),
-            MaredLang.get("mared.welcome.ui.b3"),
-            MaredLang.get("mared.welcome.ui.b4")
+            "mared.welcome.ui.title",
+            "mared.welcome.ui.subtitle",
+            "mared.welcome.ui.b1",
+            "mared.welcome.ui.b2",
+            "mared.welcome.ui.b3",
+            "mared.welcome.ui.b4"
         ));
 
         list.add(new MaredWelcomePage(
             MaredWelcomePage.Kind.COMMANDS,
-            MaredLang.get("mared.welcome.cmd.title"),
-            MaredLang.get("mared.welcome.cmd.subtitle"),
-            MaredLang.get("mared.welcome.cmd.b1"),
-            MaredLang.get("mared.welcome.cmd.b2"),
-            MaredLang.get("mared.welcome.cmd.b3")
+            "mared.welcome.cmd.title",
+            "mared.welcome.cmd.subtitle",
+            "mared.welcome.cmd.b1",
+            "mared.welcome.cmd.b2",
+            "mared.welcome.cmd.b3"
         ));
 
         list.add(new MaredWelcomePage(
             MaredWelcomePage.Kind.SCRIPTS,
-            MaredLang.get("mared.welcome.scr.title"),
-            MaredLang.get("mared.welcome.scr.subtitle"),
-            MaredLang.get("mared.welcome.scr.b1"),
-            MaredLang.get("mared.welcome.scr.b2"),
-            MaredLang.get("mared.welcome.scr.b3")
+            "mared.welcome.scr.title",
+            "mared.welcome.scr.subtitle",
+            "mared.welcome.scr.b1",
+            "mared.welcome.scr.b2",
+            "mared.welcome.scr.b3"
         ));
 
         list.add(new MaredWelcomePage(
             MaredWelcomePage.Kind.FINAL,
-            MaredLang.get("mared.welcome.final.title"),
-            MaredLang.get("mared.welcome.final.subtitle")
+            "mared.welcome.final.title",
+            "mared.welcome.final.subtitle"
         ));
 
         return list;

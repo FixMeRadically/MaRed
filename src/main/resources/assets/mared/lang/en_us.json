@@ -388,5 +388,82 @@
   "mared.action.file.run.title": "Run",
   "mared.action.file.reload_persistent.title": "Reload",
   "mared.action.view.settings.title": "Settings",
-  "mared.action.studio.close.title": "Close"
+  "mared.action.studio.close.title": "Close",
+
+  "mared.action.file.open.title": "Open",
+  "mared.action.file.rename.title": "Rename...",
+  "mared.action.file.duplicate.title": "Duplicate",
+  "mared.action.file.delete.title": "Delete...",
+
+  "mared.key.left_click": "Left Click",
+  "mared.key.right_click": "Right Click",
+  "mared.key.middle_click": "Middle Click",
+  "mared.key.mouse_move": "Mouse Move",
+  "mared.key.space": "Space",
+  "mared.key.enter": "Enter",
+  "mared.key.escape": "Escape",
+  "mared.key.tab": "Tab",
+  "mared.key.backspace": "Backspace",
+  "mared.key.delete": "Delete",
+  "mared.key.shift": "Shift",
+  "mared.key.ctrl": "Ctrl",
+  "mared.key.alt": "Alt",
+
+  "mared.action.view.command_palette.title": "Command Palette",
+  "mared.palette.no_match": "no matches",
+  "mared.palette.hint": "↑↓ · Enter · Esc",
+
+  "mared.narration.editor.title": "Text editor",
+  "mared.narration.editor.empty": "Empty text editor",
+  "mared.narration.editor.position": "Text editor. %d lines. Line %d, column %d.",
+  "mared.narration.editor.position_selection": "Text editor. %d lines. Line %d, column %d. %d characters selected.",
+
+  "mared.dialog.unsaved_message_named": "\"%s\" has unsaved changes. Discard and close?",
+  "mared.workspace.no_files": "No files open",
+  "mared.workspace.untitled": "(untitled)",
+  "mared.workspace.close_tab": "Close",
+  "mared.workspace.save_all": "Save All",
+
+  "mared.narration.workspace.empty": "Workspace. No files open.",
+  "mared.narration.workspace.empty_active": "Workspace. No active document.",
+  "mared.narration.workspace.title": "Workspace. Document: %s.",
+  "mared.narration.workspace.dirty": "Unsaved changes.",
+  "mared.narration.workspace.deleted": "File deleted externally.",
+  "mared.narration.workspace.position": "%d lines. Line %d, column %d.",
+  "mared.narration.workspace.multi": "%d documents open.",
+  "mared.narration.console.summary": "Console. %d entries, %d visible.",
+  "mared.narration.explorer.summary": "Explorer. %d files, %d commands.",
+  "mared.narration.explorer.selected": "Selected file: %s.",
+
+  "mared.settings.category.general": "GENERAL",
+  "mared.settings.category.appearance": "APPEARANCE",
+  "mared.settings.category.editor": "EDITOR",
+  "mared.settings.category.advanced": "ADVANCED",
+  "mared.settings.category.about": "ABOUT",
+
+  "mared.settings.theme.preview": "Preview",
+  "mared.settings.theme.preview.title": "Sample Title",
+  "mared.settings.theme.preview.body": "Secondary text",
+  "mared.settings.theme.preview.faint": "Muted hint",
+  "mared.settings.theme.preview.button": "Button",
+
+  "mared.settings.theme.reduced_motion": "Reduced motion",
+  "mared.settings.theme.reduced_motion_hint": "Disables particles, parallax, animated rings, and heavy patterns.",
+
+  "mared.settings.keybinds.search_hint": "Search key or action...",
+  "mared.settings.keybinds.rebind": "Rebind",
+  "mared.settings.keybinds.awaiting": "Press any key to rebind (Esc to cancel)...",
+  "mared.settings.keybinds.awaiting_short": "Press any key...",
+  "mared.settings.keybinds.conflict": "Key \"%s\" is already bound",
+  "mared.settings.keybinds.rename_failed": "Rebind failed",
+
+  "mared.settings.layout.button_position": "Pause/Title button",
+  "mared.settings.layout.button_position.top_right": "Top Right",
+  "mared.settings.layout.button_position.top_left": "Top Left",
+  "mared.settings.layout.button_position.bottom_right": "Bottom Right",
+  "mared.settings.layout.button_position.bottom_left": "Bottom Left",
+  "mared.settings.layout.button_offset": "Button offset",
+
+  "mared.narration.list.count": "List, %d items.",
+  "mared.narration.list.selected": "Selected: %s."
 }

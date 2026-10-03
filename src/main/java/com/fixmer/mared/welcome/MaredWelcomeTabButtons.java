@@ -5,7 +5,7 @@ import java.util.List;
 import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.gui2.framework.render.MaredTabStyles;
-import com.fixmer.mared.gui2.framework.render.MaredUi;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
 import com.fixmer.mared.modules.ModuleAvailability;
 import com.fixmer.mared.modules.ModuleDescriptor;
 import com.fixmer.mared.modules.ModuleRegistry;

@@ -2,24 +2,36 @@ package com.fixmer.mared.gui2.framework.theme;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Реестр тем gui2.
  *
- * 0.3.0: перенесён из gui.common.MaredThemeRegistry. Встроенные темы.
- * Кастомные (config/mared/themes.json) грузятся при первом active().
- * 0.3.0 (fix): active() при первом вызове читает MaredSettings.getThemeId() —
- * раньше всегда возвращалось "mared" (хардкод из static), изменения в
- * Theme tab не влияли на рендер.
+ * 0.3.0: встроенные темы; custom грузятся при первом active().
+ * 0.3.2 (audit #27, #28):
+ *   - Различает built-in и custom темы.
+ *   - unregisterCustom(id) удаляет только custom.
+ *   - unregisterAllCustom() — для корректного reload.
+ *   - registerCustom() — единственный путь регистрации user-темы.
+ *
+ * 0.3.2 (performance):
+ *   - setActive() сбрасывает PatternCache — цвета в кэше становятся
+ *     устаревшими при смене темы. Иначе панели на пару секунд
+ *     рисовались бы старыми цветами patterns.
  */
 public final class MaredThemeRegistry {
 
     private MaredThemeRegistry() {}
 
-    private static final Map<String, MaredTheme> THEMES = new LinkedHashMap<>(8);
+    private static final Map<String, MaredTheme> THEMES =
+        new LinkedHashMap<>(8);
+
+    private static final Set<String> CUSTOM_IDS = new HashSet<>(8);
+
     private static volatile MaredTheme active = null;
     private static volatile boolean customLoaded = false;
 
@@ -29,25 +41,14 @@ public final class MaredThemeRegistry {
 
     private static void registerDefaults() {
         register(MaredTheme.builder("mared", "Mared")
-            .bgScreen(0xFF0A0A10)
-            .bgPanel(0xFF14141C)
-            .bgPanelRaised(0xFF1A1A24)
-            .bgSunken(0xFF0A0A10)
-            .bgHover(0xFF2A2A38)
-            .bgSelected(0xFF3A3A4A)
-            .text(0xFFEEDDFF)
-            .textDim(0xFF9988AA)
-            .textFaint(0xFF665577)
-            .accent(0xFFFF55FF)
-            .accentAlt(0xFFDD33DD)
-            .accentDim(0xFF8833AA)
-            .border(0xFF3D2A4A)
-            .borderAccent(0xFFFF55FF)
-            .tabScripts(0xFFFF55FF)
-            .tabCommands(0xFFFFAA00)
-            .tabNpc(0xFF55FF55)
-            .tabEvents(0xFF55AAFF)
-            .tabQuests(0xFFFF5555)
+            .bgScreen(0xFF0A0A10).bgPanel(0xFF14141C)
+            .bgPanelRaised(0xFF1A1A24).bgSunken(0xFF0A0A10)
+            .bgHover(0xFF2A2A38).bgSelected(0xFF3A3A4A)
+            .text(0xFFEEDDFF).textDim(0xFF9988AA).textFaint(0xFF665577)
+            .accent(0xFFFF55FF).accentAlt(0xFFDD33DD).accentDim(0xFF8833AA)
+            .border(0xFF3D2A4A).borderAccent(0xFFFF55FF)
+            .tabScripts(0xFFFF55FF).tabCommands(0xFFFFAA00)
+            .tabNpc(0xFF55FF55).tabEvents(0xFF55AAFF).tabQuests(0xFFFF5555)
             .build());
 
         register(MaredTheme.builder("dark", "Dark")
@@ -75,15 +76,63 @@ public final class MaredThemeRegistry {
             .tabScripts(0xFFAA33AA).tabCommands(0xFFCC6600)
             .tabNpc(0xFF339933).tabEvents(0xFF3366CC).tabQuests(0xFFCC3333)
             .build());
-
-        // 0.3.0 (fix): НЕ устанавливаем active жёстко — active() сам решит
-        // при первом вызове, читая MaredSettings.getThemeId().
     }
 
+    // ============================================================
+    //  Регистрация
+    // ============================================================
+
+    /** Регистрирует built-in тему. */
     public static void register(MaredTheme theme) {
         if (theme == null || theme.id == null) return;
         THEMES.put(theme.id, theme);
     }
+
+    /**
+     * Регистрирует custom тему — она будет удалена при следующем
+     * reload или unregisterAllCustom().
+     */
+    public static void registerCustom(MaredTheme theme) {
+        if (theme == null || theme.id == null) return;
+        THEMES.put(theme.id, theme);
+        CUSTOM_IDS.add(theme.id);
+    }
+
+    /**
+     * Удаляет custom тему. Built-in не трогается.
+     * @return true если тема была custom и удалена.
+     */
+    public static boolean unregisterCustom(String id) {
+        if (id == null) return false;
+        if (!CUSTOM_IDS.remove(id)) return false;
+        THEMES.remove(id);
+
+        // Если удалили активную — переключаемся на "mared".
+        MaredTheme cur = active;
+        if (cur != null && id.equals(cur.id)) {
+            MaredTheme fallback = THEMES.get("mared");
+            if (fallback == null && !THEMES.isEmpty()) {
+                fallback = THEMES.values().iterator().next();
+            }
+            active = fallback;
+            clearPatternCache();
+        }
+        return true;
+    }
+
+    /** Удаляет все custom темы. Для корректного reload. */
+    public static void unregisterAllCustom() {
+        Set<String> copy = new HashSet<>(CUSTOM_IDS);
+        for (String id : copy) unregisterCustom(id);
+    }
+
+    public static boolean isCustom(String id) {
+        return id != null && CUSTOM_IDS.contains(id);
+    }
+
+    // ============================================================
+    //  Чтение
+    // ============================================================
 
     public static MaredTheme get(String id) {
         ensureCustomLoaded();
@@ -92,19 +141,15 @@ public final class MaredThemeRegistry {
 
     /**
      * Активная тема. Никогда не null.
-     *
-     * 0.3.0 (fix): при первом вызове читаем MaredSettings.getThemeId() —
-     * раньше всегда возвращалось "mared" (хардкод из static), изменения
-     * в Theme tab не влияли на рендер.
+     * При первом вызове читает MaredSettings.getThemeId().
      */
     public static MaredTheme active() {
         ensureCustomLoaded();
         MaredTheme t = active;
         if (t == null) {
             String id = "mared";
-            try {
-                id = com.fixmer.mared.MaredSettings.getThemeId();
-            } catch (Throwable ignored) {}
+            try { id = com.fixmer.mared.MaredSettings.getThemeId(); }
+            catch (Throwable ignored) {}
             t = THEMES.get(id);
             if (t == null) t = THEMES.get("mared");
             if (t == null && !THEMES.isEmpty()) {
@@ -115,14 +160,24 @@ public final class MaredThemeRegistry {
         return t;
     }
 
+    /**
+     * 0.3.2: setActive сбрасывает PatternCache — цвета в кэше
+     * устаревают при смене темы.
+     */
     public static void setActive(String id) {
         ensureCustomLoaded();
         MaredTheme t = THEMES.get(id);
-        if (t != null) active = t;
+        if (t != null) {
+            active = t;
+            clearPatternCache();
+        }
     }
 
     public static void setActive(MaredTheme theme) {
-        if (theme != null) active = theme;
+        if (theme != null) {
+            active = theme;
+            clearPatternCache();
+        }
     }
 
     public static List<MaredTheme> all() {
@@ -148,10 +203,23 @@ public final class MaredThemeRegistry {
     private static void ensureCustomLoaded() {
         if (customLoaded) return;
         customLoaded = true;
+        try { MaredCustomThemes.load(); }
+        catch (Throwable t) { /* custom опциональны */ }
+    }
+
+    // ============================================================
+    //  Internals
+    // ============================================================
+
+    /**
+     * 0.3.2: сброс кэша patterns. Регистр theme-модуля не должен
+     * напрямую зависеть от рендер-пакета, поэтому try/catch —
+     * если patterns ещё не загружен, ничего не делаем.
+     */
+    private static void clearPatternCache() {
         try {
-            MaredCustomThemes.load();
-        } catch (Throwable t) {
-            // silent — кастомные темы опциональны
-        }
+            com.fixmer.mared.gui2.framework.render.patterns
+                .PatternCache.clear();
+        } catch (Throwable ignored) { }
     }
 }

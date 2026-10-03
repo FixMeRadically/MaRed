@@ -21,17 +21,12 @@ import net.neoforged.fml.loading.FMLPaths;
 /**
  * Сервис настроек.
  *
- * 0.3.0 (Phase F1): singleton. Владеет 5 settings-группами.
- * 0.3.0 (Phase F3b): commit(snapshot), schemaVersion.
- * 0.3.0 (Phase F3c): FMLPaths вместо Minecraft.getInstance(),
- * atomic save, themeId validation.
- * 0.3.0 (fix): синхронизация активной темы с MaredThemeRegistry
- * при load() и при commit().
+ * 0.3.2: добавлены reducedMotion + maredButtonCorner/Offset.
  */
 public final class SettingsService {
 
     private static final SettingsService INSTANCE = new SettingsService();
-    private static final int SCHEMA_VERSION = 1;
+    private static final int SCHEMA_VERSION = 2;
 
     public static SettingsService get() { return INSTANCE; }
 
@@ -102,6 +97,7 @@ public final class SettingsService {
             if (obj.has("monotoneTabs")) theme.setMonotoneTabs(obj.get("monotoneTabs").getAsBoolean());
             if (obj.has("patternsEnabled")) theme.setPatternsEnabled(obj.get("patternsEnabled").getAsBoolean());
             if (obj.has("tornEdgesEnabled")) theme.setTornEdgesEnabled(obj.get("tornEdgesEnabled").getAsBoolean());
+            if (obj.has("reducedMotion")) theme.setReducedMotion(obj.get("reducedMotion").getAsBoolean());
             if (obj.has("settingsActiveTab"))
                 layout.setSettingsActiveTab(obj.get("settingsActiveTab").getAsString());
 
@@ -127,11 +123,19 @@ public final class SettingsService {
             if (obj.has("layoutSidebarState")) layout.setSidebarState(obj.get("layoutSidebarState").getAsString());
             if (obj.has("layoutLogCollapsed")) layout.setLogCollapsed(obj.get("layoutLogCollapsed").getAsBoolean());
 
+            // 0.3.2
+            if (obj.has("maredButtonCorner")) {
+                layout.setButtonCorner(LayoutSettings.ButtonCorner.fromId(
+                    obj.get("maredButtonCorner").getAsString()));
+            }
+            if (obj.has("maredButtonOffset")) {
+                layout.setButtonOffset(obj.get("maredButtonOffset").getAsInt());
+            }
+
         } catch (Exception e) {
             Mared.LOGGER.error("Failed to load settings", e);
         }
 
-        // 0.3.0 (fix): синхронизировать активную тему с прочитанной настройкой.
         try {
             MaredThemeRegistry.setActive(theme.themeId());
         } catch (Throwable ignored) {}
@@ -158,6 +162,7 @@ public final class SettingsService {
             obj.addProperty("monotoneTabs", theme.monotoneTabs());
             obj.addProperty("patternsEnabled", theme.patternsEnabled());
             obj.addProperty("tornEdgesEnabled", theme.tornEdgesEnabled());
+            obj.addProperty("reducedMotion", theme.reducedMotion());
             obj.addProperty("settingsActiveTab", layout.settingsActiveTab());
 
             obj.addProperty("layoutPreset", layout.preset().name());
@@ -178,6 +183,9 @@ public final class SettingsService {
             obj.addProperty("layoutSidebarState", layout.sidebarState());
             obj.addProperty("layoutLogCollapsed", layout.logCollapsed());
 
+            obj.addProperty("maredButtonCorner", layout.buttonCorner().name());
+            obj.addProperty("maredButtonOffset", layout.buttonOffset());
+
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
             writeAtomic(path, gson.toJson(obj));
 
@@ -186,11 +194,6 @@ public final class SettingsService {
         }
     }
 
-    /**
-     * 0.3.0 (Phase F3b): единый commit для SettingsScreen.
-     * 0.3.0 (Phase F3c): валидация themeId через ThemeService.
-     * 0.3.0 (fix): при успешной смене темы — синхронизация MaredThemeRegistry.
-     */
     public synchronized void commit(MaredSettings.Snapshot s) {
         if (s == null) return;
 
@@ -216,6 +219,7 @@ public final class SettingsService {
         theme.setMonotoneTabs(s.monotoneTabs);
         theme.setPatternsEnabled(s.patternsEnabled);
         theme.setTornEdgesEnabled(s.tornEdgesEnabled);
+        theme.setReducedMotion(s.reducedMotion);
 
         try {
             layout.setPreset(MaredLayoutPreset.valueOf(s.layoutPreset));
@@ -235,6 +239,12 @@ public final class SettingsService {
         layout.setSplitRatio(s.layoutSplitRatio);
         layout.setSplitFileRight(s.layoutSplitFileRight);
         layout.setActiveColumn(s.layoutActiveColumn);
+        layout.setActiveTab(s.layoutActiveTab);
+        layout.setSidebarState(s.layoutSidebarState);
+        layout.setLogCollapsed(s.layoutLogCollapsed);
+
+        layout.setButtonCorner(LayoutSettings.ButtonCorner.fromId(s.maredButtonCorner));
+        layout.setButtonOffset(s.maredButtonOffset);
 
         save();
     }
@@ -247,10 +257,6 @@ public final class SettingsService {
         layout.resetToDefaults();
     }
 
-    // ============================================================
-    //  Internals
-    // ============================================================
-
     private static Path configPath() {
         try {
             Path dir = FMLPaths.CONFIGDIR.get().resolve("mared");
@@ -262,7 +268,6 @@ public final class SettingsService {
         }
     }
 
-    /** 0.3.0 (Phase F3c): atomic write через .tmp + ATOMIC_MOVE. */
     private static void writeAtomic(Path target, String content) throws IOException {
         Path parent = target.getParent();
         if (parent != null && !Files.exists(parent)) {

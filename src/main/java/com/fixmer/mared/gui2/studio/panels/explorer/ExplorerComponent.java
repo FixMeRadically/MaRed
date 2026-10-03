@@ -1,27 +1,41 @@
 package com.fixmer.mared.gui2.studio.panels.explorer;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import com.fixmer.mared.Mared;
+import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.commands.registry.MaredCommandRegistry;
 import com.fixmer.mared.commands.storage.MaredCommandStorage;
 import com.fixmer.mared.commands.storage.MaredPersistentStorage;
 import com.fixmer.mared.gui2.framework.components.MaredPanel;
 import com.fixmer.mared.gui2.framework.core.MaredRenderContext;
-import com.fixmer.mared.gui2.framework.overlay.ContextMenuEntry;
+import com.fixmer.mared.gui2.framework.core.NarratableComponent;
 import com.fixmer.mared.gui2.framework.theme.ThemeColors;
 import com.fixmer.mared.gui2.studio.events.StudioEventBus;
 import com.fixmer.mared.gui2.studio.events.StudioEvents;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 
 /**
- * 0.3.1: контекстное меню через StudioEvents.RequestContextMenuEvent.
- *        LogEvent — через legacy-фабрику.
- *        ContextMenuEntry.divider() — вместо separator().
+ * Explorer панель MaRed Studio.
+ *
+ * 0.3.2:
+ *   - FileEntry { name, persistent } как view model. Раньше render
+ *     на каждой строке звал MaredPersistentStorage.isPersistent(name).
+ *     Теперь флаг вычисляется при reload() один раз.
+ *   - Правый клик публикует RequestContextMenuForFileEvent.
+ *     Hardcoded строки меню ("Open", "Rename...") удалены —
+ *     меню строится Screen'ом из EditorActions.
+ *   - Реализует NarratableComponent — FocusTraversal озвучивает
+ *     число файлов и команд, выбранный файл.
  */
-public final class ExplorerComponent extends MaredPanel {
+public final class ExplorerComponent extends MaredPanel
+        implements NarratableComponent {
 
     private static final int ROW_H = 14;
     private static final int PAD = 4;
@@ -29,13 +43,17 @@ public final class ExplorerComponent extends MaredPanel {
     private static final int SPLIT_GAP = 8;
     private static final int PLUS_SIZE = 12;
 
+    /** 0.3.2: view model — immutable entry. */
+    public record FileEntry(String name, boolean persistent) {}
+
     private final StudioEventBus bus;
 
-    private final List<String> files = new ArrayList<>(16);
-    private final List<MaredCommandRegistry.CommandInfo> commands = new ArrayList<>(80);
+    private final List<FileEntry> files = new ArrayList<>(16);
+    private final List<MaredCommandRegistry.CommandInfo> commands =
+        new ArrayList<>(80);
 
     private int hoveredFileIndex = -1;
-    private int selectedFileIndex = -1;
+    private String selectedFileName = null;
     private int filesScroll = 0;
     private boolean plusHover = false;
 
@@ -54,46 +72,70 @@ public final class ExplorerComponent extends MaredPanel {
     public void reload() {
         files.clear();
         commands.clear();
+
+        // 0.3.2: один snapshot persistent-файлов — потом lookup в Set.
+        Set<String> persistentNames;
         try {
-            files.addAll(MaredCommandStorage.listCommands());
+            persistentNames = new HashSet<>(MaredPersistentStorage.load());
         } catch (Throwable t) {
-            com.fixmer.mared.Mared.LOGGER.warn(
+            persistentNames = new HashSet<>();
+            Mared.LOGGER.warn(
+                "[studio] failed to load persistent list", t);
+        }
+
+        try {
+            for (String name : MaredCommandStorage.listCommands()) {
+                files.add(new FileEntry(name, persistentNames.contains(name)));
+            }
+        } catch (Throwable t) {
+            Mared.LOGGER.warn(
                 "[studio] failed to list commands", t);
         }
+
         try {
             commands.addAll(MaredCommandRegistry.all());
         } catch (Throwable t) {
-            com.fixmer.mared.Mared.LOGGER.warn(
+            Mared.LOGGER.warn(
                 "[studio] failed to load registry", t);
         }
-        if (selectedFileIndex >= files.size()) selectedFileIndex = -1;
+
+        // Если выбранного файла больше нет — сбрасываем selection.
+        if (selectedFileName != null && !containsFile(selectedFileName)) {
+            selectedFileName = null;
+        }
         if (selectedCommandIndex >= commands.size()) selectedCommandIndex = -1;
         clampScroll();
     }
 
-    public List<String> files() { return List.copyOf(files); }
+    private boolean containsFile(String name) {
+        for (FileEntry e : files) {
+            if (e.name().equals(name)) return true;
+        }
+        return false;
+    }
+
+    public List<FileEntry> files() { return List.copyOf(files); }
 
     public List<MaredCommandRegistry.CommandInfo> commands() {
         return List.copyOf(commands);
     }
 
-    public String selectedFile() {
-        if (selectedFileIndex < 0 || selectedFileIndex >= files.size()) return null;
-        return files.get(selectedFileIndex);
-    }
+    public String selectedFile() { return selectedFileName; }
 
-    public void setSelectedFile(String name) {
-        selectedFileIndex = files.indexOf(name);
-    }
+    public void setSelectedFile(String name) { this.selectedFileName = name; }
 
     private int filesListY() { return bounds.y() + HEADER_H; }
     private int filesListH() {
         int half = (bounds.height() - SPLIT_GAP) / 2;
         return Math.max(20, half - HEADER_H);
     }
-    private int commandsHeaderY() { return filesListY() + filesListH() + SPLIT_GAP; }
+    private int commandsHeaderY() {
+        return filesListY() + filesListH() + SPLIT_GAP;
+    }
     private int commandsListY()   { return commandsHeaderY() + HEADER_H; }
-    private int commandsListH()   { return Math.max(20, bounds.bottom() - commandsListY()); }
+    private int commandsListH()   {
+        return Math.max(20, bounds.bottom() - commandsListY());
+    }
     private int filesVisibleRows()    { return Math.max(1, filesListH() / ROW_H); }
     private int commandsVisibleRows() { return Math.max(1, commandsListH() / ROW_H); }
     private int plusX() { return bounds.right() - PLUS_SIZE - PAD; }
@@ -135,11 +177,13 @@ public final class ExplorerComponent extends MaredPanel {
         g.fill(bounds.x(), sepY, bounds.right(), sepY + 1, 0x33FFFFFF);
 
         g.drawString(font, "Commands (" + commands.size() + ")",
-            bounds.x() + PAD, commandsHeaderY() + 3, ThemeColors.muted(), false);
+            bounds.x() + PAD, commandsHeaderY() + 3,
+            ThemeColors.muted(), false);
 
         if (commands.isEmpty()) {
             g.drawString(font, "(none loaded)",
-                bounds.x() + PAD, commandsListY() + 2, ThemeColors.muted(), false);
+                bounds.x() + PAD, commandsListY() + 2,
+                ThemeColors.muted(), false);
             return;
         }
         int cVisible = commandsVisibleRows();
@@ -151,8 +195,10 @@ public final class ExplorerComponent extends MaredPanel {
     }
 
     private void drawFileRow(GuiGraphics g, Font font, int i, int y) {
-        boolean selected = (i == selectedFileIndex);
+        FileEntry entry = files.get(i);
+        boolean selected = entry.name().equals(selectedFileName);
         boolean hovered = (i == hoveredFileIndex);
+
         if (selected) {
             g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1,
                 ThemeColors.hover());
@@ -160,12 +206,15 @@ public final class ExplorerComponent extends MaredPanel {
             g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1,
                 0x33FFFFFF);
         }
-        String name = files.get(i);
-        if (MaredPersistentStorage.isPersistent(name)) {
+
+        // 0.3.2: persistent — из модели, не из Storage.
+        if (entry.persistent()) {
             g.fill(bounds.x() + 1, y, bounds.x() + 3, y + ROW_H - 1, 0xFF55FF88);
         }
+
         int color = selected ? ThemeColors.accent() : ThemeColors.text();
-        g.drawString(font, name, bounds.x() + PAD + 4, y + 3, color, false);
+        g.drawString(font, entry.name(),
+            bounds.x() + PAD + 4, y + 3, color, false);
     }
 
     private void drawCommandRow(GuiGraphics g, Font font, int i, int y) {
@@ -236,18 +285,21 @@ public final class ExplorerComponent extends MaredPanel {
         if (my >= fListY && my < fListY + fListH) {
             int idx = filesScroll + (int) ((my - fListY) / ROW_H);
             if (idx < 0 || idx >= files.size()) return true;
-            String name = files.get(idx);
+            String name = files.get(idx).name();
             if (button == 0) {
-                if (idx == selectedFileIndex) return true;
-                selectedFileIndex = idx;
+                if (name.equals(selectedFileName)) return true;
+                selectedFileName = name;
                 bus.publish(new StudioEvents.FileSelectedEvent(name));
                 bus.publish(StudioEvents.LogEvent.legacy(
                     "[studio] selected file: " + name));
                 return true;
             }
             if (button == 1) {
-                selectedFileIndex = idx;
-                openFileContextMenu((int) mx, (int) my, name);
+                selectedFileName = name;
+                // 0.3.2: Explorer не знает содержимого меню —
+                // Screen строит его из actions.
+                bus.publish(new StudioEvents.RequestContextMenuForFileEvent(
+                    (int) mx, (int) my, name));
                 return true;
             }
             return true;
@@ -266,22 +318,6 @@ public final class ExplorerComponent extends MaredPanel {
             return true;
         }
         return true;
-    }
-
-    private void openFileContextMenu(int x, int y, String fileName) {
-        List<ContextMenuEntry> items = new ArrayList<>(6);
-        items.add(ContextMenuEntry.of("Open",
-            () -> bus.publish(new StudioEvents.FileSelectedEvent(fileName))));
-        items.add(ContextMenuEntry.divider());
-        items.add(ContextMenuEntry.of("Rename...",
-            () -> bus.publish(new StudioEvents.RequestRenameFileEvent(fileName))));
-        items.add(ContextMenuEntry.of("Duplicate",
-            () -> bus.publish(new StudioEvents.RequestDuplicateFileEvent(fileName))));
-        items.add(ContextMenuEntry.divider());
-        items.add(ContextMenuEntry.of("Delete...",
-            () -> bus.publish(new StudioEvents.RequestDeleteFileEvent(fileName))));
-
-        bus.publish(new StudioEvents.RequestContextMenuEvent(x, y, items));
     }
 
     @Override
@@ -316,5 +352,21 @@ public final class ExplorerComponent extends MaredPanel {
         int maxOffC = Math.max(0, commands.size() - visibleC);
         if (commandsScroll > maxOffC) commandsScroll = maxOffC;
         if (commandsScroll < 0) commandsScroll = 0;
+    }
+
+    // ============================================================
+    //  Narration (0.3.2 accessibility)
+    // ============================================================
+
+    @Override
+    public Component narrationText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(MaredLang.format("mared.narration.explorer.summary",
+            files.size(), commands.size()));
+        if (selectedFileName != null) {
+            sb.append(' ').append(MaredLang.format(
+                "mared.narration.explorer.selected", selectedFileName));
+        }
+        return Component.literal(sb.toString());
     }
 }

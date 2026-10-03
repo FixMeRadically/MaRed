@@ -2,7 +2,7 @@ package com.fixmer.mared.gui2.docking;
 
 
 import com.fixmer.mared.gui2.framework.core.MaredComponent;
-import com.fixmer.mared.gui2.theme.ModuleType;
+import com.fixmer.mared.gui2.modules.theme.ModuleType;
 
 
 
@@ -228,4 +228,12 @@ public abstract class MaredDockPanel
     }
 
 
+
+
+    @Override
+    public int accentColor() {
+        com.fixmer.mared.gui2.modules.theme.ModuleTheme mt =
+            com.fixmer.mared.gui2.modules.theme.ModuleColorRegistry.get(moduleType());
+        return mt != null ? mt.accent() : 0xFF55AAFF;
+    }
 }

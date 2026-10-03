@@ -1,6 +1,6 @@
 package com.fixmer.mared.modules;
 
-import com.fixmer.mared.gui2.theme.ModuleType;
+import com.fixmer.mared.gui2.modules.theme.ModuleType;
 
 /**
  * Описание модуля MaRed Studio.

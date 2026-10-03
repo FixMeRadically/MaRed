@@ -2,12 +2,15 @@ package com.fixmer.mared.gui2.docking.render;
 
 import com.fixmer.mared.gui2.docking.DockNode;
 import com.fixmer.mared.gui2.docking.DockPanel;
+import com.fixmer.mared.gui2.docking.DockPosition;
+import com.fixmer.mared.gui2.docking.layout.DockBounds;
 import com.fixmer.mared.gui2.docking.style.DockStyle;
 import com.fixmer.mared.gui2.framework.core.MaredRenderContext;
 import com.fixmer.mared.gui2.framework.theme.MaredTheme;
 import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
-import com.fixmer.mared.gui2.theme.ModuleColorRegistry;
-import com.fixmer.mared.gui2.theme.ModuleTheme;
+import com.fixmer.mared.gui2.modules.theme.ModuleColorRegistry;
+import com.fixmer.mared.gui2.modules.theme.ModuleTheme;
+import com.fixmer.mared.gui2.modules.theme.ModuleType;
 
 import net.minecraft.client.gui.Font;
 
@@ -16,8 +19,7 @@ import net.minecraft.client.gui.Font;
  *
  * 0.3.0: тема из MaredThemeRegistry.
  * 0.3.1: рендер tab bar для узлов с > 1 панелью.
- *        Первая панель — «хост таба»; title рисуется как вкладка,
- *        остальные панели — тоже вкладки.
+ * 0.3.2: стрелка collapse в header'е + hit-test.
  */
 public final class DockPanelRenderer {
 
@@ -56,6 +58,9 @@ public final class DockPanelRenderer {
             y + DockStyle.ACCENT_INDICATOR_Y + DockStyle.ACCENT_INDICATOR_H,
             accent);
 
+        // 0.3.2: стрелка collapse — для single-panel узла тоже.
+        drawCollapseArrow(context, null, x, y, DockStyle.HEADER_HEIGHT);
+
         context.graphics().drawString(context.font(), panel.title(),
             x + DockStyle.TITLE_OFFSET_X, y + DockStyle.TITLE_OFFSET_Y,
             0xFFFFFFFF);
@@ -75,37 +80,32 @@ public final class DockPanelRenderer {
     //  Tab bar (multi-panel node)
     // ============================================================
 
-    /**
-     * Рисует заголовок узла как tab bar: одна вкладка на panel.
-     * Активная вкладка подсвечена accent'ом и подчёркнута.
-     *
-     * @return ширина, оставшаяся на вкладки (для диагностики).
-     */
     public static void renderTabs(DockNode node, MaredRenderContext context,
                                   int x, int y, int width, int headerH) {
 
         MaredTheme theme = MaredThemeRegistry.active();
         Font font = context.font();
 
-        // Фон header'а
         context.graphics().fill(x, y, x + width, y + headerH, theme.bgPanelRaised);
         context.graphics().fill(x, y, x + width, y + DockStyle.ACCENT_HEIGHT,
             theme.accent);
 
-        // Резервируем место справа под меню/закрыть.
         int reservedRight = DockStyle.MENU_BUTTON_OFFSET_RIGHT + 16
             + (node.activePanel() != null && node.activePanel().closable()
                 ? DockStyle.CLOSE_BUTTON_OFFSET_RIGHT + 16
                 : 0);
 
-        int availableW = Math.max(40, width - reservedRight);
+        // 0.3.2: резервируем место под стрелку collapse.
+        int reservedLeft = DockStyle.COLLAPSE_ARROW_OFFSET_X
+            + DockStyle.COLLAPSE_HIT_W + 4;
+
+        int availableW = Math.max(40, width - reservedRight - reservedLeft);
         int n = node.panelCount();
 
         int[] widths = computeTabWidths(font, node, availableW);
         int active = node.activeIndex();
 
-        int cx = x + DockStyle.ACCENT_INDICATOR_X
-            + DockStyle.ACCENT_INDICATOR_W + 6;
+        int cx = x + reservedLeft;
         int cy = y;
         int ch = headerH;
 
@@ -120,13 +120,11 @@ public final class DockPanelRenderer {
 
             int textColor = isActive ? theme.text : theme.textDim;
 
-            // Фон вкладки
             if (isActive) {
                 context.graphics().fill(cx, cy, cx + tw, cy + ch,
                     theme.bgPanel);
             }
 
-            // Текст
             String title = panel.title();
             int tx = cx + TAB_PAD_X;
             int ty = cy + (ch - 8) / 2;
@@ -134,7 +132,6 @@ public final class DockPanelRenderer {
             String drawn = ellipsize(font, title, maxTextW);
             context.graphics().drawString(font, drawn, tx, ty, textColor);
 
-            // Подчёркивание активного
             if (isActive) {
                 context.graphics().fill(cx, cy + ch - TAB_UNDERLINE,
                     cx + tw, cy + ch, accent);
@@ -142,6 +139,9 @@ public final class DockPanelRenderer {
 
             cx += tw + TAB_GAP;
         }
+
+        // 0.3.2: стрелка collapse — перекрывает левую часть header'а.
+        drawCollapseArrow(context, node, x, y, headerH);
 
         drawMenuButton(context, x + width - DockStyle.MENU_BUTTON_OFFSET_RIGHT,
             y + DockStyle.MENU_BUTTON_OFFSET_Y);
@@ -154,9 +154,6 @@ public final class DockPanelRenderer {
         }
     }
 
-    /**
-     * Найти индекс вкладки под курсором. -1 — мимо.
-     */
     public static int hitTab(DockNode node, MaredRenderContext context,
                              int x, int y, int width, int headerH,
                              double mx, double my) {
@@ -168,11 +165,14 @@ public final class DockPanelRenderer {
             + (node.activePanel() != null && node.activePanel().closable()
                 ? DockStyle.CLOSE_BUTTON_OFFSET_RIGHT + 16
                 : 0);
-        int availableW = Math.max(40, width - reservedRight);
+
+        int reservedLeft = DockStyle.COLLAPSE_ARROW_OFFSET_X
+            + DockStyle.COLLAPSE_HIT_W + 4;
+
+        int availableW = Math.max(40, width - reservedRight - reservedLeft);
 
         int[] widths = computeTabWidths(context.font(), node, availableW);
-        int cx = x + DockStyle.ACCENT_INDICATOR_X
-            + DockStyle.ACCENT_INDICATOR_W + 6;
+        int cx = x + reservedLeft;
 
         int n = node.panelCount();
         for (int i = 0; i < n; i++) {
@@ -181,6 +181,66 @@ public final class DockPanelRenderer {
             cx += tw + TAB_GAP;
         }
         return -1;
+    }
+
+    // ============================================================
+    //  Collapse arrow (0.3.2)
+    // ============================================================
+
+    /**
+     * Рисует стрелку collapse в header'е узла.
+     * node = null → стрелка не рисуется (single-panel узел без
+     * collapse — это заглушка для случая, когда collapse не поддержан).
+     */
+    static void drawCollapseArrow(MaredRenderContext ctx, DockNode node,
+                                  int x, int y, int headerH) {
+        if (node == null) return;
+        if (!node.isCollapsible()) return;
+
+        MaredTheme theme = MaredThemeRegistry.active();
+        boolean collapsed = node.isCollapsed();
+
+        String arrow;
+        switch (node.position()) {
+            case LEFT   -> arrow = collapsed ? "▶" : "◀";
+            case RIGHT  -> arrow = collapsed ? "◀" : "▶";
+            case BOTTOM -> arrow = collapsed ? "▲" : "▼";
+            default     -> { return; }
+        }
+
+        int ax = x + DockStyle.COLLAPSE_ARROW_OFFSET_X;
+        int ay = y + (headerH - 8) / 2;
+        ctx.graphics().drawString(ctx.font(), arrow, ax, ay,
+            theme.textDim, false);
+    }
+
+    /**
+     * Хит-тест стрелки collapse.
+     * Для collapsed узла вся панель = хит-зона (клик в любом месте
+     * разворачивает). Для развёрнутого — только узкая зона вокруг
+     * стрелки в header'е.
+     */
+    public static boolean hitCollapseArrow(DockNode node,
+                                           int mouseX, int mouseY) {
+        if (node == null) return false;
+        if (!node.isCollapsible()) return false;
+
+        DockBounds b = node.bounds();
+
+        // collapsed: вся панель — зона разворота.
+        if (node.isCollapsed()) {
+            return mouseX >= b.x() && mouseX < b.x() + b.width()
+                && mouseY >= b.y() && mouseY < b.y() + b.height();
+        }
+
+        // развёрнут: только зона стрелки в header'е.
+        if (mouseY < b.y() || mouseY >= b.y() + DockStyle.HEADER_HEIGHT) {
+            return false;
+        }
+
+        int ax = b.x() + DockStyle.COLLAPSE_ARROW_OFFSET_X - 2;
+        int aw = DockStyle.COLLAPSE_HIT_W;
+        return mouseX >= ax && mouseX < ax + aw;
     }
 
     // ============================================================
@@ -195,7 +255,6 @@ public final class DockPanelRenderer {
         int totalGaps = (n - 1) * TAB_GAP;
         int spaceForTabs = Math.max(1, availableW - totalGaps);
 
-        // Естественная ширина = text + padding.
         int[] natural = new int[n];
         int naturalTotal = 0;
         for (int i = 0; i < n; i++) {
@@ -209,7 +268,6 @@ public final class DockPanelRenderer {
             return widths;
         }
 
-        // Не влезает — делим поровну, не меньше TAB_MIN_W.
         int even = Math.max(TAB_MIN_W, spaceForTabs / n);
         for (int i = 0; i < n; i++) widths[i] = even;
         return widths;

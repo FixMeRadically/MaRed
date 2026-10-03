@@ -9,29 +9,19 @@ import net.minecraft.client.gui.GuiGraphics;
 /**
  * Базовые примитивы рендера gui2.
  *
- * Это плоский namespace примитивов (12 методов, все stateless).
- * НЕ God-class — высокая cohesion, низкая coupling. Разнос на
- * под-классы не планируется; рост медленный и контролируемый.
- *
- * 0.3.0 (Phase F5'): dialogBackground/dialogPanel читают цвета из
- * активной темы (было хардкод 0xFF0A0A10 / 0xFF14141C — тема не
- * влияла на диалоги).
+ * 0.3.2:
+ *   - textNoShadow.
+ *   - gradientV делегирует в GuiGraphics.fillGradient — один draw
+ *     call с vertex-цветами вместо N fill().
+ *     Раньше панель высотой 500px = 500 fill() вызовов. Теперь = 1.
  */
 public final class Render {
 
     private Render() {}
 
-    // ============================================================
-    //  Hit-test
-    // ============================================================
-
     public static boolean hovered(double mx, double my, int x, int y, int w, int h) {
         return mx >= x && mx < x + w && my >= y && my < y + h;
     }
-
-    // ============================================================
-    //  Примитивы
-    // ============================================================
 
     public static void rect(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
         g.fill(x1, y1, x2, y2, color);
@@ -41,12 +31,13 @@ public final class Render {
         g.renderOutline(x, y, w, h, color);
     }
 
-    // ============================================================
-    //  Текст (фасады над TextUtils)
-    // ============================================================
-
     public static void text(GuiGraphics g, Font f, String s, int x, int y, int color) {
         TextUtils.text(g, f, s, x, y, color);
+    }
+
+    public static void textNoShadow(GuiGraphics g, Font f, String s,
+                                    int x, int y, int color) {
+        TextUtils.textNoShadow(g, f, s, x, y, color);
     }
 
     public static void centered(GuiGraphics g, Font f, String s, int cx, int y, int color) {
@@ -57,16 +48,18 @@ public final class Render {
     //  Градиенты
     // ============================================================
 
+    /**
+     * 0.3.2: batching через GuiGraphics.fillGradient.
+     * Один draw call — quad с интерполяцией вершин.
+     */
     public static void gradientV(GuiGraphics g, int x1, int y1, int x2, int y2,
                                  int topColor, int bottomColor) {
-        int h = y2 - y1;
-        if (h <= 0) return;
-        if (h == 1) { g.fill(x1, y1, x2, y1 + 1, topColor); return; }
-        int denom = h - 1;
-        for (int i = 0; i < h; i++) {
-            g.fill(x1, y1 + i, x2, y1 + i + 1,
-                MaredColor.lerpColor(topColor, bottomColor, (float) i / denom));
+        if (y2 <= y1 || x2 <= x1) return;
+        if (topColor == bottomColor) {
+            g.fill(x1, y1, x2, y2, topColor);
+            return;
         }
+        g.fillGradient(x1, y1, x2, y2, topColor, bottomColor);
     }
 
     public static void outlineGradient(GuiGraphics g, int x, int y, int w, int h,
@@ -101,10 +94,7 @@ public final class Render {
                                    int radius, int color) {
         if (w <= 0 || h <= 0) return;
         int r = Math.min(Math.max(0, radius), Math.min(w / 2, h / 2));
-        if (r <= 0) {
-            g.fill(x, y, x + w, y + h, color);
-            return;
-        }
+        if (r <= 0) { g.fill(x, y, x + w, y + h, color); return; }
         g.fill(x + r, y, x + w - r, y + h, color);
         g.fill(x, y + r, x + w, y + h - r, color);
         for (int i = 0; i < r; i++) {
@@ -118,10 +108,7 @@ public final class Render {
                                       int radius, int color) {
         if (w <= 0 || h <= 0) return;
         int r = Math.min(Math.max(0, radius), Math.min(w / 2, h / 2));
-        if (r <= 0) {
-            g.renderOutline(x, y, w, h, color);
-            return;
-        }
+        if (r <= 0) { g.renderOutline(x, y, w, h, color); return; }
         g.fill(x + r, y, x + w - r, y + 1, color);
         g.fill(x + r, y + h - 1, x + w - r, y + h, color);
         g.fill(x, y + r, x + 1, y + h - r, color);
@@ -137,7 +124,7 @@ public final class Render {
     }
 
     // ============================================================
-    //  Диалоги (цвета из темы)
+    //  Диалоги
     // ============================================================
 
     public static void dialogBackground(GuiGraphics g, int screenW, int screenH) {
@@ -177,7 +164,7 @@ public final class Render {
     }
 
     // ============================================================
-    //  Кнопки 3D (для диалогов)
+    //  Кнопки 3D
     // ============================================================
 
     public static void button3D(GuiGraphics g, Font f, int x, int y, int w, int h,

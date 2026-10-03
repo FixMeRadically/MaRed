@@ -3,7 +3,7 @@ package com.fixmer.mared.gui2.studio.panels;
 import com.fixmer.mared.gui2.docking.MaredDockPanel;
 import com.fixmer.mared.gui2.studio.events.StudioEventBus;
 import com.fixmer.mared.gui2.studio.panels.inspector.InspectorComponent;
-import com.fixmer.mared.gui2.theme.ModuleType;
+import com.fixmer.mared.gui2.modules.theme.ModuleType;
 
 /**
  * Панель свойств выбранного объекта.

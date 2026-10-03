@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.fixmer.mared.MaredLang;
-import com.fixmer.mared.gui2.framework.render.MaredUi;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
 import com.fixmer.mared.gui2.framework.theme.MaredTheme;
 import com.fixmer.mared.services.logging.LogEntry;
 import com.fixmer.mared.services.logging.LogSettings;

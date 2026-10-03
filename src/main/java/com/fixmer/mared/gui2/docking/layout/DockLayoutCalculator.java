@@ -4,17 +4,22 @@ import com.fixmer.mared.gui2.docking.DockConstraints;
 import com.fixmer.mared.gui2.docking.DockLayout;
 import com.fixmer.mared.gui2.docking.DockNode;
 import com.fixmer.mared.gui2.docking.DockPosition;
+import com.fixmer.mared.gui2.docking.style.DockStyle;
 
 /**
  * Рассчитывает расположение Dock интерфейса.
  *
  * 0.3.0:
  *   - Bounds из ratios.
- *   - Размеры клампятся через DockConstraints per-позицию, а не хардкодом.
+ *   - Размеры клампятся через DockConstraints per-позицию.
  *   - TOP — fixed(constraints).
  * 0.3.0 (fix): если на позиции нет зарегистрированных панелей — не
- * резервировать место. Иначе при Focus preset остаются чёрные полосы
- * слева/справа/снизу, хотя панели отключены в настройках.
+ * резервировать место.
+ * 0.3.2 (collapse):
+ *   - Свёрнутый узел занимает фиксированный минимум:
+ *       LEFT/RIGHT — COLLAPSED_SIZE_SIDE,
+ *       BOTTOM     — COLLAPSED_SIZE_BOTTOM.
+ *   - TOP/CENTER игнорируют collapsed.
  */
 public final class DockLayoutCalculator {
 
@@ -35,13 +40,17 @@ public final class DockLayoutCalculator {
         boolean hasRight  = hasPanels(rightNode);
         boolean hasBottom = hasPanels(bottomNode);
 
+        // 0.3.2: collapse.
+        boolean leftCollapsed   = leftNode   != null && leftNode.isCollapsed();
+        boolean rightCollapsed  = rightNode  != null && rightNode.isCollapsed();
+        boolean bottomCollapsed = bottomNode != null && bottomNode.isCollapsed();
+
         DockConstraints topC    = layout.constraints(DockPosition.TOP);
         DockConstraints leftC   = layout.constraints(DockPosition.LEFT);
         DockConstraints rightC  = layout.constraints(DockPosition.RIGHT);
         DockConstraints bottomC = layout.constraints(DockPosition.BOTTOM);
         DockConstraints centerC = layout.constraints(DockPosition.CENTER);
 
-        // TOP — только если есть панели, иначе 0.
         int topH = 0;
         if (hasTop) {
             topH = topC.resizable()
@@ -49,15 +58,23 @@ public final class DockLayoutCalculator {
                 : topC.minPx();
         }
 
-        // Sides — 0, если панели нет.
+        // 0.3.2: свёрнутая панель = фиксированный минимум.
         int leftW = hasLeft
-            ? leftC.clamp((int)(screenWidth * layout.ratio(DockPosition.LEFT)))
+            ? (leftCollapsed
+                ? DockStyle.COLLAPSED_SIZE_SIDE
+                : leftC.clamp((int)(screenWidth * layout.ratio(DockPosition.LEFT))))
             : 0;
+
         int rightW = hasRight
-            ? rightC.clamp((int)(screenWidth * layout.ratio(DockPosition.RIGHT)))
+            ? (rightCollapsed
+                ? DockStyle.COLLAPSED_SIZE_SIDE
+                : rightC.clamp((int)(screenWidth * layout.ratio(DockPosition.RIGHT))))
             : 0;
+
         int bottomH = hasBottom
-            ? bottomC.clamp((int)(screenHeight * layout.ratio(DockPosition.BOTTOM)))
+            ? (bottomCollapsed
+                ? DockStyle.COLLAPSED_SIZE_BOTTOM
+                : bottomC.clamp((int)(screenHeight * layout.ratio(DockPosition.BOTTOM))))
             : 0;
 
         // Защита: LEFT + RIGHT не должны съесть CENTER.

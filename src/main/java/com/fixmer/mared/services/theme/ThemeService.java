@@ -2,21 +2,19 @@ package com.fixmer.mared.services.theme;
 
 import java.util.List;
 
+import com.fixmer.mared.gui2.framework.theme.MaredCustomThemes;
 import com.fixmer.mared.gui2.framework.theme.MaredTheme;
 import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
 
 /**
- * Сервис тем.
+ * Сервис тем — единая точка входа.
  *
- * 0.3.0 (Phase F6): единая точка входа для тем. Пока обёртка над
- * MaredThemeRegistry — но новый код должен использовать ThemeService,
- * а не реестр напрямую. Это позволит позже добавить:
- *   - ThemePreset (комбинация цветов + spacing + radius);
- *   - ThemeSync (загрузка с сервера);
- *   - ThemePreview (превью на лету);
- *   - hot-reload тем.
+ * 0.3.2 (audit #27):
+ *   Сервис перестаёт быть просто фасадом над реестром. Он владеет
+ *   операциями reload/register/unregisterCustom. Реестр остаётся
+ *   storage, но весь write-путь — через сервис.
  *
- * Не хранит состояние. Все данные — в MaredThemeRegistry.
+ *   Не хранит состояние само — все данные в MaredThemeRegistry.
  */
 public final class ThemeService {
 
@@ -26,27 +24,39 @@ public final class ThemeService {
 
     private ThemeService() {}
 
-    /** Активная тема. Никогда не null. */
     public MaredTheme active() {
         return MaredThemeRegistry.active();
     }
 
-    /** Все темы (встроенные + кастомные). */
     public List<MaredTheme> all() {
         return MaredThemeRegistry.all();
     }
 
-    /** Количество тем. */
     public int count() {
         return MaredThemeRegistry.count();
     }
 
-    /** Тема по id или null. */
     public MaredTheme byId(String id) {
         if (id == null) return null;
-        for (MaredTheme t : all()) {
-            if (id.equals(t.id)) return t;
-        }
-        return null;
+        return MaredThemeRegistry.get(id);
+    }
+
+    public void setActive(String id) {
+        MaredThemeRegistry.setActive(id);
+    }
+
+    /** Перезагрузить custom темы с диска. */
+    public void reloadCustom() {
+        MaredCustomThemes.reload();
+    }
+
+    /** Удалить custom тему. Built-in не трогается. */
+    public boolean unregisterCustom(String id) {
+        return MaredThemeRegistry.unregisterCustom(id);
+    }
+
+    /** Является ли тема custom (загруженной из themes.json). */
+    public boolean isCustom(String id) {
+        return MaredThemeRegistry.isCustom(id);
     }
 }

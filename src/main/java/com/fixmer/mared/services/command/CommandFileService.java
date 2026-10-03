@@ -11,27 +11,16 @@ import com.fixmer.mared.commands.storage.MaredPersistentStorage;
 /**
  * Сервис работы с файлами команд.
  *
- * 0.3.0 (Stage 2): вынесен из MaredStudioScreen.
- * 0.3.0 (Phase F4): переехал из gui2.studio.services в services.command.
+ * 0.3.2 (audit #58):
+ *   duplicate() удаляет первую строку "#persistent" из копии.
+ *   Раньше копия сохраняла маркер, но не регистрировалась в
+ *   persistent.txt — получался «призрачный» persistent: в файле
+ *   маркер есть, но обработчики не загружаются. Если пользователь
+ *   потом случайно делал copy → persistent через UI, registry мог
+ *   получить дубликаты on/every-обработчиков.
  *
- * 0.3.1:
- *   - create/rename/duplicate валидируют имя через
- *     MaredCommandStorage.validateName() (единый контракт с Storage).
- *   - rename() переносит persistent-флаг. Раньше GUI rename мог
- *     сломать persistent-контракт: файл физически переименовывался,
- *     но persistent.txt продолжал указывать на старое имя, а
- *     зарегистрированные обработчики — на удалённый файл.
- *   - duplicate() откатывает placeholder при провале записи. Раньше
- *     оставался мусорный file_copy с шаблонным текстом.
- *   - suggestDuplicateName() делает один listing и дальше работает
- *     in-memory. Раньше цикл с listCommands() внутри делал N обходов
- *     ФС на N копий.
- *   - rename(a, a) отклоняется — раньше молча «успех» без изменений.
- *   - duplicate() валидирует sourceName до чтения.
- *
- * Сервис не знает ни о UI, ни о шине событий.
- * Возвращает Result — вызывающий сам публикует LogEvent и делает
- * refreshExplorer.
+ *   Продуктовое решение: копия — обычный файл. Пользователь сам
+ *   решает, делать ли её persistent.
  */
 public final class CommandFileService {
 
@@ -89,36 +78,15 @@ public final class CommandFileService {
     }
 
     // ============================================================
-    //  Rename   ← P0-6
+    //  Rename
     // ============================================================
 
-    /**
-     * 0.3.1 (P0-6): переносит persistent-флаг.
-     *
-     * Сценарий, который раньше ломался:
-     *   1. Пользователь создал persistent-файл "test" (в persistent.txt).
-     *   2. Explorer: Rename test → hello.
-     *   3. CommandFileService.rename вызывал MaredCommandStorage.rename,
-     *      который физически переименовывал файл.
-     *   4. persistent.txt продолжал указывать на "test".
-     *   5. MaredPersistentLoader.loadAll() на следующем старте пытался
-     *      читать несуществующий test.txt, ругался, и persistent-обработчики
-     *      терялись.
-     *
-     * Фикс: если oldName был persistent — переносим запись в
-     * persistent.txt и перезагружаем обработчики. Слушатели
-     * перестают ссылаться на удалённый файл.
-     */
     public Result rename(String oldName, String newName) {
         String code = MaredCommandStorage.validateName(newName);
         if (code != null) {
             return new Result(false,
                 "[studio] invalid name '" + newName + "': " + code);
         }
-
-        // 0.3.1: rename на себя — не no-op, а явная ошибка.
-        // Иначе получим "успех" без изменения файла и потенциальный
-        // FileRenamedEvent(old==new) в Screen.
         if (oldName != null && oldName.equals(newName)) {
             return new Result(false,
                 "[studio] rename skipped: source and target are equal: " + oldName);
@@ -132,15 +100,9 @@ public final class CommandFileService {
         }
 
         if (wasPersistent) {
-            // Переносим флаг. Порядок: сначала remove старого, потом add
-            // нового — чтобы transient-состояние не содержало оба.
             MaredPersistentStorage.remove(oldName);
             MaredPersistentStorage.add(newName);
 
-            // Перезагружаем обработчики с чистого листа. Все ранее
-            // зарегистрированные on/every/after из этого файла
-            // указывали на старый контекст — теперь они будут
-            // загружены из нового имени.
             MaredEventRegistry.clearAllPersistent();
             MaredPersistentLoader.reset();
             MaredPersistentLoader.loadAll();
@@ -154,27 +116,9 @@ public final class CommandFileService {
     }
 
     // ============================================================
-    //  Duplicate   ← P0-7
+    //  Duplicate
     // ============================================================
 
-    /**
-     * 0.3.1 (P0-7): копирование с откатом.
-     *
-     * Сценарий, который раньше ломался:
-     *   1. Explorer: Duplicate "src".
-     *   2. createCommand("src_copy") создаёт файл с шаблонным
-     *      комментарием (// Write Minecraft commands here...).
-     *   3. writeCommand("src_copy", content) падает — например,
-     *      нет прав на запись / диск полон.
-     *   4. Метод возвращает failure, но placeholder-файл с шаблоном
-     *      остаётся на диске.
-     *
-     * Фикс: при провале writeCommand — deleteCommand(copyName).
-     *
-     * Плюс: явная валидация sourceName. Раньше невалидное имя
-     * (со слешем, слишком длинное) отсекалось только в exists(),
-     * но suggestion строился от него.
-     */
     public Result duplicate(String sourceName) {
         String code = MaredCommandStorage.validateName(sourceName);
         if (code != null) {
@@ -191,15 +135,15 @@ public final class CommandFileService {
         String content = MaredCommandStorage.readCommand(sourceName);
         if (content == null) content = "";
 
+        // 0.3.2 (audit #58): копия НЕ сохраняет #persistent-маркер.
+        content = stripPersistentMarker(content);
+
         if (!MaredCommandStorage.createCommand(copyName)) {
             return new Result(false,
                 "[studio] FAILED to duplicate (create step): " + sourceName);
         }
 
         if (!MaredCommandStorage.writeCommand(copyName, content)) {
-            // 0.3.1: rollback. Если этого не сделать — в списке
-            // остаётся placeholder с шаблонным текстом, который
-            // пользователь увидит как "успешно созданную копию".
             MaredCommandStorage.deleteCommand(copyName);
             return new Result(false,
                 "[studio] FAILED to write duplicate: " + copyName
@@ -210,23 +154,27 @@ public final class CommandFileService {
             "[studio] duplicated: " + sourceName + " → " + copyName);
     }
 
+    /**
+     * Убирает первую строку "#persistent", если она есть.
+     * Возвращает остальное содержимое без изменений.
+     */
+    private static String stripPersistentMarker(String content) {
+        if (content == null || content.isEmpty()) return "";
+        if (!content.startsWith("#persistent")) return content;
+        int nl = content.indexOf('\n');
+        if (nl < 0) return "";
+        return content.substring(nl + 1);
+    }
+
     // ============================================================
     //  Read / Write
     // ============================================================
 
-    /**
-     * Прочитать содержимое файла команды.
-     * Возвращает null, если имя невалидно или файл недоступен.
-     */
     public String read(String name) {
         if (name == null || name.isEmpty()) return null;
         return MaredCommandStorage.readCommand(name);
     }
 
-    /**
-     * Записать содержимое файла команды.
-     * Атомарная запись (см. MaredCommandStorage.writeCommand).
-     */
     public boolean write(String name, String content) {
         if (name == null || name.isEmpty()) return false;
         return MaredCommandStorage.writeCommand(name, content);
@@ -246,7 +194,7 @@ public final class CommandFileService {
     }
 
     // ============================================================
-    //  Helpers для Screen
+    //  Helpers
     // ============================================================
 
     public boolean exists(String name) {
@@ -257,17 +205,6 @@ public final class CommandFileService {
         return MaredPersistentStorage.isPersistent(name);
     }
 
-    /**
-     * 0.3.1: один listing ФС, дальше in-memory.
-     *
-     * Раньше:
-     *   while (MaredCommandStorage.listCommands().contains(candidate)) {
-     *       candidate = sourceName + "_copy" + n++;
-     *   }
-     * На 1000 существующих копий — 1000 directory listing'ов.
-     *
-     * Теперь: один снимок в Set, дальше цикл в памяти.
-     */
     public String suggestDuplicateName(String sourceName) {
         Set<String> existing =
             new HashSet<>(MaredCommandStorage.listCommands());
@@ -284,11 +221,6 @@ public final class CommandFileService {
     //  Внутреннее
     // ============================================================
 
-    /**
-     * Пометить файл как persistent.
-     * - добавляет #persistent в начало содержимого, если его нет;
-     * - регистрирует имя в persistent.txt.
-     */
     private void markPersistent(String name) {
         String content = MaredCommandStorage.readCommand(name);
         if (content == null) content = "";

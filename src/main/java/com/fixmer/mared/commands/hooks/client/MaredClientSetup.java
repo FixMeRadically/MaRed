@@ -2,6 +2,7 @@ package com.fixmer.mared.commands.hooks.client;
 
 import com.fixmer.mared.Mared;
 import com.fixmer.mared.commands.events.MaredPersistentLoader;
+import com.fixmer.mared.plugin.PluginLoader;
 import com.fixmer.mared.services.threading.MaredThreading;
 
 import net.neoforged.api.distmarker.Dist;
@@ -14,6 +15,8 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
  *
  * 0.3.0: только mod event bus — setup. Shutdown переехал в
  * MaredClientShutdown (game bus, GameShuttingDownEvent).
+ * 0.3.2: PluginLoader.loadAll() — загрузка плагинов после
+ * bootstrap реестров и persistent-скриптов.
  */
 @EventBusSubscriber(modid = Mared.MOD_ID, value = Dist.CLIENT)
 public class MaredClientSetup {
@@ -27,5 +30,6 @@ public class MaredClientSetup {
 
         MaredThreading.init();
         MaredPersistentLoader.loadAll();
+        PluginLoader.loadAll();   // 0.3.2
     }
 }

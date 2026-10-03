@@ -3,7 +3,7 @@ package com.fixmer.mared.gui2.framework.components.editor;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.fixmer.mared.gui2.framework.render.MaredUi;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -12,8 +12,25 @@ import net.minecraft.util.Mth;
 /**
  * View-слой редактора.
  *
- * 0.3.1: добавлен resetBlink() — редактор дёргает его при вводе,
- * чтобы курсор не пропадал в невидимой половине цикла.
+ * 0.3.2 (span-based rendering):
+ *   Раньше текст рисовался по одному символу через g.drawString().
+ *   На видимых 30×100 символах это 3000 draw calls на кадр, что на
+ *   больших скриптах с подсветкой станет узким местом.
+ *
+ *   Теперь:
+ *     - SpanResolver возвращает список TextSpan для логической строки
+ *       (границы — в logical columns, цвета — ARGB);
+ *     - EditorView в render конвертирует spans в visual runs
+ *       (с заменой \t на пробелы), каждый run — один draw call;
+ *     - selection рисуется одним rect на строку (не посимвольно);
+ *     - курсор вычисляется через font.width(префикс) — как раньше,
+ *       но один раз на позицию, а не в цикле по символам.
+ *
+ *   Производительность: O(число spans) draw calls на строку вместо
+ *   O(число символов). На plain-режиме — 1 draw call на строку.
+ *
+ *   База для syntax highlighting: любой SpanResolver может вернуть
+ *   spans по токенам (keywords / strings / numbers ...).
  */
 public final class EditorView {
 
@@ -54,6 +71,12 @@ public final class EditorView {
     private int rowStartsWidthVersion = -1;
 
     // ============================================================
+    //  Span resolver
+    // ============================================================
+
+    private SpanResolver spanResolver = SpanResolver.plain();
+
+    // ============================================================
     //  Scroll / cursor-blink state
     // ============================================================
 
@@ -76,11 +99,6 @@ public final class EditorView {
         draggingScrollbar = false;
     }
 
-    /**
-     * 0.3.1: сбросить blink в видимое состояние.
-     * Вызывается при вводе, клике, перемещении курсора — чтобы
-     * пользователь сразу видел каретку.
-     */
     public void resetBlink() {
         lastBlink = 0;
         cursorVisible = true;
@@ -89,8 +107,18 @@ public final class EditorView {
     public int scrollLine() { return scrollLine; }
     public boolean isDraggingScrollbar() { return draggingScrollbar; }
 
+    /**
+     * 0.3.2: установить кастомный resolver (например, для подсветки).
+     * null → plain().
+     */
+    public void setSpanResolver(SpanResolver r) {
+        this.spanResolver = r != null ? r : SpanResolver.plain();
+    }
+
+    public SpanResolver spanResolver() { return spanResolver; }
+
     // ============================================================
-    //  Wrap cache
+    //  Wrap cache (не менялось)
     // ============================================================
 
     private int availableTextWidth(int w) {
@@ -193,14 +221,48 @@ public final class EditorView {
     //  Cursor visibility
     // ============================================================
 
+    /**
+     * 0.3.2 (audit #81):
+     *   Раньше скролл шёл к visual row начала логической строки.
+     *   Если строка обёрнута на 5 visual rows и курсор на пятой —
+     *   скролл не сдвигался (visual row начала уже виден), и
+     *   курсор оставался за пределами viewport.
+     *
+     *   Теперь находим visual row именно курсора: начало строки +
+     *   число визуальных строк, пройденных до cursorCol.
+     */
     public void ensureCursorVisible(int w, int h, EditorDocument doc, Font font) {
         ensureVisualRowStarts(w, doc, font);
         int cl = Math.min(doc.cursorLine(), doc.lineCount() - 1);
-        int cursorVisual = visualRowStarts[cl];
+        int cc = doc.cursorCol();
+
+        LineWrap wrap = getWrapFor(cl, w, doc, font);
+        int physicalStart = visualRowStarts[cl];
+
+        int cursorVisual;
+        if (wrap == null || wrap.physical.size() <= 1) {
+            cursorVisual = physicalStart;
+        } else {
+            int physIdx = 0;
+            for (int i = 0; i < wrap.physical.size(); i++) {
+                int nextStart = (i + 1 < wrap.charStart.length)
+                    ? wrap.charStart[i + 1]
+                    : Integer.MAX_VALUE;
+                if (cc >= wrap.charStart[i] && cc < nextStart) {
+                    physIdx = i;
+                    break;
+                }
+                if (i == wrap.physical.size() - 1) physIdx = i;
+            }
+            cursorVisual = physicalStart + physIdx;
+        }
+
         int visibleRows = visibleVisualRows(h);
-        if (cursorVisual < scrollLine) scrollLine = cursorVisual;
-        else if (cursorVisual >= scrollLine + visibleRows)
+        if (cursorVisual < scrollLine) {
+            scrollLine = cursorVisual;
+        } else if (cursorVisual >= scrollLine + visibleRows) {
             scrollLine = cursorVisual - visibleRows + 1;
+        }
         if (scrollLine < 0) scrollLine = 0;
     }
 
@@ -231,7 +293,7 @@ public final class EditorView {
         int accW = 0;
         int col = physicalText.length();
         for (int i = 0; i < physicalText.length(); i++) {
-            int chW = font.width(String.valueOf(physicalText.charAt(i)));
+            int chW = charWidth(physicalText, i, font);
             if (accW + chW >= relX) { col = i; break; }
             accW += chW;
         }
@@ -240,6 +302,16 @@ public final class EditorView {
         String fullLine = doc.line(logLine);
         logicalCol = Mth.clamp(logicalCol, 0, fullLine.length());
         return new int[]{logLine, logicalCol};
+    }
+
+    /**
+     * Ширина одного символа с учётом замены \t → "    ".
+     * Единая точка — используется и в pixelToPos, и в render.
+     */
+    private static int charWidth(String text, int idx, Font font) {
+        char c = text.charAt(idx);
+        if (c == '\t') return font.width("    ");
+        return font.width(String.valueOf(c));
     }
 
     // ============================================================
@@ -304,7 +376,7 @@ public final class EditorView {
     }
 
     // ============================================================
-    //  Render
+    //  Render — span-based
     // ============================================================
 
     public void render(GuiGraphics g, Font font,
@@ -345,9 +417,33 @@ public final class EditorView {
         int cursorVisualRow = -1;
         int cursorX = textX0;
 
+        // Кэш spans на текущий кадр — по строке, чтобы не пересчитывать
+        // при следующих её появлениях. Простой список + индекс.
+        // На видимых строках обычно < 40 — линейного поиска достаточно.
+        // Для простоты — резолвим для каждой строки, что видим.
+        int baseColor = spanResolver.baseColor();
+
         for (int li = startLog; li <= endLog; li++) {
             LineWrap wrap = getWrapFor(li, w, doc, font);
             if (wrap == null) continue;
+
+            String logicalLine = doc.line(li);
+
+            // Spans для логической строки.
+            List<TextSpan> spans;
+            try {
+                spans = spanResolver.resolveSpans(li, logicalLine, doc);
+            } catch (Throwable t) {
+                spans = null;
+            }
+            if (spans == null || spans.isEmpty()) {
+                if (!logicalLine.isEmpty()) {
+                    spans = List.of(
+                        new TextSpan(0, logicalLine.length(), baseColor));
+                } else {
+                    spans = List.of();
+                }
+            }
 
             int physicalStart = visualRowStarts[li];
             List<String> physical = wrap.physical;
@@ -364,49 +460,44 @@ public final class EditorView {
 
                 String physicalText = physical.get(pIdx);
                 int baseChar = wrap.charStart[pIdx];
+                int physLen = physicalText.length();
+                int physLo = baseChar;
+                int physHi = baseChar + physLen;
 
                 if (pIdx == 0) {
                     g.drawString(font, String.valueOf(li + 1),
                         lineNumX, lineY, COLOR_NUMBERS, false);
                 }
 
-                int curX = textX0;
-                int physLen = physicalText.length();
-                for (int c = 0; c < physLen; c++) {
-                    char rawChar = physicalText.charAt(c);
-                    String ch = rawChar == '\t' ? "    " : String.valueOf(rawChar);
-                    int chWidth = font.width(ch);
-
-                    int logicalCol = baseChar + c;
-
-                    if (selStartL >= 0 && isCharSelectedFast(li, logicalCol,
-                        selStartL, selStartC, selEndL, selEndC)) {
-                        g.fill(curX, lineY, curX + chWidth,
-                            lineY + LINE_HEIGHT - 1, COLOR_SELECT);
-                    }
-
-                    g.drawString(font, ch, curX, lineY, COLOR_TEXT, false);
-                    curX += chWidth;
-
-                    if (cursorLine == li && cursorCol == logicalCol) {
-                        cursorVisualRow = currentVisual;
-                        cursorX = curX - chWidth;
+                // --- Selection fill (один rect на строку) ---
+                if (selStartL >= 0) {
+                    int[] range = selectionRangeFor(
+                        li, physLo, physHi, physicalText, baseChar,
+                        selStartL, selStartC, selEndL, selEndC, font);
+                    if (range != null) {
+                        int xFrom = textX0 + range[0];
+                        int xTo   = textX0 + range[1];
+                        if (xTo > xFrom) {
+                            g.fill(xFrom, lineY, xTo, lineY + LINE_HEIGHT - 1,
+                                COLOR_SELECT);
+                        }
                     }
                 }
 
-                if (cursorLine == li && cursorCol == baseChar + physLen) {
+                // --- Spans draw ---
+                drawSpans(g, font, physicalText, physLo, physHi,
+                    spans, baseColor, textX0, lineY);
+
+                // --- Cursor position ---
+                if (cursorLine == li
+                    && cursorCol >= baseChar
+                    && cursorCol <= baseChar + physLen) {
+                    int prefix = cursorCol - baseChar;
                     cursorVisualRow = currentVisual;
-                    cursorX = curX;
+                    cursorX = textX0 + visualWidth(
+                        font, physicalText.substring(0, prefix));
                 }
             }
-        }
-
-        if (cursorLine >= 0 && cursorLine < doc.lineCount()
-            && cursorCol == doc.lineLength(cursorLine)) {
-            int physStart = visualRowStarts[cursorLine];
-            LineWrap wrap = getWrapFor(cursorLine, w, doc, font);
-            if (wrap != null)
-                cursorVisualRow = physStart + wrap.physical.size() - 1;
         }
 
         if (editable && focused && cursorVisualRow >= 0) {
@@ -441,12 +532,144 @@ public final class EditorView {
         }
     }
 
-    private static boolean isCharSelectedFast(int line, int col,
-                                              int sl, int sc, int el, int ec) {
-        if (line < sl || line > el) return false;
-        if (line == sl && line == el) return col >= sc && col < ec;
-        if (line == sl) return col >= sc;
-        if (line == el) return col < ec;
-        return true;
+    // ============================================================
+    //  Span drawing
+    // ============================================================
+
+    /**
+     * Рисует физическую строку по spans.
+     *
+     * Логика:
+     *   1. Пройтись по spans, отсекая по границам [physLo, physHi).
+     *   2. Смежные spans одного цвета — слить в один run.
+     *   3. Между spans — заполнить baseColor.
+     *   4. Каждый run — один drawString.
+     */
+    private static void drawSpans(GuiGraphics g, Font font,
+                                  String physicalText,
+                                  int physLo, int physHi,
+                                  List<TextSpan> spans,
+                                  int baseColor,
+                                  int textX0, int lineY) {
+
+        int physLen = physicalText.length();
+        if (physLen == 0) return;
+
+        int curX = textX0;
+        int cursor = 0; // индекс в physicalText
+
+        int n = spans.size();
+        for (int i = 0; i < n; i++) {
+            TextSpan s = spans.get(i);
+            TextSpan clamped = s.clamp(physLo, physHi);
+            if (clamped == null) continue;
+
+            int pStart = clamped.start() - physLo;
+            int pEnd = clamped.end() - physLo;
+
+            if (pStart > cursor) {
+                // Заполнить baseColor до span'а
+                curX = drawRun(g, font, physicalText,
+                    cursor, pStart, curX, lineY, baseColor);
+                cursor = pStart;
+            } else if (pStart < cursor) {
+                // Span перекрывается с уже нарисованным — обрезаем
+                // по текущему курсору. Приоритет у первого.
+                if (pEnd <= cursor) continue;
+                pStart = cursor;
+            }
+
+            curX = drawRun(g, font, physicalText,
+                pStart, pEnd, curX, lineY, clamped.color());
+            cursor = pEnd;
+
+            if (cursor >= physLen) break;
+        }
+
+        if (cursor < physLen) {
+            drawRun(g, font, physicalText,
+                cursor, physLen, curX, lineY, baseColor);
+        }
+    }
+
+    private static int drawRun(GuiGraphics g, Font font,
+                               String text, int start, int end,
+                               int drawX, int y, int color) {
+        if (end <= start) return drawX;
+        String visual = visualize(text, start, end);
+        if (visual.isEmpty()) return drawX;
+        g.drawString(font, visual, drawX, y, color, false);
+        return drawX + font.width(visual);
+    }
+
+    /**
+     * Selection → [xFrom, xTo] в координатах физической строки,
+     * или null если пересечения нет.
+     */
+    private static int[] selectionRangeFor(int li,
+                                           int physLo, int physHi,
+                                           String physicalText, int baseChar,
+                                           int selStartL, int selStartC,
+                                           int selEndL, int selEndC,
+                                           Font font) {
+        // Пересечение по строкам?
+        if (li < selStartL || li > selEndL) return null;
+
+        // Границы selection в logical columns для этой строки.
+        int logicalFrom;
+        int logicalTo;
+
+        if (li == selStartL && li == selEndL) {
+            logicalFrom = selStartC;
+            logicalTo   = selEndC;
+        } else if (li == selStartL) {
+            logicalFrom = selStartC;
+            logicalTo   = Integer.MAX_VALUE;
+        } else if (li == selEndL) {
+            logicalFrom = 0;
+            logicalTo   = selEndC;
+        } else {
+            logicalFrom = 0;
+            logicalTo   = Integer.MAX_VALUE;
+        }
+
+        // Пересечение с физической строкой [physLo, physHi).
+        int from = Math.max(logicalFrom, physLo);
+        int to   = Math.min(logicalTo, physHi);
+        if (to <= from) return null;
+
+        int pFrom = from - physLo;
+        int pTo   = to   - physLo;
+        int pLen  = physicalText.length();
+        pFrom = Math.max(0, Math.min(pLen, pFrom));
+        pTo   = Math.max(0, Math.min(pLen, pTo));
+
+        int xFrom = visualWidth(font,
+            physicalText.substring(0, pFrom));
+        int xTo = visualWidth(font,
+            physicalText.substring(0, pTo));
+
+        return new int[]{xFrom, xTo};
+    }
+
+    /**
+     * Визуальный текст: \t → "    ".
+     * Без лишних аллокаций, если \t нет.
+     */
+    private static String visualize(String text, int start, int end) {
+        if (start == 0 && end == text.length()) {
+            return visualize(text);
+        }
+        return visualize(text.substring(start, end));
+    }
+
+    private static String visualize(String s) {
+        if (s.isEmpty()) return s;
+        if (s.indexOf('\t') < 0) return s;
+        return s.replace("\t", "    ");
+    }
+
+    private static int visualWidth(Font font, String s) {
+        return font.width(visualize(s));
     }
 }

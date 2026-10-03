@@ -12,8 +12,16 @@ import net.minecraft.network.chat.Component;
 /**
  * Компактная кнопка MaRed.
  *
- * 0.3.0: перенос из gui.common.MaredCompactButton. Использует
- * gui2.framework.render.Render вместо MaredUi.
+ * 0.3.0: перенос из gui.common. Использует gui2.framework.render.Render.
+ * 0.3.2 (accessibility):
+ *   updateWidgetNarration больше не пустая.
+ *   Раньше кнопка была невидима для screen reader'а: Minecraft
+ *   вызывает updateWidgetNarration при focus/hover, и пустая
+ *   реализация означала, что кнопка "молчит".
+ *
+ *   Реализация — стандартный defaultButtonNarrationText из
+ *   AbstractWidget: озвучивает label и подсказку
+ *   (focused/hovered). Для кнопки этого достаточно.
  */
 public class MaredCompactButton extends AbstractWidget {
 
@@ -44,7 +52,8 @@ public class MaredCompactButton extends AbstractWidget {
     }
 
     @Override
-    protected void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderWidget(GuiGraphics g, int mouseX, int mouseY,
+                                float partialTick) {
         boolean hovered = this.isHovered();
 
         int border = hovered ? accentColor : COLOR_BORDER;
@@ -64,6 +73,14 @@ public class MaredCompactButton extends AbstractWidget {
         g.drawString(Minecraft.getInstance().font, text, tx, ty, color, true);
     }
 
+    /**
+     * 0.3.2: narration contract.
+     * defaultButtonNarrationText озвучивает:
+     *   - label (getMessage()),
+     *   - подсказку: focused / hovered.
+     */
     @Override
-    protected void updateWidgetNarration(NarrationElementOutput narration) {}
+    protected void updateWidgetNarration(NarrationElementOutput narration) {
+        defaultButtonNarrationText(narration);
+    }
 }

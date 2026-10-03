@@ -3,7 +3,8 @@ package com.fixmer.mared.gui2.settings.tabs;
 import java.util.List;
 
 import com.fixmer.mared.MaredLang;
-import com.fixmer.mared.gui2.framework.render.MaredUi;
+import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
+import com.fixmer.mared.gui2.settings.LogsSettingsView;
 import com.fixmer.mared.gui2.settings.MaredSettingsTab;
 import com.fixmer.mared.gui2.settings.SettingsContext;
 import com.fixmer.mared.services.logging.LogSettings;
@@ -12,12 +13,9 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * 0.3.0 (Phase B5): перенос legacy gui.settings.tabs.MaredLogsTab.
- * 0.3.0 (Phase E2a): работает через ctx.logs().
- * 0.3.0 (Phase F2): не дёргает LogSettings.* напрямую.
- * 0.3.0 (Phase F3a): log filter — draft, commit через ctx.apply().
- * 0.3.0 (Phase F3b): scroll + корректный return.
- * 0.3.0 (fix): убран двойной пересчёт scroll при hit-test.
+ * Logs tab.
+ *
+ * 0.3.2: работа с LogsSettingsView (вынесен из SettingsContext).
  */
 public final class MaredLogsTab implements MaredSettingsTab {
 
@@ -41,7 +39,7 @@ public final class MaredLogsTab implements MaredSettingsTab {
     @Override
     public void render(GuiGraphics g, Font font, int x, int y, int w, int h,
                        SettingsContext ctx, int mouseX, int mouseY) {
-        var lg = ctx.logs();
+        LogsSettingsView lg = ctx.logs();
         contentHeight = computeHeight(w, lg);
 
         g.enableScissor(x, y, x + w, y + h);
@@ -107,7 +105,7 @@ public final class MaredLogsTab implements MaredSettingsTab {
         g.disableScissor();
     }
 
-    private int computeHeight(int w, SettingsContext.LogsSettingsView lg) {
+    private int computeHeight(int w, LogsSettingsView lg) {
         int cols = Math.max(1, (w - 8) / (LEVEL_W + 6));
         int levelRows = (lg.allLevels().length + cols - 1) / cols;
         int catCols = Math.max(1, (w - 8) / (CAT_W + 6));
@@ -129,7 +127,7 @@ public final class MaredLogsTab implements MaredSettingsTab {
                                 SettingsContext ctx) {
         if (button != 0) return false;
         if (mx < x || mx >= x + w || my < y || my >= y + h) return false;
-        var lg = ctx.logs();
+        LogsSettingsView lg = ctx.logs();
 
         if (my >= chatY && my < chatY + 18) {
             lg.setLogChatToEditor(!lg.logChatToEditor());

@@ -5,10 +5,20 @@ import com.fixmer.mared.MaredLayoutPreset;
 /**
  * Настройки layout + UI state редактора.
  *
- * 0.3.0 (Phase F1): вынесено из MaredSettings.
- * 0.3.0 (Phase F3b): clamp через LayoutConstraints, NaN guard для splitRatio.
+ * 0.3.2 (audit #114): добавлены buttonCorner/buttonOffset —
+ * позиция кнопки MaRed на PauseScreen/TitleScreen.
  */
 public final class LayoutSettings {
+
+    public enum ButtonCorner {
+        TOP_RIGHT, TOP_LEFT, BOTTOM_RIGHT, BOTTOM_LEFT;
+
+        public static ButtonCorner fromId(String id) {
+            if (id == null) return TOP_RIGHT;
+            try { return valueOf(id); }
+            catch (IllegalArgumentException e) { return TOP_RIGHT; }
+        }
+    }
 
     private MaredLayoutPreset preset = MaredLayoutPreset.CLASSIC;
 
@@ -32,6 +42,10 @@ public final class LayoutSettings {
     private boolean logCollapsed   = false;
 
     private String settingsActiveTab = "layout";
+
+    // 0.3.2
+    private ButtonCorner buttonCorner = ButtonCorner.TOP_RIGHT;
+    private int buttonOffset = 10;
 
     public MaredLayoutPreset preset() { return preset; }
     public void setPreset(MaredLayoutPreset value) {
@@ -94,6 +108,17 @@ public final class LayoutSettings {
         settingsActiveTab = v == null ? "" : v;
     }
 
+    // 0.3.2
+    public ButtonCorner buttonCorner() { return buttonCorner; }
+    public void setButtonCorner(ButtonCorner c) {
+        buttonCorner = c == null ? ButtonCorner.TOP_RIGHT : c;
+    }
+
+    public int buttonOffset() { return buttonOffset; }
+    public void setButtonOffset(int v) {
+        buttonOffset = Math.max(0, Math.min(100, v));
+    }
+
     void resetToDefaults() {
         preset         = MaredLayoutPreset.CLASSIC;
         showSidebar    = true;
@@ -113,5 +138,7 @@ public final class LayoutSettings {
         sidebarState    = "CLOSED";
         logCollapsed    = false;
         settingsActiveTab = "layout";
+        buttonCorner    = ButtonCorner.TOP_RIGHT;
+        buttonOffset    = 10;
     }
 }

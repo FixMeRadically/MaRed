@@ -4,21 +4,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.gui2.framework.core.MaredRenderContext;
+import com.fixmer.mared.gui2.framework.core.NarratableComponent;
 import com.fixmer.mared.gui2.framework.theme.ThemeColors;
+
+import net.minecraft.network.chat.Component;
 
 /**
  * Список строк.
  *
  * 0.3.1:
- *   - hit-test согласован с render: и там, и там текстовый ряд
- *     начинается с bounds.y() + PAD_TOP.
- *     Раньше render рисовал через +10, а hit-test считал от bounds.y(),
- *     клик по верхней пустой области выбирал первую строку.
- *   - items() возвращает immutable копию — caller не может обойти
- *     selection/hover, мутируя внутренний список.
+ *   - hit-test согласован с render.
+ *   - items() возвращает immutable копию.
+ * 0.3.2 (audit #77):
+ *   - Реализует NarratableComponent: озвучивает количество элементов и
+ *     выбранный.
  */
-public class MaredList extends MaredPanel {
+public class MaredList extends MaredPanel implements NarratableComponent {
 
     protected final List<String> items = new ArrayList<>();
     private int selected = -1;
@@ -31,7 +34,6 @@ public class MaredList extends MaredPanel {
     public void add(String value) { if (value != null) items.add(value); }
     public void clear() { items.clear(); selected = -1; hoveredIndex = -1; }
 
-    /** 0.3.1: наружу immutable snapshot. */
     public List<String> items() { return List.copyOf(items); }
 
     public String selected() {
@@ -90,5 +92,21 @@ public class MaredList extends MaredPanel {
         if (idx < 0 || idx >= items.size()) return false;
         select(idx);
         return true;
+    }
+
+    // ============================================================
+    //  Narration
+    // ============================================================
+
+    @Override
+    public Component narrationText() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(MaredLang.format("mared.narration.list.count", items.size()));
+        String sel = selected();
+        if (sel != null) {
+            sb.append(' ').append(MaredLang.format(
+                "mared.narration.list.selected", sel));
+        }
+        return Component.literal(sb.toString());
     }
 }

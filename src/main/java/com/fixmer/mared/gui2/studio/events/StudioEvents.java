@@ -9,12 +9,9 @@ import com.fixmer.mared.services.logging.LogSettings;
 /**
  * События Studio.
  *
- * 0.3.1:
- *   - LogEvent стал структурированным: level, category, message.
- *     Публикующие могут указать level/category напрямую, а не
- *     полагаться на парсинг "[error]" из строки.
- *   - LogEvent.legacy(String) — переходный путь: парсит строку.
- *     Существующие call-sites продолжают работать.
+ * 0.3.2:
+ *   - RequestCloseDirtyDocumentEvent — Workspace просит Screen
+ *     показать confirm-диалог перед закрытием грязного таба.
  */
 public final class StudioEvents {
 
@@ -38,14 +35,14 @@ public final class StudioEvents {
         implements StudioEvent {}
 
     // ============================================================
-    //  Запросы на действия
+    //  Запросы
     // ============================================================
 
     public record RequestNewFileEvent() implements StudioEvent {}
-    public record RequestRenameFileEvent(String fileName) implements StudioEvent {}
-    public record RequestDuplicateFileEvent(String fileName) implements StudioEvent {}
-    public record RequestDeleteFileEvent(String fileName) implements StudioEvent {}
     public record RequestReloadPersistentEvent() implements StudioEvent {}
+
+    public record RequestContextMenuForFileEvent(int x, int y, String fileName)
+        implements StudioEvent {}
 
     public record RequestContextMenuEvent(int x, int y,
                                           List<ContextMenuEntry> entries)
@@ -55,19 +52,17 @@ public final class StudioEvents {
         }
     }
 
+    /**
+     * 0.3.2: грязный таб пытаются закрыть. Screen показывает
+     * confirm-диалог Save / Discard / Cancel.
+     */
+    public record RequestCloseDirtyDocumentEvent(String documentTitle)
+        implements StudioEvent {}
+
     // ============================================================
     //  Логи
     // ============================================================
 
-    /**
-     * 0.3.1: структурированное событие лога.
-     *
-     * Публикующие:
-     *   bus.publish(new LogEvent(Level.ERROR, "studio",
-     *       "save failed: " + name))
-     *
-     * Screen перенаправляет в MaredLogPanel.addStructured(...).
-     */
     public record LogEvent(LogSettings.Level level,
                            String category,
                            String message,
@@ -84,10 +79,6 @@ public final class StudioEvents {
             this(level, category, message, null);
         }
 
-        /**
-         * Переходный конструктор: строка парсится так же, как раньше
-         * в MaredLogPanel.add(String).
-         */
         public static LogEvent legacy(String line) {
             if (line == null) line = "";
             return new LogEvent(

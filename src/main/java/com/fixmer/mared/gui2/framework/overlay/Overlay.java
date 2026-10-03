@@ -6,29 +6,15 @@ import net.minecraft.client.gui.GuiGraphics;
 /**
  * Базовый overlay MaRed Studio.
  *
- * Overlay — элемент, который рисуется поверх содержимого экрана и
- * может перехватывать input. Управляется OverlayManager (per-screen).
- *
- * Контракт:
- *   - layer() определяет порядок render/dispatch.
- *   - isInputBarrier() — если true, все input-события останавливаются
- *     на этом overlay'е, даже если клик вне его визуальной области.
- *   - closeOnEscape() — если true, Escape закрывает overlay.
- *   - mouseClicked/keyPressed возвращают true, если событие поглощено.
- *
- * onOpen/onClose вызываются OverlayManager при push/remove — overlay
- * может ставить/снимать подписки, менять курсор и т.п.
+ * 0.3.2:
+ *   - charTyped() — ввод символов.
+ *   - mouseScrolled() — скролл для палитр/списков.
+ *   - consumeCloseRequest() — overlay просит закрыться.
  */
 public interface Overlay {
 
     OverlayLayer layer();
-
-    /**
-     * Если true — все input-события останавливаются на этом overlay'е.
-     * Используется модальными диалогами.
-     */
     default boolean isInputBarrier() { return false; }
-
     default boolean closeOnEscape() { return true; }
 
     default void onOpen() {}
@@ -42,7 +28,18 @@ public interface Overlay {
         return false;
     }
 
+    default boolean mouseScrolled(double mx, double my,
+                                  double scrollX, double scrollY) {
+        return false;
+    }
+
     default boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         return false;
     }
+
+    default boolean charTyped(char codePoint, int modifiers) {
+        return false;
+    }
+
+    default boolean consumeCloseRequest() { return false; }
 }
