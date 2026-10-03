@@ -12,18 +12,8 @@ import net.minecraft.util.Mth;
 /**
  * View-слой редактора.
  *
- * 0.3.0 (Phase D2): вынесен из MaredMultiLineEditBox.
- *
- * Содержит:
- *   - wrap-кэш (по контенту/ширине);
- *   - таблицу визуальных строк (visualRowStarts);
- *   - scroll state (scrollLine, scrollbar drag);
- *   - cursor blink state;
- *   - render();
- *   - pixelToPos() — попадание клика в (line, col);
- *   - ensureCursorVisible().
- *
- * Stateless относительно документа: передаётся в каждый метод.
+ * 0.3.1: добавлен resetBlink() — редактор дёргает его при вводе,
+ * чтобы курсор не пропадал в невидимой половине цикла.
  */
 public final class EditorView {
 
@@ -77,10 +67,8 @@ public final class EditorView {
 
     public EditorView() {}
 
-    /** Вызывать при смене ширины виджета. */
     public void invalidateWidth() { widthVersion++; }
 
-    /** Сброс скролла/курсора — при setValue(). */
     public void resetScroll() {
         scrollLine = 0;
         lastBlink = 0;
@@ -88,11 +76,21 @@ public final class EditorView {
         draggingScrollbar = false;
     }
 
+    /**
+     * 0.3.1: сбросить blink в видимое состояние.
+     * Вызывается при вводе, клике, перемещении курсора — чтобы
+     * пользователь сразу видел каретку.
+     */
+    public void resetBlink() {
+        lastBlink = 0;
+        cursorVisible = true;
+    }
+
     public int scrollLine() { return scrollLine; }
     public boolean isDraggingScrollbar() { return draggingScrollbar; }
 
     // ============================================================
-    //  Wrap cache — internals
+    //  Wrap cache
     // ============================================================
 
     private int availableTextWidth(int w) {
@@ -105,7 +103,7 @@ public final class EditorView {
         LineWrap cached = wrapCache.get(logLine);
         if (cached != null) return cached;
 
-        String text = doc.line(logLine).toString();
+        String text = doc.line(logLine);
         int availW = availableTextWidth(w);
 
         List<String> physical = MaredUi.wrapLinesCached(font, text, availW);
@@ -239,7 +237,7 @@ public final class EditorView {
         }
 
         int logicalCol = baseChar + col;
-        String fullLine = doc.line(logLine).toString();
+        String fullLine = doc.line(logLine);
         logicalCol = Mth.clamp(logicalCol, 0, fullLine.length());
         return new int[]{logLine, logicalCol};
     }
@@ -256,8 +254,6 @@ public final class EditorView {
         else if (deltaY > 0) scrollLine = Math.max(0, scrollLine - 1);
         return true;
     }
-
-    // ---- Scrollbar ----
 
     public boolean isScrollable(int w, int h, EditorDocument doc, Font font) {
         return totalVisualRows(w, doc, font) > visibleVisualRows(h);

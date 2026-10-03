@@ -1,13 +1,14 @@
 package com.fixmer.mared.gui2.framework.render;
 
 /**
- * Глобальное состояние анимаций.
- *
- * 0.3.0 (Phase A): рефакторинг. Скрытого статического clock больше нет.
- * Теперь MaredAnimState — статический фасад над AnimationClock
+ * Глобальное состояние анимаций — статический фасад над AnimationClock
  * текущего UiContext.
  *
- * @deprecated after 0.4.0 — использовать UiContext.clock().
+ * 0.3.1: без изменений по логике, но явно документирует, что требует
+ * MaredScale.bind(). Если UiContext не привязан — context() бросит
+ * IllegalStateException.
+ *
+ * @deprecated after 0.4.0 — использовать UiContext.clock() явно.
  */
 @Deprecated
 public final class MaredAnimState {

@@ -6,22 +6,13 @@ import java.util.List;
 /**
  * Модель текстового документа.
  *
- * 0.3.0 (Phase D1): вынесена из MaredMultiLineEditBox.
- *
- * Содержит:
- *   - строки (List<StringBuilder>);
- *   - курсор (line, col);
- *   - селекцию (start/end);
- *   - edit-примитивы (insert/delete/move/merge/snapshot);
- *   - contentVersion для инвалидации кэшей.
- *
- * НЕ содержит:
- *   - undo/redo (это EditorHistory);
- *   - авто-индентацию (это controller — знает про MaredSettings);
- *   - рендер, wrap, input, Minecraft.
- *
- * Все мутирующие методы инкрементируют contentVersion.
- * Caller обязан вызвать history.pushBefore(doc) ДО мутации.
+ * 0.3.1:
+ *   - line(i) возвращает immutable String.
+ *   - Валидация курсора и selection.
+ *   - applyEdit / revertEdit — низкоуровневые примитивы для
+ *     delta-based истории. Работают через replaceRange, не через
+ *     посимвольные операции.
+ *   - getTextRange — произвольный диапазон как строка.
  */
 public final class EditorDocument {
 
@@ -44,7 +35,6 @@ public final class EditorDocument {
     // ============================================================
 
     public int contentVersion() { return contentVersion; }
-
     private void touch() { contentVersion++; }
 
     public int lineCount() { return lines.size(); }
@@ -54,9 +44,9 @@ public final class EditorDocument {
         return lines.get(i).length();
     }
 
-    public CharSequence line(int i) {
+    public String line(int i) {
         if (i < 0 || i >= lines.size()) return "";
-        return lines.get(i);
+        return lines.get(i).toString();
     }
 
     public int cursorLine() { return cursorLine; }
@@ -67,7 +57,6 @@ public final class EditorDocument {
             && (selStartLine != selEndLine || selStartCol != selEndCol);
     }
 
-    /** [sl, sc, el, ec], где (sl,sc) <= (el,ec). Или null, если нет селекции. */
     public int[] orderedSelection() {
         if (!hasSelection()) return null;
         boolean forward = selStartLine < selEndLine
@@ -93,7 +82,15 @@ public final class EditorDocument {
     public String getSelectedText() {
         int[] r = orderedSelection();
         if (r == null) return "";
-        int sl = r[0], sc = r[1], el = r[2], ec = r[3];
+        return getTextRange(r[0], r[1], r[2], r[3]);
+    }
+
+    /**
+     * 0.3.1: произвольный диапазон текста.
+     */
+    public String getTextRange(int sl, int sc, int el, int ec) {
+        if (sl < 0 || sl >= lines.size()) return "";
+        if (el < 0 || el >= lines.size()) return "";
         if (sl == el) return lines.get(sl).substring(sc, ec);
         StringBuilder sb = new StringBuilder(64);
         sb.append(lines.get(sl).substring(sc));
@@ -117,12 +114,16 @@ public final class EditorDocument {
     }
 
     public void startSelection(int line, int col) {
-        selStartLine = line; selStartCol = col;
-        selEndLine = line; selEndCol = col;
+        int l = clamp(line, 0, lines.size() - 1);
+        int c = clamp(col, 0, lines.get(l).length());
+        selStartLine = l; selStartCol = c;
+        selEndLine = l; selEndCol = c;
     }
 
     public void extendSelection(int line, int col) {
-        selEndLine = line; selEndCol = col;
+        int l = clamp(line, 0, lines.size() - 1);
+        int c = clamp(col, 0, lines.get(l).length());
+        selEndLine = l; selEndCol = c;
     }
 
     public void selectAll() {
@@ -132,7 +133,7 @@ public final class EditorDocument {
     }
 
     // ============================================================
-    //  Value (замена целиком)
+    //  Value
     // ============================================================
 
     public void setValue(String text) {
@@ -151,23 +152,70 @@ public final class EditorDocument {
     }
 
     // ============================================================
-    //  Editing primitives (caller делает history.pushBefore до)
+    //  Low-level primitives (для Edit)
     // ============================================================
 
-    public void insertChar(char c) {
-        if (hasSelection()) deleteSelectionInternal();
-        lines.get(cursorLine).insert(cursorCol, c);
-        cursorCol++;
+    /**
+     * 0.3.1: заменить [sl,sc .. el,ec) на text. Курсор ставится в
+     * конец вставленного фрагмента. Selection очищается.
+     */
+    public void replaceRange(int sl, int sc, int el, int ec, String text) {
+        if (sl < 0 || sl >= lines.size()) return;
+        if (el < 0 || el >= lines.size()) return;
+        if (text == null) text = "";
+
+        // 1. Удалить [sl, sc .. el, ec)
+        StringBuilder first = lines.get(sl);
+        String tail = lines.get(el).substring(ec);
+        first.delete(sc, first.length());
+        first.append(tail);
+        for (int i = el; i > sl; i--) lines.remove(i);
+
+        // 2. Вставить text в (sl, sc)
+        cursorLine = sl;
+        cursorCol = sc;
+        clearSelection();
+        insertStringInternal(text);
+
         touch();
     }
 
     /**
-     * Вставка строки, возможно содержащей '\n'.
-     * Многострочная вставка обрабатывается как paste (split + cursor в конце).
+     * Применить Edit вперёд (redo).
      */
-    public void insertString(String s) {
+    public void applyEdit(Edit e) {
+        if (e == null || e.isEmpty()) return;
+
+        int[] end = Edit.advancePosition(
+            e.startLine(), e.startCol(), e.removedText());
+
+        replaceRange(e.startLine(), e.startCol(),
+            end[0], end[1], e.insertedText());
+
+        setCursor(e.cursorAfterLine(), e.cursorAfterCol());
+    }
+
+    /**
+     * Откатить Edit (undo).
+     */
+    public void revertEdit(Edit e) {
+        if (e == null || e.isEmpty()) return;
+
+        int[] end = Edit.advancePosition(
+            e.startLine(), e.startCol(), e.insertedText());
+
+        replaceRange(e.startLine(), e.startCol(),
+            end[0], end[1], e.removedText());
+
+        setCursor(e.cursorBeforeLine(), e.cursorBeforeCol());
+    }
+
+    /**
+     * 0.3.1: insertString без проверки hasSelection — используется из
+     * replaceRange (selection уже очищена выше).
+     */
+    private void insertStringInternal(String s) {
         if (s == null || s.isEmpty()) return;
-        if (hasSelection()) deleteSelectionInternal();
 
         String[] parts = s.replace("\r", "").split("\n", -1);
         StringBuilder cur = lines.get(cursorLine);
@@ -175,7 +223,6 @@ public final class EditorDocument {
         if (parts.length == 1) {
             cur.insert(cursorCol, parts[0]);
             cursorCol += parts[0].length();
-            touch();
             return;
         }
 
@@ -192,6 +239,23 @@ public final class EditorDocument {
 
         cursorLine = insertAt;
         cursorCol = parts[parts.length - 1].length();
+    }
+
+    // ============================================================
+    //  Editing primitives (совместимость — controller строит Edit)
+    // ============================================================
+
+    public void insertChar(char c) {
+        if (hasSelection()) deleteSelectionInternal();
+        lines.get(cursorLine).insert(cursorCol, c);
+        cursorCol++;
+        touch();
+    }
+
+    public void insertString(String s) {
+        if (s == null || s.isEmpty()) return;
+        if (hasSelection()) deleteSelectionInternal();
+        insertStringInternal(s);
         touch();
     }
 
@@ -238,10 +302,6 @@ public final class EditorDocument {
         touch();
     }
 
-    /**
-     * Разбить текущую строку по курсору. indent — префикс новой строки
-     * (auto-indent — вычисляет controller).
-     */
     public void insertNewLine(String indent) {
         if (hasSelection()) deleteSelectionInternal();
         if (indent == null) indent = "";
@@ -319,9 +379,11 @@ public final class EditorDocument {
     public void moveEnd()  { cursorCol = lines.get(cursorLine).length(); }
 
     // ============================================================
-    //  Snapshot (для EditorHistory)
+    //  Legacy snapshot API
     // ============================================================
 
+    /** @deprecated delta-история больше не использует снапшоты. */
+    @Deprecated
     public String[] snapshotLines() {
         int n = lines.size();
         String[] arr = new String[n];
@@ -329,6 +391,8 @@ public final class EditorDocument {
         return arr;
     }
 
+    /** @deprecated delta-история больше не использует снапшоты. */
+    @Deprecated
     public void applySnapshot(String[] arr, int cl, int cc) {
         lines.clear();
         for (String s : arr) lines.add(new StringBuilder(s));

@@ -6,16 +6,23 @@ import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
 /**
  * Пери-экранный UI-контекст.
  *
- * 0.3.0 (Phase A): введён, чтобы убрать скрытое глобальное состояние
- * из MaredScale и MaredAnimState. Один экран = один UiContext.
+ * 0.3.0 (Phase A): введён, чтобы убрать скрытое глобальное состояние из
+ * MaredScale и MaredAnimState. Один экран = один UiContext.
+ *
+ * 0.3.1 (реальное подключение):
+ *   - Убран floor на screenW/screenH через max(320, ...) — layout получал
+ *     виртуальный размер и располагал элементы за пределами реального
+ *     окна. Теперь screenW/screenH — точные значения из Screen.width/height.
+ *   - px(0) возвращает 0 (не 1). Подмена нуля единицей ломала семантику
+ *     универсального scale-primitive: layout с padding=0 получал padding=1.
+ *     Минимумы применяются отдельно через pxMin().
+ *   - scale считается от физического разрешения, но НЕ как
+ *     physW/BASE_W напрямую — учитываем, что MC уже применил свой
+ *     guiScale. Формула: scale = physW / (BASE_W * mcGuiScale) —
+ *     это устраняет двойное масштабирование при guiScale>1.
  *
  * Владелец — MaredStudioScreen (или другой Screen). Создаётся в init(),
- * уничтожается в removed(). Компоненты получают контекст через
- * render(MaredRenderContext), который внутри держит ссылку на UiContext.
- *
- * До 0.4.0 статический фасад MaredScale делегирует к "текущему"
- * контексту (для совместимости с сотнями call-site). С 0.4.0 фасад
- * удаляется, UiContext передаётся явно.
+ * разрушается в removed().
  */
 public final class UiContext {
 
@@ -33,39 +40,62 @@ public final class UiContext {
     private final int screenH;
     private final int physW;
     private final int physH;
+    private final int mcGuiScale;
     private final float scale;
     private final Level level;
     private final AnimationClock clock;
     private final MaredTheme theme;
 
-    public UiContext(int guiW, int guiH, int physW, int physH) {
-        this(guiW, guiH, physW, physH, MaredThemeRegistry.active());
+    /**
+     * @param guiW        Screen.width  (уже в GUI-координатах после MC guiScale)
+     * @param guiH        Screen.height
+     * @param physW       физическая ширина окна (Window.getWidth())
+     * @param physH       физическая высота окна
+     * @param mcGuiScale  Minecraft Window.getGuiScale() — 1,2,3,4
+     */
+    public UiContext(int guiW, int guiH,
+                     int physW, int physH,
+                     int mcGuiScale) {
+        this(guiW, guiH, physW, physH, mcGuiScale, MaredThemeRegistry.active());
     }
 
-    public UiContext(int guiW, int guiH, int physW, int physH, MaredTheme theme) {
-        this.screenW = Math.max(320, guiW);
-        this.screenH = Math.max(240, guiH);
+    public UiContext(int guiW, int guiH,
+                     int physW, int physH,
+                     int mcGuiScale,
+                     MaredTheme theme) {
+        this.screenW = Math.max(1, guiW);
+        this.screenH = Math.max(1, guiH);
         this.physW   = physW > 0 ? physW : guiW;
         this.physH   = physH > 0 ? physH : guiH;
+        this.mcGuiScale = Math.max(1, mcGuiScale);
         this.theme   = theme != null ? theme : MaredThemeRegistry.active();
         this.clock   = new AnimationClock();
 
-        float sw = this.physW / (float) BASE_W;
-        float sh = this.physH / (float) BASE_H;
+        // 0.3.1: убираем двойное масштабирование.
+        // Если MC уже отдал нам GUI-space в mcGuiScale раз меньший, то
+        // сравнивать physW с BASE_W напрямую нельзя — получим layout,
+        // который в GUI-координатах выглядит в mcGuiScale раз больше
+        // задуманного.
+        float effectivePhysicalW = this.physW / (float) this.mcGuiScale;
+        float effectivePhysicalH = this.physH / (float) this.mcGuiScale;
+
+        float sw = effectivePhysicalW / (float) BASE_W;
+        float sh = effectivePhysicalH / (float) BASE_H;
         this.scale = clamp(SCALE_MIN, Math.min(sw, sh), SCALE_MAX);
 
-        if      (this.physW >= THRESHOLD_COMPACT) this.level = Level.FULL;
-        else if (this.physW >= THRESHOLD_NARROW)  this.level = Level.COMPACT;
-        else if (this.physW >= THRESHOLD_TINY)    this.level = Level.NARROW;
-        else                                      this.level = Level.TINY;
+        if      (this.screenW >= THRESHOLD_COMPACT) this.level = Level.FULL;
+        else if (this.screenW >= THRESHOLD_NARROW)  this.level = Level.COMPACT;
+        else if (this.screenW >= THRESHOLD_TINY)    this.level = Level.NARROW;
+        else                                        this.level = Level.TINY;
     }
 
-    public int screenW()  { return screenW; }
-    public int screenH()  { return screenH; }
-    public int physW()    { return physW; }
-    public int physH()    { return physH; }
-    public float scale()  { return scale; }
-    public Level level()  { return level; }
+    public int screenW()     { return screenW; }
+    public int screenH()     { return screenH; }
+    public int physW()       { return physW; }
+    public int physH()       { return physH; }
+    public int mcGuiScale()  { return mcGuiScale; }
+    public float scale()     { return scale; }
+    public Level level()     { return level; }
     public AnimationClock clock() { return clock; }
     public MaredTheme theme() { return theme; }
 
@@ -74,13 +104,32 @@ public final class UiContext {
     public boolean isNarrow()  { return level == Level.NARROW; }
     public boolean isTiny()    { return level == Level.TINY; }
 
-    public int px(int base)    { return Math.max(1, Math.round(base * scale)); }
-    public int pxMin(int b, int m) { return Math.max(m, px(b)); }
-    public int pxMax(int b, int m) { return Math.min(m, px(b)); }
+    /**
+     * 0.3.1: px(0) == 0.
+     * Раньше через Math.max(1, ...) ноль превращался в единицу, что
+     * ломало layout с padding=0 и создавало "фантомные" отступы.
+     */
+    public int px(int base) {
+        if (base == 0) return 0;
+        return Math.round(base * scale);
+    }
 
-    public int pxClamp(int b, int minPx, int maxPx) {
-        int v = px(b);
-        return v < minPx ? minPx : (v > maxPx ? maxPx : v);
+    /** px с явным минимумом. */
+    public int pxMin(int base, int minPx) {
+        int v = px(base);
+        return v < minPx ? minPx : v;
+    }
+
+    public int pxMax(int base, int maxPx) {
+        int v = px(base);
+        return v > maxPx ? maxPx : v;
+    }
+
+    public int pxClamp(int base, int minPx, int maxPx) {
+        int v = px(base);
+        if (v < minPx) return minPx;
+        if (v > maxPx) return maxPx;
+        return v;
     }
 
     public int percentW(float pct) { return Math.round(screenW * pct); }

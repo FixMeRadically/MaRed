@@ -1,92 +1,120 @@
 package com.fixmer.mared.welcome;
 
+import java.util.List;
+
+import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.gui2.framework.render.MaredTabStyles;
 import com.fixmer.mared.gui2.framework.render.MaredUi;
+import com.fixmer.mared.modules.ModuleAvailability;
+import com.fixmer.mared.modules.ModuleDescriptor;
+import com.fixmer.mared.modules.ModuleRegistry;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
  * 0.3.0 (Stage B7): MaredTabStyles / MaredUi — из gui2.framework.render.
+ *
+ * 0.3.1: карточки формируются из ModuleRegistry.
+ *   - Никаких хардкодных "scripts/commands/npc/events/quests".
+ *   - Никаких кэшированных переведённых строк — перевод резолвится
+ *     через MaredLang.get() во время render.
+ *   - Модуль со статусом SOON/DISABLED помечается и не открывается.
+ *   - Если модулей больше, чем влезает в 2 ряда — layout переносит
+ *     их построчно; max — весь экран.
  */
 public final class MaredWelcomeTabButtons {
 
     private static final class TabButton {
-        final String tab;
-        final String letter;
-        final String name;
-        final String desc;
+        final ModuleDescriptor module;
         int x, y, w, h;
+        TabButton(ModuleDescriptor module) { this.module = module; }
+    }
 
-        TabButton(String tab, String letter, String name, String desc) {
-            this.tab = tab; this.letter = letter;
-            this.name = name; this.desc = desc;
+    private final List<TabButton> buttons;
+
+    public MaredWelcomeTabButtons() {
+        List<ModuleDescriptor> modules = ModuleRegistry.all();
+        this.buttons = new java.util.ArrayList<>(modules.size());
+        for (ModuleDescriptor m : modules) {
+            buttons.add(new TabButton(m));
         }
     }
 
-    private final TabButton[] buttons;
+    // ============================================================
+    //  Layout
+    // ============================================================
 
-    public MaredWelcomeTabButtons() {
-        buttons = new TabButton[]{
-            new TabButton("scripts",  "S", "Scripts",  "Пиши скрипты"),
-            new TabButton("commands", "C", "Commands", "Справочник\nи файлы\nкоманд"),
-            new TabButton("npc",      "N", "NPC",      "Управление\nNPC"),
-            new TabButton("events",   "E", "Events",   "События"),
-            new TabButton("quests",   "Q", "Quests",   "Квесты"),
-        };
-    }
-
+    /**
+     * Раскладка карточек по центру.
+     *
+     * Стратегия: до 3 в ряд. Ряд 1 — первые 3, ряд 2 — следующие 2,
+     * остаток — третий ряд и т.д. Каждый ряд выравнивается по центру.
+     */
     public void layout(int centerX, int centerY) {
+        int n = buttons.size();
+        if (n == 0) return;
+
+        int perRow = Math.min(3, n);
         int btnW = MaredUi.px(120);
         int btnH = MaredUi.px(90);
         int gapX = MaredUi.px(16);
         int gapY = MaredUi.px(16);
 
-        int row1Count = 3;
-        int row1W = row1Count * btnW + (row1Count - 1) * gapX;
-        int row1X = centerX - row1W / 2;
-        int row1Y = centerY - btnH - gapY / 2;
+        int rows = (n + perRow - 1) / perRow;
+        int totalH = rows * btnH + (rows - 1) * gapY;
+        int startY = centerY - totalH / 2;
 
-        for (int i = 0; i < row1Count; i++) {
-            TabButton b = buttons[i];
-            b.x = row1X + i * (btnW + gapX);
-            b.y = row1Y;
-            b.w = btnW;
-            b.h = btnH;
-        }
+        for (int r = 0; r < rows; r++) {
+            int from = r * perRow;
+            int to = Math.min(n, from + perRow);
+            int inRow = to - from;
 
-        int row2Count = 2;
-        int row2W = row2Count * btnW + (row2Count - 1) * gapX;
-        int row2X = centerX - row2W / 2;
-        int row2Y = row1Y + btnH + gapY;
+            int rowW = inRow * btnW + (inRow - 1) * gapX;
+            int rowX = centerX - rowW / 2;
+            int rowY = startY + r * (btnH + gapY);
 
-        for (int i = 0; i < row2Count; i++) {
-            TabButton b = buttons[row1Count + i];
-            b.x = row2X + i * (btnW + gapX);
-            b.y = row2Y;
-            b.w = btnW;
-            b.h = btnH;
+            for (int i = 0; i < inRow; i++) {
+                TabButton b = buttons.get(from + i);
+                b.x = rowX + i * (btnW + gapX);
+                b.y = rowY;
+                b.w = btnW;
+                b.h = btnH;
+            }
         }
     }
 
+    // ============================================================
+    //  Render
+    // ============================================================
+
     public void render(GuiGraphics g, Font font, int mouseX, int mouseY) {
         for (TabButton b : buttons) {
-            boolean hover = MaredUi.hovered(mouseX, mouseY,
-                b.x, b.y, b.w, b.h);
+            boolean hover = b.module.availability() == ModuleAvailability.AVAILABLE
+                && MaredUi.hovered(mouseX, mouseY, b.x, b.y, b.w, b.h);
             drawCard(g, font, b, hover);
         }
     }
 
-    private void drawCard(GuiGraphics g, Font font, TabButton b,
-                          boolean hover) {
-        int accentTop = MaredTabStyles.topColor(b.tab);
-        int accentBot = MaredTabStyles.bottomColor(b.tab);
+    private void drawCard(GuiGraphics g, Font font, TabButton b, boolean hover) {
+        ModuleDescriptor m = b.module;
+
+        int accentTop = MaredTabStyles.topColor(m.id());
+        int accentBot = MaredTabStyles.bottomColor(m.id());
+
+        // 0.3.1: карточка недоступного модуля приглушена.
+        boolean dim = m.availability() != ModuleAvailability.AVAILABLE;
+        if (dim) {
+            accentTop = MaredUi.darken(accentTop, 0.55f);
+            accentBot = MaredUi.darken(accentBot, 0.55f);
+        }
 
         MaredUi.shadowAll(g, b.x, b.y, b.w, b.h, hover ? 4 : 2, 0x80000000);
 
-        int bg = hover ? MaredUi.lighten(MaredUi.theme().bgPanelRaised, 0.05f)
-                       : MaredUi.theme().bgPanelRaised;
+        int bg = hover
+            ? MaredUi.lighten(MaredUi.theme().bgPanelRaised, 0.05f)
+            : MaredUi.theme().bgPanelRaised;
         MaredUi.roundedRect(g, b.x, b.y, b.w, b.h,
             MaredUi.radiusLarge(), bg);
 
@@ -102,28 +130,53 @@ public final class MaredWelcomeTabButtons {
         if (MaredSettings.isPatternsEnabled()) {
             MaredTabStyles.drawBackgroundPattern(g, b.x + 1,
                 b.y + MaredUi.px(5),
-                b.w - 2, b.h - MaredUi.px(6), b.tab, 20);
+                b.w - 2, b.h - MaredUi.px(6), m.id(), 20);
         }
 
         int letterY = b.y + MaredUi.px(14);
-        MaredUi.centered(g, font, b.letter, b.x + b.w / 2, letterY, accentTop);
+        MaredUi.centered(g, font, m.icon(), b.x + b.w / 2, letterY, accentTop);
 
         int nameY = b.y + MaredUi.px(46);
-        MaredUi.centered(g, font, b.name, b.x + b.w / 2, nameY,
-            MaredUi.theme().text);
+        String name = MaredLang.get(m.displayNameKey());
+        MaredUi.centered(g, font, name, b.x + b.w / 2, nameY,
+            dim ? MaredUi.theme().textDim : MaredUi.theme().text);
 
         int descY = b.y + MaredUi.px(60);
-        String[] lines = b.desc.split("\n");
-        for (String line : lines) {
+        String desc = MaredLang.get(m.descriptionKey());
+        for (String line : desc.split("\n")) {
             MaredUi.centered(g, font, line, b.x + b.w / 2, descY,
                 MaredUi.theme().textDim);
             descY += 10;
         }
+
+        // 0.3.1: badge для недоступных модулей.
+        if (m.availability() == ModuleAvailability.SOON) {
+            String badge = MaredLang.get("mared.module.badge.soon");
+            int bw = font.width(badge) + MaredUi.px(8);
+            int bx = b.x + b.w - bw - MaredUi.px(4);
+            int by = b.y + MaredUi.px(6);
+            MaredUi.rect(g, bx, by, bx + bw, by + MaredUi.px(10),
+                MaredUi.darken(accentTop, 0.5f));
+            MaredUi.centered(g, font, badge, bx + bw / 2, by + 1,
+                0xFFFFFFFF);
+        }
     }
 
+    // ============================================================
+    //  Mouse
+    // ============================================================
+
+    /**
+     * @return id модуля, если клик попал в доступную карточку;
+     *         null — если клик мимо или карточка недоступна.
+     */
     public String mouseClicked(double mx, double my) {
         for (TabButton b : buttons) {
-            if (MaredUi.hovered(mx, my, b.x, b.y, b.w, b.h)) return b.tab;
+            if (!MaredUi.hovered(mx, my, b.x, b.y, b.w, b.h)) continue;
+            if (b.module.availability() != ModuleAvailability.AVAILABLE) {
+                return null;
+            }
+            return b.module.id();
         }
         return null;
     }

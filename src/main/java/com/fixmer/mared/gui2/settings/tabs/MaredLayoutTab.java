@@ -13,12 +13,9 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * 0.3.0 (Phase B5): перенос legacy gui.settings.tabs.MaredLayoutTab.
- * 0.3.0 (Phase E2a): работает через ctx.layout().
- * 0.3.0 (Phase F3a): Reset сбрасывает только layout.
- * 0.3.0 (Phase F3b): presetBtnW из presets.length, button guard.
- * 0.3.0 (fix): убран двойной пересчёт scroll при hit-test — координаты
- * берутся из render() без дополнительного сдвига.
+ * 0.3.0 (Phase B5): перенос legacy MaredLayoutTab в gui2.
+ * 0.3.1: preset displayName/description читаются через MaredLang
+ * (ключи на enum).
  */
 public final class MaredLayoutTab implements MaredSettingsTab {
 
@@ -85,12 +82,13 @@ public final class MaredLayoutTab implements MaredSettingsTab {
             MaredUi.rect(g, bx, cy, bx + presetBtnW, cy + presetH, bg);
             MaredUi.outline(g, bx, cy, presetBtnW, presetH, border);
 
-            MaredUi.text(g, font, p.displayName, bx + 6, cy + 6,
-                active ? 0xFFFFFFFF : 0xFFAAAAAA);
+            MaredUi.text(g, font, MaredLang.get(p.displayNameKey()),
+                bx + 6, cy + 6, active ? 0xFFFFFFFF : 0xFFAAAAAA);
 
             int descY = cy + 20;
+            String desc = MaredLang.get(p.descriptionKey());
             StringBuilder line = new StringBuilder();
-            for (String word : p.description.split(" ")) {
+            for (String word : desc.split(" ")) {
                 String test = line.length() == 0 ? word : line + " " + word;
                 if (font.width(test) > presetBtnW - 12) {
                     MaredUi.text(g, font, line.toString(), bx + 6, descY,

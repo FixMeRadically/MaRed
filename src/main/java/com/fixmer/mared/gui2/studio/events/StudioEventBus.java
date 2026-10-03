@@ -1,22 +1,31 @@
 package com.fixmer.mared.gui2.studio.events;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.fixmer.mared.Mared;
+
 /**
  * Шина событий Studio.
  *
  * 0.3.1:
- *   - Приоритеты (HIGH/NORMAL/LOW) — детерминированный порядок вызова.
- *   - Subscription.active теперь честно проверяется при публикации.
- *   - Быстрая копия списка перед обходом — можно отписываться
- *     из обработчика.
+ *   - Subscription.unsubscribe() реально удаляет подписку из списка
+ *     (не только флаг). Раньше мёртвые подписки накапливались в
+ *     HashMap'е до bus.clear().
+ *   - Публикация идёт по immutable-снимку списка: можно отписываться
+ *     из обработчика без ConcurrentModificationException.
+ *   - Список подписок держится в отсортированном по приоритету виде —
+ *     сортировка не запускается на каждый publish.
+ *   - Старый overload unsubscribe(type, listener) удалён. Единственный
+ *     корректный путь — держать ссылку на Subscription и вызвать
+ *     у него unsubscribe().
  *
- * Не потокобезопасная: все публикации идут из render/tick на main thread.
+ * Не потокобезопасная: все публикации идут из render/tick на main
+ * thread. Если понадобится cross-thread — заменить HashMap на
+ * ConcurrentHashMap + CopyOnWriteArrayList.
  */
 public final class StudioEventBus {
 
@@ -33,11 +42,16 @@ public final class StudioEventBus {
     //  Subscription
     // ============================================================
 
-    public static final class Subscription {
+    /**
+     * 0.3.1: Subscription держит ссылку на owner-bus и на конкретный
+     * type. unsubscribe() удаляет подписку из списка владельца.
+     * Идемпотентно.
+     */
+    public final class Subscription {
         private final Class<?> type;
         private final Listener<?> listener;
         private final StudioPriority priority;
-        private volatile boolean active = true;
+        private boolean active = true;
 
         Subscription(Class<?> type, Listener<?> listener, StudioPriority priority) {
             this.type = type;
@@ -46,12 +60,12 @@ public final class StudioEventBus {
         }
 
         public void unsubscribe() {
+            if (!active) return;
             active = false;
+            removeSubscription(this);
         }
 
-        public boolean isActive() {
-            return active;
-        }
+        public boolean isActive() { return active; }
 
         Class<?> type() { return type; }
         Listener<?> listener() { return listener; }
@@ -62,9 +76,17 @@ public final class StudioEventBus {
     //  Storage
     // ============================================================
 
-    /** Порядок в списке = порядок регистрации. Сортировка — перед вызовом. */
+    /**
+     * Список всегда отсортирован по приоритету (HIGH → LOW).
+     * При добавлении подписки вставляем в правильное место —
+     * порядок регистрации сохраняется для одного приоритета.
+     */
     private final Map<Class<?>, List<Subscription>> subs = new HashMap<>();
 
+    /**
+     * Сортировка по ordinal: HIGH=0, NORMAL=1, LOW=2.
+     * Стабильная — для одного приоритета сохраняется порядок вставки.
+     */
     private static final Comparator<Subscription> BY_PRIORITY =
         Comparator.comparingInt(s -> s.priority.ordinal());
 
@@ -86,15 +108,40 @@ public final class StudioEventBus {
         if (priority == null) priority = StudioPriority.NORMAL;
 
         Subscription sub = new Subscription(type, listener, priority);
-        subs.computeIfAbsent(type, k -> new ArrayList<>(4)).add(sub);
+        List<Subscription> list = subs.computeIfAbsent(
+            type, k -> new ArrayList<>(4));
+
+        insertSorted(list, sub);
         return sub;
     }
 
-    public void unsubscribe(Class<?> type, Listener<?> listener) {
-        List<Subscription> list = subs.get(type);
+    /**
+     * Вставка с сохранением порядка по приоритету.
+     * Список маленький (обычно < 10 подписок на тип) — линейный поиск
+     * дешевле любой сортировки.
+     */
+    private static void insertSorted(List<Subscription> list, Subscription sub) {
+        int n = list.size();
+        int insertAt = n;
+        int subOrd = sub.priority.ordinal();
+        for (int i = 0; i < n; i++) {
+            if (list.get(i).priority.ordinal() > subOrd) {
+                insertAt = i;
+                break;
+            }
+        }
+        list.add(insertAt, sub);
+    }
+
+    /**
+     * 0.3.1: единственный внутренний путь удаления. Вызывается из
+     * Subscription.unsubscribe().
+     */
+    private void removeSubscription(Subscription sub) {
+        List<Subscription> list = subs.get(sub.type());
         if (list == null) return;
-        list.removeIf(s -> s.listener() == listener);
-        if (list.isEmpty()) subs.remove(type);
+        list.remove(sub);
+        if (list.isEmpty()) subs.remove(sub.type());
     }
 
     // ============================================================
@@ -108,16 +155,19 @@ public final class StudioEventBus {
         List<Subscription> list = subs.get(event.getClass());
         if (list == null || list.isEmpty()) return;
 
-        // Сортированная копия — порядок не зависит от порядка регистрации.
-        List<Subscription> ordered = new ArrayList<>(list);
-        ordered.sort(BY_PRIORITY);
+        // 0.3.1: снимок списка — обработчик может отписаться во время
+        // итерации. Сам список уже отсортирован, копия — только для
+        // защиты от ConcurrentModification.
+        List<Subscription> snapshot = new ArrayList<>(list);
 
-        for (Subscription sub : ordered) {
+        int n = snapshot.size();
+        for (int i = 0; i < n; i++) {
+            Subscription sub = snapshot.get(i);
             if (!sub.isActive()) continue;
             try {
                 ((Listener<T>) sub.listener()).onEvent(event);
             } catch (Throwable t) {
-                com.fixmer.mared.Mared.LOGGER.error(
+                Mared.LOGGER.error(
                     "[studio] listener threw on {}",
                     event.getClass().getSimpleName(), t);
             }
@@ -136,6 +186,12 @@ public final class StudioEventBus {
     public int subscriberCount(Class<? extends StudioEvent> type) {
         List<Subscription> list = subs.get(type);
         return list == null ? 0 : list.size();
+    }
+
+    public int totalSubscriberCount() {
+        int n = 0;
+        for (List<Subscription> list : subs.values()) n += list.size();
+        return n;
     }
 
     public void clear() {

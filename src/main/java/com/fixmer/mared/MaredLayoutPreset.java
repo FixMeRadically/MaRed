@@ -3,29 +3,34 @@ package com.fixmer.mared;
 /**
  * Пресеты раскладки редактора.
  *
- * 0.3.0 (Stage B7): перенесён из gui.editor.layout.MaredLayoutPreset
- * в корневой пакет com.fixmer.mared. Причина — MaredSettings (mod-класс,
- * не должен зависеть от gui/) использует его. Теперь gui/ можно удалить
- * целиком без потери этой зависимости.
+ * 0.3.0 (Stage B7): перенесён из gui.editor.layout.
+ * 0.3.1: enum больше не хранит пользовательские строки. Вместо
+ * displayName/description — ключи локализации. UI резолвит их через
+ * MaredLang.get().
  */
 public enum MaredLayoutPreset {
 
-    CLASSIC("Classic", "Всё видно сразу"),
-    FOCUS("Focus", "Только редактор"),
-    DEBUGGER("Debugger", "Отладка при Run"),
-    MULTI_FILE("Multi-file", "Несколько файлов");
+    CLASSIC,
+    FOCUS,
+    DEBUGGER,
+    MULTI_FILE;
 
-    public final String displayName;
-    public final String description;
+    public String displayNameKey() {
+        return "mared.settings.layout.preset."
+            + name().toLowerCase(java.util.Locale.ROOT) + ".name";
+    }
 
-    MaredLayoutPreset(String displayName, String description) {
-        this.displayName = displayName;
-        this.description = description;
+    public String descriptionKey() {
+        return "mared.settings.layout.preset."
+            + name().toLowerCase(java.util.Locale.ROOT) + ".desc";
     }
 
     public static MaredLayoutPreset fromId(String id) {
         if (id == null) return CLASSIC;
-        try { return valueOf(id); }
-        catch (IllegalArgumentException e) { return CLASSIC; }
+        try {
+            return valueOf(id);
+        } catch (IllegalArgumentException e) {
+            return CLASSIC;
+        }
     }
 }

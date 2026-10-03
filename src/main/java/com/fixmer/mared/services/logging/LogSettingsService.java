@@ -20,9 +20,10 @@ import net.neoforged.fml.loading.FMLPaths;
 /**
  * Сервис настроек фильтрации лога.
  *
- * 0.3.0 (Phase C): MaredLogSettings превращается в тонкий фасад.
- * 0.3.0 (Phase F3): переехал в services/logging.
- * 0.3.0 (Phase F3a): добавлен applyDraft — транзакционное применение.
+ * 0.3.1:
+ *   - enabledLevels()/enabledCategories() отдают immutable-копию.
+ *   - shouldShow(String) использует те же parseLevel/parseCategory,
+ *     что и LogEntry. Единый источник правды.
  */
 public final class LogSettingsService {
 
@@ -43,10 +44,21 @@ public final class LogSettingsService {
     public int version() { return version; }
     private void bumpVersion() { version++; }
 
-    public Set<LogSettings.Level> enabledLevels() { return enabledLevels; }
-    public Set<String> enabledCategories() { return enabledCategories; }
-    public boolean isLevelEnabled(LogSettings.Level l) { return enabledLevels.contains(l); }
-    public boolean isCategoryEnabled(String c) { return enabledCategories.contains(c); }
+    public Set<LogSettings.Level> enabledLevels() {
+        return Set.copyOf(enabledLevels);
+    }
+
+    public Set<String> enabledCategories() {
+        return Set.copyOf(enabledCategories);
+    }
+
+    public boolean isLevelEnabled(LogSettings.Level l) {
+        return enabledLevels.contains(l);
+    }
+
+    public boolean isCategoryEnabled(String c) {
+        return enabledCategories.contains(c);
+    }
 
     public void toggleLevel(LogSettings.Level l) {
         if (enabledLevels.contains(l)) {
@@ -70,18 +82,24 @@ public final class LogSettingsService {
         save();
     }
 
+    /**
+     * Проверка отображения по СЫРОЙ строке.
+     * Используется, если caller не имеет LogEntry под рукой.
+     * Предпочтительно использовать shouldShow(LogEntry).
+     */
     public boolean shouldShow(String line) {
-        LogSettings.Level lvl = LogSettings.parseLevel(line);
-        if (!enabledLevels.contains(lvl)) return false;
-        String cat = LogSettings.parseCategory(line);
-        return enabledCategories.contains(cat);
+        return shouldShow(
+            LogSettings.parseLevel(line),
+            LogSettings.parseCategory(line));
     }
 
-    /**
-     * 0.3.0 (Phase F3a): применить draft целиком.
-     * Заменяет enabledLevels/enabledCategories, инкрементирует version,
-     * делает ОДНУ запись на диск.
-     */
+    /** Проверка по structured полям — основной путь. */
+    public boolean shouldShow(LogSettings.Level level, String category) {
+        if (level == null || category == null) return true;
+        return enabledLevels.contains(level)
+            && enabledCategories.contains(category);
+    }
+
     public void applyDraft(Set<LogSettings.Level> newLevels,
                            Set<String> newCategories) {
         if (newLevels != null && !newLevels.isEmpty()) {
@@ -102,9 +120,7 @@ public final class LogSettingsService {
             enabledLevels.add(l);
         }
         enabledCategories.clear();
-        for (String c : LogSettings.CATEGORIES) {
-            enabledCategories.add(c);
-        }
+        enabledCategories.addAll(LogSettings.CATEGORIES);
     }
 
     private static Path configFile() {
@@ -144,9 +160,7 @@ public final class LogSettingsService {
                     enabledCategories.add(e.getAsString());
                 }
                 if (enabledCategories.isEmpty()) {
-                    for (String c : LogSettings.CATEGORIES) {
-                        enabledCategories.add(c);
-                    }
+                    enabledCategories.addAll(LogSettings.CATEGORIES);
                 }
             }
         } catch (Exception e) {

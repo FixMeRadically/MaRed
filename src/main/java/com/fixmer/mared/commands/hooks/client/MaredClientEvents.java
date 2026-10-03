@@ -15,9 +15,11 @@ import net.neoforged.neoforge.client.event.ScreenEvent;
 /**
  * Кнопка "MaRed" на PauseScreen / TitleScreen.
  *
- * 0.3.0 (Stage B7): открывает gui2.MaredStudioScreen вместо legacy
- * gui.editor.MaredEditorScreen. Импорт MaredCompactButton — из gui2,
- * не из gui.common.
+ * 0.3.0 (Stage B7): открывает gui2.MaredStudioScreen.
+ * 0.3.1: единственный путь добавления кнопки.
+ *        Раньше параллельно работал MaredPauseScreenMixin → на
+ *        PauseScreen появлялись ДВЕ кнопки MaRed. Mixin удалён,
+ *        остался только ScreenEvent-путь.
  */
 @EventBusSubscriber(modid = Mared.MOD_ID, value = Dist.CLIENT)
 public class MaredClientEvents {

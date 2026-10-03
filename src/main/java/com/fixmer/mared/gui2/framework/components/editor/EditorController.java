@@ -8,17 +8,12 @@ import net.minecraft.client.gui.Font;
 /**
  * Input-контроллер редактора.
  *
- * 0.3.0 (Phase D2): вынесен из MaredMultiLineEditBox.
- *
- * Содержит:
- *   - charTyped / keyPressed / mouse events;
- *   - editing-операции: backspace, delete, insertNewLine, paste, copy, cut;
- *   - auto-indent (знает про MaredSettings);
- *   - clipboard access;
- *   - прокидку к view (ensureCursorVisible / scroll).
- *
- * Не содержит состояния документа (мутирует EditorDocument).
- * Не содержит view-состояния (делегирует в EditorView).
+ * 0.3.1:
+ *   - Перед каждой мутацией документа строит Edit и передаёт в
+ *     EditorHistory. Никаких "pushBefore" со снапшотом.
+ *   - Коалесинг: набор/backspace через recordCoalescible,
+ *     paste/replace/merge lines — атомарные record.
+ *   - Во всех точках — view.resetBlink().
  */
 public final class EditorController {
 
@@ -30,10 +25,6 @@ public final class EditorController {
 
     private boolean selecting = false;
 
-    /**
-     * Абстракция над виджетом — что контроллеру нужно от него.
-     * Позволяет тестировать контроллер без Minecraft.
-     */
     public interface EditorHost {
         int x();
         int y();
@@ -61,7 +52,7 @@ public final class EditorController {
     private Font font() { return Minecraft.getInstance().font; }
 
     // ============================================================
-    //  charTyped / keyPressed
+    //  Typing
     // ============================================================
 
     public boolean charTyped(char codePoint, int modifiers) {
@@ -71,17 +62,49 @@ public final class EditorController {
         if (codePoint < 32) return false;
 
         if (codePoint == '{' && shouldAutoIndentOnBrace()) {
-            history.pushBefore(document);
             insertBraceBlock();
+            view.resetBlink();
             onChanged.run();
             return true;
         }
 
-        history.pushBefore(document);
-        document.insertChar(codePoint);
+        insertCharWithHistory(codePoint);
+        view.resetBlink();
         onChanged.run();
         return true;
     }
+
+    private void insertCharWithHistory(char c) {
+        String text = String.valueOf(c);
+
+        if (document.hasSelection()) {
+            int[] sel = document.orderedSelection();
+            String removed = document.getSelectedText();
+            int[] after = Edit.advancePosition(sel[0], sel[1], text);
+
+            Edit e = new Edit(
+                sel[0], sel[1], removed, text,
+                document.cursorLine(), document.cursorCol(),
+                after[0], after[1]
+            );
+            history.record(e); // атомарно (removed непустой)
+            document.insertChar(c);
+            return;
+        }
+
+        int cl = document.cursorLine(), cc = document.cursorCol();
+        Edit e = new Edit(
+            cl, cc, "", text,
+            cl, cc,
+            cl, cc + 1
+        );
+        history.recordCoalescible(e);
+        document.insertChar(c);
+    }
+
+    // ============================================================
+    //  Key handling
+    // ============================================================
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!host.focused() || !host.editable()) return false;
@@ -93,7 +116,7 @@ public final class EditorController {
                 case 67: copySelection(); return true;
                 case 86: pasteFromClipboard(); return true;
                 case 88: cutSelection(); return true;
-                case 65: document.selectAll(); return true;
+                case 65: document.selectAll(); view.resetBlink(); return true;
                 case 90: undo(); return true;
                 case 89: redo(); return true;
                 default: return false;
@@ -104,22 +127,19 @@ public final class EditorController {
             case 257: case 335: insertNewLine();                          return true;
             case 259: backspace();                                        return true;
             case 261: delete();                                           return true;
-            case 262: document.moveRight();        ensureCursorVisible();  return true;
-            case 263: document.moveLeft();         ensureCursorVisible();  return true;
-            case 264: document.moveDown();         ensureCursorVisible();  return true;
-            case 265: document.moveUp();           ensureCursorVisible();  return true;
-            case 268: document.moveHome();                                return true;
-            case 269: document.moveEnd();                                 return true;
+            case 262: document.moveRight(); view.resetBlink(); ensureCursorVisible(); return true;
+            case 263: document.moveLeft();  view.resetBlink(); ensureCursorVisible(); return true;
+            case 264: document.moveDown();  view.resetBlink(); ensureCursorVisible(); return true;
+            case 265: document.moveUp();    view.resetBlink(); ensureCursorVisible(); return true;
+            case 268: document.moveHome();  view.resetBlink(); return true;
+            case 269: document.moveEnd();   view.resetBlink(); return true;
             default:  return false;
         }
     }
 
-    // ============================================================
-    //  Undo / redo
-    // ============================================================
-
     private void undo() {
         if (history.undo(document)) {
+            view.resetBlink();
             ensureCursorVisible();
             onChanged.run();
         }
@@ -127,6 +147,7 @@ public final class EditorController {
 
     private void redo() {
         if (history.redo(document)) {
+            view.resetBlink();
             ensureCursorVisible();
             onChanged.run();
         }
@@ -143,17 +164,42 @@ public final class EditorController {
 
     private void cutSelection() {
         if (!document.hasSelection()) return;
-        history.pushBefore(document);
         host.clipboardSet(document.getSelectedText());
-        document.deleteSelection();
+        deleteSelectionWithHistory();
+        view.resetBlink();
         onChanged.run();
     }
 
     private void pasteFromClipboard() {
         String clip = host.clipboardGet();
         if (clip == null || clip.isEmpty()) return;
-        history.pushBefore(document);
-        document.insertString(clip);
+
+        if (document.hasSelection()) {
+            int[] sel = document.orderedSelection();
+            String removed = document.getSelectedText();
+            int[] after = Edit.advancePosition(sel[0], sel[1], clip);
+
+            Edit e = new Edit(
+                sel[0], sel[1], removed, clip,
+                document.cursorLine(), document.cursorCol(),
+                after[0], after[1]
+            );
+            history.record(e); // атомарно
+            document.insertString(clip);
+        } else {
+            int cl = document.cursorLine(), cc = document.cursorCol();
+            int[] after = Edit.advancePosition(cl, cc, clip);
+
+            Edit e = new Edit(
+                cl, cc, "", clip,
+                cl, cc,
+                after[0], after[1]
+            );
+            history.record(e); // атомарно — не коалесим с набором
+            document.insertString(clip);
+        }
+
+        view.resetBlink();
         ensureCursorVisible();
         onChanged.run();
     }
@@ -163,17 +209,45 @@ public final class EditorController {
     // ============================================================
 
     private void insertNewLine() {
-        String indent = shouldAutoIndentOnEnter() ? computeIndentAtCursor() : "";
-        history.pushBefore(document);
-        document.insertNewLine(indent);
+        String indent = shouldAutoIndentOnEnter()
+            ? computeIndentAtCursor() : "";
+        String text = "\n" + indent;
+
+        int cl = document.cursorLine(), cc = document.cursorCol();
+        int beforeL = cl, beforeC = cc;
+
+        if (document.hasSelection()) {
+            int[] sel = document.orderedSelection();
+            String removed = document.getSelectedText();
+            int[] after = Edit.advancePosition(sel[0], sel[1], text);
+
+            Edit e = new Edit(
+                sel[0], sel[1], removed, text,
+                beforeL, beforeC,
+                after[0], after[1]
+            );
+            history.record(e);
+            document.insertNewLine(indent);
+        } else {
+            int[] after = Edit.advancePosition(cl, cc, text);
+            Edit e = new Edit(
+                cl, cc, "", text,
+                beforeL, beforeC,
+                after[0], after[1]
+            );
+            history.record(e);
+            document.insertNewLine(indent);
+        }
+
+        view.resetBlink();
         ensureCursorVisible();
         onChanged.run();
     }
 
     private void backspace() {
         if (document.hasSelection()) {
-            history.pushBefore(document);
-            document.deleteSelection();
+            deleteSelectionWithHistory();
+            view.resetBlink();
             onChanged.run();
             return;
         }
@@ -181,8 +255,9 @@ public final class EditorController {
         int cl = document.cursorLine();
         int cc = document.cursorCol();
 
+        // Indent-aware backspace
         if (cc > 0 && MaredSettings.isBackspaceRemovesIndent()) {
-            String line = document.line(cl).toString();
+            String line = document.line(cl);
             String upToCursor = line.substring(0, cc);
             if (isIndentOnly(upToCursor)) {
                 String unit = MaredSettings.indentUnit();
@@ -195,29 +270,58 @@ public final class EditorController {
                     while (start > 0 && upToCursor.charAt(start - 1) == ' ') start--;
                     removeLen = Math.max(1, Math.min(unit.length(), end - start));
                 }
-                history.pushBefore(document);
-                document.deleteNBeforeCursor(removeLen);
+                removeLen = Math.min(removeLen, cc);
+                deleteNWithHistory(removeLen, cl, cc);
+                view.resetBlink();
                 onChanged.run();
                 return;
             }
         }
 
         if (cc > 0) {
-            history.pushBefore(document);
+            int startCol = cc - 1;
+            String removed = document.line(cl).substring(startCol, cc);
+            Edit e = new Edit(
+                cl, startCol, removed, "",
+                cl, cc,
+                cl, cc - 1
+            );
+            history.recordCoalescible(e);
             document.deleteBeforeCursor();
+            view.resetBlink();
             onChanged.run();
         } else if (cl > 0) {
-            history.pushBefore(document);
+            int prevLen = document.lineLength(cl - 1);
+            Edit e = new Edit(
+                cl - 1, prevLen, "\n", "",
+                cl, 0,
+                cl - 1, prevLen
+            );
+            history.record(e); // атомарно — merge lines не коалесим
             document.mergeWithPreviousLine();
+            view.resetBlink();
             ensureCursorVisible();
             onChanged.run();
         }
     }
 
+    private void deleteNWithHistory(int n, int cl, int cc) {
+        if (n <= 0) return;
+        int startCol = cc - n;
+        String removed = document.line(cl).substring(startCol, cc);
+        Edit e = new Edit(
+            cl, startCol, removed, "",
+            cl, cc,
+            cl, startCol
+        );
+        history.recordCoalescible(e);
+        document.deleteNBeforeCursor(n);
+    }
+
     private void delete() {
         if (document.hasSelection()) {
-            history.pushBefore(document);
-            document.deleteSelection();
+            deleteSelectionWithHistory();
+            view.resetBlink();
             onChanged.run();
             return;
         }
@@ -226,14 +330,40 @@ public final class EditorController {
         int lineLen = document.lineLength(cl);
 
         if (cc < lineLen) {
-            history.pushBefore(document);
+            String removed = document.line(cl).substring(cc, cc + 1);
+            Edit e = new Edit(
+                cl, cc, removed, "",
+                cl, cc,
+                cl, cc
+            );
+            history.recordCoalescible(e);
             document.deleteAfterCursor();
+            view.resetBlink();
             onChanged.run();
         } else if (cl < document.lineCount() - 1) {
-            history.pushBefore(document);
+            Edit e = new Edit(
+                cl, cc, "\n", "",
+                cl, cc,
+                cl, cc
+            );
+            history.record(e);
             document.mergeWithNextLine();
+            view.resetBlink();
             onChanged.run();
         }
+    }
+
+    private void deleteSelectionWithHistory() {
+        if (!document.hasSelection()) return;
+        int[] sel = document.orderedSelection();
+        String removed = document.getSelectedText();
+        Edit e = new Edit(
+            sel[0], sel[1], removed, "",
+            document.cursorLine(), document.cursorCol(),
+            sel[0], sel[1]
+        );
+        history.record(e);
+        document.deleteSelection();
     }
 
     // ============================================================
@@ -252,17 +382,37 @@ public final class EditorController {
             || m == MaredSettings.AutoIndent.FULL;
     }
 
+    /**
+     * Вставка "{ ... }" одним Edit'ом.
+     * Была составная операция — оформляем как один атомарный Edit.
+     */
     private void insertBraceBlock() {
         String unit = MaredSettings.indentUnit();
         int cl = document.cursorLine();
-        String currentLine = document.line(cl).toString();
+        String currentLine = document.line(cl);
         String currentIndent = extractIndent(currentLine);
+        int cc = document.cursorCol();
 
-        document.insertChar('{');
         String bodyIndent = currentIndent + unit;
-        document.insertNewLine(bodyIndent);
-        document.insertString("\n" + currentIndent + "}");
-        document.moveUp();
+        String inserted = "{" + "\n" + bodyIndent + "\n" + currentIndent + "}";
+
+        int[] after = Edit.advancePosition(cl, cc, "{" + "\n" + bodyIndent);
+        // cursor после вставки тела, до "}" — 1 строка выше конца.
+
+        Edit e = new Edit(
+            cl, cc, "", inserted,
+            cl, cc,
+            after[0], after[1]
+        );
+        history.record(e);
+        document.replaceRange(cl, cc, cl, cc, inserted);
+
+        // Cursor должен остаться на bodyIndent (перед закрывающей "}").
+        // replaceRange поставит его в конец inserted — сдвинем на
+        // одну строку вверх.
+        int targetLine = after[0];
+        int targetCol = after[1];
+        document.setCursor(targetLine, targetCol);
 
         ensureCursorVisible();
     }
@@ -270,7 +420,7 @@ public final class EditorController {
     private String computeIndentAtCursor() {
         int cl = document.cursorLine();
         int cc = document.cursorCol();
-        String currentLine = document.line(cl).toString();
+        String currentLine = document.line(cl);
         String currentIndent = extractIndent(currentLine);
         String unit = MaredSettings.indentUnit();
 
@@ -320,6 +470,7 @@ public final class EditorController {
         document.setCursor(pos[0], pos[1]);
         document.startSelection(pos[0], pos[1]);
         selecting = true;
+        view.resetBlink();
         ensureCursorVisible();
     }
 
@@ -352,10 +503,6 @@ public final class EditorController {
     public boolean onMouseScrolled(double deltaY) {
         return view.mouseScrolled(deltaY, host.w(), host.h(), document, font());
     }
-
-    // ============================================================
-    //  Cursor visibility — delegate
-    // ============================================================
 
     private void ensureCursorVisible() {
         view.ensureCursorVisible(host.w(), host.h(), document, font());

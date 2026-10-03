@@ -7,8 +7,8 @@ import com.fixmer.mared.commands.registry.MaredCommandRegistry;
 import com.fixmer.mared.commands.storage.MaredCommandStorage;
 import com.fixmer.mared.commands.storage.MaredPersistentStorage;
 import com.fixmer.mared.gui2.framework.components.MaredPanel;
-import com.fixmer.mared.gui2.framework.components.overlay.MaredContextMenu;
 import com.fixmer.mared.gui2.framework.core.MaredRenderContext;
+import com.fixmer.mared.gui2.framework.overlay.ContextMenuEntry;
 import com.fixmer.mared.gui2.framework.theme.ThemeColors;
 import com.fixmer.mared.gui2.studio.events.StudioEventBus;
 import com.fixmer.mared.gui2.studio.events.StudioEvents;
@@ -16,6 +16,11 @@ import com.fixmer.mared.gui2.studio.events.StudioEvents;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
+/**
+ * 0.3.1: контекстное меню через StudioEvents.RequestContextMenuEvent.
+ *        LogEvent — через legacy-фабрику.
+ *        ContextMenuEntry.divider() — вместо separator().
+ */
 public final class ExplorerComponent extends MaredPanel {
 
     private static final int ROW_H = 14;
@@ -43,6 +48,9 @@ public final class ExplorerComponent extends MaredPanel {
         reload();
     }
 
+    @Override
+    public boolean focusable() { return true; }
+
     public void reload() {
         files.clear();
         commands.clear();
@@ -50,31 +58,39 @@ public final class ExplorerComponent extends MaredPanel {
             files.addAll(MaredCommandStorage.listCommands());
         } catch (Throwable t) {
             com.fixmer.mared.Mared.LOGGER.warn(
-                "[studio] failed to list commands: {}", t.getMessage());
+                "[studio] failed to list commands", t);
         }
         try {
             commands.addAll(MaredCommandRegistry.all());
         } catch (Throwable t) {
             com.fixmer.mared.Mared.LOGGER.warn(
-                "[studio] failed to load registry: {}", t.getMessage());
+                "[studio] failed to load registry", t);
         }
         if (selectedFileIndex >= files.size()) selectedFileIndex = -1;
         if (selectedCommandIndex >= commands.size()) selectedCommandIndex = -1;
         clampScroll();
     }
 
-    public List<String> files() { return files; }
-    public List<MaredCommandRegistry.CommandInfo> commands() { return commands; }
+    public List<String> files() { return List.copyOf(files); }
+
+    public List<MaredCommandRegistry.CommandInfo> commands() {
+        return List.copyOf(commands);
+    }
 
     public String selectedFile() {
         if (selectedFileIndex < 0 || selectedFileIndex >= files.size()) return null;
         return files.get(selectedFileIndex);
     }
 
-    public void setSelectedFile(String name) { selectedFileIndex = files.indexOf(name); }
+    public void setSelectedFile(String name) {
+        selectedFileIndex = files.indexOf(name);
+    }
 
     private int filesListY() { return bounds.y() + HEADER_H; }
-    private int filesListH() { int half = (bounds.height() - SPLIT_GAP) / 2; return Math.max(20, half - HEADER_H); }
+    private int filesListH() {
+        int half = (bounds.height() - SPLIT_GAP) / 2;
+        return Math.max(20, half - HEADER_H);
+    }
     private int commandsHeaderY() { return filesListY() + filesListH() + SPLIT_GAP; }
     private int commandsListY()   { return commandsHeaderY() + HEADER_H; }
     private int commandsListH()   { return Math.max(20, bounds.bottom() - commandsListY()); }
@@ -138,9 +154,11 @@ public final class ExplorerComponent extends MaredPanel {
         boolean selected = (i == selectedFileIndex);
         boolean hovered = (i == hoveredFileIndex);
         if (selected) {
-            g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1, ThemeColors.hover());
+            g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1,
+                ThemeColors.hover());
         } else if (hovered) {
-            g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1, 0x33FFFFFF);
+            g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1,
+                0x33FFFFFF);
         }
         String name = files.get(i);
         if (MaredPersistentStorage.isPersistent(name)) {
@@ -154,9 +172,11 @@ public final class ExplorerComponent extends MaredPanel {
         boolean selected = (i == selectedCommandIndex);
         boolean hovered = (i == hoveredCommandIndex);
         if (selected) {
-            g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1, ThemeColors.hover());
+            g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1,
+                ThemeColors.hover());
         } else if (hovered) {
-            g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1, 0x33FFFFFF);
+            g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1,
+                0x33FFFFFF);
         }
         MaredCommandRegistry.CommandInfo info = commands.get(i);
         int color = selected ? ThemeColors.accent() : ThemeColors.text();
@@ -175,7 +195,9 @@ public final class ExplorerComponent extends MaredPanel {
     @Override
     public void mouseMoved(double mx, double my) {
         if (!bounds.contains(mx, my)) {
-            hoveredFileIndex = -1; hoveredCommandIndex = -1; plusHover = false;
+            hoveredFileIndex = -1;
+            hoveredCommandIndex = -1;
+            plusHover = false;
             return;
         }
         plusHover = mx >= plusX() && mx < plusX() + PLUS_SIZE
@@ -195,12 +217,15 @@ public final class ExplorerComponent extends MaredPanel {
             hoveredFileIndex = -1;
             return;
         }
-        hoveredFileIndex = -1; hoveredCommandIndex = -1;
+        hoveredFileIndex = -1;
+        hoveredCommandIndex = -1;
     }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (!bounds.contains(mx, my)) return false;
+
+        requestFocus();
 
         if (button == 0 && plusHover) {
             bus.publish(new StudioEvents.RequestNewFileEvent());
@@ -216,7 +241,8 @@ public final class ExplorerComponent extends MaredPanel {
                 if (idx == selectedFileIndex) return true;
                 selectedFileIndex = idx;
                 bus.publish(new StudioEvents.FileSelectedEvent(name));
-                bus.publish(new StudioEvents.LogEvent("[studio] selected file: " + name));
+                bus.publish(StudioEvents.LogEvent.legacy(
+                    "[studio] selected file: " + name));
                 return true;
             }
             if (button == 1) {
@@ -235,29 +261,32 @@ public final class ExplorerComponent extends MaredPanel {
             selectedCommandIndex = idx;
             MaredCommandRegistry.CommandInfo info = commands.get(idx);
             bus.publish(new StudioEvents.CommandSelectedEvent(info));
-            bus.publish(new StudioEvents.LogEvent("[studio] selected command: " + info.name));
+            bus.publish(StudioEvents.LogEvent.legacy(
+                "[studio] selected command: " + info.name));
             return true;
         }
         return true;
     }
 
     private void openFileContextMenu(int x, int y, String fileName) {
-        List<MaredContextMenu.Item> items = new ArrayList<>(6);
-        items.add(MaredContextMenu.Item.of("Open",
+        List<ContextMenuEntry> items = new ArrayList<>(6);
+        items.add(ContextMenuEntry.of("Open",
             () -> bus.publish(new StudioEvents.FileSelectedEvent(fileName))));
-        items.add(MaredContextMenu.Item.separator());
-        items.add(MaredContextMenu.Item.of("Rename...",
+        items.add(ContextMenuEntry.divider());
+        items.add(ContextMenuEntry.of("Rename...",
             () -> bus.publish(new StudioEvents.RequestRenameFileEvent(fileName))));
-        items.add(MaredContextMenu.Item.of("Duplicate",
+        items.add(ContextMenuEntry.of("Duplicate",
             () -> bus.publish(new StudioEvents.RequestDuplicateFileEvent(fileName))));
-        items.add(MaredContextMenu.Item.separator());
-        items.add(MaredContextMenu.Item.of("Delete...",
+        items.add(ContextMenuEntry.divider());
+        items.add(ContextMenuEntry.of("Delete...",
             () -> bus.publish(new StudioEvents.RequestDeleteFileEvent(fileName))));
-        MaredContextMenu.open(x, y, items);
+
+        bus.publish(new StudioEvents.RequestContextMenuEvent(x, y, items));
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mx, double my,
+                                 double scrollX, double scrollY) {
         if (!bounds.contains(mx, my)) return false;
         int fListY = filesListY(), fListH = filesListH();
         if (my >= fListY && my < fListY + fListH) {

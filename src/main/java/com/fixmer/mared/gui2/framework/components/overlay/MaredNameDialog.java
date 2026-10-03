@@ -5,6 +5,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import com.fixmer.mared.MaredLang;
+import com.fixmer.mared.commands.storage.MaredCommandStorage;
 import com.fixmer.mared.gui2.framework.render.Render;
 
 import net.minecraft.client.gui.GuiGraphics;
@@ -16,8 +17,10 @@ import net.minecraft.network.chat.Component;
 /**
  * Диалог ввода имени файла/скрипта.
  *
- * 0.3.0: перенос из gui.common.MaredNameDialog. Использует
- * gui2.framework.render.Render вместо MaredUi.
+ * 0.3.0: перенос из gui.common.MaredNameDialog.
+ * 0.3.1: валидация через единый MaredCommandStorage.validateName().
+ *        Параметр allowSlash — deprecated, игнорируется (слеши
+ *        запрещены и в диалоге, и в Storage).
  */
 public class MaredNameDialog extends Screen {
 
@@ -28,22 +31,20 @@ public class MaredNameDialog extends Screen {
     private static final int SUNKEN_BG    = 0xFF0A0A10;
     private static final int ERROR_COLOR  = 0xFFFF5555;
 
-    private static final int MAX_NAME_LEN = 64;
-    private static final long ERROR_BLINK_DURATION_MS = 3000;
+    private static final long ERROR_BLINK_DURATION_MS    = 3000;
     private static final long ERROR_BLINK_HALF_PERIOD_MS = 300;
 
-    private static final int PANEL_W_NO_PERSIST  = 300;
-    private static final int PANEL_H_NO_PERSIST  = 150;
+    private static final int PANEL_W_NO_PERSIST   = 300;
+    private static final int PANEL_H_NO_PERSIST   = 150;
     private static final int PANEL_H_WITH_PERSIST = 180;
-    private static final int BTN_W = 120;
-    private static final int BTN_H = 20;
+    private static final int BTN_W   = 120;
+    private static final int BTN_H   = 20;
     private static final int BTN_GAP = 20;
 
     private final Screen parent;
     private final Consumer<String> onAcceptSimple;
     private final BiConsumer<String, Boolean> onAcceptWithFlag;
     private final int accentColor;
-    private final boolean allowSlash;
     private final boolean showPersistentOption;
     private final Function<String, String> nameValidator;
 
@@ -58,32 +59,52 @@ public class MaredNameDialog extends Screen {
     private String errorMessage = "";
     private long errorBlinkStart = 0;
 
+    // ============================================================
+    //  Конструкторы (совместимые)
+    // ============================================================
+
+    /**
+     * @deprecated параметр allowSlash игнорируется. Слеши запрещены.
+     */
+    @Deprecated
     public MaredNameDialog(Screen parent, String title, Consumer<String> onAccept,
                            int accentColor, boolean allowSlash) {
-        this(parent, title, onAccept, null, accentColor, allowSlash, false, null);
+        this(parent, title, onAccept, null, accentColor, false, null);
     }
 
+    /**
+     * @deprecated параметр allowSlash игнорируется. Слеши запрещены.
+     */
+    @Deprecated
     public MaredNameDialog(Screen parent, String title, BiConsumer<String, Boolean> onAccept,
                            int accentColor, boolean allowSlash) {
-        this(parent, title, null, onAccept, accentColor, allowSlash, true, null);
+        this(parent, title, null, onAccept, accentColor, true, null);
     }
 
+    /**
+     * @deprecated параметр allowSlash игнорируется. Слеши запрещены.
+     */
+    @Deprecated
     public MaredNameDialog(Screen parent, String title, Consumer<String> onAccept,
                            int accentColor, boolean allowSlash,
                            Function<String, String> nameValidator) {
-        this(parent, title, onAccept, null, accentColor, allowSlash, false, nameValidator);
+        this(parent, title, onAccept, null, accentColor, false, nameValidator);
     }
 
+    /**
+     * @deprecated параметр allowSlash игнорируется. Слеши запрещены.
+     */
+    @Deprecated
     public MaredNameDialog(Screen parent, String title, BiConsumer<String, Boolean> onAccept,
                            int accentColor, boolean allowSlash,
                            Function<String, String> nameValidator) {
-        this(parent, title, null, onAccept, accentColor, allowSlash, true, nameValidator);
+        this(parent, title, null, onAccept, accentColor, true, nameValidator);
     }
 
     private MaredNameDialog(Screen parent, String title,
                             Consumer<String> onAcceptSimple,
                             BiConsumer<String, Boolean> onAcceptWithFlag,
-                            int accentColor, boolean allowSlash,
+                            int accentColor,
                             boolean showPersistentOption,
                             Function<String, String> nameValidator) {
         super(Component.literal(title));
@@ -91,7 +112,6 @@ public class MaredNameDialog extends Screen {
         this.onAcceptSimple = onAcceptSimple;
         this.onAcceptWithFlag = onAcceptWithFlag;
         this.accentColor = accentColor;
-        this.allowSlash = allowSlash;
         this.showPersistentOption = showPersistentOption;
         this.nameValidator = nameValidator;
     }
@@ -99,6 +119,10 @@ public class MaredNameDialog extends Screen {
     private int panelH() {
         return showPersistentOption ? PANEL_H_WITH_PERSIST : PANEL_H_NO_PERSIST;
     }
+
+    // ============================================================
+    //  init
+    // ============================================================
 
     @Override
     protected void init() {
@@ -112,8 +136,9 @@ public class MaredNameDialog extends Screen {
         int inputY = panelY + 50;
         int inputW = PANEL_W_NO_PERSIST - 40;
 
-        nameBox = new EditBox(this.font, inputX, inputY, inputW, 18, Component.literal("Name"));
-        nameBox.setMaxLength(MAX_NAME_LEN);
+        nameBox = new EditBox(this.font, inputX, inputY, inputW, 18,
+            Component.literal(MaredLang.get("mared.dialog.name_label")));
+        nameBox.setMaxLength(MaredCommandStorage.MAX_NAME_LEN);
         nameBox.setBordered(true);
         nameBox.setFocused(true);
         nameBox.setTextColor(0xFFFFFFFF);
@@ -144,15 +169,27 @@ public class MaredNameDialog extends Screen {
             0xFF55FF88, this::onOk));
     }
 
+    // ============================================================
+    //  Валидация
+    // ============================================================
+
+    /**
+     * 0.3.1: единая валидация через MaredCommandStorage.validateName().
+     * Диалог больше не содержит свою копию правил.
+     */
     private String validateBase(String name) {
-        if (name == null || name.isEmpty()) return MaredLang.get("mared.dialog.error.empty");
-        if (name.length() > MAX_NAME_LEN) return MaredLang.format("mared.dialog.error.too_long", MAX_NAME_LEN);
-        if (name.equals(".") || name.equals("..")) return MaredLang.get("mared.dialog.error.reserved");
-        if (!allowSlash && name.contains("/")) return MaredLang.get("mared.dialog.error.slash_forbidden");
-        if (name.contains("\\")) return MaredLang.get("mared.dialog.error.backslash_forbidden");
-        if (name.startsWith(" ") || name.endsWith(" ")) return MaredLang.get("mared.dialog.error.whitespace");
-        if (!name.matches("[a-zA-Z0-9_\\-\\.]+")) return MaredLang.get("mared.dialog.error.charset");
-        return null;
+        String code = MaredCommandStorage.validateName(name);
+        if (code == null) return null;
+        return switch (code) {
+            case "empty"      -> MaredLang.get("mared.dialog.error.empty");
+            case "too_long"   -> MaredLang.format("mared.dialog.error.too_long",
+                                    MaredCommandStorage.MAX_NAME_LEN);
+            case "reserved"   -> MaredLang.get("mared.dialog.error.reserved");
+            case "slash"      -> MaredLang.get("mared.dialog.error.slash_forbidden");
+            case "hidden"     -> MaredLang.get("mared.dialog.error.hidden");
+            case "whitespace" -> MaredLang.get("mared.dialog.error.whitespace");
+            default           -> MaredLang.get("mared.dialog.error.charset");
+        };
     }
 
     private void showError(String err) {
@@ -173,6 +210,7 @@ public class MaredNameDialog extends Screen {
 
         errorMessage = "";
         errorBlinkStart = 0;
+
         if (showPersistentOption && onAcceptWithFlag != null) {
             onAcceptWithFlag.accept(name, persistent);
         } else if (onAcceptSimple != null) {
@@ -188,6 +226,10 @@ public class MaredNameDialog extends Screen {
         if (this.minecraft != null) this.minecraft.setScreen(parent);
     }
 
+    // ============================================================
+    //  Render
+    // ============================================================
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         Render.dialogBackground(g, this.width, this.height);
@@ -196,21 +238,25 @@ public class MaredNameDialog extends Screen {
         int panelY = (this.height - panelH()) / 2;
         Render.dialogPanel(g, panelX, panelY, PANEL_W_NO_PERSIST, panelH(), accentColor);
 
-        Render.text(g, this.font, this.title.getString(), panelX + 20, panelY + 20, accentColor);
+        Render.text(g, this.font, this.title.getString(),
+            panelX + 20, panelY + 20, accentColor);
         Render.text(g, this.font, MaredLang.get("mared.dialog.name_label"),
             panelX + 20, panelY + 38, TEXT_DIM);
 
         if (!errorMessage.isEmpty()) {
             long elapsed = System.currentTimeMillis() - errorBlinkStart;
             boolean blinking = elapsed < ERROR_BLINK_DURATION_MS;
-            boolean visible = !blinking || ((elapsed / ERROR_BLINK_HALF_PERIOD_MS) % 2 == 0);
+            boolean visible = !blinking
+                || ((elapsed / ERROR_BLINK_HALF_PERIOD_MS) % 2 == 0);
             if (visible) {
-                Render.text(g, this.font, errorMessage, panelX + 20, panelY + 72, ERROR_COLOR);
+                Render.text(g, this.font, errorMessage,
+                    panelX + 20, panelY + 72, ERROR_COLOR);
             }
         }
 
         if (showPersistentOption) {
-            boolean hovered = Render.hovered(mouseX, mouseY, checkX, checkY, CHECK_SIZE, CHECK_SIZE);
+            boolean hovered = Render.hovered(mouseX, mouseY,
+                checkX, checkY, CHECK_SIZE, CHECK_SIZE);
 
             Render.drawCheckbox(g, checkX, checkY, CHECK_SIZE, persistent,
                 hovered ? accentColor : CHECK_BRD, CHECK_ON, SUNKEN_BG);
@@ -225,6 +271,10 @@ public class MaredNameDialog extends Screen {
 
         super.render(g, mouseX, mouseY, partialTick);
     }
+
+    // ============================================================
+    //  Input
+    // ============================================================
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
@@ -247,5 +297,6 @@ public class MaredNameDialog extends Screen {
     @Override public boolean isPauseScreen() { return false; }
 
     @Override
-    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTick) {}
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY,
+                                 float partialTick) {}
 }

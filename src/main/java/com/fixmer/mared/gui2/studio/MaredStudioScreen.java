@@ -1,246 +1,300 @@
 package com.fixmer.mared.gui2.studio;
 
-import org.lwjgl.glfw.GLFW;
-
-import com.fixmer.mared.MaredLang;
-import com.fixmer.mared.commands.runner.MaredFileRunner;
-import com.fixmer.mared.commands.storage.MaredCommandStorage;
-import com.fixmer.mared.gui2.settings.MaredSettingsScreen;
 import com.fixmer.mared.gui2.docking.layout.DockLayoutCalculator;
 import com.fixmer.mared.gui2.docking.render.DockRenderer;
-import com.fixmer.mared.gui2.framework.components.overlay.MaredConfirmDialog;
-import com.fixmer.mared.gui2.framework.components.overlay.MaredContextMenu;
-import com.fixmer.mared.gui2.framework.components.overlay.MaredNameDialog;
 import com.fixmer.mared.gui2.framework.core.Disposable;
+import com.fixmer.mared.gui2.framework.core.MaredComponent;
 import com.fixmer.mared.gui2.framework.core.MaredRenderContext;
+import com.fixmer.mared.gui2.framework.core.UiContext;
+import com.fixmer.mared.gui2.framework.overlay.ContextMenuEntry;
+import com.fixmer.mared.gui2.framework.overlay.ContextMenuOverlay;
+import com.fixmer.mared.gui2.framework.render.MaredAnimState;
+import com.fixmer.mared.gui2.framework.render.MaredScale;
 import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
+import com.fixmer.mared.gui2.studio.action.StudioActions;
 import com.fixmer.mared.gui2.studio.events.StudioEvents;
 import com.fixmer.mared.gui2.studio.events.SubscriptionGroup;
-import com.fixmer.mared.services.command.CommandFileService;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
+/**
+ * 0.3.1:
+ *   - Screen сам создаёт UiContext и делает MaredScale.bind в init,
+ *     unbind в removed. Session принимает готовый UiContext.
+ *   - removed() вызывает session.shutdown() только при isClosing();
+ *     при переключении Studio → Settings сессия сохраняется и
+ *     переиспользуется при возврате.
+ */
 public final class MaredStudioScreen extends Screen implements Disposable {
 
-    private final MaredStudioController controller;
-    private final CommandFileService commandService = new CommandFileService();
-
+    private final StudioSession session = new StudioSession();
     private SubscriptionGroup screenSubs = new SubscriptionGroup();
-    private boolean closing = false;
 
     public MaredStudioScreen() {
         super(Component.literal("MaRed Studio"));
-        controller = new MaredStudioController();
     }
 
     @Override
     public void dispose() { screenSubs.dispose(); }
+
+    // ============================================================
+    //  Lifecycle
+    // ============================================================
 
     @Override
     protected void init() {
         screenSubs.dispose();
         screenSubs = new SubscriptionGroup();
 
-        controller.initialize();
+        Minecraft mc = Minecraft.getInstance();
+        int physW = mc.getWindow().getWidth();
+        int physH = mc.getWindow().getHeight();
+        int mcGuiScale = (int) mc.getWindow().getGuiScale();
 
-        controller.topBarPanel().topBar().setActions(
-            this::onNewFile, this::onSaveFile, this::onRunFile,
-            this::onSettings, this::onClose);
+        UiContext uiCtx = new UiContext(this.width, this.height,
+            physW, physH, mcGuiScale, MaredThemeRegistry.active());
+        MaredScale.bind(uiCtx);
 
+        session.initialize(this, uiCtx);
         subscribeBusEvents();
 
         DockLayoutCalculator.calculate(
-            controller.dockManager().layout(), this.width, this.height);
+            session.controller().dockManager().layout(),
+            this.width, this.height);
     }
 
+    @Override
+    public void removed() {
+        screenSubs.dispose();
+
+        // 0.3.1: shutdown — только при фактическом закрытии студии.
+        // При переходе Studio → Settings сессия выживает и будет
+        // переиспользована при возврате.
+        if (session.isClosing()) {
+            session.shutdown();
+        }
+
+        MaredScale.unbind();
+    }
+
+    // ============================================================
+    //  Bus subscriptions
+    // ============================================================
+
     private void subscribeBusEvents() {
-        var bus = controller.bus();
+        var bus = session.controller().bus();
+
         screenSubs.add(bus.subscribe(StudioEvents.RequestNewFileEvent.class,
-            e -> onNewFile()));
+            e -> session.executeAction(StudioActions.FILE_NEW)));
+        screenSubs.add(bus.subscribe(StudioEvents.RequestReloadPersistentEvent.class,
+            e -> session.executeAction(StudioActions.FILE_RELOAD_PERSISTENT)));
+
         screenSubs.add(bus.subscribe(StudioEvents.RequestRenameFileEvent.class,
             e -> onRenameFile(e.fileName())));
         screenSubs.add(bus.subscribe(StudioEvents.RequestDuplicateFileEvent.class,
             e -> onDuplicateFile(e.fileName())));
         screenSubs.add(bus.subscribe(StudioEvents.RequestDeleteFileEvent.class,
             e -> onDeleteFile(e.fileName())));
-        screenSubs.add(bus.subscribe(StudioEvents.RequestReloadPersistentEvent.class,
-            e -> publish(commandService.reloadPersistent())));
+
+        screenSubs.add(bus.subscribe(StudioEvents.RequestContextMenuEvent.class,
+            e -> openContextMenu(e.x(), e.y(), e.entries())));
     }
 
-    @Override
-    public void onClose() {
-        closing = true;
-        MaredContextMenu.close();
-        super.onClose();
-    }
-
-    @Override
-    public void removed() {
-        screenSubs.dispose();
-        if (closing) controller.shutdown();
-    }
-
-    private void onNewFile() {
-        Minecraft.getInstance().setScreen(new MaredNameDialog(
-            this,
-            MaredLang.get("mared.dialog.new_command_file"),
-            (name, persistent) -> {
-                publish(commandService.create(name, persistent));
-                refreshExplorer();
-            },
-            0xFFFF55FF, true,
-            name -> MaredCommandStorage.listCommands().contains(name)
-                ? MaredLang.format("mared.dialog.error.exists", name) : null
-        ));
-    }
+    // ============================================================
+    //  Per-file actions
+    // ============================================================
 
     private void onRenameFile(String oldName) {
-        Minecraft.getInstance().setScreen(new MaredNameDialog(
-            this, "Rename: " + oldName,
-            (newName, persistent) -> {
-                publish(commandService.rename(oldName, newName));
-                refreshExplorer();
-            },
-            0xFFAA00, true,
-            name -> MaredCommandStorage.listCommands().contains(name)
-                ? "File already exists: " + name : null
-        ));
+        ScreenNavigator.openRenameDialog(this, oldName, (newName, persistent) -> {
+            var r = session.commands().rename(oldName, newName);
+            session.publish(r);
+            if (r.ok()) {
+                session.controller().bus().publish(
+                    new StudioEvents.FileRenamedEvent(oldName, newName));
+                session.refreshExplorer();
+            }
+        });
     }
 
     private void onDuplicateFile(String fileName) {
-        publish(commandService.duplicate(fileName));
-        refreshExplorer();
+        var r = session.commands().duplicate(fileName);
+        session.publish(r);
+        if (r.ok()) session.refreshExplorer();
     }
 
     private void onDeleteFile(String fileName) {
-        if (!commandService.exists(fileName)) {
-            log("[studio] delete skipped: file does not exist: " + fileName);
-            refreshExplorer();
+        if (!session.commands().exists(fileName)) {
+            session.log("[studio] delete skipped: file does not exist: " + fileName);
+            session.refreshExplorer();
             return;
         }
-        boolean wasPersistent = commandService.isPersistent(fileName);
-        String title = wasPersistent
-            ? MaredLang.format("mared.dialog.delete_persistent_title", fileName)
-            : MaredLang.format("mared.dialog.delete_title", "file", fileName);
-        String message = wasPersistent
-            ? MaredLang.get("mared.dialog.delete_persistent_message")
-            : MaredLang.format("mared.dialog.delete_message", fileName);
-
-        Minecraft.getInstance().setScreen(new MaredConfirmDialog(
-            this, title, message,
-            () -> { publish(commandService.delete(fileName)); refreshExplorer(); },
-            wasPersistent
-        ));
+        boolean persistent = session.commands().isPersistent(fileName);
+        ScreenNavigator.openDeleteConfirm(this, fileName, persistent, () -> {
+            var r = session.commands().delete(fileName);
+            session.publish(r);
+            if (r.ok()) {
+                session.controller().bus().publish(
+                    new StudioEvents.FileDeletedEvent(fileName));
+                session.refreshExplorer();
+            }
+        });
     }
 
-    private void onSaveFile() {
-        controller.bus().publish(new StudioEvents.SaveRequestedEvent());
+    private void openContextMenu(int x, int y,
+                                 java.util.List<ContextMenuEntry> entries) {
+        if (session.overlayManager() == null) return;
+        session.overlayManager().push(new ContextMenuOverlay(x, y, entries));
     }
 
-    private void onRunFile() {
-        String text = controller.workspacePanel().workspaceComponent().editor().getValue();
-        if (text == null || text.trim().isEmpty()) { log("[run] file is empty"); return; }
-        var ws = controller.workspacePanel().workspaceComponent();
-        if (ws.currentFileName() != null && ws.isDirty()) ws.save();
-        MaredFileRunner.run(text, this::log);
-    }
-
-    private void onSettings() {
-        Minecraft.getInstance().setScreen(new MaredSettingsScreen(this));
-    }
-
-    private void publish(CommandFileService.Result r) {
-        if (r == null || r.logLine() == null) return;
-        log(r.logLine());
-    }
-
-    private void refreshExplorer() {
-        var ex = controller.explorerPanel();
-        if (ex != null) ex.explorerComponent().reload();
-    }
-
-    private void log(String line) {
-        controller.bus().publish(new StudioEvents.LogEvent(line));
-    }
+    // ============================================================
+    //  Close guard
+    // ============================================================
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, width, height, MaredThemeRegistry.active().bgScreen);
+    public void onClose() {
+        if (session.hasUnsavedChanges()) {
+            ScreenNavigator.openUnsavedConfirm(this, () -> {
+                session.markClosing();
+                session.overlayManager().clear();
+                MaredStudioScreen.super.onClose();
+            });
+            return;
+        }
+        session.markClosing();
+        if (session.overlayManager() != null) session.overlayManager().clear();
+        super.onClose();
+    }
 
+    // ============================================================
+    //  Render
+    // ============================================================
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY,
+                       float partialTick) {
+        if (MaredScale.isBound()) MaredAnimState.tick();
+
+        graphics.fill(0, 0, width, height, MaredThemeRegistry.active().bgScreen);
         super.render(graphics, mouseX, mouseY, partialTick);
 
         MaredRenderContext context = new MaredRenderContext(graphics);
-        DockRenderer.render(controller.dockManager(), context, width, height);
-        DockRenderer.dispatchMove(controller.dockManager(), mouseX, mouseY);
-        DockRenderer.renderDividers(controller.dockManager(), context, width, height, mouseX, mouseY);
+        DockRenderer.beginFrame(context);
+        try {
+            DockRenderer.render(session.controller().dockManager(),
+                context, width, height);
+            DockRenderer.renderDividers(session.controller().dockManager(),
+                context, width, height, mouseX, mouseY);
+        } finally {
+            DockRenderer.endFrame();
+        }
 
-        MaredContextMenu.render(graphics, this.font, width, height, mouseX, mouseY);
+        if (session.overlayManager() != null) {
+            session.overlayManager().render(graphics, this.font,
+                width, height, mouseX, mouseY);
+        }
     }
+
+    // ============================================================
+    //  Input
+    // ============================================================
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (MaredContextMenu.isOpen()) {
-            MaredContextMenu.mouseClicked(mx, my, button);
-            return true;
-        }
+        if (session.overlayManager() != null
+            && session.overlayManager().mouseClicked(mx, my, button)) return true;
+
         if (super.mouseClicked(mx, my, button)) return true;
-        if (DockRenderer.beginDividerDrag(controller.dockManager(), mx, my, width, height, button)) return true;
-        return DockRenderer.dispatchClick(controller.dockManager(), mx, my, button);
+        if (DockRenderer.beginDividerDrag(session.controller().dockManager(),
+            mx, my, width, height, button)) return true;
+        return DockRenderer.dispatchClick(session.controller().dockManager(),
+            mx, my, button);
     }
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
         if (DockRenderer.isDraggingDivider()) {
-            DockRenderer.endDividerDrag(controller.dockManager());
+            DockRenderer.endDividerDrag(session.controller().dockManager());
             return true;
+        }
+        var pm = session.pointerManager();
+        if (pm != null && pm.isCapturedForButton(button)) {
+            MaredComponent owner = pm.owner();
+            boolean handled = owner != null && owner.mouseReleased(mx, my, button);
+            pm.releaseAll();
+            return handled;
         }
         if (super.mouseReleased(mx, my, button)) return true;
-        return DockRenderer.dispatchReleased(controller.dockManager(), mx, my, button);
+        return DockRenderer.dispatchReleased(session.controller().dockManager(),
+            mx, my, button);
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dragX, double dragY) {
+    public boolean mouseDragged(double mx, double my, int button,
+                                double dragX, double dragY) {
         if (DockRenderer.isDraggingDivider()) {
-            DockRenderer.updateDividerDrag(controller.dockManager(), mx, my, width, height);
+            DockRenderer.updateDividerDrag(session.controller().dockManager(),
+                mx, my, width, height);
             return true;
         }
+        var pm = session.pointerManager();
+        if (pm != null && pm.isCapturedForButton(button)) {
+            MaredComponent owner = pm.owner();
+            if (owner != null) {
+                return owner.mouseDragged(mx, my, button, dragX, dragY);
+            }
+        }
         if (super.mouseDragged(mx, my, button, dragX, dragY)) return true;
-        return DockRenderer.dispatchDrag(controller.dockManager(), mx, my, button, dragX, dragY);
+        return DockRenderer.dispatchDrag(session.controller().dockManager(),
+            mx, my, button, dragX, dragY);
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double scrollX, double scrollY) {
-        if (MaredContextMenu.isOpen()) return true;
+    public boolean mouseScrolled(double mx, double my,
+                                 double scrollX, double scrollY) {
+        if (session.overlayManager() != null
+            && session.overlayManager().shouldBlockGenericInput()) return true;
         if (super.mouseScrolled(mx, my, scrollX, scrollY)) return true;
-        return DockRenderer.dispatchScroll(controller.dockManager(), mx, my, scrollX, scrollY);
+        return DockRenderer.dispatchScroll(session.controller().dockManager(),
+            mx, my, scrollX, scrollY);
     }
 
     @Override
     public void mouseMoved(double mx, double my) {
         super.mouseMoved(mx, my);
-        DockRenderer.dispatchMove(controller.dockManager(), mx, my);
+        DockRenderer.dispatchMove(session.controller().dockManager(), mx, my);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (MaredContextMenu.isOpen()) { MaredContextMenu.keyPressed(keyCode); return true; }
+        if (session.overlayManager() != null
+            && session.overlayManager().keyPressed(keyCode, scanCode, modifiers))
+            return true;
+
         if (super.keyPressed(keyCode, scanCode, modifiers)) return true;
-        if (DockRenderer.dispatchKey(controller.dockManager(), keyCode, scanCode, modifiers)) return true;
-        boolean ctrl = (modifiers & 2) != 0;
-        if (ctrl && keyCode == GLFW.GLFW_KEY_N) { onNewFile(); return true; }
-        if (ctrl && keyCode == GLFW.GLFW_KEY_R) { onRunFile(); return true; }
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) { onClose(); return true; }
+
+        if (DockRenderer.dispatchKey(session.controller().dockManager(),
+            keyCode, scanCode, modifiers)) return true;
+
+        if (session.actionContext() != null
+            && session.actions() != null
+            && session.actions().executeByKey(keyCode, modifiers,
+                session.actionContext())) {
+            return true;
+        }
+
         return false;
     }
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
-        if (MaredContextMenu.isOpen()) return true;
+        if (session.overlayManager() != null
+            && session.overlayManager().shouldBlockGenericInput()) return true;
         if (super.charTyped(codePoint, modifiers)) return true;
-        return DockRenderer.dispatchChar(controller.dockManager(), codePoint, modifiers);
+        return DockRenderer.dispatchChar(session.controller().dockManager(),
+            codePoint, modifiers);
     }
 
     @Override

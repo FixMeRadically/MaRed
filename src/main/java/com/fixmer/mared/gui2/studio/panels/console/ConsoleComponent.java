@@ -8,6 +8,7 @@ import com.fixmer.mared.gui2.framework.render.legacy.LegacyFontBridge;
 import com.fixmer.mared.gui2.studio.events.StudioEventBus;
 import com.fixmer.mared.gui2.studio.events.StudioEvents;
 import com.fixmer.mared.gui2.studio.events.SubscriptionGroup;
+import com.fixmer.mared.services.logging.LogSettings;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -15,13 +16,7 @@ import net.minecraft.client.gui.GuiGraphics;
 /**
  * Консоль MaRed Studio.
  *
- * 0.3.0 (Stage B3b3): MaredLogPanel переехал из gui.common в
- * gui2.framework.components.console. ConsoleComponent теперь работает
- * с gui2-версией — legacy больше не задействован.
- *
- * Шрифт для рендера — через context.font().
- * Шрифт для legacy-совместимых mouseClicked/Dragged — через
- * LegacyFontBridge (единственное легальное место, знающее про Minecraft).
+ * 0.3.1: подписка на LogEvent принимает structured-событие.
  */
 public final class ConsoleComponent extends MaredComponent implements Disposable {
 
@@ -33,16 +28,26 @@ public final class ConsoleComponent extends MaredComponent implements Disposable
 
     public ConsoleComponent(StudioEventBus bus) {
         this.logPanel = new MaredLogPanel();
-        logPanel.add("[studio] console ready");
+        logPanel.addStructured(LogSettings.Level.INFO, "studio",
+            "console ready");
         subs.add(bus.subscribe(StudioEvents.LogEvent.class,
-            e -> logPanel.add(e.line())));
+            e -> logPanel.add(e)));
     }
 
     @Override
     public void dispose() { subs.dispose(); }
 
     public MaredLogPanel logPanel() { return logPanel; }
+
     public void addLine(String line) { logPanel.add(line); }
+
+    public void addStructured(LogSettings.Level level, String category,
+                              String message) {
+        logPanel.addStructured(level, category, message);
+    }
+
+    @Override
+    public boolean focusable() { return true; }
 
     @Override
     protected void safeRender(MaredRenderContext context) {
@@ -64,6 +69,8 @@ public final class ConsoleComponent extends MaredComponent implements Disposable
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
         if (!bounds.contains(mx, my)) return false;
+        requestFocus();
+        capturePointer(button);
         Font font = LegacyFontBridge.font();
         return logPanel.mouseClicked(
             mx, my, button,
@@ -85,7 +92,9 @@ public final class ConsoleComponent extends MaredComponent implements Disposable
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
-        return logPanel.mouseReleased(mx, my, button);
+        boolean handled = logPanel.mouseReleased(mx, my, button);
+        if (hasPointerCapture(button)) releasePointer();
+        return handled;
     }
 
     @Override

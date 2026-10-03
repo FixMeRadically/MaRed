@@ -8,6 +8,8 @@ import com.fixmer.mared.services.settings.SettingsService;
  * 0.3.0 (Phase F1): тонкий фасад над SettingsService.
  * 0.3.0 (Phase F3b): Snapshot.apply() делает один commit вместо серии
  * save-вызовов.
+ * 0.3.1: Snapshot помечен @Deprecated — legacy UI compatibility,
+ *        уйдёт в 0.4.
  *
  * Хранится: config/mared/settings.json
  */
@@ -303,12 +305,15 @@ public final class MaredSettings {
     // ============================================================
     //  Snapshot
     // ============================================================
+
     /**
      * Draft-копия настроек для UI-экрана.
      *
      * @deprecated after 0.4.0 — legacy UI compatibility mechanism.
      * Новые подсистемы не должны зависеть от этого типа.
+     * Используйте SettingsContext + SettingsService.commit().
      */
+    @Deprecated
     public static class Snapshot {
 
         public AutoIndent autoIndent;
@@ -382,7 +387,6 @@ public final class MaredSettings {
 
         /**
          * 0.3.0 (Phase F3b): один commit вместо серии setter+save.
-         * Все значения применяются в память, потом одна финальная запись.
          */
         public void apply() {
             SettingsService.get().commit(this);

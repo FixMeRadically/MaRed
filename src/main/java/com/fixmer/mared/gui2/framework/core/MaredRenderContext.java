@@ -12,7 +12,9 @@ import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
 /**
  * Контекст рендера MaRed.
  *
- * 0.3.0: тема берётся напрямую из MaredThemeRegistry (без ThemeContext).
+ * 0.3.0: тема берётся из MaredThemeRegistry (без ThemeContext).
+ * 0.3.1: создаётся один раз за кадр, передаётся в компоненты.
+ *        Живёт в связке с UiContext (MaredScale.bind в Screen.init).
  */
 public final class MaredRenderContext {
 

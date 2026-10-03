@@ -4,8 +4,6 @@
   "compatibilityLevel": "JAVA_21",
 
   "client": [
-    "gui2.MaredPauseScreenMixin",
-    "gui2.ScreenAccessor",
     "MouseHandlerMixin"
   ]
 }

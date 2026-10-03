@@ -10,16 +10,8 @@ import net.minecraft.network.chat.Component;
 /**
  * Многострочный редактор кода.
  *
- * 0.3.0 (Phase D1+D2): разбит на слои:
- *   - EditorDocument   — модель (строки, курсор, селекция);
- *   - EditorHistory    — undo/redo;
- *   - EditorView       — wrap-кэш, рендер, pixel-hit, scroll;
- *   - EditorController — input, auto-indent, clipboard.
- *
- * MaredMultiLineEditBox — тонкий оркестратор: держит ссылки,
- * проксирует события, хранит accentColor и callback.
- *
- * Публичный API сохранён полностью.
+ * 0.3.1: Document/History/View/Controller разделены.
+ *        History работает на дельтах, не на снапшотах.
  */
 public class MaredMultiLineEditBox extends AbstractWidget {
 
@@ -45,10 +37,6 @@ public class MaredMultiLineEditBox extends AbstractWidget {
             this::notifyChanged
         );
     }
-
-    // ============================================================
-    //  Public API
-    // ============================================================
 
     public void setAccentColor(int color) { this.accentColor = color; }
 
@@ -76,7 +64,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     }
 
     // ============================================================
-    //  Adapter — что видит EditorController
+    //  Adapter
     // ============================================================
 
     private final class HostAdapter implements EditorController.EditorHost {
@@ -106,7 +94,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     }
 
     // ============================================================
-    //  Input — прокидка в controller
+    //  Input
     // ============================================================
 
     @Override
@@ -144,7 +132,7 @@ public class MaredMultiLineEditBox extends AbstractWidget {
     }
 
     // ============================================================
-    //  Render — прокидка в view
+    //  Render
     // ============================================================
 
     @Override

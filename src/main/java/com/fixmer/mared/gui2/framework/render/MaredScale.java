@@ -2,17 +2,24 @@ package com.fixmer.mared.gui2.framework.render;
 
 import com.fixmer.mared.gui2.framework.core.UiContext;
 
-import net.minecraft.client.Minecraft;
-
 /**
- * Универсальный масштабировщик.
+ * Универсальный масштабировщик — статический фасад над "текущим"
+ * UiContext экрана.
  *
- * 0.3.0 (Phase A): рефакторинг. Глобальное mutable state удалено —
- * теперь MaredScale это статический фасад над "текущим" UiContext.
- * Сам UiContext создаётся в init() экрана (через update()).
+ * 0.3.0 (Phase A): введён bridge над UiContext.
+ * 0.3.1: 
+ *   - context() больше не создаёт fallback-контекст. Если bind() не
+ *     был вызван — IllegalStateException. Раньше fallback (1920×1080,
+ *     scale=1) молча маскировал ошибку: scaling "работал", но не
+ *     реагировал на реальное разрешение.
+ *   - update(guiW, guiH) удалён. Один путь: bind() с готовым UiContext.
+ *   - unbind() сделан явным. Раньше после removed() контекст оставался
+ *     от предыдущего экрана — следующий Screen начинал рендер с
+ *     чужими размерами, пока не вызовет update.
  *
- * @deprecated after 0.4.0 — все call-site должны принимать UiContext
- * явно. Фасад удаляется вместе с MaredDraw/MaredText/MaredWidgets.
+ * @deprecated after 0.4.0 — новый код должен принимать UiContext явно
+ * (через MaredRenderContext или параметр). Фасад удаляется вместе с
+ * MaredDraw/MaredText/MaredWidgets.
  */
 @Deprecated
 public final class MaredScale {
@@ -30,42 +37,48 @@ public final class MaredScale {
 
     private static volatile UiContext current;
 
-    /** Привязать контекст. Вызывается в init() экрана. */
+    /**
+     * 0.3.1: bind обязателен перед первым использованием MaredScale.
+     * Вызывается в Screen.init().
+     */
     public static void bind(UiContext ctx) {
-        if (ctx == null) throw new IllegalArgumentException("UiContext must not be null");
+        if (ctx == null) {
+            throw new IllegalArgumentException("UiContext must not be null");
+        }
         current = ctx;
     }
 
+    /**
+     * 0.3.1: unbind обязателен в Screen.removed(). Иначе следующий
+     * экран унаследует чужой контекст.
+     */
     public static void unbind() {
         current = null;
     }
 
+    /**
+     * 0.3.1: без fallback. Если bind не был вызван — это ошибка
+     * жизненного цикла, не нормальная ситуация.
+     */
     public static UiContext context() {
         UiContext c = current;
         if (c == null) {
-            // Fallback: если кто-то вызвал до bind() — создаём дефолт,
-            // чтобы не падать. В нормальном lifecycle этого не происходит.
-            c = new UiContext(BASE_W, BASE_H, BASE_W, BASE_H);
-            current = c;
+            throw new IllegalStateException(
+                "UiContext not bound. Call MaredScale.bind(ctx) in Screen.init()");
         }
         return c;
     }
 
-    /** Совместимость: пересоздать контекст по размерам экрана. */
-    public static void update(int guiW, int guiH) {
-        int pw = guiW, ph = guiH;
-        try {
-            var win = Minecraft.getInstance().getWindow();
-            pw = win.getWidth();
-            ph = win.getHeight();
-        } catch (Throwable ignored) {}
-        bind(new UiContext(guiW, guiH, pw, ph));
+    /** true, если контекст привязан. Для диагностики. */
+    public static boolean isBound() {
+        return current != null;
     }
 
     public static int screenW() { return context().screenW(); }
     public static int screenH() { return context().screenH(); }
     public static int physW()   { return context().physW(); }
     public static int physH()   { return context().physH(); }
+    public static int mcGuiScale() { return context().mcGuiScale(); }
     public static float scale() { return context().scale(); }
 
     public static UiContext.Level level() { return context().level(); }

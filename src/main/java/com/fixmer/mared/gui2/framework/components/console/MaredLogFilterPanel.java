@@ -13,10 +13,11 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * Панель фильтров лога (автономный компонент).
+ * Панель фильтров лога.
  *
- * 0.3.0 (Phase B3b3): перенос legacy gui.common.MaredLogFilterPanel в gui2.
- * 0.3.0 (Phase F3): LogEntry / LogSettings теперь из services.logging.
+ * 0.3.1: подсчёт по structured-полям. Раньше каждый chip вызывал
+ * LogSettings.parseLevel(e.text) для каждой видимой записи — O(N*K)
+ * на каждый кадр. Теперь O(N) с одним сравнением e.level.
  */
 public final class MaredLogFilterPanel {
 
@@ -36,11 +37,15 @@ public final class MaredLogFilterPanel {
 
     public MaredLogFilterPanel() {}
 
+    // ============================================================
+    //  Stats — structured
+    // ============================================================
+
     public static int countByLevel(LogSettings.Level lvl) {
         List<LogEntry> snap = MaredLogPanel.snapshotForStats();
         int n = 0;
         for (LogEntry e : snap) {
-            if (LogSettings.parseLevel(e.text) == lvl) n++;
+            if (e.level == lvl) n++;
         }
         return n;
     }
@@ -49,13 +54,18 @@ public final class MaredLogFilterPanel {
         List<LogEntry> snap = MaredLogPanel.snapshotForStats();
         int n = 0;
         for (LogEntry e : snap) {
-            if (LogSettings.parseCategory(e.text).equals(cat)) n++;
+            if (cat.equals(e.category)) n++;
         }
         return n;
     }
 
-    public static int totalEntries() { return MaredLogPanel.snapshotForStats().size(); }
-    public static int visibleEntries() { return MaredLogPanel.countVisible(); }
+    public static int totalEntries() {
+        return MaredLogPanel.snapshotForStats().size();
+    }
+
+    public static int visibleEntries() {
+        return MaredLogPanel.countVisible();
+    }
 
     // ============================================================
     //  Render

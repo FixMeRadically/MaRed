@@ -1,9 +1,8 @@
 package com.fixmer.mared.gui2.studio.panels.workspace;
 
-import org.lwjgl.glfw.GLFW;
-
 import com.fixmer.mared.gui2.framework.components.editor.MaredMultiLineEditBox;
 import com.fixmer.mared.gui2.framework.core.Disposable;
+import com.fixmer.mared.gui2.framework.core.MaredBounds;
 import com.fixmer.mared.gui2.framework.core.MaredComponent;
 import com.fixmer.mared.gui2.framework.core.MaredRenderContext;
 import com.fixmer.mared.gui2.framework.theme.ThemeColors;
@@ -11,7 +10,6 @@ import com.fixmer.mared.gui2.studio.events.StudioEventBus;
 import com.fixmer.mared.gui2.studio.events.StudioEvents;
 import com.fixmer.mared.gui2.studio.events.SubscriptionGroup;
 import com.fixmer.mared.services.command.CommandFileService;
-import com.fixmer.mared.services.threading.CancellationToken;
 import com.fixmer.mared.services.threading.MaredThreading;
 import com.fixmer.mared.services.threading.TaskScheduler;
 
@@ -19,15 +17,13 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * Компонент редактирования одного файла.
- *
- * 0.3.0 (Phase F4): не ходит в MaredCommandStorage напрямую —
- * read/write через CommandFileService (services.command).
+ * 0.3.1: Ctrl+S больше не обрабатывается здесь — это глобальный
+ * shortcut StudioActions.FILE_SAVE, который публикует
+ * SaveRequestedEvent. Workspace реагирует на событие.
  */
 public final class WorkspaceComponent extends MaredComponent implements Disposable {
 
     private static final int HEADER_H = 18;
-    private static final boolean DEBUG_SAVE = false;
 
     private final StudioEventBus bus;
     private final MaredMultiLineEditBox editor;
@@ -37,8 +33,10 @@ public final class WorkspaceComponent extends MaredComponent implements Disposab
     private String currentFileName = null;
     private String lastSavedText = "";
     private boolean dirty = false;
-    private boolean saving = false;
-    private CancellationToken currentSaveToken = null;
+
+    private boolean saveInFlight = false;
+    private boolean pendingSave  = false;
+    private String pendingOpenFile = null;
 
     private int lastMouseX = 0;
     private int lastMouseY = 0;
@@ -53,23 +51,48 @@ public final class WorkspaceComponent extends MaredComponent implements Disposab
             e -> openFile(e.fileName())));
         subs.add(bus.subscribe(StudioEvents.SaveRequestedEvent.class,
             e -> save()));
+        subs.add(bus.subscribe(StudioEvents.FileRenamedEvent.class,
+            e -> onFileRenamed(e.oldName(), e.newName())));
+        subs.add(bus.subscribe(StudioEvents.FileDeletedEvent.class,
+            e -> onFileDeleted(e.fileName())));
     }
 
     @Override
-    public void dispose() {
-        if (currentSaveToken != null) currentSaveToken.cancel();
-        subs.dispose();
+    public void dispose() { subs.dispose(); }
+
+    @Override
+    public boolean focusable() { return true; }
+
+    @Override
+    public void onFocusGained() {
+        if (editor.isEditable()) editor.setFocused(true);
+    }
+
+    @Override
+    public void onFocusLost() {
+        editor.setFocused(false);
     }
 
     public MaredMultiLineEditBox editor() { return editor; }
     public String currentFileName() { return currentFileName; }
     public boolean isDirty() { return dirty; }
-    public boolean isSaving() { return saving; }
+    public boolean isSaving() { return saveInFlight; }
 
     public void openFile(String name) {
         if (name == null || name.isEmpty()) return;
         if (name.equals(currentFileName)) return;
-        if (dirty && currentFileName != null) saveSync();
+
+        if (dirty && currentFileName != null) {
+            boolean saved = saveSync();
+            if (!saved) {
+                pendingOpenFile = name;
+                bus.publish(new StudioEvents.LogEvent(
+                    com.fixmer.mared.services.logging.LogSettings.Level.WARN,
+                    "studio",
+                    "open blocked — could not save '" + currentFileName + "'"));
+                return;
+            }
+        }
 
         String text = commandService.read(name);
         if (text == null) text = "";
@@ -77,71 +100,115 @@ public final class WorkspaceComponent extends MaredComponent implements Disposab
         currentFileName = name;
         lastSavedText = text;
         dirty = false;
+        pendingOpenFile = null;
         editor.setValue(text);
         editor.setEditable(true);
-        editor.setFocused(true);
+        editor.setFocused(isFocused());
 
         bus.publish(new StudioEvents.LogEvent(
-            "[studio] opened: " + name + " (" + text.length() + " chars)"));
+            com.fixmer.mared.services.logging.LogSettings.Level.INFO,
+            "studio",
+            "opened: " + name + " (" + text.length() + " chars)"));
         bus.publish(new StudioEvents.FileOpenedEvent(name));
     }
 
     public void save() {
         if (currentFileName == null) return;
+
+        if (saveInFlight) {
+            pendingSave = true;
+            return;
+        }
+
         final String content = editor.getValue();
         final String fileName = currentFileName;
 
-        if (currentSaveToken != null) {
-            currentSaveToken.cancel();
-            currentSaveToken = null;
+        if (!MaredThreading.isInitialized()) {
+            saveSync();
+            return;
         }
 
-        if (!MaredThreading.isInitialized()) { saveSync(); return; }
-
-        final CancellationToken token = new CancellationToken();
-        currentSaveToken = token;
-        saving = true;
-
+        saveInFlight = true;
         TaskScheduler scheduler = MaredThreading.scheduler();
         scheduler.submit("Save:" + fileName,
-            () -> {
-                token.throwIfCancelled();
-                boolean ok = commandService.write(fileName, content);
-                token.throwIfCancelled();
-                return ok;
-            },
+            () -> commandService.write(fileName, content),
             ok -> onSaveComplete(fileName, content, ok),
             err -> onSaveError(fileName, err),
-            token
+            null
         );
     }
 
-    private void saveSync() {
-        if (currentFileName == null) return;
+    private boolean saveSync() {
+        if (currentFileName == null) return true;
         String content = editor.getValue();
         boolean ok = commandService.write(currentFileName, content);
         onSaveComplete(currentFileName, content, ok);
+        return ok;
     }
 
     private void onSaveComplete(String fileName, String content, boolean ok) {
-        if (!fileName.equals(currentFileName)) { saving = false; return; }
-        saving = false;
-        currentSaveToken = null;
+        if (!fileName.equals(currentFileName)) {
+            saveInFlight = false;
+            maybeFlushPending();
+            return;
+        }
+        saveInFlight = false;
+
         if (ok) {
             lastSavedText = content;
-            dirty = false;
-            bus.publish(new StudioEvents.LogEvent("[studio] saved: " + fileName));
-        } else {
+            dirty = !editor.getValue().equals(lastSavedText);
             bus.publish(new StudioEvents.LogEvent(
-                "[studio] FAILED to save: " + fileName));
+                com.fixmer.mared.services.logging.LogSettings.Level.INFO,
+                "studio", "saved: " + fileName));
+        } else {
+            dirty = true;
+            bus.publish(new StudioEvents.LogEvent(
+                com.fixmer.mared.services.logging.LogSettings.Level.ERROR,
+                "studio", "FAILED to save: " + fileName));
         }
+        maybeFlushPending();
     }
 
     private void onSaveError(String fileName, Throwable err) {
-        saving = false;
-        currentSaveToken = null;
+        saveInFlight = false;
+        if (fileName.equals(currentFileName)) dirty = true;
         bus.publish(new StudioEvents.LogEvent(
-            "[studio] save error (" + fileName + "): " + err.getMessage()));
+            com.fixmer.mared.services.logging.LogSettings.Level.ERROR,
+            "studio", "save error (" + fileName + "): " + err.getMessage()));
+        maybeFlushPending();
+    }
+
+    private void maybeFlushPending() {
+        if (pendingSave) {
+            pendingSave = false;
+            save();
+        } else if (pendingOpenFile != null && !dirty) {
+            String next = pendingOpenFile;
+            pendingOpenFile = null;
+            openFile(next);
+        }
+    }
+
+    private void onFileRenamed(String oldName, String newName) {
+        if (oldName == null || !oldName.equals(currentFileName)) return;
+        currentFileName = newName;
+        bus.publish(new StudioEvents.FileOpenedEvent(newName));
+        bus.publish(new StudioEvents.LogEvent(
+            com.fixmer.mared.services.logging.LogSettings.Level.INFO,
+            "studio", "workspace now editing: " + newName));
+    }
+
+    private void onFileDeleted(String fileName) {
+        if (fileName == null || !fileName.equals(currentFileName)) return;
+        currentFileName = null;
+        dirty = false;
+        lastSavedText = "";
+        pendingOpenFile = null;
+        editor.setEditable(false);
+        editor.setFocused(false);
+        bus.publish(new StudioEvents.LogEvent(
+            com.fixmer.mared.services.logging.LogSettings.Level.WARN,
+            "studio", "open file was deleted externally: " + fileName));
     }
 
     private void onEditorChanged() {
@@ -150,14 +217,16 @@ public final class WorkspaceComponent extends MaredComponent implements Disposab
     }
 
     @Override
-    public void layout(com.fixmer.mared.gui2.framework.core.MaredBounds bounds) {
+    public void layout(MaredBounds bounds) {
         super.layout(bounds);
         int ex = bounds.x() + 2;
         int ey = bounds.y() + HEADER_H + 2;
         int ew = Math.max(20, bounds.width() - 4);
         int eh = Math.max(20, bounds.height() - HEADER_H - 4);
-        editor.setX(ex); editor.setY(ey);
-        editor.setWidth(ew); editor.setHeight(eh);
+        editor.setX(ex);
+        editor.setY(ey);
+        editor.setWidth(ew);
+        editor.setHeight(eh);
     }
 
     @Override
@@ -167,12 +236,18 @@ public final class WorkspaceComponent extends MaredComponent implements Disposab
 
         g.fill(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), 0xFF0E0E16);
 
-        String title = currentFileName == null
-            ? "Workspace — no file selected"
-            : currentFileName + (dirty ? "  ●" : "") + (saving ? "…" : "");
+        String title;
+        if (currentFileName == null) {
+            title = "Workspace — no file selected";
+        } else {
+            title = currentFileName
+                + (dirty ? "  ●" : "")
+                + (saveInFlight ? "…" : "");
+        }
 
         g.drawString(font, title, bounds.x() + 6, bounds.y() + 5,
-            currentFileName == null ? ThemeColors.muted() : ThemeColors.text(), false);
+            currentFileName == null ? ThemeColors.muted() : ThemeColors.text(),
+            false);
 
         g.fill(bounds.x(), bounds.y() + HEADER_H - 1,
                bounds.right(), bounds.y() + HEADER_H, 0xFF222233);
@@ -191,33 +266,40 @@ public final class WorkspaceComponent extends MaredComponent implements Disposab
     public boolean mouseClicked(double mx, double my, int button) {
         if (!bounds.contains(mx, my)) return false;
         if (editor.isMouseOver(mx, my)) {
-            editor.setFocused(true);
+            requestFocus();
+            capturePointer(button);
             return editor.mouseClicked(mx, my, button);
         }
         return true;
     }
 
     @Override
-    public boolean mouseDragged(double mx, double my, int button, double dragX, double dragY) {
+    public boolean mouseDragged(double mx, double my, int button,
+                                double dragX, double dragY) {
         return editor.mouseDragged(mx, my, button, dragX, dragY);
     }
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
-        return editor.mouseReleased(mx, my, button);
+        boolean handled = editor.mouseReleased(mx, my, button);
+        if (hasPointerCapture(button)) releasePointer();
+        return handled;
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double scrollX, double scrollY) {
+    public boolean mouseScrolled(double mx, double my,
+                                 double scrollX, double scrollY) {
         if (!editor.isMouseOver(mx, my)) return false;
         return editor.mouseScrolled(mx, my, scrollX, scrollY);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        boolean ctrl = (modifiers & 2) != 0;
-        if (ctrl && keyCode == GLFW.GLFW_KEY_S) { save(); return true; }
-        if (editor.isFocused()) return editor.keyPressed(keyCode, scanCode, modifiers);
+        // Ctrl+S перехватывается централизованно в MaredStudioScreen через
+        // EditorActionRegistry (StudioActions.FILE_SAVE).
+        if (editor.isFocused()) {
+            return editor.keyPressed(keyCode, scanCode, modifiers);
+        }
         return false;
     }
 

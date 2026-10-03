@@ -7,13 +7,11 @@ import java.util.List;
 /**
  * Контейнер компонентов.
  *
- * 0.3.0: правильное propagation input.
- *
- * Ключевое изменение — обратный порядок обхода (top-first, как z-order)
- * и остановка на первом компоненте, который вернул true.
- *
- * Это фиксит старый баг, когда один клик обрабатывался всеми детьми
- * в области, а не только верхним.
+ * 0.3.1 (FocusManager): mouseClicked → requestFocus, если focusable.
+ * 0.3.1 (PointerCaptureManager):
+ *   - mouseDragged сначала смотрит pointer capture. Если кто-то держит
+ *     pointer — направляет drag только ему, независимо от позиции.
+ *   - mouseReleased — то же самое, после чего capture освобождается.
  */
 public class MaredContainer extends MaredComponent {
 
@@ -68,6 +66,7 @@ public class MaredContainer extends MaredComponent {
             if (!c.isVisible() || !c.isEnabled()) continue;
             if (!c.bounds().contains(mouseX, mouseY)) continue;
             if (c.mouseClicked(mouseX, mouseY, button)) {
+                if (c.focusable()) c.requestFocus();
                 return true;
             }
         }
@@ -89,6 +88,14 @@ public class MaredContainer extends MaredComponent {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        // 0.3.1: если pointer захвачен для этой кнопки — идём только owner'у.
+        MaredComponent captured = pointerOwner(button);
+        if (captured != null) {
+            boolean handled = captured.mouseReleased(mouseX, mouseY, button);
+            captured.releasePointer();
+            return handled;
+        }
+
         for (int i = children.size() - 1; i >= 0; i--) {
             MaredComponent c = children.get(i);
             if (!c.isVisible() || !c.isEnabled()) continue;
@@ -102,6 +109,12 @@ public class MaredContainer extends MaredComponent {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button,
                                 double dragX, double dragY) {
+        // 0.3.1: capture — только owner.
+        MaredComponent captured = pointerOwner(button);
+        if (captured != null) {
+            return captured.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+        }
+
         for (int i = children.size() - 1; i >= 0; i--) {
             MaredComponent c = children.get(i);
             if (!c.isVisible() || !c.isEnabled()) continue;
@@ -128,21 +141,15 @@ public class MaredContainer extends MaredComponent {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // Сначала — focused-ребёнок (если есть).
         for (int i = children.size() - 1; i >= 0; i--) {
             MaredComponent c = children.get(i);
             if (!c.isVisible() || !c.isEnabled() || !c.isFocused()) continue;
-            if (c.keyPressed(keyCode, scanCode, modifiers)) {
-                return true;
-            }
+            if (c.keyPressed(keyCode, scanCode, modifiers)) return true;
         }
-        // Затем — все остальные.
         for (int i = children.size() - 1; i >= 0; i--) {
             MaredComponent c = children.get(i);
             if (!c.isVisible() || !c.isEnabled() || c.isFocused()) continue;
-            if (c.keyPressed(keyCode, scanCode, modifiers)) {
-                return true;
-            }
+            if (c.keyPressed(keyCode, scanCode, modifiers)) return true;
         }
         return false;
     }
@@ -152,16 +159,12 @@ public class MaredContainer extends MaredComponent {
         for (int i = children.size() - 1; i >= 0; i--) {
             MaredComponent c = children.get(i);
             if (!c.isVisible() || !c.isEnabled() || !c.isFocused()) continue;
-            if (c.charTyped(codePoint, modifiers)) {
-                return true;
-            }
+            if (c.charTyped(codePoint, modifiers)) return true;
         }
         for (int i = children.size() - 1; i >= 0; i--) {
             MaredComponent c = children.get(i);
             if (!c.isVisible() || !c.isEnabled() || c.isFocused()) continue;
-            if (c.charTyped(codePoint, modifiers)) {
-                return true;
-            }
+            if (c.charTyped(codePoint, modifiers)) return true;
         }
         return false;
     }

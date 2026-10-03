@@ -1,35 +1,17 @@
 package com.fixmer.mared.gui2.launcher;
 
-
-import net.minecraft.client.Minecraft;
-
-import com.fixmer.mared.gui2.studio.MaredStudioScreen;
-
-
+import com.fixmer.mared.gui2.studio.ScreenNavigator;
 
 /**
  * Управляет открытием экранов MaRed.
+ *
+ * 0.3.1: делегирует в ScreenNavigator.
  */
 public final class MaredScreenManager {
 
+    private MaredScreenManager() {}
 
-
-    private MaredScreenManager(){}
-
-
-
-
-
-    public static void openStudio(){
-
-
-        Minecraft.getInstance()
-                .setScreen(
-                        new MaredStudioScreen()
-                );
-
-
+    public static void openStudio() {
+        ScreenNavigator.openStudio();
     }
-
-
 }

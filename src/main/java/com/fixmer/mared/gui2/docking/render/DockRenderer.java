@@ -16,8 +16,13 @@ import com.fixmer.mared.gui2.framework.core.MaredRenderContext;
  *
  * 0.3.0:
  *   - Разделители между панелями (5px hit, 1px линия).
- *   - Drag разделителей меняет ratios панелей.
- *   - Hover-подсветка разделителей.
+ *   - Drag разделителей меняет ratios.
+ *
+ * 0.3.1 (audit #30/#31):
+ *   - renderNode рисует ТОЛЬКО активную панель узла.
+ *   - В узлах с > 1 панелью рисуется tab bar; клик по табу
+ *     переключает activeIndex.
+ *   - dispatch* направляет input только активной панели узла.
  */
 public final class DockRenderer {
 
@@ -75,10 +80,6 @@ public final class DockRenderer {
         renderNode(manager.layout().node(DockPosition.BOTTOM), context);
     }
 
-    /**
-     * Отрисовка разделителей. Вызывается ПОСЛЕ render() — поверх панелей,
-     * но под popup-меню. mouseX/mouseY — для hover.
-     */
     public static void renderDividers(DockManager manager,
                                       MaredRenderContext context,
                                       int screenWidth,
@@ -94,20 +95,17 @@ public final class DockRenderer {
         int yTop    = topH;
         int yBottom = screenHeight - bottomH;
 
-        // LEFT|CENTER
         drawVerticalDivider(context, leftW, yTop, yBottom,
             activeDrag == DividerKind.LEFT_CENTER,
             isNearX(mouseX, leftW) && mouseY >= yTop && mouseY < yBottom,
             isDraggingDivider());
 
-        // CENTER|RIGHT
         int rx = screenWidth - rightW;
         drawVerticalDivider(context, rx, yTop, yBottom,
             activeDrag == DividerKind.CENTER_RIGHT,
             isNearX(mouseX, rx) && mouseY >= yTop && mouseY < yBottom,
             isDraggingDivider());
 
-        // WORKSPACE|BOTTOM
         drawHorizontalDivider(context, 0, screenWidth, yBottom,
             activeDrag == DividerKind.TOP_BOTTOM,
             isNearY(mouseY, yBottom) && mouseX >= 0 && mouseX < screenWidth,
@@ -121,10 +119,8 @@ public final class DockRenderer {
         int color;
         if (dragging) color = DIVIDER_DRAG;
         else if (hovered && !anyDrag) color = DIVIDER_HOVER;
-        else if (anyDrag) color = DIVIDER_IDLE;
         else color = DIVIDER_IDLE;
 
-        // тонкая линия
         ctx.graphics().fill(x, y0, x + 1, y1, color);
     }
 
@@ -149,7 +145,7 @@ public final class DockRenderer {
     }
 
     // ============================================================
-    //  Панели
+    //  Узел: только активная панель
     // ============================================================
 
     private static void renderNode(DockNode node, MaredRenderContext context) {
@@ -159,12 +155,14 @@ public final class DockRenderer {
         DockBounds b = node.bounds();
         int headerH = DockStyle.HEADER_HEIGHT;
 
+        DockPanel active = node.activePanel();
+        if (active == null) return;
+
+        // Малая высота — рендерим без header'а.
         if (b.height() < MIN_HEIGHT_FOR_HEADER) {
-            for (DockPanel panel : node.panels()) {
-                panel.component().layout(new MaredBounds(
-                    b.x(), b.y(), b.width(), b.height()));
-                panel.component().render(context);
-            }
+            active.component().layout(new MaredBounds(
+                b.x(), b.y(), b.width(), b.height()));
+            active.component().render(context);
             return;
         }
 
@@ -173,24 +171,25 @@ public final class DockRenderer {
         int contentW = b.width();
         int contentH = Math.max(0, b.height() - headerH);
 
-        for (DockPanel panel : node.panels()) {
-            panel.component().layout(new MaredBounds(
-                contentX, contentY, contentW, contentH));
+        active.component().layout(new MaredBounds(
+            contentX, contentY, contentW, contentH));
 
-            DockPanelRenderer.render(
-                panel, context,
-                b.x(), b.y(), b.width(), b.height()
-            );
-
-            panel.component().render(context);
+        // Header: tabs при > 1 панели, обычный рендер при одной.
+        if (node.panelCount() > 1) {
+            DockPanelRenderer.renderTabs(node, context,
+                b.x(), b.y(), b.width(), headerH);
+        } else {
+            DockPanelRenderer.render(active, context,
+                b.x(), b.y(), b.width(), b.height());
         }
+
+        active.component().render(context);
     }
 
     // ============================================================
     //  Divider drag API
     // ============================================================
 
-    /** Начать drag, если точка попадает в hitbox разделителя. */
     public static boolean beginDividerDrag(DockManager manager,
                                            double mx, double my,
                                            int screenWidth, int screenHeight,
@@ -209,7 +208,6 @@ public final class DockRenderer {
         return true;
     }
 
-    /** Обновить ratio во время drag. */
     public static void updateDividerDrag(DockManager manager,
                                          double mx, double my,
                                          int screenWidth, int screenHeight) {
@@ -226,15 +224,10 @@ public final class DockRenderer {
         manager.layout().setRatio(activeDrag.position, dragStartRatio + delta);
     }
 
-    /** Завершить drag. Сохранение — в MaredStudioController.shutdown(). */
     public static void endDividerDrag(DockManager manager) {
         if (activeDrag == DividerKind.NONE) return;
         activeDrag = DividerKind.NONE;
     }
-
-    // ============================================================
-    //  Hit-test
-    // ============================================================
 
     private static DividerKind hitDivider(DockManager manager,
                                            double mx, double my,
@@ -249,22 +242,16 @@ public final class DockRenderer {
         int yTop    = topH;
         int yBottom = screenHeight - bottomH;
 
-        // LEFT|CENTER
         if (near(mx, leftW) && my >= yTop && my < yBottom) {
             return DividerKind.LEFT_CENTER;
         }
-
-        // CENTER|RIGHT
         int rx = screenWidth - rightW;
         if (near(mx, rx) && my >= yTop && my < yBottom) {
             return DividerKind.CENTER_RIGHT;
         }
-
-        // WORKSPACE|BOTTOM
         if (near(my, yBottom) && mx >= 0 && mx < screenWidth) {
             return DividerKind.TOP_BOTTOM;
         }
-
         return DividerKind.NONE;
     }
 
@@ -274,16 +261,32 @@ public final class DockRenderer {
     }
 
     // ============================================================
-    //  Dispatch — клики
+    //  Dispatch
     // ============================================================
 
     public static boolean dispatchClick(DockManager manager,
                                         double mx, double my, int button) {
+        MaredRenderContext ctx = currentContext;
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
             if (!contains(node.bounds(), mx, my)) continue;
-            for (DockPanel panel : node.panels()) {
-                if (panel.component().mouseClicked(mx, my, button)) return true;
+
+            // 0.3.1: сначала — вкладки.
+            if (node.panelCount() > 1 && ctx != null) {
+                int idx = DockPanelRenderer.hitTab(node, ctx,
+                    node.bounds().x(), node.bounds().y(),
+                    node.bounds().width(), DockStyle.HEADER_HEIGHT,
+                    mx, my);
+                if (idx >= 0) {
+                    node.activate(idx);
+                    return true;
+                }
+            }
+
+            DockPanel active = node.activePanel();
+            if (active != null
+                && active.component().mouseClicked(mx, my, button)) {
+                return true;
             }
         }
         return false;
@@ -294,8 +297,11 @@ public final class DockRenderer {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
             if (!contains(node.bounds(), mx, my)) continue;
-            for (DockPanel panel : node.panels()) {
-                if (panel.component().mousePressed(mx, my, button)) return true;
+
+            DockPanel active = node.activePanel();
+            if (active != null
+                && active.component().mousePressed(mx, my, button)) {
+                return true;
             }
         }
         return false;
@@ -305,8 +311,11 @@ public final class DockRenderer {
                                            double mx, double my, int button) {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
-            for (DockPanel panel : node.panels()) {
-                if (panel.component().mouseReleased(mx, my, button)) return true;
+
+            DockPanel active = node.activePanel();
+            if (active != null
+                && active.component().mouseReleased(mx, my, button)) {
+                return true;
             }
         }
         return false;
@@ -317,9 +326,12 @@ public final class DockRenderer {
                                        double dragX, double dragY) {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
-            for (DockPanel panel : node.panels()) {
-                if (panel.component().mouseDragged(mx, my, button, dragX, dragY))
-                    return true;
+
+            DockPanel active = node.activePanel();
+            if (active != null
+                && active.component().mouseDragged(mx, my, button,
+                    dragX, dragY)) {
+                return true;
             }
         }
         return false;
@@ -331,9 +343,12 @@ public final class DockRenderer {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
             if (!contains(node.bounds(), mx, my)) continue;
-            for (DockPanel panel : node.panels()) {
-                if (panel.component().mouseScrolled(mx, my, scrollX, scrollY))
-                    return true;
+
+            DockPanel active = node.activePanel();
+            if (active != null
+                && active.component().mouseScrolled(mx, my,
+                    scrollX, scrollY)) {
+                return true;
             }
         }
         return false;
@@ -343,9 +358,11 @@ public final class DockRenderer {
                                       int keyCode, int scanCode, int modifiers) {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
-            for (DockPanel panel : node.panels()) {
-                if (panel.component().keyPressed(keyCode, scanCode, modifiers))
-                    return true;
+
+            DockPanel active = node.activePanel();
+            if (active != null
+                && active.component().keyPressed(keyCode, scanCode, modifiers)) {
+                return true;
             }
         }
         return false;
@@ -355,8 +372,11 @@ public final class DockRenderer {
                                        char codePoint, int modifiers) {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
-            for (DockPanel panel : node.panels()) {
-                if (panel.component().charTyped(codePoint, modifiers)) return true;
+
+            DockPanel active = node.activePanel();
+            if (active != null
+                && active.component().charTyped(codePoint, modifiers)) {
+                return true;
             }
         }
         return false;
@@ -365,8 +385,10 @@ public final class DockRenderer {
     public static void dispatchMove(DockManager manager, double mx, double my) {
         for (DockNode node : manager.nodes()) {
             if (!node.hasPanels()) continue;
-            for (DockPanel panel : node.panels()) {
-                panel.component().mouseMoved(mx, my);
+
+            DockPanel active = node.activePanel();
+            if (active != null) {
+                active.component().mouseMoved(mx, my);
             }
         }
     }
@@ -374,5 +396,26 @@ public final class DockRenderer {
     private static boolean contains(DockBounds b, double mx, double my) {
         return mx >= b.x() && mx < b.x() + b.width()
             && my >= b.y() && my < b.y() + b.height();
+    }
+
+    // ============================================================
+    //  Current render context (для tab hit-test)
+    // ============================================================
+
+    /**
+     * 0.3.1: dispatchClick нужен context, чтобы посчитать ширину вкладок
+     * через font. Кэшируем последний context из render().
+     *
+     * Не идеально (static), но приемлемо до полного перехода
+     * DockRenderer на instance API.
+     */
+    private static MaredRenderContext currentContext;
+
+    public static void beginFrame(MaredRenderContext context) {
+        currentContext = context;
+    }
+
+    public static void endFrame() {
+        currentContext = null;
     }
 }

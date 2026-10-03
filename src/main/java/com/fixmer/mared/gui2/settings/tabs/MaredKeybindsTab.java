@@ -4,7 +4,6 @@ import java.util.List;
 
 import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.commands.input.KeybindItem;
-import com.fixmer.mared.gui2.framework.components.overlay.MaredToast;
 import com.fixmer.mared.gui2.framework.render.MaredUi;
 import com.fixmer.mared.gui2.settings.MaredSettingsTab;
 import com.fixmer.mared.gui2.settings.SettingsContext;
@@ -13,10 +12,9 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * 0.3.0 (Phase B5): перенос legacy gui.settings.tabs.MaredKeybindsTab.
- * 0.3.0 (Phase F8): работает через KeybindItem DTO.
- * 0.3.0 (Phase F2): данные — через ctx.keybinds().
- * 0.3.0 (Phase F3a): reset — draft (requestReset), применяется на Save.
+ * 0.3.0 (Phase B5): перенос legacy MaredKeybindsTab.
+ * 0.3.1:  MaredToast удалён из проекта. Reset feedback показывается
+ *         инлайн — метка "● reset pending — press Save" вместо toast.
  */
 public final class MaredKeybindsTab implements MaredSettingsTab {
 
@@ -89,8 +87,7 @@ public final class MaredKeybindsTab implements MaredSettingsTab {
         MaredUi.text(g, font, b.label(), x + keyW + 8, y + 4, 0xFFFFFFFF);
 
         if (b.blocking()) {
-            MaredUi.text(g, font, "[BLOCK]", x + rowW - 54, y + 4,
-                0xFFFF5555);
+            MaredUi.text(g, font, "[BLOCK]", x + rowW - 54, y + 4, 0xFFFF5555);
         }
     }
 
@@ -104,7 +101,6 @@ public final class MaredKeybindsTab implements MaredSettingsTab {
         if (MaredUi.hovered(mx, my, x, resetBtnY,
             MaredUi.px(160), MaredUi.px(20))) {
             ctx.keybinds().requestReset();
-            MaredToast.info(MaredLang.get("mared.settings.keybinds.reset_done"));
             return true;
         }
         return false;

@@ -4,11 +4,16 @@ import java.util.List;
 
 import org.lwjgl.glfw.GLFW;
 
+import com.fixmer.mared.gui2.studio.MaredStudioScreen;
 import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.MaredSettings;
+import com.fixmer.mared.gui2.framework.core.UiContext;
+import com.fixmer.mared.gui2.framework.render.MaredScale;
 import com.fixmer.mared.gui2.framework.render.MaredUi;
 import com.fixmer.mared.gui2.framework.render.MaredWidgets;
+import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -18,7 +23,11 @@ import net.minecraft.network.chat.Component;
  *
  * 0.3.0 (Stage B5): перенос legacy gui.settings.MaredSettingsScreen в gui2.
  * 0.3.0 (Phase F3a): load() до capture(), onSave → ctx.apply().
- * 0.3.0 (fix): если layout изменился — Studio пересоздаётся.
+ * 0.3.1:
+ *   - Screen сам делает MaredScale.bind в init и unbind в removed.
+ *     Раньше этого не было — Settings открывался поверх Studio и
+ *     падал на MaredUi.px() → MaredScale.context().
+ *   - Если layout изменился — Studio пересоздаётся.
  */
 public class MaredSettingsScreen extends Screen {
 
@@ -40,8 +49,6 @@ public class MaredSettingsScreen extends Screen {
     private final MaredSettings.Snapshot snapshot;
     private final SettingsContext ctx;
 
-    // 0.3.0 (fix): снимок layout-настроек при открытии — чтобы понять,
-    // изменились ли они после Save. Если да, Studio пересоздаётся.
     private final boolean initialShowSidebar;
     private final boolean initialShowRightPanel;
     private final boolean initialShowConsole;
@@ -58,7 +65,6 @@ public class MaredSettingsScreen extends Screen {
         super(Component.literal("Mared Settings"));
         this.parent = parent;
 
-        // 0.3.0 (Phase F3a): гарантируем загрузку настроек ДО capture().
         MaredSettings.load();
 
         this.initialShowSidebar    = MaredSettings.isLayoutShowSidebar();
@@ -84,12 +90,27 @@ public class MaredSettingsScreen extends Screen {
         MaredLang.reload();
         MaredSettings.load();
 
+        // 0.3.1: свой UiContext для этого Screen.
+        Minecraft mc = Minecraft.getInstance();
+        int physW = mc.getWindow().getWidth();
+        int physH = mc.getWindow().getHeight();
+        int mcGuiScale = (int) mc.getWindow().getGuiScale();
+
+        UiContext uiCtx = new UiContext(this.width, this.height,
+            physW, physH, mcGuiScale, MaredThemeRegistry.active());
+        MaredScale.bind(uiCtx);
+
         computeTabLayout();
         computeButtonLayout();
 
         if (activeIndex >= 0 && activeIndex < tabs.size()) {
             tabs.get(activeIndex).onOpen(ctx);
         }
+    }
+
+    @Override
+    public void removed() {
+        MaredScale.unbind();
     }
 
     private void computeTabLayout() {
@@ -143,11 +164,8 @@ public class MaredSettingsScreen extends Screen {
     }
 
     private void onSave() {
-        // 0.3.0 (fix): ctx.apply() фиксирует все draft'ы.
         ctx.apply();
 
-        // 0.3.0 (fix): если layout-настройки панелей изменились —
-        // пересоздать Studio, чтобы панели появились/скрылись.
         boolean layoutChanged =
             initialShowSidebar    != MaredSettings.isLayoutShowSidebar()    ||
             initialShowRightPanel != MaredSettings.isLayoutShowRightPanel() ||
@@ -156,8 +174,10 @@ public class MaredSettingsScreen extends Screen {
             initialShowToolbar    != MaredSettings.isLayoutShowToolbar();
 
         if (layoutChanged) {
-            net.minecraft.client.Minecraft.getInstance()
-                .setScreen(new com.fixmer.mared.gui2.studio.MaredStudioScreen());
+            // Studio пересоздаётся — старый Session будет уничтожен при
+            // removed() (isClosing остаётся false, но Studio закрывается
+            // через setScreen и больше не вернётся).
+            Minecraft.getInstance().setScreen(new MaredStudioScreen());
             return;
         }
 

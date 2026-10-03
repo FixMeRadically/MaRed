@@ -24,6 +24,11 @@ import com.fixmer.mared.services.theme.ThemeService;
  *   - ВСЁ — draft (включая log filters и keybinds reset).
  *   - ctx.apply() фиксирует draft в глобальное (вызывается onSave).
  *   - Cancel → ctx выбрасывается, draft не применяется.
+ * 0.3.1:
+ *   - LogSettings.CATEGORIES теперь List<String> (не массив),
+ *     allCategories() возвращает List.copyOf(CATEGORIES).
+ *   - LayoutSettingsView.resetToDefaults() — public: вызывается из
+ *     gui2.settings.tabs (другой пакет).
  */
 public final class SettingsContext {
 
@@ -59,14 +64,12 @@ public final class SettingsContext {
 
     /**
      * Зафиксировать draft в глобальное состояние. Вызывается
-     * MaredSettingsScreen.onSave() (после того как нажали Save).
+     * MaredSettingsScreen.onSave().
      *
      * Порядок:
      *   1. snapshot.apply() — editor/layout/theme/log-behavior/server;
      *   2. logs.commit() — draft уровней и категорий;
      *   3. keybinds.commit() — reset, если был запрошен.
-     *
-     * Одна финальная запись settings.json — внутри snapshot.apply().
      */
     public void apply() {
         snapshot.apply();
@@ -213,9 +216,8 @@ public final class SettingsContext {
         public void setSplitRatio(float v) { s.layoutSplitRatio = v; }
 
         /**
-         * 0.3.0 (Phase F3a): сбросить ТОЛЬКО layout, не весь snapshot.
-         * Вызывается из MaredLayoutTab — кнопка "Reset layout" не должна
-         * трогать editor/theme/logs.
+         * 0.3.1: public — вызывается из gui2.settings.tabs.MaredLayoutTab
+         * (другой пакет).
          */
         public void resetToDefaults() {
             s.layoutPreset         = MaredLayoutPreset.CLASSIC.name();
@@ -276,7 +278,6 @@ public final class SettingsContext {
     public static final class LogsSettingsView {
         private final MaredSettings.Snapshot s;
 
-        // draft-состояние (не применяется до commit())
         private final Set<LogSettings.Level> draftLevels;
         private final Set<String>            draftCategories;
 
@@ -292,14 +293,16 @@ public final class SettingsContext {
         public boolean verboseScriptLog()        { return s.verboseScriptLog; }
         public void setVerboseScriptLog(boolean v) { s.verboseScriptLog = v; }
 
-        // ---- draft access ----
-
         public LogSettings.Level[] allLevels() {
             return LogSettings.Level.values();
         }
 
+        /**
+         * 0.3.1: LogSettings.CATEGORIES — List<String>, поэтому
+         * достаточно List.copyOf.
+         */
         public List<String> allCategories() {
-            return List.copyOf(java.util.Arrays.asList(LogSettings.CATEGORIES));
+            return List.copyOf(LogSettings.CATEGORIES);
         }
 
         public boolean levelEnabled(LogSettings.Level l) {
@@ -328,7 +331,6 @@ public final class SettingsContext {
             }
         }
 
-        /** Зафиксировать draft в глобальный LogSettings (вызывается из ctx.apply()). */
         void commit() {
             LogSettings.applyDraft(draftLevels, draftCategories);
         }
@@ -339,7 +341,7 @@ public final class SettingsContext {
             draftLevels.clear();
             for (LogSettings.Level l : LogSettings.Level.values()) draftLevels.add(l);
             draftCategories.clear();
-            for (String c : LogSettings.CATEGORIES) draftCategories.add(c);
+            draftCategories.addAll(LogSettings.CATEGORIES);
         }
     }
 
@@ -347,14 +349,12 @@ public final class SettingsContext {
     //  Keybinds view — draft внутри view
     // ============================================================
 
-        public static final class KeybindsSettingsView {
+    public static final class KeybindsSettingsView {
         private boolean resetRequested = false;
         private List<KeybindItem> cached;
 
         KeybindsSettingsView() {}
 
-        /** 0.3.0 (Phase F3c): кэшируем список — render loop не должен
-         * строить DTO каждый кадр. Инвалидация при resetRequested. */
         public List<KeybindItem> allBinds() {
             if (cached != null) return cached;
 
@@ -381,7 +381,7 @@ public final class SettingsContext {
             if (resetRequested) {
                 MaredBindRegistry.clearAll();
                 resetRequested = false;
-                cached = null;  // инвалидация
+                cached = null;
             }
         }
 
