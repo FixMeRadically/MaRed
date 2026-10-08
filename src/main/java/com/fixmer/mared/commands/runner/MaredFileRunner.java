@@ -1,191 +1,112 @@
 package com.fixmer.mared.commands.runner;
 
+import com.fixmer.mared.commands.engine.*;
+import com.fixmer.mared.technology.runtime.CommandFilePlan;
+import com.fixmer.mared.technology.runtime.FileRun;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.server.MinecraftServer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Consumer;
 
-import com.fixmer.mared.commands.engine.MaredScriptCommand;
-import com.fixmer.mared.commands.engine.MaredScriptContext;
-import com.fixmer.mared.commands.engine.MaredScriptExecutor;
-import com.fixmer.mared.commands.engine.MaredScriptParser;
-import com.fixmer.mared.commands.engine.MaredScriptRunner;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-
-/**
- * Запуск .txt-файла команд Mared.
- *
- * 0.3.0: вынесено из legacy MaredEditorScreen.runCommandFile().
- *
- * Логика:
- *   - Строки вне { } — ванильные команды Minecraft, отправляются на сервер.
- *   - Блоки { ... } — Mared-скрипты, идут через MaredScriptParser
- *     и MaredScriptRunner.
- *
- * Работает и в singleplayer, и в multiplayer:
- *   - В SP Mared-executor'ы тикаются из MaredServerEvents.
- *   - В MP — из MaredClientEventHooks (клиентский tick).
- */
+/** Mixed files: raw MC lines outside leading-{ MR blocks. All MR is parsed before effects. */
 public final class MaredFileRunner {
-
     private MaredFileRunner() {}
-
-    // ============================================================
-    //  Public entry
-    // ============================================================
-
-    /**
-     * Запустить текст как файл команд.
-     *
-     * @param text   содержимое файла (может начинаться с #persistent)
-     * @param logger приёмник логов (строки без префикса [studio])
-     */
-    public static void run(String text, Consumer<String> logger) {
-        if (text == null || text.trim().isEmpty()) {
-            logger.accept("[run] file is empty");
-            return;
+    private record Section(CommandFilePlan.Part part, List<MaredScriptCommand> commands) {}
+    private static final class Pending {
+        final FileRun run;
+        final List<Section> sections;
+        final ClientPacketListener connection;
+        final MinecraftServer server;
+        final UUID player;
+        final boolean persistent;
+        final Consumer<String> legacyLogger;
+        int index;
+        long legacySequence;
+        Pending(FileRun run, List<Section> sections, Minecraft mc, boolean persistent, Consumer<String> logger) {
+            this.run=run; this.sections=sections; connection=mc.getConnection(); server=mc.getSingleplayerServer();
+            player=mc.player.getUUID(); this.persistent=persistent; legacyLogger=logger;
         }
-
-        // Определяем persistent по первой строке, но для запуска она
-        // не нужна — убираем.
-        boolean isPersistent = text.startsWith("#persistent");
-        if (isPersistent) {
-            int nl = text.indexOf('\n');
-            text = (nl >= 0) ? text.substring(nl + 1) : "";
-        }
-
-        Minecraft mc = Minecraft.getInstance();
-        LocalPlayer player = mc.player;
-        if (player == null || player.connection == null) {
-            logger.accept("[run] player unavailable");
-            return;
-        }
-
-        logger.accept("[run] starting file...");
-
-        int cmdCount = 0;
-        int blockCount = 0;
-        List<String> blockBuffer = new ArrayList<>();
-        int braceDepth = 0;
-        int blockStartLine = 0;
-
-        String[] lines = text.split("\n", -1);
-
-        for (int i = 0; i < lines.length; i++) {
-            String raw = lines[i];
-            String trimmed = raw.trim();
-            int ln = i + 1;
-
-            // Комментарии и пустые строки: внутри блока — сохраняем,
-            // снаружи — игнорируем.
-            if (trimmed.isEmpty() || trimmed.startsWith("//")) {
-                if (braceDepth > 0) blockBuffer.add(raw);
-                continue;
-            }
-
-            int opens = countChar(trimmed, '{');
-            int closes = countChar(trimmed, '}');
-
-            if (braceDepth == 0 && opens > 0) {
-                blockStartLine = ln;
-                logger.accept("[run] line " + ln + ": block opened");
-            }
-
-            if (braceDepth > 0 || opens > 0) {
-                blockBuffer.add(raw);
-                braceDepth += opens - closes;
-
-                if (braceDepth == 0 && !blockBuffer.isEmpty()) {
-                    runMaredBlock(
-                        String.join("\n", blockBuffer),
-                        isPersistent,
-                        "line " + blockStartLine,
-                        logger
-                    );
-                    blockCount++;
-                    blockBuffer.clear();
-                }
-                continue;
-            }
-
-            // Vanilla-команда.
-            String cmd = trimmed.startsWith("/") ? trimmed.substring(1) : trimmed;
-            try {
-                player.connection.sendCommand(cmd);
-                logger.accept("[cmd] /" + cmd);
-                cmdCount++;
-            } catch (Exception e) {
-                logger.accept("[cmd error] /" + cmd + " — " + e.getMessage());
-            }
-        }
-
-        if (braceDepth > 0) {
-            logger.accept("[run] WARN: block '{' not closed at end of file");
-        }
-
-        logger.accept("[run] done — vanilla: " + cmdCount
-            + ", Mared blocks: " + blockCount);
     }
-
-    // ============================================================
-    //  Mared-блок
-    // ============================================================
-
-    private static void runMaredBlock(String text,
-                                      boolean isPersistent,
-                                      String label,
-                                      Consumer<String> logger) {
-        Minecraft mc = Minecraft.getInstance();
-        MinecraftServer server = mc.getSingleplayerServer();
-
-        ServerPlayer initiator = null;
-        if (server != null && mc.player != null) {
-            initiator = server.getPlayerList().getPlayer(mc.player.getUUID());
-        }
-
-        List<MaredScriptCommand> commands;
+    // Client-thread owned; server callbacks touch only the synchronized FileRun.
+    private static final List<Pending> active = new ArrayList<>();
+    public static void run(String text, Consumer<String> logger) { start(text, "Command file", logger); }
+    public static FileRun start(String text, String title) { return start(text, title, null); }
+    private static FileRun start(String text, String title, Consumer<String> logger) {
+        FileRun run = new FileRun(title);
         try {
-            commands = MaredScriptParser.parse(text);
-        } catch (MaredScriptParser.ParseException e) {
-            logger.accept("[run] parse error (" + label + "): " + e.getMessage());
-            return;
-        } catch (RuntimeException e) {
-            logger.accept("[run] parse error (" + label + "): "
-                + e.getClass().getSimpleName() + ": " + e.getMessage());
-            return;
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player == null || mc.getConnection() == null) throw new IllegalStateException("Player unavailable");
+            if (active.size() >= 32) throw new IllegalStateException("Too many active file runs (32)");
+            var plan = CommandFilePlan.parse(text);
+            if (plan.parts().isEmpty()) throw new IllegalArgumentException("File is empty");
+            var sections = new ArrayList<Section>();
+            for (var part : plan.parts()) {
+                try { sections.add(new Section(part, part.script() ? MaredScriptParser.parse(part.text()) : List.of())); }
+                catch (RuntimeException error) { throw new IllegalArgumentException("MR block at file line " + part.line() + ": " + error.getMessage(), error); }
+            }
+            active.add(new Pending(run, List.copyOf(sections), mc, plan.persistent(), logger));
+        } catch (RuntimeException error) {
+            run.fail(error); run.snapshot();
+            if (logger != null) for (var entry : run.journal().snapshot()) logger.accept(entry.message());
         }
-
-        if (commands.isEmpty()) {
-            logger.accept("[run] " + label + ": empty block");
-            return;
-        }
-
-        logger.accept("[run] " + label + ": " + commands.size() + " commands ready");
-
-        MaredScriptContext ctx = new MaredScriptContext(initiator, server, logger);
-        ctx.setPersistent(isPersistent);
-        ctx.forceRefreshPlayerData();
-
-        MaredScriptRunner.start(new MaredScriptExecutor(ctx, commands));
+        return run;
     }
-
-    // ============================================================
-    //  Утилиты
-    // ============================================================
-
-    private static int countChar(String s, char target) {
-        int n = 0;
-        boolean inString = false;
-        int len = s.length();
-        for (int i = 0; i < len; i++) {
-            char c = s.charAt(i);
-            if (c == '\\' && i + 1 < len) { i++; continue; }
-            if (c == '"') inString = !inString;
-            if (!inString && c == target) n++;
+    /** Called once per client tick, including while disconnected. Never sends more than four MC lines per file per tick. */
+    public static void tickClient() {
+        Minecraft mc = Minecraft.getInstance();
+        for (var iterator = active.iterator(); iterator.hasNext();) {
+            Pending pending = iterator.next(); FileRun run = pending.run;
+            if (mc.getConnection() != pending.connection || mc.player == null
+                || !mc.player.getUUID().equals(pending.player) || mc.getSingleplayerServer() != pending.server) run.disconnected();
+            if (run.stopRequested() && pending.server == null) {
+                // The client is the MP executor owner, even after player disappearance.
+                run.finishClientCancellation();
+            }
+            run.snapshot(); // detect an executor error before sending further sections
+            if (run.stopRequested()) { pending.index = pending.sections.size(); run.submissionDone(); }
+            int budget = 4;
+            while (pending.index < pending.sections.size() && budget-- > 0 && !run.stopRequested()) {
+                Section section = pending.sections.get(pending.index++);
+                try {
+                    if (!section.part().script()) {
+                        pending.connection.sendCommand(section.part().text()); run.commandSent();
+                        run.journal().add("[cmd] /" + section.part().text());
+                    } else if (run.reserveBlock()) {
+                        Runnable submit = () -> {
+                            try {
+                                if (run.stopRequested()) return;
+                                var initiator = pending.server == null ? null : pending.server.getPlayerList().getPlayer(pending.player);
+                                if (pending.server != null && initiator == null) throw new IllegalStateException("Server player unavailable");
+                                var context = new MaredScriptContext(initiator, pending.server, run.journal()::add);
+                                context.setExecutionScope(run.scope());
+                                context.setPersistent(pending.persistent); context.forceRefreshPlayerData();
+                                var executor = new MaredScriptExecutor(context, section.commands());
+                                run.attach(executor); MaredScriptRunner.start(executor);
+                                if (!section.commands().isEmpty() && executor.isFinished())
+                                    throw new IllegalStateException("Executor rejected by active-script limit");
+                            } catch (RuntimeException error) { run.fail(error); }
+                            finally { run.blockSubmitted(); }
+                        };
+                        if (pending.server != null) {
+                            try { if (!com.fixmer.mared.technology.runtime.ScriptDispatch.submit(pending.server, submit)) {
+                                run.blockSubmitted(); run.fail(new IllegalStateException("Server dispatch queue full"));
+                            } }
+                            catch (RuntimeException error) { run.blockSubmitted(); throw error; }
+                        } else submit.run();
+                    }
+                } catch (RuntimeException error) { run.fail(error); }
+            }
+            if (pending.index == pending.sections.size()) run.submissionDone();
+            var snapshot = run.snapshot();
+            if (pending.legacyLogger != null) {
+                for (var entry : run.journal().snapshot()) if (entry.sequence() > pending.legacySequence) {
+                    pending.legacyLogger.accept(entry.message()); pending.legacySequence = entry.sequence();
+                }
+            }
+            if (snapshot.terminal()) iterator.remove();
         }
-        return n;
     }
 }

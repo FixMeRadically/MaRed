@@ -10,7 +10,7 @@ public class MaredUseCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        MaredActionRegistry.queueUse();
+        MaredActionRegistry.queueUse(ctx.executionScope());
         ctx.log("[action] use");
         return true;
     }

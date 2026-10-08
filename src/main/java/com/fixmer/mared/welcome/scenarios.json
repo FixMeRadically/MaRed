@@ -1,0 +1,27 @@
+{
+  "background": -14540253,
+
+  "objects": [
+
+    {
+      "type": "code",
+      "x": 220,
+      "y": 200,
+      "properties": {
+        "text":
+        "quest.start()"
+      }
+    },
+
+
+    {
+      "type": "blueprint",
+      "x": 520,
+      "y": 300,
+      "properties": {
+        "nodes": "10"
+      }
+    }
+
+  ]
+}

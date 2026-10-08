@@ -10,7 +10,7 @@ public class MaredStopCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        MaredActionRegistry.stopAll();
+        MaredActionRegistry.stop(ctx.executionScope());
         ctx.log("[action] stop — все действия сброшены");
         return true;
     }

@@ -1,0 +1,28 @@
+{
+  "background": -12040120,
+
+  "objects": [
+
+    {
+      "type": "code",
+      "x": 220,
+      "y": 220,
+      "properties": {
+        "text":
+        "assets.load(texture)"
+      }
+    },
+
+
+    {
+      "type": "texture",
+      "asset": "resources/texture_preview",
+      "x": 500,
+      "y": 280,
+      "properties": {
+        "animated": "true"
+      }
+    }
+
+  ]
+}

@@ -64,6 +64,12 @@ public final class MaredStudioController {
     public EditorActionRegistry actions() { return actionRegistry; }
 
     public DockPanel panel(String id) { return panelsById.get(id); }
+    public java.util.List<DockPanel> extensionPanels(){
+        return PanelRegistry.all().stream()
+            .filter(d -> !java.util.Set.of("topbar","explorer","workspace","inspector","console").contains(d.id()))
+            .filter(PanelDescriptor::isVisible).map(d -> panelsById.get(d.id()))
+            .filter(java.util.Objects::nonNull).toList();
+    }
 
     public TopBarDockPanel topBarPanel() {
         return (TopBarDockPanel) panelsById.get("topbar");
@@ -96,6 +102,17 @@ public final class MaredStudioController {
             createAndRegister(d);
         }
 
+        // Hiding a legacy dock must not remove the core document/log/help services.
+        for(String id:java.util.List.of("explorer","workspace","inspector","console")) {
+            if(!panelsById.containsKey(id)) {
+                var descriptor=PanelRegistry.byId(id);
+                if(descriptor!=null)createAndRegister(descriptor,false);
+            }
+        }
+        for(DockPanel panel:panelsById.values()) {
+            if(focusManager!=null)focusManager.attachTo(panel.component());
+            if(pointerManager!=null)pointerManager.attachTo(panel.component());
+        }
         dockManager.applyActiveTabs(loadedState);
 
         if (focusManager != null || pointerManager != null
@@ -131,7 +148,8 @@ public final class MaredStudioController {
         }
     }
 
-    private void createAndRegister(PanelDescriptor d) {
+    private void createAndRegister(PanelDescriptor d) {createAndRegister(d,true);}
+    private void createAndRegister(PanelDescriptor d,boolean docked) {
         DockPanel panel;
         try {
             panel = d.factory().create(bus);
@@ -145,7 +163,7 @@ public final class MaredStudioController {
             return;
         }
         panelsById.put(d.id(), panel);
-        dockManager.register(d.defaultPosition(), panel);
+        if(docked)dockManager.register(d.defaultPosition(), panel);
     }
 
     public void shutdown() {

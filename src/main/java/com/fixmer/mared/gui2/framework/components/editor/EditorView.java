@@ -40,11 +40,11 @@ public final class EditorView {
     private static final int SCROLLBAR_W    = 5;
     private static final int CURSOR_BLINK   = 500;
 
-    private static final int COLOR_TEXT     = 0xFFDDDDDD;
-    private static final int COLOR_NUMBERS  = 0xFF666680;
-    private static final int COLOR_SELECT   = 0x804466CC;
-    private static final int COLOR_BG       = 0xFF0E0E16;
-    private static final int COLOR_SB_TRACK = 0xFF15151E;
+    private static int COLOR_TEXT(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.text();}
+    private static int COLOR_NUMBERS(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim();}
+    private static int COLOR_SELECT(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.selected();}
+    private static int COLOR_BG(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.sunken();}
+    private static int COLOR_SB_TRACK(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.track();}
 
     // ============================================================
     //  Wrap-кэш
@@ -80,6 +80,9 @@ public final class EditorView {
     //  Scroll / cursor-blink state
     // ============================================================
 
+    private int caretX, caretY;
+    public int caretX() { return caretX; }
+    public int caretY() { return caretY; }
     private int scrollLine = 0;
     private long lastBlink = 0;
     private boolean cursorVisible = true;
@@ -384,11 +387,12 @@ public final class EditorView {
                        EditorDocument doc,
                        boolean focused, boolean editable, int accentColor) {
 
-        g.fill(x, y, x + w, y + h, COLOR_BG);
+        g.fill(x, y, x + w, y + h, COLOR_BG());
 
         g.enableScissor(x + 1, y + 1, x + w - 1, y + h - 1);
 
         int visibleRows = visibleVisualRows(h);
+        caretX = x + PADDING + LINE_NUM_WIDTH; caretY = y + PADDING;
         int textX0 = x + PADDING + LINE_NUM_WIDTH;
         int lineNumX = x + PADDING;
 
@@ -466,7 +470,7 @@ public final class EditorView {
 
                 if (pIdx == 0) {
                     g.drawString(font, String.valueOf(li + 1),
-                        lineNumX, lineY, COLOR_NUMBERS, false);
+                        lineNumX, lineY, COLOR_NUMBERS(), false);
                 }
 
                 // --- Selection fill (один rect на строку) ---
@@ -479,7 +483,7 @@ public final class EditorView {
                         int xTo   = textX0 + range[1];
                         if (xTo > xFrom) {
                             g.fill(xFrom, lineY, xTo, lineY + LINE_HEIGHT - 1,
-                                COLOR_SELECT);
+                                COLOR_SELECT());
                         }
                     }
                 }
@@ -500,6 +504,10 @@ public final class EditorView {
             }
         }
 
+        if (cursorVisualRow >= 0) {
+            caretX = cursorX;
+            caretY = y + PADDING + (cursorVisualRow - scrollLine) * LINE_HEIGHT;
+        }
         if (editable && focused && cursorVisualRow >= 0) {
             long now = System.currentTimeMillis();
             if (now - lastBlink > CURSOR_BLINK) {
@@ -525,7 +533,7 @@ public final class EditorView {
             int sbY = y + 1;
             int sbH = scrollbarTrackH(h);
 
-            g.fill(sbX, sbY, sbX + SCROLLBAR_W, sbY + sbH, COLOR_SB_TRACK);
+            g.fill(sbX, sbY, sbX + SCROLLBAR_W, sbY + sbH, COLOR_SB_TRACK());
             int thumbH = scrollbarThumbH(h, w, doc, font);
             int thumbY = scrollbarThumbY(y, h, w, doc, font);
             g.fill(sbX, thumbY, sbX + SCROLLBAR_W, thumbY + thumbH, accentColor);

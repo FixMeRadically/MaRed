@@ -51,7 +51,235 @@ public final class WorkspaceComponent extends MaredComponent
     private final StudioEventBus bus;
     private final WorkspaceHost host = new WorkspaceHost();
     private final MaredMultiLineEditBox editor;
+    private com.fixmer.mared.gui2.framework.components.editor.SpanResolver spanResolver=MaredScriptSpanResolver.INSTANCE;
+    public void setSpanResolver(com.fixmer.mared.gui2.framework.components.editor.SpanResolver resolver){
+        spanResolver=java.util.Objects.requireNonNull(resolver);
+        for(var document:host.documents())document.view.setSpanResolver(resolver);
+        editor.setSpanResolver(resolver);
+    }
     private final SubscriptionGroup subs = new SubscriptionGroup();
+    private final com.fixmer.mared.technology.storage.WorkspaceDrafts drafts = new com.fixmer.mared.technology.storage.WorkspaceDrafts();
+    private boolean restored;
+    private boolean disposed;
+    private final com.fixmer.mared.technology.editor.CommandCompletionPopup completion = new com.fixmer.mared.technology.editor.CommandCompletionPopup();
+    private record PendingCheck(DocumentSession document, int version, long sequence,
+                                com.fixmer.mared.technology.editor.MinecraftDiagnosticsJob job) {}
+    private final java.util.ArrayDeque<PendingCheck> minecraftChecks = new java.util.ArrayDeque<>();
+    public void completeMinecraft() {
+        if (host.active() == null || disposed) return;
+        if (searchBox != null) searchBox.setFocused(false);
+        requestFocus(); editor.setFocused(true);
+        completion.request(host.active());
+    }
+    private boolean diagnosticStale(DocumentSession s) {
+        return s.diagnosticVersion != s.document.contentVersion()
+            || (s.diagnosticCatalogRevision >= 0 && s.diagnosticCatalogRevision != com.fixmer.mared.commands.registry.MaredCommandRegistry.revision());
+    }
+    private void advanceMinecraftChecks() {
+        while (!minecraftChecks.isEmpty()) {
+            var check = minecraftChecks.peek(); var s = check.document();
+            if (!host.documents().contains(s) || s.document.contentVersion() != check.version() || s.diagnosticSequence != check.sequence()) {
+                minecraftChecks.remove(); continue;
+            }
+            var result = check.job().advance();
+            if (result == null) { minecraftChecks.remove(); minecraftChecks.addLast(check); return; }
+            minecraftChecks.remove();
+            s.diagnosticCatalogRevision = check.job().revision();
+            s.diagnosticLine = result.line();
+            s.diagnosticMessage = result.message().startsWith("mared.") ? MaredLang.get(result.message()) : result.message();
+            return;
+        }
+    }
+    private java.util.function.Consumer<DocumentSession> saveAsHandler;
+    public void setSaveAsHandler(java.util.function.Consumer<DocumentSession> handler) { saveAsHandler = handler; }
+    public void requestSaveAs() { requestSaveAs(host.active()); }
+    private void requestSaveAs(DocumentSession document) {
+        if (document == null) return;
+        if (disposed || document.saveInFlight || saveAsHandler == null) {
+            document.closeAfterSaveAs = false;
+            return;
+        }
+        saveAsHandler.accept(document);
+    }
+
+    /** Create a new file atomically; preserve the document, history and view. */
+    public void saveAs(DocumentSession document, String name, Runnable created) {
+        if (disposed || !host.documents().contains(document) || document.saveInFlight)
+            throw new IllegalStateException(MaredLang.get("mared.editor.save_as_unavailable"));
+        if (com.fixmer.mared.commands.storage.MaredCommandStorage.validateName(name) != null)
+            throw new IllegalArgumentException(MaredLang.get("mared.dialog.error.charset"));
+        if (host.byStorageId(name) != null || com.fixmer.mared.commands.storage.MaredCommandStorage.exists(name))
+            throw new IllegalArgumentException(MaredLang.format("mared.dialog.error.exists", name));
+        String snapshot = document.currentText();
+        long sequence = ++document.saveSequence;
+        document.saveInFlight = true;
+        document.saveAsInFlight = true;
+        document.inFlightText = snapshot;
+        java.util.function.Consumer<Boolean> complete = ok -> {
+            if (disposed || document.saveSequence != sequence || !host.documents().contains(document)) return;
+            document.saveInFlight = false;
+            document.saveAsInFlight = false;
+            document.inFlightText = null;
+            if (ok) {
+                document.storageId = name;
+                document.exists = true;
+                document.lastSavedText = snapshot;
+                document.recomputeDirty();
+                created.run();
+                bus.publish(new StudioEvents.LogEvent(LogSettings.Level.INFO, "studio", "saved as: " + name));
+                boolean close = document.closeAfterSaveAs && !document.dirty;
+                document.closeAfterSaveAs = false;
+                if (close) doClose(document);
+                else maybeFlushPending(document);
+            } else {
+                document.closeAfterSaveAs = false;
+                document.pendingSave = false;
+                bus.publish(new StudioEvents.LogEvent(LogSettings.Level.ERROR, "studio",
+                    MaredLang.format("mared.editor.save_as_failed", name)));
+            }
+        };
+        try {
+            if (!MaredThreading.isInitialized()) {
+                complete.accept(com.fixmer.mared.commands.storage.MaredCommandStorage.createCommand(name, snapshot));
+            } else MaredThreading.scheduler().submit("Save as:" + name,
+                () -> com.fixmer.mared.commands.storage.MaredCommandStorage.createCommand(name, snapshot),
+                complete, error -> complete.accept(false), null);
+        } catch (RuntimeException error) {
+            complete.accept(false);
+            throw error;
+        }
+    }
+    private net.minecraft.client.gui.components.EditBox searchBox;
+    private boolean searchOpen, searchCase;
+    private String searchMessage = "";
+    private static final int SEARCH_H = 22, STATUS_H = 16;
+    private long nextCheckpoint;
+
+    public void openSearch() {
+        completion.dismiss();
+        if (host.active() == null) return;
+        searchOpen = true;
+        ensureSearch();
+        layout(bounds);
+        requestFocus();
+        editor.setFocused(false);
+        searchBox.setFocused(true);
+    }
+    private void ensureSearch() {
+        if (searchBox != null) return;
+        searchBox = new net.minecraft.client.gui.components.EditBox(
+            net.minecraft.client.Minecraft.getInstance().font, 0, 0, 80, 16,
+            Component.literal(MaredLang.get("mared.editor.find")));
+        searchBox.setBordered(false);
+        searchBox.setMaxLength(128);
+        searchBox.setHint(Component.literal(MaredLang.get("mared.editor.find")));
+        searchBox.setResponder(query -> { searchMessage = ""; });
+    }
+    private void closeSearch() {
+        searchOpen = false;
+        if (searchBox != null) searchBox.setFocused(false);
+        searchMessage = "";
+        layout(bounds);
+        editor.setFocused(isFocused());
+    }
+    public void findNext(boolean backwards) {
+        DocumentSession s = host.active();
+        if (s == null) return;
+        if (!searchOpen) { openSearch(); return; }
+        String source = s.currentText(), query = searchBox.getValue();
+        if (query.isEmpty()) return;
+        int[] selection = s.document.orderedSelection();
+        int fromLine = backwards && selection != null ? selection[0] : s.document.cursorLine();
+        int from = backwards && selection != null ? selection[1] : s.document.cursorCol();
+        for (int line = 0; line < fromLine; line++) from += s.document.lineLength(line) + 1;
+        var match = new com.fixmer.genesis.technology.editor.TextSearch(query, searchCase).find(source, from, backwards);
+        if (match == null) { searchMessage = MaredLang.get("mared.editor.not_found"); return; }
+        searchMessage = "";
+        var begin = com.fixmer.genesis.technology.editor.TextSearch.position(source, match.start());
+        var end = com.fixmer.genesis.technology.editor.TextSearch.position(source, match.end());
+        s.document.startSelection(begin.line(), begin.column());
+        s.document.extendSelection(end.line(), end.column());
+        s.document.setCursor(end.line(), end.column());
+        s.view.ensureCursorVisible(editor.getWidth(), editor.getHeight(), s.document,
+            net.minecraft.client.Minecraft.getInstance().font);
+        s.view.resetBlink();
+    }
+    public void checkSyntax() {
+        completion.dismiss();
+        DocumentSession s = host.active();
+        if (s == null || disposed) return;
+        int version = s.document.contentVersion();
+        if (s.diagnosticVersion == version && s.diagnosticMessage.equals(MaredLang.get("mared.editor.checking"))) return;
+        String snapshot = s.currentText();
+        long sequence = ++s.diagnosticSequence;
+        s.diagnosticVersion = version;
+        s.diagnosticLine = 0;
+        s.diagnosticCatalogRevision = -1;
+        s.diagnosticMessage = MaredLang.get("mared.editor.checking");
+        java.util.function.Consumer<com.fixmer.mared.technology.editor.ScriptDiagnostics.Result> complete = result -> {
+            if (disposed || !host.documents().contains(s) || s.diagnosticSequence != sequence
+                    || s.document.contentVersion() != version) return;
+            if (result.valid()) {
+                minecraftChecks.addLast(new PendingCheck(s, version, sequence,
+                    new com.fixmer.mared.technology.editor.MinecraftDiagnosticsJob(snapshot)));
+                return;
+            }
+            s.diagnosticVersion = version;
+            s.diagnosticLine = result.line();
+            s.diagnosticMessage = result.message().startsWith("mared.") ? MaredLang.get(result.message()) : result.message();
+        };
+        if (!MaredThreading.isInitialized()) { complete.accept(com.fixmer.mared.technology.editor.ScriptDiagnostics.check(snapshot)); return; }
+        try {
+            MaredThreading.scheduler().submit("Check syntax:" + s.title(),
+                () -> com.fixmer.mared.technology.editor.ScriptDiagnostics.check(snapshot), complete,
+                error -> complete.accept(new com.fixmer.mared.technology.editor.ScriptDiagnostics.Result(-1,
+                    MaredLang.get("mared.editor.check_failed"))), null);
+        } catch (RuntimeException error) {
+            complete.accept(new com.fixmer.mared.technology.editor.ScriptDiagnostics.Result(-1,
+                MaredLang.get("mared.editor.check_failed")));
+        }
+    }
+    private void jumpToDiagnostic() {
+        DocumentSession s = host.active();
+        if (s == null) return;
+        if (diagnosticStale(s) || s.diagnosticLine <= 0) { checkSyntax(); return; }
+        s.document.clearSelection();
+        s.document.setCursor(s.diagnosticLine - 1, 0);
+        s.view.ensureCursorVisible(editor.getWidth(), editor.getHeight(), s.document,
+            net.minecraft.client.Minecraft.getInstance().font);
+        requestFocus();
+        if (searchBox != null) searchBox.setFocused(false);
+        editor.setFocused(true);
+        s.view.resetBlink();
+    }
+    private void drawEditorTools(GuiGraphics g, Font font) {
+        var s = host.active();
+        if (s == null) return;
+        if (searchOpen) {
+            ensureSearch();
+            searchBox.setTextColor(com.fixmer.mared.technology.editor.GenesisEditorVisuals.text());
+            searchBox.setTextColorUneditable(com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim());
+            int y = bounds.y() + HEADER_H;
+            g.fill(bounds.x(), y, bounds.right(), y + SEARCH_H,
+                com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised());
+            searchBox.render(g, lastMouseX, lastMouseY, 0);
+            int x = bounds.right() - 70;
+            g.drawString(font, "<", x + 4, y + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.text(), false);
+            g.drawString(font, ">", x + 21, y + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.text(), false);
+            g.drawString(font, "Aa", x + 38, y + 6, searchCase ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
+            g.drawString(font, "x", x + 59, y + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
+        }
+        int y = bounds.bottom() - STATUS_H;
+        g.fill(bounds.x(), y, bounds.right(), bounds.bottom(), com.fixmer.mared.technology.editor.GenesisEditorVisuals.panel());
+        String label = !completion.message().isEmpty() ? completion.message()
+            : !searchMessage.isEmpty() ? searchMessage
+            : s.diagnosticMessage.isEmpty() ? MaredLang.get("mared.editor.check_hint")
+            : diagnosticStale(s) ? MaredLang.get("mared.editor.check_stale") : s.diagnosticMessage;
+        boolean error = searchMessage.isEmpty() && !diagnosticStale(s) && s.diagnosticLine > 0;
+        g.drawString(font, ellipsize(font, label, bounds.width() - 12), bounds.x() + 6, y + 4,
+            error ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.danger() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
+    }
+    private java.util.List<com.fixmer.mared.technology.storage.WorkspaceDrafts.Draft> lastCheckpoint;
     private final CommandFileService commandService = new CommandFileService();
 
     // Кэш ширин табов для hit-test в mouseClicked.
@@ -69,7 +297,7 @@ public final class WorkspaceComponent extends MaredComponent
     public WorkspaceComponent(StudioEventBus bus) {
         this.bus = bus;
         this.editor = new MaredMultiLineEditBox(
-            0, 0, 100, 100, 0xFF55AAFF, this::onEditorChanged);
+            0, 0, 100, 100, com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent(), this::onEditorChanged);
         this.editor.setEditable(false);
 
         // 0.3.2: подсветка Mared-скриптов.
@@ -87,6 +315,11 @@ public final class WorkspaceComponent extends MaredComponent
 
     @Override
     public void dispose() {
+        for(DocumentSession s:host.documents())cancelQueuedSave(s);
+        checkpoint(true);
+        disposed = true;
+        completion.dismiss(); minecraftChecks.clear();
+        saveAsHandler = null;
         subs.dispose();
     }
 
@@ -95,12 +328,14 @@ public final class WorkspaceComponent extends MaredComponent
 
     @Override
     public void onFocusGained() {
-        if (editor.isEditable()) editor.setFocused(true);
+        if (editor.isEditable()) editor.setFocused(searchBox == null || !searchBox.isFocused());
     }
 
     @Override
     public void onFocusLost() {
         editor.setFocused(false);
+        completion.dismiss();
+        if (searchBox != null) searchBox.setFocused(false);
     }
 
     // ============================================================
@@ -150,7 +385,7 @@ public final class WorkspaceComponent extends MaredComponent
         }
 
         DocumentSession active = host.active();
-        if (active != null && active.dirty && active.storageId != null) {
+        if (active != null && active.dirty && active.storageId != null && !active.saveAsInFlight) {
             boolean saved = saveSync(active);
             if (!saved) {
                 active.pendingOpenFile = name;
@@ -161,7 +396,9 @@ public final class WorkspaceComponent extends MaredComponent
             }
         }
 
-        String text = commandService.read(name);
+        String text;
+        try { text=commandService.read(name); }
+        catch(Exception error){bus.publish(new StudioEvents.LogEvent(LogSettings.Level.ERROR,"studio","Cannot read "+name+": "+error.getMessage()));return;}
         if (text == null) text = "";
 
         DocumentSession s = new DocumentSession();
@@ -185,6 +422,7 @@ public final class WorkspaceComponent extends MaredComponent
         boolean allOk = true;
         for (DocumentSession s : host.documents()) {
             if (!s.dirty) continue;
+            if (!s.canSave()) { requestSaveAs(s); return false; }
             if (!saveSync(s)) allOk = false;
         }
         return allOk;
@@ -213,11 +451,9 @@ public final class WorkspaceComponent extends MaredComponent
 
         switch (action) {
             case SAVE -> {
-                if (s.storageId == null) {
-                    pendingCloseSession = s;
-                    bus.publish(new StudioEvents.LogEvent(
-                        LogSettings.Level.WARN, "studio",
-                        "untitled save not supported — closing cancelled"));
+                if (!s.canSave()) {
+                    s.closeAfterSaveAs = true;
+                    requestSaveAs(s);
                     return;
                 }
                 boolean ok = saveSync(s);
@@ -240,8 +476,18 @@ public final class WorkspaceComponent extends MaredComponent
 
     public enum CloseAction { SAVE, DISCARD, CANCEL }
 
+    private void cancelQueuedSave(DocumentSession s) {
+        ++s.saveSequence;
+        if(s.saveInFlight && s.storageId!=null)try {
+            com.fixmer.mared.commands.storage.MaredCommandStorage.invalidateWrite(s.storageId);
+        }catch(Exception error){com.fixmer.mared.Mared.LOGGER.error("Cannot invalidate queued save",error);}
+        s.saveInFlight=false;s.saveAsInFlight=false;s.inFlightText=null;s.pendingSave=false;
+    }
+
     private void doClose(DocumentSession s) {
+        cancelQueuedSave(s);
         host.remove(s);
+        checkpoint(false);
 
         if (host.active() != null) {
             activateSession(host.active());
@@ -262,44 +508,39 @@ public final class WorkspaceComponent extends MaredComponent
     private void saveActive() {
         DocumentSession s = host.active();
         if (s == null) return;
-        if (s.storageId == null) {
-            bus.publish(new StudioEvents.LogEvent(
-                LogSettings.Level.WARN, "studio",
-                "cannot save untitled document"));
-            return;
-        }
         if (s.saveInFlight) {
             s.pendingSave = true;
             return;
         }
+        if (!s.canSave()) { requestSaveAs(s); return; }
         saveAsync(s);
     }
 
     private void saveAsync(DocumentSession s) {
-        final String content = s.currentText();
-        final String fileName = s.storageId;
-
-        if (!MaredThreading.isInitialized()) {
-            saveSync(s);
-            return;
-        }
-
-        s.saveInFlight = true;
-        TaskScheduler scheduler = MaredThreading.scheduler();
-        scheduler.submit("Save:" + fileName,
-            () -> commandService.write(fileName, content),
-            ok -> onSaveComplete(s, fileName, content, ok),
-            err -> onSaveError(s, fileName, err),
-            null
-        );
+        if (!s.canSave() || disposed) return;
+        if (!MaredThreading.isInitialized()) { saveSync(s); return; }
+        final String content=s.currentText(), fileName=s.storageId;
+        final long sequence=++s.saveSequence;
+        try {
+            var ticket=com.fixmer.mared.commands.storage.MaredCommandStorage.captureWrite(fileName,s.lastSavedText,s.saveInFlight?s.inFlightText:null);
+            s.saveInFlight=true;
+            s.inFlightText=content;
+            MaredThreading.scheduler().submit("Save:"+fileName,
+                ()->com.fixmer.mared.commands.storage.MaredCommandStorage.writeCommand(ticket,content),
+                ok->{if(!disposed&&s.saveSequence==sequence)onSaveComplete(s,fileName,content,ok);},
+                error->{if(!disposed&&s.saveSequence==sequence)onSaveError(s,fileName,error);},null);
+        } catch (Exception error) { onSaveError(s,fileName,error); }
     }
 
     private boolean saveSync(DocumentSession s) {
-        if (s.storageId == null) return true;
-        String content = s.currentText();
-        boolean ok = commandService.write(s.storageId, content);
-        onSaveComplete(s, s.storageId, content, ok);
-        return ok;
+        if(!s.canSave() || s.saveAsInFlight)return false;
+        ++s.saveSequence;
+        String content=s.currentText();
+        try {
+            var ticket=com.fixmer.mared.commands.storage.MaredCommandStorage.captureWrite(s.storageId,s.lastSavedText,s.saveInFlight?s.inFlightText:null);
+            boolean ok=com.fixmer.mared.commands.storage.MaredCommandStorage.writeCommand(ticket,content);
+            onSaveComplete(s,s.storageId,content,ok);return ok;
+        }catch(Exception error){onSaveError(s,s.storageId,error);return false;}
     }
 
     private void onSaveComplete(DocumentSession s, String fileName,
@@ -310,6 +551,7 @@ public final class WorkspaceComponent extends MaredComponent
             return;
         }
         s.saveInFlight = false;
+        s.inFlightText = null;
 
         if (ok) {
             s.lastSavedText = content;
@@ -326,6 +568,7 @@ public final class WorkspaceComponent extends MaredComponent
 
     private void onSaveError(DocumentSession s, String fileName, Throwable err) {
         s.saveInFlight = false;
+        s.inFlightText = null;
         if (fileName.equals(s.storageId)) s.dirty = true;
         bus.publish(new StudioEvents.LogEvent(
             LogSettings.Level.ERROR, "studio",
@@ -334,7 +577,7 @@ public final class WorkspaceComponent extends MaredComponent
     }
 
     private void maybeFlushPending(DocumentSession s) {
-        if (s.pendingSave) {
+        if (s.pendingSave && s.canSave() && host.documents().contains(s) && !disposed) {
             s.pendingSave = false;
             saveAsync(s);
         } else if (s.pendingOpenFile != null && !s.dirty) {
@@ -348,12 +591,37 @@ public final class WorkspaceComponent extends MaredComponent
     //  Внутреннее — activation
     // ============================================================
 
+    private void restoreDrafts() {
+        try {
+            for(var recovered:drafts.recover()){
+                DocumentSession s=new DocumentSession();s.storageId=recovered.name();s.setInitialText(recovered.text());host.add(s);
+                bus.publish(new StudioEvents.LogEvent(LogSettings.Level.WARN,"studio","Recovered draft of "+recovered.originalName()+" as "+recovered.name()));
+            }
+            if(host.active()!=null)activateSession(host.active());
+            if(com.fixmer.mared.gui2.runtime.RuntimeProvider.isInstalled())
+                com.fixmer.mared.gui2.runtime.RuntimeProvider.get().session().refreshExplorer();
+        }catch(Exception error){bus.publish(new StudioEvents.LogEvent(LogSettings.Level.ERROR,"studio","Draft recovery failed; journal preserved: "+error.getMessage()));}
+    }
+    private void checkpoint(boolean flush) {
+        if(disposed || !restored)return;
+        var failure=drafts.takeFailure();
+        if(failure!=null){lastCheckpoint=null;bus.publish(new StudioEvents.LogEvent(LogSettings.Level.ERROR,"studio","Background draft checkpoint failed; retrying: "+failure.getMessage()));}
+        var snapshot=new java.util.ArrayList<com.fixmer.mared.technology.storage.WorkspaceDrafts.Draft>();
+        for(DocumentSession s:host.documents())if(s.dirty)snapshot.add(new com.fixmer.mared.technology.storage.WorkspaceDrafts.Draft(s.recoveryId,s.storageId,s.currentText()));
+        if(!flush&&snapshot.equals(lastCheckpoint))return;
+        try {if(flush)drafts.flush(snapshot);else drafts.submit(snapshot);lastCheckpoint=java.util.List.copyOf(snapshot);}
+        catch(Exception error){com.fixmer.mared.Mared.LOGGER.error("Draft checkpoint failed",error);bus.publish(new StudioEvents.LogEvent(LogSettings.Level.ERROR,"studio","Draft checkpoint failed: "+error.getMessage()));}
+    }
+
     private void activateSession(DocumentSession s) {
         if (s == null) return;
         host.activate(s);
         editor.attachDocument(s.document, s.history, s.view);
+        editor.setSpanResolver(spanResolver);
         editor.setEditable(true);
-        editor.setFocused(isFocused());
+        completion.dismiss();
+        editor.setFocused(isFocused() && (searchBox == null || !searchBox.isFocused()));
+        searchMessage = "";
     }
 
     // ============================================================
@@ -366,8 +634,15 @@ public final class WorkspaceComponent extends MaredComponent
         DocumentSession s = host.byStorageId(oldName);
         if (s == null) return;
 
+        ++s.saveSequence;
+        if(s.saveInFlight && s.inFlightText!=null)try {
+            if(commandService.read(newName).equals(s.inFlightText))s.lastSavedText=s.inFlightText;
+        }catch(Exception error){com.fixmer.mared.Mared.LOGGER.warn("Cannot reconcile renamed document",error);}
+        s.saveInFlight=false;s.saveAsInFlight=false;s.inFlightText=null;s.pendingSave=false;
         s.storageId = newName;
         s.exists = true;
+        s.recomputeDirty();
+        checkpoint(false);
 
         bus.publish(new StudioEvents.FileOpenedEvent(newName));
         bus.publish(new StudioEvents.LogEvent(
@@ -381,9 +656,14 @@ public final class WorkspaceComponent extends MaredComponent
         DocumentSession s = host.byStorageId(fileName);
         if (s == null) return;
 
+        ++s.saveSequence;
+        s.saveInFlight=false;
+        s.saveAsInFlight=false;
+        s.inFlightText=null;
+        s.pendingSave=false;
         s.exists = false;
-        s.dirty = false;
-        s.lastSavedText = s.currentText();
+        s.dirty = !s.currentText().isEmpty();
+        checkpoint(false);
 
         bus.publish(new StudioEvents.LogEvent(
             LogSettings.Level.WARN, "studio",
@@ -391,6 +671,7 @@ public final class WorkspaceComponent extends MaredComponent
     }
 
     private void onEditorChanged() {
+        completion.dismiss();
         DocumentSession s = host.active();
         if (s == null) return;
         s.recomputeDirty();
@@ -404,9 +685,13 @@ public final class WorkspaceComponent extends MaredComponent
     public void layout(MaredBounds bounds) {
         super.layout(bounds);
         int ex = bounds.x() + 2;
-        int ey = bounds.y() + HEADER_H + 2;
+        int ey = bounds.y() + HEADER_H + (searchOpen ? SEARCH_H : 0) + 2;
         int ew = Math.max(20, bounds.width() - 4);
-        int eh = Math.max(20, bounds.height() - HEADER_H - 4);
+        int eh = Math.max(1, bounds.height() - HEADER_H - (searchOpen ? SEARCH_H : 0) - STATUS_H - 4);
+        if (searchBox != null) {
+            searchBox.setX(bounds.x() + 6); searchBox.setY(bounds.y() + HEADER_H + 3);
+            searchBox.setWidth(Math.max(1, bounds.width() - 82)); searchBox.setHeight(16);
+        }
         editor.setX(ex);
         editor.setY(ey);
         editor.setWidth(ew);
@@ -419,28 +704,38 @@ public final class WorkspaceComponent extends MaredComponent
 
     @Override
     protected void safeRender(MaredRenderContext context) {
+        if(!restored){restored=true;restoreDrafts();}
+        if(System.nanoTime()>=nextCheckpoint){nextCheckpoint=System.nanoTime()+2_000_000_000L;checkpoint(false);}
+        editor.setAccentColor(com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent());
+        completion.reconcile(host.active());
+        advanceMinecraftChecks();
         GuiGraphics g = context.graphics();
         Font font = context.font();
 
         g.fill(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(),
-            0xFF0E0E16);
+            com.fixmer.mared.technology.editor.GenesisEditorVisuals.sunken());
 
         drawTabBar(g, font);
 
         g.fill(bounds.x(), bounds.y() + HEADER_H - 1,
-               bounds.right(), bounds.y() + HEADER_H, 0xFF222233);
+               bounds.right(), bounds.y() + HEADER_H, com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge());
 
         if (host.active() == null) {
             String hint = host.isEmpty()
-                ? "Workspace — no files open"
-                : "Workspace — no active document";
+                ? com.fixmer.mared.technology.editor.EditorText.translate("Workspace — no files open")
+                : com.fixmer.mared.technology.editor.EditorText.translate("Workspace — no active document");
             g.drawString(font, hint, bounds.x() + 8,
                 bounds.y() + HEADER_H + 8,
-                ThemeColors.muted(), false);
+                com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
             return;
         }
 
         editor.render(g, lastMouseX, lastMouseY, 0f);
+        drawEditorTools(g, font);
+        var active = host.active();
+        if (editor.isFocused() && active != null) completion.render(g, font,
+            new MaredBounds(editor.getX(), editor.getY(), editor.getWidth(), editor.getHeight()),
+            active.view.caretX(), active.view.caretY());
     }
 
     private void drawTabBar(GuiGraphics g, Font font) {
@@ -448,8 +743,8 @@ public final class WorkspaceComponent extends MaredComponent
         int n = host.count();
 
         if (n == 0) {
-            g.drawString(font, "Workspace — no files",
-                bounds.x() + 8, bounds.y() + 5, ThemeColors.muted(), false);
+            g.drawString(font, com.fixmer.mared.technology.editor.EditorText.translate("Workspace — no files"),
+                bounds.x() + 8, bounds.y() + 5, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
             tabXCache = new int[0];
             tabWCache = new int[0];
             tabBarX = bounds.x();
@@ -492,15 +787,15 @@ public final class WorkspaceComponent extends MaredComponent
             int w = widths[i];
             boolean active = (i == activeIdx);
 
-            int bg = active ? 0xFF1A1A24 : 0xFF0E0E16;
-            int textColor = active ? ThemeColors.text() : ThemeColors.muted();
-            int accent = active ? 0xFF55AAFF : 0xFF333344;
+            int bg = active ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.sunken();
+            int textColor = active ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.text() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim();
+            int accent = active ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge();
 
             g.fill(x, y, x + w, y + h, bg);
             if (active) {
                 g.fill(x, y + h - 2, x + w, y + h, accent);
             }
-            g.renderOutline(x, y, w, h, 0xFF222233);
+            g.renderOutline(x, y, w, h, com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge());
 
             String label = tabLabel(s);
             int closeX = x + w - CLOSE_BTN_W - CLOSE_BTN_PAD;
@@ -510,11 +805,11 @@ public final class WorkspaceComponent extends MaredComponent
 
             if (s.dirty) {
                 int dotX = x + 6 + font.width(drawn) + 3;
-                g.drawString(font, "●", dotX, y + 5, 0xFFFFAA00, false);
+                g.drawString(font, "●", dotX, y + 5, com.fixmer.mared.technology.editor.GenesisEditorVisuals.warn(), false);
             }
 
             g.drawString(font, "×", closeX, y + 5,
-                active ? 0xFFFF6666 : 0xFF666677, false);
+                active ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.danger() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
 
             x += w + TAB_GAP;
         }
@@ -556,6 +851,8 @@ public final class WorkspaceComponent extends MaredComponent
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        completion.reconcile(host.active());
+        if (completion.click(mx, my, button)) return true;
         if (!bounds.contains(mx, my)) return false;
 
         if (my >= bounds.y() && my < bounds.y() + HEADER_H) {
@@ -582,8 +879,26 @@ public final class WorkspaceComponent extends MaredComponent
             return true;
         }
 
+        if (host.active() != null && my >= bounds.bottom() - STATUS_H) {
+            if (button == 0) jumpToDiagnostic();
+            return true;
+        }
+        if (searchOpen && my < bounds.y() + HEADER_H + SEARCH_H) {
+            if (button != 0) return true;
+            requestFocus(); editor.setFocused(false);
+            ensureSearch();
+            if (mx >= bounds.right() - 70) {
+                int action = (int) mx - (bounds.right() - 70);
+                if (action < 17) findNext(true);
+                else if (action < 34) findNext(false);
+                else if (action < 55) { searchCase = !searchCase; searchMessage = ""; }
+                else closeSearch();
+            } else { searchBox.setFocused(true); searchBox.mouseClicked(mx, my, button); }
+            return true;
+        }
         if (editor.isMouseOver(mx, my)) {
-            requestFocus();
+            if (searchBox != null) searchBox.setFocused(false);
+            requestFocus(); editor.setFocused(true);
             capturePointer(button);
             return editor.mouseClicked(mx, my, button);
         }
@@ -611,6 +926,7 @@ public final class WorkspaceComponent extends MaredComponent
     @Override
     public boolean mouseDragged(double mx, double my, int button,
                                 double dragX, double dragY) {
+        if (searchOpen && searchBox != null && searchBox.isFocused()) return searchBox.mouseDragged(mx, my, button, dragX, dragY);
         return editor.mouseDragged(mx, my, button, dragX, dragY);
     }
 
@@ -624,13 +940,22 @@ public final class WorkspaceComponent extends MaredComponent
     @Override
     public boolean mouseScrolled(double mx, double my,
                                  double scrollX, double scrollY) {
+        completion.reconcile(host.active());
+        if (completion.scroll(mx, my, scrollY)) return true;
         if (!editor.isMouseOver(mx, my)) return false;
         return editor.mouseScrolled(mx, my, scrollX, scrollY);
     }
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        completion.reconcile(host.active());
+        if (completion.key(keyCode, modifiers)) return true;
         boolean ctrl = (modifiers & 2) != 0;
+        if (keyCode == 256 && searchOpen) { closeSearch(); return true; }
+        if (searchOpen && searchBox != null && searchBox.isFocused()) {
+            if (keyCode == 257 || keyCode == 335) { findNext((modifiers & 1) != 0); return true; }
+            if (searchBox.keyPressed(keyCode, scanCode, modifiers)) return true;
+        }
         if (ctrl && keyCode == 87) { // Ctrl+W — закрыть активный
             closeActive();
             return true;
@@ -652,6 +977,7 @@ public final class WorkspaceComponent extends MaredComponent
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
+        if (searchOpen && searchBox != null && searchBox.isFocused()) return searchBox.charTyped(codePoint, modifiers);
         if (editor.isFocused()) return editor.charTyped(codePoint, modifiers);
         return false;
     }

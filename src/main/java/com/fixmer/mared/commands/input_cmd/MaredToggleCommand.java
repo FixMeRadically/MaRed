@@ -32,10 +32,10 @@ public class MaredToggleCommand extends MaredScriptCommand {
             return true;
         }
 
-        boolean blocked = MaredKeyBlocker.isBlocked(pk.keyCode);
+        boolean blocked = MaredBindRegistry.blockedBy(keyRaw, ctx);
         if (blocked) {
             int before = MaredBindRegistry.entries(keyRaw).size();
-            MaredBindRegistry.unblock(keyRaw);
+            MaredBindRegistry.unblock(keyRaw, ctx);
             int after = MaredBindRegistry.entries(keyRaw).size();
 
             if (after < before) {
@@ -44,7 +44,7 @@ public class MaredToggleCommand extends MaredScriptCommand {
                 ctx.log(MaredLang.format("mared.log.toggle.off_kept", keyRaw));
             }
         } else {
-            MaredBindRegistry.block(keyRaw);
+            MaredBindRegistry.block(keyRaw, ctx);
             ctx.log(MaredLang.format("mared.log.toggle.on", keyRaw));
         }
         return true;

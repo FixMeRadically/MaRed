@@ -34,7 +34,7 @@ public final class MaredLogsTab implements MaredSettingsTab {
     @Override public String displayName() {
         return MaredLang.get("mared.settings.tab.logs");
     }
-    @Override public int accentColor() { return 0xFF55FF88; }
+    @Override public int accentColor() { return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().success; }
 
     @Override
     public void render(GuiGraphics g, Font font, int x, int y, int w, int h,
@@ -47,7 +47,7 @@ public final class MaredLogsTab implements MaredSettingsTab {
         int cy = y - scroll;
 
         MaredUi.text(g, font, MaredLang.get("mared.settings.logs.options"),
-            x, cy, 0xFFFFAA00);
+            x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
 
         chatY = cy;
@@ -61,7 +61,7 @@ public final class MaredLogsTab implements MaredSettingsTab {
         cy += 12;
 
         MaredUi.text(g, font, MaredLang.get("mared.log.filter.levels"),
-            x, cy, 0xFFFFAA00);
+            x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
         levelsY0 = cy;
 
@@ -74,16 +74,16 @@ public final class MaredLogsTab implements MaredSettingsTab {
             int lx = x + col * (LEVEL_W + 6);
             int ly = cy + row * 16;
             boolean enabled = lg.levelEnabled(lvl);
-            MaredUi.drawCheckbox(g, lx, ly + 1, 12, enabled, 0xFF4A4A4A,
-                0xFF55FF88);
+            MaredUi.drawCheckbox(g, lx, ly + 1, 12, enabled, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border,
+                com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().success);
             MaredUi.text(g, font, lvl.name(), lx + 16, ly + 3,
-                enabled ? 0xFFFFFFFF : 0xFF888888);
+                enabled ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textFaint);
         }
         int levelRows = (levels.length + cols - 1) / cols;
         cy += levelRows * 16 + 12;
 
         MaredUi.text(g, font, MaredLang.get("mared.log.filter.categories"),
-            x, cy, 0xFFFFAA00);
+            x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
         categoriesY0 = cy;
 
@@ -96,10 +96,10 @@ public final class MaredLogsTab implements MaredSettingsTab {
             int lx = x + col * (CAT_W + 6);
             int ly = cy + row * 16;
             boolean enabled = lg.categoryEnabled(cat);
-            MaredUi.drawCheckbox(g, lx, ly + 1, 12, enabled, 0xFF4A4A4A,
-                0xFF55FF88);
+            MaredUi.drawCheckbox(g, lx, ly + 1, 12, enabled, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border,
+                com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().success);
             MaredUi.text(g, font, "[" + cat + "]", lx + 16, ly + 3,
-                enabled ? 0xFFFFFFFF : 0xFF888888);
+                enabled ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textFaint);
         }
 
         g.disableScissor();
@@ -115,9 +115,9 @@ public final class MaredLogsTab implements MaredSettingsTab {
 
     private int drawCheckbox(GuiGraphics g, Font font, int x, int y, int maxW,
                              String label, boolean checked) {
-        MaredUi.drawCheckbox(g, x, y + 2, 14, checked, 0xFF4A4A4A, 0xFF55FF88);
+        MaredUi.drawCheckbox(g, x, y + 2, 14, checked, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().success);
         MaredUi.text(g, font, label, x + 20, y + 5,
-            checked ? 0xFFFFFFFF : 0xFFAAAAAA);
+            checked ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim);
         return y + 18;
     }
 

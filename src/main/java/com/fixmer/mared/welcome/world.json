@@ -1,0 +1,28 @@
+{
+  "background": -13434880,
+
+  "objects": [
+
+    {
+      "type": "code",
+      "x": 220,
+      "y": 180,
+      "properties": {
+        "text":
+        "generate_world(seed)"
+      }
+    },
+
+
+    {
+      "type": "texture",
+      "asset": "world/tree_oak",
+      "x": 420,
+      "y": 300,
+      "properties": {
+        "state": "growing"
+      }
+    }
+
+  ]
+}

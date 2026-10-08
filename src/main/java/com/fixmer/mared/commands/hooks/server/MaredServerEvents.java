@@ -36,6 +36,9 @@ import com.fixmer.mared.MaredTicks;
 public class MaredServerEvents {
 
     @SubscribeEvent
+    public static void onGenesisAiTick(ServerTickEvent.Pre event){com.fixmer.mared.technology.ai.GenesisAiRuntime.beginTick(event.getServer());}
+
+    @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
         MaredTicks.increment();
         MaredScriptRunner.tick(event.getServer());
@@ -351,6 +354,7 @@ public class MaredServerEvents {
 
     @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
+        com.fixmer.mared.technology.ai.GenesisAiRuntime.clear(event.getServer());
         MaredScriptRunner.stopAll();
         MaredGlobalStorage.clear();
         MaredEventRegistry.clearAll();

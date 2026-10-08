@@ -41,16 +41,16 @@ public class MaredMoveCommand extends MaredScriptCommand {
         }
         switch (mode) {
             case "off", "stop", "release" -> {
-                MaredActionRegistry.release(a);
+                MaredActionRegistry.release(ctx.executionScope(), a);
                 ctx.log("[action] move " + direction + " off");
             }
             case "toggle" -> {
-                boolean now = !MaredActionRegistry.isPressed(a);
-                MaredActionRegistry.toggle(a, now);
+                boolean now = !MaredActionRegistry.isPressed(ctx.executionScope(), a);
+                MaredActionRegistry.toggle(ctx.executionScope(), a, now);
                 ctx.log("[action] move " + direction + " toggle → " + now);
             }
             default -> {
-                MaredActionRegistry.press(a);
+                MaredActionRegistry.press(ctx.executionScope(), a);
                 ctx.log("[action] move " + direction + " on");
             }
         }

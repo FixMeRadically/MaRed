@@ -1,0 +1,201 @@
+package com.fixmer.mared.gui2.welcome.scene;
+
+
+import com.fixmer.mared.gui2.modules.ModuleId;
+
+import com.fixmer.mared.gui2.visual.object.VisualObject;
+import com.fixmer.mared.gui2.visual.scene.VisualScene;
+import com.fixmer.mared.gui2.visual.scene.VisualSceneBuilder;
+
+import com.fixmer.mared.gui2.welcome.data.WelcomeObjectData;
+import com.fixmer.mared.gui2.welcome.data.WelcomeObjectFactory;
+import com.fixmer.mared.gui2.welcome.data.WelcomeSceneData;
+import com.fixmer.mared.gui2.welcome.data.WelcomeSceneLoader;
+
+import com.fixmer.mared.gui2.welcome.data.validation.WelcomeSceneValidator;
+import com.fixmer.mared.gui2.welcome.data.validation.WelcomeValidationResult;
+
+
+
+public final class WelcomeJsonSceneProvider
+        implements WelcomeSceneProvider {
+
+
+
+    private final ModuleId module;
+
+
+    private final String resourcePath;
+
+
+
+
+
+    public WelcomeJsonSceneProvider(
+
+            ModuleId module,
+
+            String resourcePath
+
+    ){
+
+        this.module = module;
+
+        this.resourcePath = resourcePath;
+
+    }
+
+
+
+
+
+    @Override
+    public ModuleId module(){
+
+        return module;
+
+    }
+
+
+
+
+
+    @Override
+    public VisualScene create(){
+
+
+
+        WelcomeSceneData data =
+                WelcomeSceneLoader.load(
+
+                        resourcePath
+
+                );
+
+
+
+
+
+        /*
+         * Проверяем корректность JSON-сцены
+         *
+         * Проверяется:
+         *
+         * - наличие объектов
+         * - наличие type
+         * - наличие asset
+         * - существование ассета
+         *
+         * Если сцена повреждена,
+         * не запускаем создание VisualObject,
+         * чтобы не получить ошибку позже в Renderer.
+         */
+        WelcomeValidationResult validation =
+                WelcomeSceneValidator.validate(
+
+                        data
+
+                );
+
+
+
+
+
+        if(!validation.valid()){
+
+
+
+            for(var error : validation.errors()){
+
+
+
+                System.err.println(
+
+                        "[MaRed Welcome] "
+
+                        + error
+
+                );
+
+
+            }
+
+
+
+            /*
+             * Возвращаем пустую сцену.
+             *
+             * Позже здесь лучше заменить на:
+             *
+             * ErrorWelcomeScene
+             *
+             * с красивым экраном ошибки
+             * внутри самого GUI.
+             */
+            return new VisualScene();
+
+
+        }
+
+
+
+
+
+
+
+        VisualSceneBuilder builder =
+                new VisualSceneBuilder();
+
+
+
+
+
+        builder.background(
+
+                data.background()
+
+        );
+
+
+
+
+
+        for(
+
+                WelcomeObjectData objectData :
+
+                data.objects()
+
+        ){
+
+
+
+            VisualObject object =
+                    WelcomeObjectFactory.create(
+
+                            objectData
+
+                    );
+
+
+
+            builder.object(
+
+                    object
+
+            );
+
+
+        }
+
+
+
+
+
+        return builder.build();
+
+
+    }
+
+
+}

@@ -1,0 +1,28 @@
+{
+  "background": -14606047,
+
+  "objects": [
+
+    {
+      "type": "code",
+      "x": 220,
+      "y": 220,
+      "properties": {
+        "text":
+        "{ item: diamond_sword }"
+      }
+    },
+
+
+    {
+      "type": "model",
+      "asset": "content/diamond_block",
+      "x": 520,
+      "y": 280,
+      "properties": {
+        "rotation": "25"
+      }
+    }
+
+  ]
+}

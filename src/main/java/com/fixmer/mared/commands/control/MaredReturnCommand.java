@@ -4,7 +4,7 @@ import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.commands.engine.MaredScriptCommand;
 import com.fixmer.mared.commands.engine.MaredScriptContext;
 import com.fixmer.mared.commands.engine.MaredScriptExecutor;
-import com.fixmer.mared.commands.engine.MaredScriptExecutor.Frame;
+import com.fixmer.genesis.technology.runtime.FrameExecutor.Frame;
 import com.fixmer.mared.commands.expr.MaredExpr;
 import com.fixmer.mared.commands.server_cmd.MaredDebugCommand;
 import com.fixmer.mared.MaredLang;
@@ -41,7 +41,7 @@ public class MaredReturnCommand extends MaredScriptCommand {
                 }
             } catch (Exception e) {
                 ctx.log(MaredLang.format("mared.log.eval.error", expression, e.getMessage()));
-                value = null;
+                throw new IllegalStateException("Return expression failed: " + expression, e);
             }
         }
         exec.setReturnValue(value);

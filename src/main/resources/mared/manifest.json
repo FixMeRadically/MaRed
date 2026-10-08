@@ -1,0 +1,18 @@
+{
+  "assets": [
+
+    {
+      "id": "content/diamond_block",
+      "type": "model",
+      "path": "models/content/diamond_block.json"
+    },
+
+
+    {
+      "id": "world/tree_oak",
+      "type": "texture",
+      "path": "textures/world/tree_oak.png"
+    }
+
+  ]
+}

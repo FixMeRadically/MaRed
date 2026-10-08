@@ -1,0 +1,414 @@
+package com.fixmer.mared.gui2.genesis.render;
+
+import com.fixmer.mared.gui2.genesis.GenesisCamera;
+import com.fixmer.mared.gui2.genesis.node.GenesisNode;
+import com.fixmer.mared.gui2.genesis.node.GenesisNodeData;
+import com.fixmer.mared.gui2.genesis.node.GenesisSubParticle;
+import com.fixmer.mared.gui2.genesis.node.Shape3D;
+import com.fixmer.mared.MaredLang;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+
+import java.util.List;
+
+/**
+ * Genesis:
+ *   - drawSoftCircle РїРµСЂРµРїРёСЃР°РЅ РЅР° dy++ (1px СЃС‚СЂРѕРєРё, Р±РµР· banding).
+ *   - animateColor вЂ” Р»С‘РіРєРёР№ РїРµСЂРµР»РёРІ С‚С‘РїР»С‹Р№в†”С…РѕР»РѕРґРЅС‹Р№ В±10%.
+ *   - РџРѕРґРґРµСЂР¶РєР° PYRAMID (С‡РµСЂРµР· Shape3D).
+ */
+public final class GenesisNodeRenderer {
+
+    private static final float COBWEB_DIST_PX = 80f;
+    private static final float GLYPH_DEPTH    = 400f;
+    private static final float GLYPH_ZOOM_MIN = 1.30f;
+    private static final float SHAPE_SPIN_Y   = 0.20f;
+
+    private static final int SHADOW_ALPHA = 90;
+
+    public void render(GuiGraphics g,
+                       GenesisNode node,
+                       GenesisCamera camera,
+                       int screenW, int screenH,
+                       float orbitTimeSec,
+                       boolean suppressLabel) {
+
+        GenesisNodeData d = node.data();
+
+        float[] s = camera.worldToScreen(
+            node.worldX(), node.worldY(), node.worldZ(),
+            screenW, screenH);
+        int cx = (int)s[0];
+        int cy = (int)s[1];
+        float depth = s[2];
+
+        float depthScale = camera.depthScale(depth);
+        float alphaMul = camera.depthAlpha(depth) / 255f;
+        float pulse = node.currentPulse(orbitTimeSec);
+        float scale = camera.zoom() * depthScale * node.currentScale() * pulse;
+        int r = (int)(d.radius() * scale);
+        if (r <= 0) return;
+
+        // Р¦РІРµС‚ СЃ Р»С‘РіРєРѕР№ Р°РЅРёРјР°С†РёРµР№ (СЃРј. animateColor)
+        int rgb = animateColor(
+            d.defaultColor() & 0x00FFFFFF,
+            orbitTimeSec,
+            node.pulsePhase()
+        );
+
+        // --- РўРµРЅСЊ РїРѕРґ СѓР·Р»РѕРј, dy++ (Р±РµР· banding) ---
+        if (alphaMul > 0.15f) {
+            float len = (float)Math.sqrt(
+                node.worldX() * node.worldX()
+              + node.worldY() * node.worldY()
+              + node.worldZ() * node.worldZ());
+            if (len > 1f) {
+                float nx = node.worldX() / len;
+                float ny = node.worldY() / len;
+                float nz = node.worldZ() / len;
+                float[] sp = camera.worldToScreen(
+                    node.worldX() + nx * r * 0.5f,
+                    node.worldY() + ny * r * 0.5f,
+                    node.worldZ() + nz * r * 0.5f,
+                    screenW, screenH);
+                int shx = (int)sp[0];
+                int shy = (int)sp[1];
+                int shR = (int)(r * 1.1f);
+                int shA = (int)(SHADOW_ALPHA * alphaMul);
+                if (shR > 4 && shA > 6) {
+                    drawSoftCircle(g, shx, shy, shR, 0x000000, shA);
+                }
+            }
+        }
+
+        // --- Sub-particles ---
+        List<GenesisSubParticle> sps = node.subParticles();
+        int spN = sps.size();
+        int[] spx = new int[spN];
+        int[] spy = new int[spN];
+        int[] spA = new int[spN];
+        float[] spDepth = new float[spN];
+
+        int spBaseAlpha = (int)(70 + node.morph() * 130f);
+        if (spBaseAlpha > 255) spBaseAlpha = 255;
+
+        for (int i = 0; i < spN; i++) {
+            GenesisSubParticle sp = sps.get(i);
+            float[] off = sp.offsetAt(d.radius(), orbitTimeSec);
+            float[] ps = camera.worldToScreen(
+                node.worldX() + off[0],
+                node.worldY() + off[1],
+                node.worldZ() + off[2],
+                screenW, screenH);
+            spx[i] = (int)ps[0];
+            spy[i] = (int)ps[1];
+            spDepth[i] = ps[2];
+            int spDepthAlpha = camera.depthAlpha(ps[2]);
+            spA[i] = (int)(sp.alphaAt() * spBaseAlpha * (spDepthAlpha / 255f));
+        }
+
+        // РџР°СѓС‚РёРЅРєР°
+        for (int i = 0; i < spN; i++) {
+            if (spA[i] < 30) continue;
+            for (int j = i + 1; j < spN; j++) {
+                if (spA[j] < 30) continue;
+                int dx = spx[i] - spx[j];
+                int dy = spy[i] - spy[j];
+                int d2 = dx * dx + dy * dy;
+                if ((float)d2 > COBWEB_DIST_PX * COBWEB_DIST_PX) continue;
+                float dn = (float)Math.sqrt(d2) / COBWEB_DIST_PX;
+                float t = 1f - dn;
+                int a = (int)(t * t * 80 * alphaMul);
+                a = Math.min(a, Math.min(spA[i], spA[j]));
+                if (a < 10) continue;
+                drawLine(g, spx[i], spy[i], spx[j], spy[j],
+                         (a << 24) | rgb);
+            }
+        }
+
+        // Focus ring
+        if (node.focus() > 0.05f) {
+            int ringR = (int)(r * (1.9f + node.focus() * 0.7f));
+            int ringAlpha = (int)(node.focus() * 170f * alphaMul);
+            if (ringAlpha > 4) {
+                drawCircleOutline(g, cx, cy, ringR,
+                                  (ringAlpha << 24) | rgb);
+            }
+        }
+
+        // 3D-С„РѕСЂРјР°
+        if (d.shape() != null && !d.shape().isEmpty()) {
+            drawSolidShape(g, camera, screenW, screenH,
+                           node.worldX(), node.worldY(), node.worldZ(),
+                           r, d.shape(),
+                           orbitTimeSec,
+                           node.spinYaw(), node.spinPitch(),
+                           rgb, alphaMul);
+        }
+
+        // РЎСѓР±-С‡Р°СЃС‚РёС†С‹
+        boolean showGlyphs = camera.zoom() > GLYPH_ZOOM_MIN;
+        Font font = Minecraft.getInstance().font;
+        for (int i = 0; i < spN; i++) {
+            int a = spA[i];
+            if (a < 20) continue;
+
+            GenesisSubParticle sp = sps.get(i);
+            int color = (a << 24) | (rgb & 0x00FFFFFF);
+            boolean near = Math.abs(spDepth[i]) < GLYPH_DEPTH;
+
+            if (showGlyphs && near) {
+                int w = font.width(sp.glyph);
+                int aGlyph = (int)(a * 0.75f);
+                g.drawString(font, sp.glyph,
+                             spx[i] - w / 2, spy[i] - 4,
+                             (aGlyph << 24) | (rgb & 0x00FFFFFF), false);
+            } else {
+                int sz = sp.size < 1.6f ? 2 : 3;
+                g.fill(spx[i] - sz / 2, spy[i] - sz / 2,
+                       spx[i] + sz / 2 + 1, spy[i] + sz / 2 + 1,
+                       color);
+            }
+        }
+
+        // Hover-РЅР°РґРїРёСЃСЊ
+        if (!suppressLabel && node.hover() > 0.15f) {
+            String name = displayName(d.type());
+            int tw = font.width(name);
+            int labelY = cy + r + 8;
+
+            int a = (int)(node.hover() * 240);
+            int padX = 6, padY = 3;
+            int bx1 = cx - tw / 2 - padX;
+            int bx2 = cx + tw / 2 + padX;
+            int by1 = labelY - padY;
+            int by2 = labelY + 8 + padY;
+            g.fill(bx1, by1, bx2, by2, ((int)(a * 0.55f) << 24));
+            g.fill(bx1, by1, bx2, by1 + 1, ((int)(a * 0.9f) << 24) | rgb);
+            g.fill(bx1, by2 - 1, bx2, by2, ((int)(a * 0.9f) << 24) | rgb);
+
+            g.drawString(font, name, cx - tw / 2, labelY,
+                         (a << 24) | 0x00FFFFFF, false);
+        }
+    }
+
+    // ============================================================
+    //  Animated color
+    // ============================================================
+
+    /**
+     * Genesis: РїРµСЂРµР»РёРІ С†РІРµС‚Р°.
+     * РљР°Р¶РґС‹Р№ РєР°РЅР°Р» СЃР»РµРіРєР° РєРѕР»РµР±Р»РµС‚СЃСЏ РїРѕ sin СЃ СЃРѕР±СЃС‚РІРµРЅРЅРѕР№ С„Р°Р·РѕР№.
+     * Р”РёР°РїР°Р·РѕРЅ В±10..15%, РїРѕСЌС‚РѕРјСѓ С†РІРµС‚Р° РѕСЃС‚Р°СЋС‚СЃСЏ В«Р±Р»РёР·РєРёРјРёВ» Рє Р±Р°Р·РѕРІРѕРјСѓ,
+     * РЅРѕ СѓР·Р»С‹ РїСѓР»СЊСЃРёСЂСѓСЋС‚ С‚С‘РїР»С‹Рј/С…РѕР»РѕРґРЅС‹Рј.
+     */
+    private static int animateColor(int baseRgb, float timeSec, float phase) {
+        int r = (baseRgb >> 16) & 0xFF;
+        int g = (baseRgb >> 8) & 0xFF;
+        int b = baseRgb & 0xFF;
+
+        float t1 = (float)Math.sin(timeSec * 0.42f + phase);
+        float t2 = (float)Math.sin(timeSec * 0.31f + phase * 1.7f + 1.1f);
+        float t3 = (float)Math.sin(timeSec * 0.55f + phase * 0.6f + 2.3f);
+
+        float rMul = 1f + t1 * 0.10f;
+        float gMul = 1f + t2 * 0.08f;
+        float bMul = 1f - t1 * 0.06f + t3 * 0.05f;
+
+        r = clamp((int)(r * rMul), 0, 255);
+        g = clamp((int)(g * gMul), 0, 255);
+        b = clamp((int)(b * bMul), 0, 255);
+
+        return (r << 16) | (g << 8) | b;
+    }
+
+    private static int clamp(int v, int lo, int hi) {
+        return v < lo ? lo : (v > hi ? hi : v);
+    }
+
+    private static String displayName(GenesisNodeData.NodeType t) {
+        return switch (t) {
+            case CORE      -> MaredLang.get("mared.genesis.core");
+            case CONTENT   -> MaredLang.get("mared.genesis.content");
+            case WORLD     -> MaredLang.get("mared.genesis.world");
+            case LOGIC     -> MaredLang.get("mared.genesis.logic");
+            case RESOURCES -> MaredLang.get("mared.genesis.resources");
+            case TOOLS     -> MaredLang.get("mared.genesis.tools");
+            case SCENARIOS -> MaredLang.get("mared.genesis.scenarios");
+        };
+    }
+
+    // ============================================================
+    //  3D shape
+    // ============================================================
+
+    private static void drawSolidShape(GuiGraphics g,
+                                        GenesisCamera camera,
+                                        int sw, int sh,
+                                        float wx, float wy, float wz,
+                                        int r, Shape3D shape,
+                                        float timeSec,
+                                        float spinYaw, float spinPitch,
+                                        int rgb, float alphaMul) {
+
+        float[][] verts = shape.verts;
+        int n = verts.length;
+        float rotY = timeSec * SHAPE_SPIN_Y + spinYaw;
+        float rotX = spinPitch;
+
+        int[] px = new int[n];
+        int[] py = new int[n];
+        float[] pz = new float[n];
+
+        for (int i = 0; i < n; i++) {
+            float vx = verts[i][0];
+            float vy = verts[i][1];
+            float vz = verts[i][2];
+
+            float xr = vx * (float)Math.cos(rotY) - vz * (float)Math.sin(rotY);
+            float zr = vx * (float)Math.sin(rotY) + vz * (float)Math.cos(rotY);
+            float yr = vy * (float)Math.cos(rotX) - zr * (float)Math.sin(rotX);
+            float zr2 = vy * (float)Math.sin(rotX) + zr * (float)Math.cos(rotX);
+
+            float[] p = camera.worldToScreen(
+                wx + xr * r, wy + yr * r, wz + zr2 * r, sw, sh);
+            px[i] = (int)p[0];
+            py[i] = (int)p[1];
+            pz[i] = p[2];
+        }
+
+        int fillAlpha = (int)(210 * alphaMul);
+        if (fillAlpha < 90) fillAlpha = 90;
+
+        for (int[] f : shape.faces) {
+            if (!isFrontFacing(px, py, f)) continue;
+            fillPolygon(g, px, py, f, (fillAlpha << 24) | rgb);
+        }
+
+        int outlineAlpha = (int)(255 * alphaMul);
+        if (outlineAlpha < 120) outlineAlpha = 120;
+        int outlineColor = (outlineAlpha << 24) | lighten(rgb, 0.45f);
+        for (int[] e : shape.edges) {
+            drawLine(g, px[e[0]], py[e[0]], px[e[1]], py[e[1]], outlineColor);
+        }
+
+        int coreSize = Math.max(2, r / 4);
+        int coreAlpha = (int)(170 * alphaMul);
+        int coreColor = (coreAlpha << 24) | lighten(rgb, 0.7f);
+        float[] sc = camera.worldToScreen(wx, wy, wz, sw, sh);
+        int scx = (int)sc[0];
+        int scy = (int)sc[1];
+        g.fill(scx - coreSize / 2, scy - coreSize / 2,
+               scx + coreSize / 2 + 1, scy + coreSize / 2 + 1, coreColor);
+    }
+
+    private static boolean isFrontFacing(int[] px, int[] py, int[] face) {
+        if (face.length < 3) return true;
+        long cross = 0;
+        for (int i = 0; i < face.length; i++) {
+            int a = face[i];
+            int b = face[(i + 1) % face.length];
+            cross += (long)px[a] * py[b] - (long)px[b] * py[a];
+        }
+        // 0.4.1: winding inverted after Y-flip.
+        return cross > 0;
+    }
+
+    private static void fillPolygon(GuiGraphics g,
+                                     int[] xs, int[] ys, int[] face,
+                                     int color) {
+        int n = face.length;
+        if (n < 3) return;
+        int yMin = Integer.MAX_VALUE, yMax = Integer.MIN_VALUE;
+        for (int i : face) {
+            if (ys[i] < yMin) yMin = ys[i];
+            if (ys[i] > yMax) yMax = ys[i];
+        }
+        for (int y = yMin; y <= yMax; y++) {
+            int leftX = Integer.MAX_VALUE, rightX = Integer.MIN_VALUE;
+            for (int i = 0; i < n; i++) {
+                int a = face[i];
+                int b = face[(i + 1) % n];
+                int y1 = ys[a], y2 = ys[b];
+                if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) {
+                    float t = (float)(y - y1) / (y2 - y1);
+                    int x = (int)(xs[a] + t * (xs[b] - xs[a]));
+                    if (x < leftX)  leftX  = x;
+                    if (x > rightX) rightX = x;
+                }
+            }
+            if (leftX <= rightX) {
+                g.fill(leftX, y, rightX + 1, y + 1, color);
+            }
+        }
+    }
+
+    private static int lighten(int rgb, float amount) {
+        int r = (rgb >> 16) & 0xFF;
+        int g = (rgb >> 8) & 0xFF;
+        int b = rgb & 0xFF;
+        r = (int)(r + (255 - r) * amount);
+        g = (int)(g + (255 - g) * amount);
+        b = (int)(b + (255 - b) * amount);
+        return (r << 16) | (g << 8) | b;
+    }
+
+    /**
+     * Genesis: dy++ вЂ” СЃРіР»Р°Р¶РµРЅРЅС‹Р№ radial falloff Р±РµР· banding.
+     * Р Р°РЅСЊС€Рµ С€Р°Рі Р±С‹Р» 2, С‡С‚Рѕ РґР°РІР°Р»Рѕ 2-px РїРѕР»РѕСЃС‹ РѕРґРёРЅР°РєРѕРІРѕР№ Р°Р»СЊС„С‹
+     * (РѕСЃРѕР±РµРЅРЅРѕ Р·Р°РјРµС‚РЅРѕ РЅР° С‚РµРЅРё СЃ alpha РґРѕ 90).
+     */
+    private static void drawSoftCircle(GuiGraphics g, int cx, int cy,
+                                        int radius, int rgb, int alpha) {
+        if (radius <= 0 || alpha <= 0) return;
+        long r2 = (long)radius * radius;
+        for (int dy = -radius; dy <= radius; dy++) {
+            long d2 = (long)dy * dy;
+            if (d2 > r2) continue;
+            int half = (int)Math.sqrt((double)(r2 - d2));
+            float dn = (float)Math.abs(dy) / radius;
+            float falloff = 1f - dn;
+            falloff *= falloff;
+            int a = (int)(falloff * alpha);
+            if (a <= 0) continue;
+            g.fill(cx - half, cy + dy, cx + half, cy + dy + 1,
+                   (a << 24) | (rgb & 0x00FFFFFF));
+        }
+    }
+
+    private static void drawCircleOutline(GuiGraphics g,
+                                           int cx, int cy, int radius,
+                                           int color) {
+        if (radius <= 0) return;
+        long r2 = (long)radius * radius;
+        long r2inner = (long)(radius - 1) * (radius - 1);
+        for (int dy = -radius; dy <= radius; dy++) {
+            long d2 = (long)dy * dy;
+            if (d2 > r2) continue;
+            int halfOuter = (int)Math.sqrt((double)(r2 - d2));
+            int halfInner = d2 <= r2inner
+                ? (int)Math.sqrt((double)(r2inner - d2)) : 0;
+            g.fill(cx - halfOuter, cy + dy, cx - halfInner, cy + dy + 1, color);
+            g.fill(cx + halfInner, cy + dy, cx + halfOuter, cy + dy + 1, color);
+        }
+    }
+
+    private static void drawLine(GuiGraphics g,
+                                  int x1, int y1, int x2, int y2,
+                                  int color) {
+        int dx = Math.abs(x2 - x1);
+        int dy = Math.abs(y2 - y1);
+        int sx = x1 < x2 ? 1 : -1;
+        int sy = y1 < y2 ? 1 : -1;
+        int err = dx - dy;
+        while (true) {
+            g.fill(x1, y1, x1 + 1, y1 + 1, color);
+            if (x1 == x2 && y1 == y2) break;
+            int e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x1 += sx; }
+            if (e2 <  dx) { err += dx; y1 += sy; }
+        }
+    }
+}

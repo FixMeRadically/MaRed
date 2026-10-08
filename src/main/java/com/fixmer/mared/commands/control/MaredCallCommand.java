@@ -1,13 +1,16 @@
 package com.fixmer.mared.commands.control;
 
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 
 import com.fixmer.mared.commands.engine.MaredScriptCommand;
 import com.fixmer.mared.commands.engine.MaredScriptContext;
 import com.fixmer.mared.commands.engine.MaredScriptExecutor;
-import com.fixmer.mared.commands.engine.MaredScriptExecutor.Frame;
+import com.fixmer.genesis.technology.runtime.FrameExecutor.Frame;
 import com.fixmer.mared.commands.expr.MaredExpr;
 
 /**
@@ -40,15 +43,15 @@ public class MaredCallCommand extends MaredScriptCommand {
             return;
         }
 
+        // Resolve every argument before touching the caller's bindings.
+        List<Object> values = new ArrayList<>(fn.params.size());
+        for (int i = 0; i < fn.params.size(); i++)
+            values.add(i < args.size() ? resolveArg(args.get(i), ctx) : null);
         Map<String, Object> backup = new HashMap<>();
+        Set<String> present = new HashSet<>();
         for (String p : fn.params) {
+            if (ctx.hasVariable(p)) present.add(p);
             backup.put(p, ctx.getVariable(p));
-        }
-
-        for (int i = 0; i < fn.params.size(); i++) {
-            String p = fn.params.get(i);
-            Object value = (i < args.size()) ? resolveArg(args.get(i), ctx) : null;
-            ctx.setVariable(p, value);
         }
 
         List<MaredScriptCommand> body = fn.body;
@@ -58,9 +61,7 @@ public class MaredCallCommand extends MaredScriptCommand {
         MaredScriptExecutor.LoopOwner owner = new MaredScriptExecutor.LoopOwner() {
             @Override
             public boolean onBodyFinished(MaredScriptContext c, MaredScriptExecutor e, Frame bodyFrame) {
-                for (Map.Entry<String, Object> en : backupFinal.entrySet()) {
-                    c.setVariable(en.getKey(), en.getValue());
-                }
+                restore(c);
 
                 if (e.hasReturnValue()) {
                     c.setVariable("__last_return", e.getReturnValue());
@@ -70,11 +71,19 @@ public class MaredCallCommand extends MaredScriptCommand {
                 return false;
             }
 
+            private void restore(MaredScriptContext c) {
+                for (String p : fn.params) {
+                    if (present.contains(p)) c.setVariable(p, backupFinal.get(p));
+                    else c.removeVariable(p);
+                }
+            }
+            @Override public void onDiscard(MaredScriptContext c) { restore(c); }
             @Override
             public String describe() { return "call " + fnName; }
         };
 
         exec.pushFunctionBody(body, owner);
+        for (int i = 0; i < fn.params.size(); i++) ctx.setVariable(fn.params.get(i), values.get(i));
     }
 
     /**
@@ -93,23 +102,8 @@ public class MaredCallCommand extends MaredScriptCommand {
 
         if (s.isEmpty()) return "";
 
-        if (s.startsWith("${") && s.endsWith("}")) {
-            String expr = s.substring(2, s.length() - 1);
-            try { return MaredExpr.eval(expr, ctx); }
-            catch (Exception e) { return s; }
-        }
-
-        if (s.startsWith("$") && !s.startsWith("${") && !containsOperator(s)) {
-            String varName = s.substring(1);
-            Object v = ctx.getVariable(varName);
-            if (v != null) return v;
-            // ← FIX: возвращаем null вместо "$name"
-            return null;
-        }
-
-        if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"")) {
-            return s.substring(1, s.length() - 1);
-        }
+        if (s.startsWith("${") && s.endsWith("}")) return MaredExpr.eval(s.substring(2, s.length()-1), ctx);
+        if (s.startsWith("$") || s.startsWith("\"") || s.startsWith("'")) return MaredExpr.eval(s, ctx);
 
         try {
             if (s.contains(".") || s.contains("e") || s.contains("E")) {
@@ -120,23 +114,6 @@ public class MaredCallCommand extends MaredScriptCommand {
 
         try { return MaredExpr.eval(s, ctx); }
         catch (Exception e) { return s; }
-    }
-
-    /**
-     * Проверяет, содержит ли строка арифметические операторы вне кавычек.
-     */
-    private static boolean containsOperator(String s) {
-        boolean inString = false;
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            if (c == '"' || c == '\'') { inString = !inString; continue; }
-            if (inString) continue;
-            if (c == '+' || c == '-' || c == '*' || c == '/' || c == '%') {
-                if ((c == '-' || c == '+') && i == 0) continue;
-                return true;
-            }
-        }
-        return false;
     }
 
     @Override public int getDelayTicks() { return 0; }

@@ -21,6 +21,11 @@ public class MaredOffCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
+        if (ctx.executionScope() != null) {
+            MaredEventRegistry.removeOwned(ctx.executionScope(), target);
+            ctx.log("[mared] off " + target + " — listeners owned by this run removed");
+            return true;
+        }
         if ("all".equalsIgnoreCase(target) || "*".equals(target)) {
             MaredEventRegistry.removeAllEvents();
             ctx.log("[mared] off all — все слушатели сняты");

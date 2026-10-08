@@ -1,0 +1,27 @@
+{
+  "background": -15790321,
+
+  "objects": [
+
+    {
+      "type": "code",
+      "x": 260,
+      "y": 220,
+      "properties": {
+        "text":
+        "event player_join {\n  say \"Hello MaRed\"\n}"
+      }
+    },
+
+
+    {
+      "type": "blueprint",
+      "x": 520,
+      "y": 300,
+      "properties": {
+        "nodes": "6"
+      }
+    }
+
+  ]
+}

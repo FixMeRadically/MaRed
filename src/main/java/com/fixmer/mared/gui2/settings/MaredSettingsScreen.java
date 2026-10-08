@@ -17,6 +17,7 @@ import com.fixmer.mared.gui2.framework.render.MaredScale;
 import com.fixmer.mared.gui2.framework.render.legacy.MaredUi;
 import com.fixmer.mared.gui2.framework.render.legacy.MaredWidgets;
 import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
+import com.fixmer.mared.gui2.framework.theme.MaredTheme;
 import com.fixmer.mared.gui2.studio.MaredStudioScreen;
 
 import net.minecraft.client.Minecraft;
@@ -43,13 +44,13 @@ import net.minecraft.network.chat.Component;
  */
 public class MaredSettingsScreen extends Screen {
 
-    private static final int BG            = 0xFF0A0A10;
-    private static final int PANEL_BG      = 0xFF14141C;
-    private static final int PANEL_RAISED  = 0xFF1A1A24;
-    private static final int SIDEBAR_BG    = 0xFF15151E;
-    private static final int TEXT          = 0xFFFFFFFF;
-    private static final int TEXT_DIM      = 0xFFAAAAAA;
-    private static final int TEXT_HEADER   = 0xFF888888;
+    private static int BG(){return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgScreen;}
+    private static int PANEL_BG(){return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgPanel;}
+    private static int PANEL_RAISED(){return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgPanelRaised;}
+    private static int SIDEBAR_BG(){return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgSunken;}
+    private static int TEXT(){return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text;}
+    private static int TEXT_DIM(){return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim;}
+    private static int TEXT_HEADER(){return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textFaint;}
 
     private static final int SIDEBAR_W     = 180;
     private static final int SIDEBAR_PAD   = 8;
@@ -80,12 +81,21 @@ public class MaredSettingsScreen extends Screen {
 
     private OverlayManager overlayManager;
     private ToastOverlay toastOverlay;
+    private MaredTheme initialTheme;
+    private boolean logicContext;
+    private boolean settingsApplied;
 
     public MaredSettingsScreen(Screen parent) {
         super(Component.literal("Mared Settings"));
         this.parent = parent;
+        this.logicContext=parent instanceof MaredStudioScreen;
+        if(parent instanceof com.fixmer.mared.gui2.shell.MaredShellScreen && com.fixmer.mared.gui2.runtime.RuntimeProvider.isInstalled()){
+            var current=com.fixmer.mared.gui2.runtime.RuntimeProvider.get().navigation().current();
+            this.logicContext=current!=null&&(current.id()==com.fixmer.mared.gui2.navigation.SpaceId.LOGIC||current.id()==com.fixmer.mared.gui2.navigation.SpaceId.STUDIO);
+        }
 
         MaredSettings.load();
+        this.initialTheme=MaredThemeRegistry.active();
 
         this.initialShowSidebar    = MaredSettings.isLayoutShowSidebar();
         this.initialShowRightPanel = MaredSettings.isLayoutShowRightPanel();
@@ -139,6 +149,7 @@ public class MaredSettingsScreen extends Screen {
 
     @Override
     public void removed() {
+        restoreThemePreview();
         if (overlayManager != null) overlayManager.clear();
         MaredScale.unbind();
     }
@@ -195,6 +206,7 @@ public class MaredSettingsScreen extends Screen {
 
     private void onSave() {
         ctx.apply();
+        settingsApplied=true;
 
         boolean layoutChanged =
             initialShowSidebar    != MaredSettings.isLayoutShowSidebar()    ||
@@ -203,8 +215,9 @@ public class MaredSettingsScreen extends Screen {
             initialShowStatusBar  != MaredSettings.isLayoutShowStatusBar()  ||
             initialShowToolbar    != MaredSettings.isLayoutShowToolbar();
 
+        if(parent instanceof com.fixmer.mared.gui2.shell.MaredShellScreen){onClose();return;}
         if (layoutChanged) {
-            Minecraft.getInstance().setScreen(new MaredStudioScreen());
+            com.fixmer.mared.gui2.launcher.MaredScreenManager.openStudio();
             return;
         }
         onClose();
@@ -214,11 +227,16 @@ public class MaredSettingsScreen extends Screen {
 
     @Override
     public void onClose() {
+        restoreThemePreview();
         if (activeIndex >= 0 && activeIndex < tabs.size()) {
             tabs.get(activeIndex).onClose(ctx);
         }
         if (overlayManager != null) overlayManager.clear();
         if (this.minecraft != null) this.minecraft.setScreen(parent);
+    }
+
+    private void restoreThemePreview(){
+        if(!settingsApplied&&initialTheme!=null&&MaredThemeRegistry.active()!=initialTheme)MaredThemeRegistry.setActive(initialTheme);
     }
 
     private int contentX()      { return SIDEBAR_W + CONTENT_PAD; }
@@ -234,7 +252,9 @@ public class MaredSettingsScreen extends Screen {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        g.fill(0, 0, this.width, this.height, BG);
+        MaredTheme preview=MaredThemeRegistry.get(ctx.theme().themeId());
+        if(preview!=null&&MaredThemeRegistry.active()!=preview)MaredThemeRegistry.setActive(preview);
+        g.fill(0, 0, this.width, this.height, BG());
 
         drawSidebar(g, mouseX, mouseY);
         drawContent(g, mouseX, mouseY);
@@ -247,8 +267,8 @@ public class MaredSettingsScreen extends Screen {
     }
 
     private void drawSidebar(GuiGraphics g, int mouseX, int mouseY) {
-        MaredUi.rect(g, 0, 0, SIDEBAR_W, this.height, SIDEBAR_BG);
-        MaredUi.rect(g, SIDEBAR_W - 1, 0, SIDEBAR_W, this.height, 0x40FFFFFF);
+        MaredUi.rect(g, 0, 0, SIDEBAR_W, this.height, SIDEBAR_BG());
+        MaredUi.rect(g, SIDEBAR_W - 1, 0, SIDEBAR_W, this.height, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border);
 
         String prevCat = null;
         for (int i = 0; i < tabs.size(); i++) {
@@ -261,7 +281,7 @@ public class MaredSettingsScreen extends Screen {
                 String label = MaredLang.get("mared.settings.category." + cat);
                 MaredUi.text(g, this.font, label,
                     SIDEBAR_PAD, sidebarY[i] - CATEGORY_H + 7,
-                    TEXT_HEADER);
+                    TEXT_HEADER());
                 prevCat = cat;
             }
 
@@ -274,16 +294,16 @@ public class MaredSettingsScreen extends Screen {
             boolean hover = MaredUi.hovered(mouseX, mouseY, rowX, rowY, rowW, rowH);
 
             if (active) {
-                MaredUi.rect(g, rowX, rowY, rowX + rowW, rowY + rowH, PANEL_BG);
+                MaredUi.rect(g, rowX, rowY, rowX + rowW, rowY + rowH, PANEL_BG());
                 MaredUi.rect(g, rowX, rowY, rowX + 3, rowY + rowH,
-                    tab.accentColor());
+                    logicContext?com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent():tab.accentColor());
             } else if (hover) {
-                MaredUi.rect(g, rowX, rowY, rowX + rowW, rowY + rowH, 0xFF23232E);
+                MaredUi.rect(g, rowX, rowY, rowX + rowW, rowY + rowH, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgHover);
             }
 
             MaredUi.text(g, this.font, tab.displayName(),
                 rowX + 12, rowY + 6,
-                active ? TEXT : TEXT_DIM);
+                active ? TEXT() : TEXT_DIM());
         }
     }
 
@@ -296,14 +316,14 @@ public class MaredSettingsScreen extends Screen {
 
         MaredUi.text(g, this.font,
             tabs.isEmpty() ? "" : tabs.get(activeIndex).displayName(),
-            cx, cy, TEXT);
+            cx, cy, TEXT());
 
         int innerY = cy + 18;
         int innerH = ch - 18;
         if (innerH <= 0) return;
 
         MaredUi.rect(g, cx - 4, innerY - 4,
-            cx + cw + 4, innerY + innerH + 4, PANEL_BG);
+            cx + cw + 4, innerY + innerH + 4, PANEL_BG());
 
         if (!tabs.isEmpty()) {
             tabs.get(activeIndex).render(g, this.font,
@@ -318,15 +338,15 @@ public class MaredSettingsScreen extends Screen {
         MaredWidgets.button3D(g, this.font, cancelX, cancelY,
             cancelW, cancelH,
             MaredLang.get("mared.settings.cancel"),
-            cancelHover ? 0xFF663333 : 0xFF3A2020,
-            0xFFFF5555, TEXT, cancelHover);
+            cancelHover ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgHover : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgPanelRaised,
+            com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().danger, TEXT(), cancelHover);
 
         boolean saveHover = MaredUi.hovered(mouseX, mouseY,
             saveX, saveY, saveW, saveH);
         MaredWidgets.button3D(g, this.font, saveX, saveY, saveW, saveH,
             MaredLang.get("mared.settings.save"),
-            saveHover ? 0xFF336633 : 0xFF203A20,
-            0xFF55FF88, TEXT, saveHover);
+            saveHover ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgHover : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgPanelRaised,
+            com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().success, TEXT(), saveHover);
     }
 
     // ============================================================

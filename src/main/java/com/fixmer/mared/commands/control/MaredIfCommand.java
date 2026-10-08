@@ -73,13 +73,8 @@ public class MaredIfCommand extends MaredScriptCommand {
      */
     public static boolean evaluateStatic(String condition, MaredScriptContext ctx) {
         if (condition == null || condition.trim().isEmpty()) return false;
-        try {
-            return MaredExpr.evalBool(condition, ctx);
-        } catch (Exception e) {
-            // Fallback: старое поведение — проверка на непустое значение
-            String v = ctx.substitute(condition);
-            return v != null && !v.isEmpty()
-                && !v.equals("0") && !v.equalsIgnoreCase("false");
-        }
+        String expr = condition.trim();
+        if (expr.startsWith("${") && expr.endsWith("}")) expr = expr.substring(2, expr.length() - 1);
+        return MaredExpr.evalBool(expr, ctx);
     }
 }

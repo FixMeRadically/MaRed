@@ -63,4 +63,8 @@ public final class MaredGuiCommandProvider {
 
     }
 
+    public static List<MaredCommandRegistry.CommandInfo> commands(MaredCommandRegistry.Source source){return MaredCommandRegistry.all(source);}
+    public static MaredCommandRegistry.CommandInfo find(String name,MaredCommandRegistry.Source source){return MaredCommandRegistry.findByName(name,source);}
+    public static List<MaredCommandRegistry.CommandInfo> search(String query,MaredCommandRegistry.Source source,String category){return MaredCommandRegistry.search(query,source,category);}
+    public static List<String> categories(MaredCommandRegistry.Source source){return MaredCommandRegistry.categories(source);}
 }

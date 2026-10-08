@@ -10,7 +10,7 @@ public class MaredJumpCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        MaredActionRegistry.queueJump();
+        MaredActionRegistry.queueJump(ctx.executionScope());
         ctx.log("[action] jump");
         return true;
     }

@@ -10,7 +10,7 @@ public class MaredSwapCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        MaredActionRegistry.queueSwap();
+        MaredActionRegistry.queueSwap(ctx.executionScope());
         ctx.log("[action] swap_hands");
         return true;
     }

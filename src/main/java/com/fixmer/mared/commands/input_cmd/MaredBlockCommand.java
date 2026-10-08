@@ -22,7 +22,7 @@ public class MaredBlockCommand extends MaredScriptCommand {
             ctx.log(MaredLang.format("mared.log.block.unknown_key", keyRaw));
             return true;
         }
-        MaredBindRegistry.block(keyRaw);
+        MaredBindRegistry.block(keyRaw, ctx);
         ctx.log(MaredLang.format("mared.log.block.done", keyRaw));
         return true;
     }

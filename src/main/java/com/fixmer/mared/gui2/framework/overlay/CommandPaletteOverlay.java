@@ -48,16 +48,16 @@ public final class CommandPaletteOverlay implements Overlay {
     private static final int MAX_VISIBLE  = 12;
     private static final int PAD          = 6;
 
-    private static final int BG_PANEL     = 0xFF14141C;
-    private static final int BG_INPUT     = 0xFF0A0A10;
-    private static final int BG_ITEM      = 0xFF1A1A24;
-    private static final int BG_HIGHLIGHT = 0x804466CC;
-    private static final int BORDER       = 0xFF333344;
-    private static final int TEXT         = 0xFFFFFFFF;
-    private static final int TEXT_DIM     = 0xFFAAAAAA;
-    private static final int TEXT_FAINT   = 0xFF666677;
-    private static final int ACCENT       = 0xFF55AAFF;
-    private static final int SHORTCUT_COL = 0xFF88DDFF;
+    private static int BG_PANEL(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.panel();}
+    private static int BG_INPUT(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.sunken();}
+    private static int BG_ITEM(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised();}
+    private static int BG_HIGHLIGHT(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.selected();}
+    private static int BORDER(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge();}
+    private static int TEXT(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.text();}
+    private static int TEXT_DIM(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim();}
+    private static int TEXT_FAINT(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim();}
+    private static int ACCENT(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent();}
+    private static int SHORTCUT_COL(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim();}
 
     /** id, которые палитра не должна показывать (сам себя). */
     private static final List<String> EXCLUDED_IDS =
@@ -224,32 +224,32 @@ public final class CommandPaletteOverlay implements Overlay {
         Render.rect(g, panelX + 4, panelY + 4,
             panelX + panelW + 4, panelY + panelH + 4, 0x80000000);
         Render.rect(g, panelX, panelY, panelX + panelW, panelY + panelH,
-            BG_PANEL);
-        Render.outline(g, panelX, panelY, panelW, panelH, ACCENT);
+            BG_PANEL());
+        Render.outline(g, panelX, panelY, panelW, panelH, ACCENT());
 
         // Input
         inputX = panelX + PAD;
         inputY = panelY + PAD;
         inputW = panelW - PAD * 2;
         Render.rect(g, inputX, inputY, inputX + inputW, inputY + INPUT_H,
-            BG_INPUT);
-        Render.outline(g, inputX, inputY, inputW, INPUT_H, BORDER);
+            BG_INPUT());
+        Render.outline(g, inputX, inputY, inputW, INPUT_H, BORDER());
 
         String prompt = "> ";
         Render.textNoShadow(g, font, prompt, inputX + 6, inputY + 6,
-            ACCENT);
+            ACCENT());
 
         int promptW = font.width(prompt);
         String q = query.toString();
         Render.textNoShadow(g, font, q, inputX + 6 + promptW,
-            inputY + 6, TEXT);
+            inputY + 6, TEXT());
 
         // Курсор
         long now = System.currentTimeMillis();
         if ((now / 500) % 2 == 0) {
             int cx = inputX + 6 + promptW + font.width(q.substring(0, cursor));
             Render.rect(g, cx, inputY + 4, cx + 1,
-                inputY + INPUT_H - 4, TEXT);
+                inputY + INPUT_H - 4, TEXT());
         }
 
         // List
@@ -268,12 +268,12 @@ public final class CommandPaletteOverlay implements Overlay {
             status = (highlightedIndex + 1) + " / " + filtered.size();
         }
         Render.textNoShadow(g, font, status, panelX + PAD, footY + 4,
-            TEXT_FAINT);
+            TEXT_FAINT());
 
         String hint = MaredLang.get("mared.palette.hint");
         int hw = font.width(hint);
         Render.textNoShadow(g, font, hint,
-            panelX + panelW - PAD - hw, footY + 4, TEXT_FAINT);
+            panelX + panelW - PAD - hw, footY + 4, TEXT_FAINT());
     }
 
     private void drawList(GuiGraphics g, Font font,
@@ -300,8 +300,8 @@ public final class CommandPaletteOverlay implements Overlay {
 
             boolean isHighlighted = (idx == highlightedIndex);
 
-            int bg = isHighlighted ? BG_HIGHLIGHT
-                : (hover ? BG_ITEM : 0);
+            int bg = isHighlighted ? BG_HIGHLIGHT()
+                : (hover ? BG_ITEM() : 0);
             if (bg != 0) {
                 Render.rect(g, itemX, y, itemX + itemW, y + ITEM_H, bg);
             }
@@ -319,14 +319,14 @@ public final class CommandPaletteOverlay implements Overlay {
             int availTitleW = Math.max(40, maxTitleW - shortcutW);
             String drawnTitle = TextUtils.ellipsize(font, title, availTitleW);
             Render.textNoShadow(g, font, drawnTitle, titleX, textY,
-                isHighlighted ? TEXT : TEXT_DIM);
+                isHighlighted ? TEXT() : TEXT_DIM());
 
             // Shortcut
             if (!e.displayShortcut.isEmpty()) {
                 int sw = font.width(e.displayShortcut);
                 Render.textNoShadow(g, font, e.displayShortcut,
                     itemX + itemW - 8 - sw, textY,
-                    isHighlighted ? SHORTCUT_COL : TEXT_FAINT);
+                    isHighlighted ? SHORTCUT_COL() : TEXT_FAINT());
             }
         }
 
@@ -337,14 +337,14 @@ public final class CommandPaletteOverlay implements Overlay {
             int trackX = panelX + panelW - PAD - 3;
             int trackH = listH;
             Render.rect(g, trackX, listY, trackX + 2,
-                listY + trackH, 0xFF15151E);
+                listY + trackH, com.fixmer.mared.technology.editor.GenesisEditorVisuals.track());
 
             int thumbH = Math.max(8, trackH * visibleItems / filtered.size());
             int thumbY = listY
                 + (trackH - thumbH) * scrollOffset
                   / Math.max(1, filtered.size() - visibleItems);
             Render.rect(g, trackX, thumbY, trackX + 2,
-                thumbY + thumbH, ACCENT);
+                thumbY + thumbH, ACCENT());
         }
     }
 

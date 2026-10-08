@@ -41,12 +41,12 @@ public final class MaredThemeRegistry {
 
     private static void registerDefaults() {
         register(MaredTheme.builder("mared", "Mared")
-            .bgScreen(0xFF0A0A10).bgPanel(0xFF14141C)
-            .bgPanelRaised(0xFF1A1A24).bgSunken(0xFF0A0A10)
+            .bgScreen(0xFF090A0D).bgPanel(0xFF111216)
+            .bgPanelRaised(0xFF191A20).bgSunken(0xFF0C0D11)
             .bgHover(0xFF2A2A38).bgSelected(0xFF3A3A4A)
-            .text(0xFFEEDDFF).textDim(0xFF9988AA).textFaint(0xFF665577)
+            .text(0xFFD6D4DC).textDim(0xFF8C8995).textFaint(0xFF665D70)
             .accent(0xFFFF55FF).accentAlt(0xFFDD33DD).accentDim(0xFF8833AA)
-            .border(0xFF3D2A4A).borderAccent(0xFFFF55FF)
+            .border(0xFF2B2C34).borderAccent(0xFF9F80BB)
             .tabScripts(0xFFFF55FF).tabCommands(0xFFFFAA00)
             .tabNpc(0xFF55FF55).tabEvents(0xFF55AAFF).tabQuests(0xFFFF5555)
             .build());
@@ -64,6 +64,7 @@ public final class MaredThemeRegistry {
 
         register(MaredTheme.builder("light", "Light")
             .light(true)
+            .success(0xFF28712A).warn(0xFF865500).danger(0xFFB42332).info(0xFF2255AA)
             .bgScreen(0xFFF5F5F5).bgPanel(0xFFFFFFFF)
             .bgPanelRaised(0xFFFAFAFA).bgSunken(0xFFEEEEEE)
             .bgHover(0xFFE8E8E8).bgSelected(0xFFD8D8D8)

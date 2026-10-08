@@ -43,7 +43,7 @@ public final class CommandFileService {
             return new Result(false, "[studio] FAILED to create: " + name);
         }
         if (persistent) {
-            markPersistent(name);
+            if(!markPersistent(name))return new Result(false,"[studio] file created, but persistent registration failed: "+name);
             return new Result(true, "[studio] created persistent: " + name);
         }
         return new Result(true, "[studio] created: " + name);
@@ -59,7 +59,9 @@ public final class CommandFileService {
                 "[studio] delete skipped: file does not exist: " + name);
         }
 
-        boolean wasPersistent = MaredPersistentStorage.isPersistent(name);
+        boolean wasPersistent;
+        try{wasPersistent=MaredPersistentStorage.isPersistent(name);}
+        catch(Exception error){return new Result(false,"[studio] cannot read persistent configuration: "+error.getMessage());}
 
         boolean ok = MaredCommandStorage.deleteCommand(name);
         if (!ok) {
@@ -67,7 +69,8 @@ public final class CommandFileService {
         }
 
         if (wasPersistent) {
-            MaredPersistentStorage.remove(name);
+            try{MaredPersistentStorage.remove(name);}
+            catch(Exception error){MaredEventRegistry.clearAllPersistent();MaredPersistentLoader.reset();MaredPersistentLoader.loadAll();return new Result(true,"[studio] file deleted; persistent configuration update failed: "+error.getMessage());}
             MaredEventRegistry.clearAllPersistent();
             MaredPersistentLoader.reset();
             MaredPersistentLoader.loadAll();
@@ -92,7 +95,9 @@ public final class CommandFileService {
                 "[studio] rename skipped: source and target are equal: " + oldName);
         }
 
-        boolean wasPersistent = MaredPersistentStorage.isPersistent(oldName);
+        boolean wasPersistent;
+        try{wasPersistent=MaredPersistentStorage.isPersistent(oldName);}
+        catch(Exception error){return new Result(false,"[studio] cannot read persistent configuration: "+error.getMessage());}
 
         if (!MaredCommandStorage.rename(oldName, newName)) {
             return new Result(false,
@@ -100,8 +105,9 @@ public final class CommandFileService {
         }
 
         if (wasPersistent) {
-            MaredPersistentStorage.remove(oldName);
-            MaredPersistentStorage.add(newName);
+            try{
+                var names=MaredPersistentStorage.load();names.replaceAll(n->oldName.equals(n)?newName:n);MaredPersistentStorage.save(names);
+            }catch(Exception error){MaredEventRegistry.clearAllPersistent();MaredPersistentLoader.reset();MaredPersistentLoader.loadAll();return new Result(true,"[studio] file renamed; persistent configuration update failed: "+error.getMessage());}
 
             MaredEventRegistry.clearAllPersistent();
             MaredPersistentLoader.reset();
@@ -131,24 +137,11 @@ public final class CommandFileService {
                 "[studio] FAILED to duplicate: source missing: " + sourceName);
         }
 
-        String copyName = suggestDuplicateName(sourceName);
-        String content = MaredCommandStorage.readCommand(sourceName);
-        if (content == null) content = "";
-
-        // 0.3.2 (audit #58): копия НЕ сохраняет #persistent-маркер.
-        content = stripPersistentMarker(content);
-
-        if (!MaredCommandStorage.createCommand(copyName)) {
-            return new Result(false,
-                "[studio] FAILED to duplicate (create step): " + sourceName);
-        }
-
-        if (!MaredCommandStorage.writeCommand(copyName, content)) {
-            MaredCommandStorage.deleteCommand(copyName);
-            return new Result(false,
-                "[studio] FAILED to write duplicate: " + copyName
-                    + " (rollback done)");
-        }
+        String copyName,content;
+        try{copyName=suggestDuplicateName(sourceName);content=stripPersistentMarker(MaredCommandStorage.readCommand(sourceName));}
+        catch(Exception error){return new Result(false,"[studio] cannot read source: "+error.getMessage());}
+        if(!MaredCommandStorage.createCommand(copyName,content))
+            return new Result(false,"[studio] FAILED to create duplicate: "+copyName);
 
         return new Result(true,
             "[studio] duplicated: " + sourceName + " → " + copyName);
@@ -185,7 +178,6 @@ public final class CommandFileService {
     // ============================================================
 
     public Result reloadPersistent() {
-        MaredEventRegistry.clearAll();
         MaredEventRegistry.clearAllPersistent();
         MaredPersistentStorage.invalidateCache();
         MaredPersistentLoader.reset();
@@ -221,13 +213,15 @@ public final class CommandFileService {
     //  Внутреннее
     // ============================================================
 
-    private void markPersistent(String name) {
-        String content = MaredCommandStorage.readCommand(name);
-        if (content == null) content = "";
-        if (!content.startsWith("#persistent")) {
-            content = "#persistent\n" + content;
-            MaredCommandStorage.writeCommand(name, content);
-        }
-        MaredPersistentStorage.add(name);
+    private boolean markPersistent(String name) {
+        try {
+            String content=MaredCommandStorage.readCommand(name);
+            if(!content.startsWith("#persistent")) {
+                var ticket=MaredCommandStorage.captureWrite(name,content);
+                if(!MaredCommandStorage.writeCommand(ticket,"#persistent\n"+content))return false;
+            }
+            MaredPersistentStorage.add(name);
+            return MaredPersistentStorage.isPersistent(name);
+        }catch(Exception error){return false;}
     }
 }

@@ -19,7 +19,7 @@ public class MaredLookCommand extends MaredScriptCommand {
     public boolean execute(MaredScriptContext ctx) {
         float yaw = (float) MaredExpr.toNumber(MaredExpr.eval(yawExpr, ctx));
         float pitch = (float) MaredExpr.toNumber(MaredExpr.eval(pitchExpr, ctx));
-        MaredActionRegistry.setLook(yaw, pitch);
+        MaredActionRegistry.setLook(ctx.executionScope(), yaw, pitch);
         ctx.log("[action] look " + yaw + " " + pitch);
         return true;
     }

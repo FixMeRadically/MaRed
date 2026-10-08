@@ -1,0 +1,10 @@
+{
+  "module":"SCENARIOS",
+  "color":4285538815,
+
+  "intro":"quest",
+
+  "transition":"dialogue",
+
+  "finalState":"cinematic"
+}

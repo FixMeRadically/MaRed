@@ -1,0 +1,410 @@
+package com.fixmer.mared.gui2.genesis.render;
+
+import com.fixmer.mared.MaredLang;
+import com.fixmer.mared.gui2.genesis.GenesisCamera;
+import com.fixmer.mared.gui2.genesis.GenesisController;
+import com.fixmer.mared.gui2.genesis.GenesisWorld;
+import com.fixmer.mared.gui2.genesis.node.GenesisNode;
+import com.fixmer.mared.gui2.genesis.node.GenesisNodeData;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public final class GenesisRenderer {
+
+    private static final int PANEL_W = 480;
+    private static final int PANEL_H = 140;
+    private static final int PANEL_BOTTOM_MARGIN = 60;
+    private static final int PANEL_SLIDE_DISTANCE = PANEL_H + 40;
+
+    private static final int ORBIT_RGB = 0x9AA3C0;
+    private static final int ORBIT_SEGMENTS = 90;
+
+    private final GenesisNodeRenderer nodeRenderer = new GenesisNodeRenderer();
+    private final GenesisCoreRenderer coreRenderer = new GenesisCoreRenderer();
+    private final GenesisBackground  background   = new GenesisBackground();
+
+    public void render(GuiGraphics g,
+                       GenesisCamera camera,
+                       GenesisController controller,
+                       List<GenesisNode> nodes,
+                       int width, int height,
+                       float orbitTimeSec,
+                       float age,
+                       int mouseX, int mouseY) {
+
+        boolean reduced = GenesisWorld.isReducedMotion();
+
+        int accent = controller.accentTint();
+        float strength = controller.accentStrength();
+
+        background.render(g, camera, width, height, orbitTimeSec,
+                          accent, strength);
+
+        if (!reduced) {
+            for (GenesisNode n : nodes) {
+                if (n.data().type() == GenesisNodeData.NodeType.CORE) continue;
+                drawDottedOrbit(g, camera, n, width, height, orbitTimeSec, age);
+            }
+        }
+
+        GenesisNode selected = controller.selected();
+        if (selected != null
+            && selected.data().type() != GenesisNodeData.NodeType.CORE) {
+            drawFocusTether(g, camera, selected, width, height);
+        }
+
+        List<GenesisNode> sorted = new ArrayList<>(nodes);
+        sorted.sort((a, b) -> Float.compare(
+            minDepth(camera, b), minDepth(camera, a)));
+
+        for (GenesisNode n : sorted) {
+            if (n.data().type() == GenesisNodeData.NodeType.CORE) {
+                coreRenderer.render(g, camera, width, height, orbitTimeSec,
+                    (int)n.data().radius(), n.data().defaultColor());
+            } else {
+                nodeRenderer.render(g, n, camera, width, height,
+                                    orbitTimeSec, true);
+            }
+        }
+
+        if (!reduced) {
+            drawHoverRipple(g, camera, nodes, width, height, orbitTimeSec);
+        }
+
+        drawTitle(g, width, height, age);
+        drawHoverTooltip(g, camera, nodes, width, height, mouseX, mouseY);
+
+        float panelSlide = controller.panelSlide();
+        if (panelSlide > 0f) {
+            int veilAlpha = (int)(panelSlide * 80);
+            g.fill(0, 0, width, height, (veilAlpha << 24));
+        }
+        if (panelSlide > 0f && controller.selected() != null) {
+            drawInfoPanel(g, controller.selected(), panelSlide, width, height);
+        }
+
+        float enter = controller.enterProgress();
+        if (enter > 0f) {
+            int a = (int)(enter * 255);
+            g.fill(0, 0, width, height, (a << 24));
+        }
+    }
+
+    private static void drawDottedOrbit(GuiGraphics g,
+                                        GenesisCamera camera,
+                                        GenesisNode node,
+                                        int sw, int sh,
+                                        float timeSec, float age) {
+        GenesisNodeData d = node.data();
+        int R = (int)d.orbitRadius();
+        float reveal = Math.min(1f, age / 1.8f);
+        if (reveal < 0.05f) return;
+
+        int step = ORBIT_SEGMENTS / 18;
+        if (step < 1) step = 1;
+
+        for (int i = 0; i < ORBIT_SEGMENTS; i += step) {
+            float angle = i * 2f * (float)Math.PI / ORBIT_SEGMENTS;
+            float x = (float)(Math.cos(angle) * R);
+            float z = (float)(Math.sin(angle) * R);
+            float y = 0f;
+
+            float cX = (float)Math.cos(d.orbitTiltX());
+            float sX = (float)Math.sin(d.orbitTiltX());
+            float y2 = y * cX - z * sX;
+            float z2 = y * sX + z * cX;
+            y = y2; z = z2;
+
+            float cZ = (float)Math.cos(d.orbitTiltZ());
+            float sZ = (float)Math.sin(d.orbitTiltZ());
+            float x2 = x * cZ - y * sZ;
+            float y3 = x * sZ + y * cZ;
+            x = x2; y = y3;
+
+            float[] p = camera.worldToScreen(x, y, z, sw, sh);
+            int px = (int)p[0];
+            int py = (int)p[1];
+            float depth = p[2];
+
+            float depthFade = camera.depthAlpha(depth) / 255f;
+            float twinkle = 0.65f + 0.35f
+                * (float)Math.sin(timeSec * 1.2f + angle * 2.3f);
+            int a = (int)(70 * twinkle * depthFade * reveal);
+            if (a < 6) continue;
+
+            g.fill(px, py, px + 1, py + 1, (a << 24) | ORBIT_RGB);
+        }
+    }
+
+    private static void drawFocusTether(GuiGraphics g,
+                                        GenesisCamera camera,
+                                        GenesisNode node,
+                                        int sw, int sh) {
+        float[] coreP = camera.worldToScreen(0f, 0f, 0f, sw, sh);
+        float[] nodeP = camera.worldToScreen(
+            node.worldX(), node.worldY(), node.worldZ(), sw, sh);
+
+        int rgb = node.data().defaultColor() & 0x00FFFFFF;
+        int segments = 40;
+        for (int i = 3; i <= segments; i += 2) {
+            float t = i / (float) segments;
+            int x = (int)(coreP[0] + (nodeP[0] - coreP[0]) * t);
+            int y = (int)(coreP[1] + (nodeP[1] - coreP[1]) * t);
+            float falloff = 1f - t;
+            falloff *= falloff;
+            int alpha = (int)(falloff * 150);
+            if (alpha < 8) continue;
+            g.fill(x, y, x + 1, y + 1, (alpha << 24) | rgb);
+        }
+        g.fill((int)nodeP[0] - 1, (int)nodeP[1] - 1,
+               (int)nodeP[0] + 2, (int)nodeP[1] + 2,
+               (200 << 24) | 0xFFFFFF);
+    }
+
+    private void drawHoverRipple(GuiGraphics g,
+                                 GenesisCamera camera,
+                                 List<GenesisNode> nodes,
+                                 int sw, int sh,
+                                 float timeSec) {
+        for (GenesisNode n : nodes) {
+            if (n.data().type() == GenesisNodeData.NodeType.CORE) continue;
+            if (n.hover() < 0.15f && n.focus() < 0.15f) continue;
+
+            float[] s = camera.worldToScreen(
+                n.worldX(), n.worldY(), n.worldZ(), sw, sh);
+            int cx = (int)s[0];
+            int cy = (int)s[1];
+            float depthScale = camera.depthScale(s[2]);
+            int depthAlpha = camera.depthAlpha(s[2]);
+            float scale = camera.zoom() * depthScale * n.currentScale();
+            int r = (int)(n.data().radius() * scale);
+            if (r < 4) continue;
+
+            int rgb = n.data().defaultColor() & 0x00FFFFFF;
+            float intensity = Math.max(n.hover(), n.focus())
+                            * (depthAlpha / 255f);
+
+            for (int k = 0; k < 2; k++) {
+                float phase = (timeSec * 0.55f + k * 0.5f) % 1f;
+                float radius = r * (1.2f + phase * 1.5f);
+                int alpha = (int)((1f - phase) * (1f - phase) * 130 * intensity);
+                if (alpha < 6) continue;
+                drawRing(g, cx, cy, (int)radius, (alpha << 24) | rgb);
+            }
+        }
+    }
+
+    private static void drawRing(GuiGraphics g, int cx, int cy,
+                                 int radius, int color) {
+        if (radius <= 0) return;
+        long r2 = (long)radius * radius;
+        long r2i = (long)(radius - 1) * (radius - 1);
+        for (int dy = -radius; dy <= radius; dy++) {
+            long d2 = (long)dy * dy;
+            if (d2 > r2) continue;
+            int halfOut = (int)Math.sqrt((double)(r2 - d2));
+            int halfIn  = d2 <= r2i
+                ? (int)Math.sqrt((double)(r2i - d2)) : 0;
+            if (halfOut > halfIn) {
+                g.fill(cx - halfOut, cy + dy, cx - halfIn, cy + dy + 1, color);
+                g.fill(cx + halfIn, cy + dy, cx + halfOut, cy + dy + 1, color);
+            }
+        }
+    }
+
+    private void drawTitle(GuiGraphics g, int width, int height, float age) {
+        Font font = Minecraft.getInstance().font;
+        float fadeIn = Math.min(1f, Math.max(0f, (age - 0.6f) / 0.8f));
+        if (fadeIn <= 0.02f) return;
+
+        int baseAlpha = (int)(fadeIn * 220);
+        String title = MaredLang.get("mared.genesis.title");
+        String hint  = MaredLang.get("mared.genesis.hint");
+
+        int tx = 32, ty = 26;
+        g.drawString(font, title, tx + 2, ty + 2, (baseAlpha / 3) << 24, false);
+        g.drawString(font, title, tx, ty, (baseAlpha << 24) | 0x00F0F0FF, false);
+
+        int a2 = (int)(baseAlpha * 0.65f);
+        g.drawString(font, hint, tx + 1, ty + 19, (a2 / 2) << 24, false);
+        g.drawString(font, hint, tx, ty + 18, (a2 << 24) | 0x00A0A8C0, false);
+
+        g.fill(tx - 12, ty + 2, tx - 10, ty + 8,
+               (baseAlpha << 24) | 0x00C0C8E0);
+    }
+
+    private void drawHoverTooltip(GuiGraphics g,
+                                  GenesisCamera camera,
+                                  List<GenesisNode> nodes,
+                                  int sw, int sh,
+                                  int mouseX, int mouseY) {
+        Font font = Minecraft.getInstance().font;
+
+        GenesisNode hovered = null;
+        float best = 0f;
+        for (GenesisNode n : nodes) {
+            if (n.data().type() == GenesisNodeData.NodeType.CORE) continue;
+            if (n.hover() > best) { best = n.hover(); hovered = n; }
+        }
+        if (hovered == null || best < 0.4f) return;
+
+        String name = categoryName(hovered.data().type());
+        int tw = font.width(name);
+        int padX = 8, padY = 4;
+        int boxW = tw + padX * 2;
+        int boxH = 8 + padY * 2;
+
+        // 0.4.1: anchor under the node, not at cursor.
+        float[] ns = camera.worldToScreen(
+            hovered.worldX(), hovered.worldY(), hovered.worldZ(), sw, sh);
+        float nScale = camera.zoom()
+                     * camera.depthScale(ns[2])
+                     * hovered.currentScale();
+        int nodeR = (int)(hovered.data().radius() * nScale);
+        int anchorX = (int)ns[0];
+        int anchorY = (int)ns[1];
+
+        int bx1 = anchorX - boxW / 2;
+        int by1 = anchorY + nodeR + 8;
+        if (by1 + boxH > sh - 4) by1 = anchorY - nodeR - 8 - boxH;
+        if (bx1 < 4) bx1 = 4;
+        if (bx1 + boxW > sw - 4) bx1 = sw - 4 - boxW;
+        if (by1 < 4) by1 = 4;
+
+        int bx2 = bx1 + boxW;
+        int by2 = by1 + boxH;
+
+        int a = (int)(best * 230);
+        int rgb = hovered.data().defaultColor() & 0x00FFFFFF;
+
+        g.fill(bx1, by1, bx2, by2, (int)(a * 0.55f) << 24);
+        g.fill(bx1, by1, bx2, by1 + 1, (a << 24) | rgb);
+        g.fill(bx1, by2 - 1, bx2, by2, (a << 24) | rgb);
+        g.fill(bx1, by1, bx1 + 1, by2, (a << 24) | rgb);
+        g.fill(bx2 - 1, by1, bx2, by2, (a << 24) | rgb);
+
+        g.drawString(font, name, bx1 + padX, by1 + padY,
+                     (a << 24) | 0x00E8E8F5, false);
+    }
+
+    private static float minDepth(GenesisCamera camera, GenesisNode n) {
+        float[] c = camera.toCameraSpace(n.worldX(), n.worldY(), n.worldZ());
+        float base = c[2];
+        GenesisNodeData d = n.data();
+        if (d.shape() == null || d.shape().isEmpty()) return base;
+        float min = base;
+        float r = d.radius();
+        for (float[] v : d.shape().verts) {
+            float[] p = camera.toCameraSpace(
+                n.worldX() + v[0] * r,
+                n.worldY() + v[1] * r,
+                n.worldZ() + v[2] * r);
+            if (p[2] < min) min = p[2];
+        }
+        return min;
+    }
+
+    private static String categoryName(GenesisNodeData.NodeType type) {
+        return switch (type) {
+            case CORE      -> MaredLang.get("mared.genesis.core");
+            case CONTENT   -> MaredLang.get("mared.genesis.content");
+            case WORLD     -> MaredLang.get("mared.genesis.world");
+            case LOGIC     -> MaredLang.get("mared.genesis.logic");
+            case RESOURCES -> MaredLang.get("mared.genesis.resources");
+            case TOOLS     -> MaredLang.get("mared.genesis.tools");
+            case SCENARIOS -> MaredLang.get("mared.genesis.scenarios");
+        };
+    }
+
+    private static String descriptionFor(GenesisNodeData.NodeType type) {
+        return switch (type) {
+            case CORE      -> MaredLang.get("mared.genesis.desc.core");
+            case CONTENT   -> MaredLang.get("mared.genesis.desc.content");
+            case WORLD     -> MaredLang.get("mared.genesis.desc.world");
+            case LOGIC     -> MaredLang.get("mared.genesis.desc.logic");
+            case RESOURCES -> MaredLang.get("mared.genesis.desc.resources");
+            case TOOLS     -> MaredLang.get("mared.genesis.desc.tools");
+            case SCENARIOS -> MaredLang.get("mared.genesis.desc.scenarios");
+        };
+    }
+
+    private void drawInfoPanel(GuiGraphics g,
+                               GenesisNode node,
+                               float slide,
+                               int width, int height) {
+        GenesisNodeData d = node.data();
+        int accent = d.defaultColor() & 0x00FFFFFF;
+
+        int x = (width - PANEL_W) / 2;
+        int yTarget = height - PANEL_H - PANEL_BOTTOM_MARGIN;
+        int y = yTarget + (int)((1f - slide) * PANEL_SLIDE_DISTANCE);
+
+        g.fill(x + 6, y + 6, x + PANEL_W + 6, y + PANEL_H + 6,
+               (int)(slide * 120) << 24);
+        int bgAlpha = (int)(slide * 235);
+        g.fill(x, y, x + PANEL_W, y + PANEL_H, (bgAlpha << 24) | 0x0E0E18);
+        g.fill(x, y, x + PANEL_W, y + 2, ((int)(slide * 255) << 24) | accent);
+
+        drawOutline(g, x, y, PANEL_W, PANEL_H,
+                    ((int)(slide * 200) << 24) | accent);
+
+        Font font = Minecraft.getInstance().font;
+        String title = categoryName(d.type());
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(x + 28, y + 24, 0);
+        pose.scale(2f, 2f, 1f);
+        g.drawString(font, title, 0, 0,
+                     ((int)(slide * 255) << 24) | 0xFFFFFFFF, false);
+        pose.popPose();
+
+        String desc = descriptionFor(d.type());
+        List<String> lines = wrap(font, desc, PANEL_W - 56);
+        int lineY = y + 60;
+        int textAlpha = (int)(slide * 220);
+        for (String line : lines) {
+            g.drawString(font, line, x + 28, lineY,
+                         (textAlpha << 24) | 0x00D0D0E0, false);
+            lineY += 12;
+        }
+
+        String hint = MaredLang.get("mared.genesis.panel_hint");
+        int hintW = font.width(hint);
+        int hintAlpha = (int)(slide * 180);
+        g.drawString(font, hint,
+                     x + (PANEL_W - hintW) / 2,
+                     y + PANEL_H - 22,
+                     (hintAlpha << 24) | 0x009090A0, false);
+    }
+
+    private static void drawOutline(GuiGraphics g, int x, int y, int w, int h,
+                                    int color) {
+        g.fill(x, y, x + w, y + 1, color);
+        g.fill(x, y + h - 1, x + w, y + h, color);
+        g.fill(x, y, x + 1, y + h, color);
+        g.fill(x + w - 1, y, x + w, y + h, color);
+    }
+
+    private static List<String> wrap(Font font, String text, int maxW) {
+        List<String> out = new ArrayList<>(4);
+        StringBuilder cur = new StringBuilder();
+        for (String word : text.split(" ")) {
+            String next = cur.length() == 0 ? word : cur + " " + word;
+            if (font.width(next) > maxW && cur.length() > 0) {
+                out.add(cur.toString());
+                cur.setLength(0);
+                cur.append(word);
+            } else {
+                cur.setLength(0);
+                cur.append(next);
+            }
+        }
+        if (cur.length() > 0) out.add(cur.toString());
+        return out;
+    }
+}

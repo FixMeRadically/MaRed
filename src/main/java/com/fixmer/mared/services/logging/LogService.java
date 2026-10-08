@@ -211,7 +211,8 @@ public final class LogService {
                   .append(e.text).append('\n');
             }
 
-            Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
+            Files.writeString(file, sb.toString(), StandardCharsets.UTF_8,
+                java.nio.file.StandardOpenOption.CREATE_NEW);
 
             if (dataRevision == myRev) {
                 dirty = false;
@@ -226,14 +227,17 @@ public final class LogService {
     //  Export
     // ============================================================
 
-    public void export() {
+    public void export() { export(snapshot()); }
+
+    public void export(List<LogEntry> entriesToExport) {
         try {
             Path dir = FMLPaths.CONFIGDIR.get().resolve("mared").resolve("logs");
             Files.createDirectories(dir);
-            String name = LocalDateTime.now().format(EXPORT_FMT) + ".log";
+            String name = LocalDateTime.now().format(EXPORT_FMT) + "-"
+                + java.util.UUID.randomUUID().toString().substring(0, 8) + ".log";
             Path file = dir.resolve(name);
 
-            List<LogEntry> all = snapshot();
+            List<LogEntry> all = List.copyOf(entriesToExport);
             StringBuilder sb = new StringBuilder(4096);
             sb.append("# Mared log export\n");
             sb.append("# Time: ").append(LocalDateTime.now()).append("\n");
@@ -254,7 +258,8 @@ public final class LogService {
                 sb.append('[').append(e.time).append("] ")
                   .append(e.text).append('\n');
             }
-            Files.writeString(file, sb.toString(), StandardCharsets.UTF_8);
+            Files.writeString(file, sb.toString(), StandardCharsets.UTF_8,
+                java.nio.file.StandardOpenOption.CREATE_NEW);
 
             addStructured(LogSettings.Level.INFO, "info",
                 "log exported: " + file.getFileName()

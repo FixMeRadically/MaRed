@@ -24,6 +24,14 @@ public final class MaredKeyBlocker {
     private static final Map<KeyMapping, InputConstants.Key> ORIGINAL_MAPPINGS = new HashMap<>();
 
     private static boolean mouseMotionBlocked = false;
+    private static final Map<Integer, java.util.IdentityHashMap<Object,String>> CLAIMS = new HashMap<>();
+    public static synchronized void claim(int code,Object owner,String name) {
+        if(code == GLFW.GLFW_KEY_ESCAPE || code == Integer.MIN_VALUE) return;
+        CLAIMS.computeIfAbsent(code,k->new java.util.IdentityHashMap<>()).put(owner,name);
+    }
+    public static synchronized void release(int code,Object owner) {
+        var claims=CLAIMS.get(code);if(claims==null)return;claims.remove(owner);if(claims.isEmpty())CLAIMS.remove(code);
+    }
 
     /**
      * FIX 0.2.5+: кэш KeyMapping по keyCode.
@@ -36,11 +44,10 @@ public final class MaredKeyBlocker {
     //  Блокировка
     // ============================================================
 
-    public static void block(int glfwKey, String displayName) {
+    public static synchronized void block(int glfwKey, String displayName) {
         if (glfwKey == GLFW.GLFW_KEY_ESCAPE) return;
 
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.options == null) return;
+        // Store intent only; native client ticks apply the block.
 
         // ---- Мышь ----
         if (glfwKey == MaredKeyNames.MOUSE_LEFT
@@ -60,7 +67,7 @@ public final class MaredKeyBlocker {
         BLOCKED_KEYS.put(glfwKey, displayName);
     }
 
-    public static void unblock(int glfwKey) {
+    public static synchronized void unblock(int glfwKey) {
         BLOCKED_KEYS.remove(glfwKey);
 
         if (glfwKey == MaredKeyNames.MOUSE_MOVE) {
@@ -68,17 +75,17 @@ public final class MaredKeyBlocker {
         }
     }
 
-    public static boolean isBlocked(int glfwKey) {
-        return BLOCKED_KEYS.containsKey(glfwKey);
+    public static synchronized boolean isBlocked(int glfwKey) {
+        return BLOCKED_KEYS.containsKey(glfwKey) || CLAIMS.containsKey(glfwKey);
     }
 
     // ============================================================
     //  Мышь — движение
     // ============================================================
 
-    public static void blockMouseMotion()   { mouseMotionBlocked = true; }
-    public static void unblockMouseMotion() { mouseMotionBlocked = false; }
-    public static boolean isMouseMotionBlocked() { return mouseMotionBlocked; }
+    public static synchronized void blockMouseMotion()   { mouseMotionBlocked = true; }
+    public static synchronized void unblockMouseMotion() { mouseMotionBlocked = false; }
+    public static synchronized boolean isMouseMotionBlocked() { return mouseMotionBlocked || CLAIMS.containsKey(MaredKeyNames.MOUSE_MOVE); }
 
     // ============================================================
     //  Устаревшие методы (no-op)
@@ -98,8 +105,9 @@ public final class MaredKeyBlocker {
     //  Clear
     // ============================================================
 
-    public static void clear() {
+    public static synchronized void clear() {
         BLOCKED_KEYS.clear();
+        CLAIMS.clear();
         ORIGINAL_MAPPINGS.clear();
         MAPPING_CACHE.clear();
         mouseMotionBlocked = false;
@@ -109,24 +117,24 @@ public final class MaredKeyBlocker {
     //  Tick — жёсткий сброс клавиатуры
     // ============================================================
 
-    public static void tick() {
-        if (BLOCKED_KEYS.isEmpty()) return;
+    public static synchronized void tick() {
+        if (BLOCKED_KEYS.isEmpty() && CLAIMS.isEmpty()) return;
 
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.options == null) return;
         if (mc.screen != null) return;
 
-        for (Map.Entry<Integer, String> e : BLOCKED_KEYS.entrySet()) {
-            int keyCode = e.getKey();
+        var codes=new java.util.HashSet<>(BLOCKED_KEYS.keySet());
+        codes.addAll(CLAIMS.keySet());
+        for (int keyCode : codes) {
             if (keyCode < 0) continue;
 
-            KeyMapping mapping = getMappingCached(mc, keyCode);
-            if (mapping == null) continue;
-
-            mapping.setDown(false);
-            // consumeClick() возвращает boolean — выедаем всё
-            while (mapping.consumeClick()) {
-                // пусто
+            // A physical key can belong to several vanilla/mod mappings, and can be rebound.
+            if(mc.options.keyMappings==null)continue;
+            for(KeyMapping mapping:mc.options.keyMappings){
+                if(mapping==null||!mapping.matches(keyCode,0))continue;
+                mapping.setDown(false);
+                while(mapping.consumeClick()) { /* drain queued clicks */ }
             }
         }
     }
@@ -137,7 +145,7 @@ public final class MaredKeyBlocker {
 
     private static KeyMapping getMappingCached(Minecraft mc, int glfwKey) {
         KeyMapping cached = MAPPING_CACHE.get(glfwKey);
-        if (cached != null) return cached;
+        if (cached != null && cached.matches(glfwKey,0)) return cached;
 
         KeyMapping found = findMapping(mc, glfwKey);
         if (found != null) {
@@ -150,11 +158,11 @@ public final class MaredKeyBlocker {
      * Оригинальный поиск. Используется при первом обращении.
      * FIX 0.2.5+: учитывает и getDefaultKey(), и getKey() (текущую привязку).
      */
-    public static KeyMapping findMapping(Minecraft mc, int glfwKey) {
+    public static synchronized KeyMapping findMapping(Minecraft mc, int glfwKey) {
         if (mc.options == null || mc.options.keyMappings == null) return null;
         for (KeyMapping mapping : mc.options.keyMappings) {
             if (mapping == null) continue;
-            if (mapping.getDefaultKey().getValue() == glfwKey) return mapping;
+            if (mapping.matches(glfwKey,0)) return mapping;
         }
         return null;
     }
@@ -163,7 +171,7 @@ public final class MaredKeyBlocker {
      * FIX 0.2.5+: сбросить кэш KeyMapping.
      * Вызывать, если игрок сменил раскладку/привязки в настройках.
      */
-    public static void invalidateMappingCache() {
+    public static synchronized void invalidateMappingCache() {
         MAPPING_CACHE.clear();
     }
 }

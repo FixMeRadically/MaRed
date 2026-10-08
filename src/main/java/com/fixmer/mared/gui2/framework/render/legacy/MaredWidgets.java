@@ -46,17 +46,17 @@ public final class MaredWidgets {
 
     public static void drawCheckbox(GuiGraphics g, int x, int y, int sz,
                                     boolean checked, int border, int fill) {
-        Render.drawCheckbox(g, x, y, sz, checked, border, fill, 0xFF0A0A10);
+        Render.drawCheckbox(g, x, y, sz, checked, border, fill, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgSunken);
     }
 
     public static void drawCheckMark(GuiGraphics g, int x, int y, int sz,
                                      boolean checked, int border, int fill) {
-        Render.drawCheckMark(g, x, y, sz, checked, border, fill, 0xFF0A0A10);
+        Render.drawCheckMark(g, x, y, sz, checked, border, fill, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgSunken);
     }
 
     public static void drawRadio(GuiGraphics g, int x, int y, int sz,
                                  boolean selected, int border, int fill) {
-        Render.rect(g, x, y, x + sz, y + sz, 0xFF0A0A10);
+        Render.rect(g, x, y, x + sz, y + sz, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgSunken);
         Render.outline(g, x, y, sz, sz, border);
         if (selected) Render.rect(g, x + 3, y + 3, x + sz - 3, y + sz - 3, fill);
     }
@@ -77,17 +77,17 @@ public final class MaredWidgets {
     }
 
     public static void drawDelButton(GuiGraphics g, int x, int y, int sz, boolean hovered) {
-        int bg = hovered ? 0xFF663333 : 0xFF3A2020;
+        int bg = hovered ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgHover : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgPanelRaised;
         Render.rect(g, x, y, x + sz, y + sz, bg);
-        Render.outline(g, x, y, sz, sz, 0xFFFF4444);
+        Render.outline(g, x, y, sz, sz, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().danger);
         int cx = x + sz / 2, cy = y + sz / 2, arm = sz / 2 - 2;
-        Render.rect(g, cx - arm, cy, cx + arm + 1, cy + 1, 0xFFFF4444);
+        Render.rect(g, cx - arm, cy, cx + arm + 1, cy + 1, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().danger);
     }
 
     public static void drawUnlockButton(GuiGraphics g, Font f, int x, int y, int sz, boolean hovered) {
-        int bg = hovered ? 0xFF336633 : 0xFF203A20;
+        int bg = hovered ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgHover : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgPanelRaised;
         Render.rect(g, x, y, x + sz, y + sz, bg);
-        Render.outline(g, x, y, sz, sz, 0xFF55FF88);
-        Render.centered(g, f, "U", x + sz / 2, y + sz / 2 - 4, 0xFF55FF88);
+        Render.outline(g, x, y, sz, sz, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().success);
+        Render.centered(g, f, "U", x + sz / 2, y + sz / 2 - 4, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().success);
     }
 }

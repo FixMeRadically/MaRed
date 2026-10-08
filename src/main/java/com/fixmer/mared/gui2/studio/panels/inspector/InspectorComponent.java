@@ -15,7 +15,7 @@ import net.minecraft.client.gui.GuiGraphics;
 
 public final class InspectorComponent extends MaredComponent implements Disposable {
 
-    private static final int HEADER_H = 20;
+    private static final int HEADER_H = 16;
     private static final int PAD = 6;
     private static final int LINE_H = 10;
     private static final int SCROLL_STEP = 20;
@@ -25,6 +25,35 @@ public final class InspectorComponent extends MaredComponent implements Disposab
     private MaredCommandRegistry.CommandInfo current;
     private int scrollOffset = 0;
     private int contentHeight = 0;
+    private long catalogRevision=-1;
+    private record CopyTarget(int y,int height,String text) {}
+    private final java.util.List<CopyTarget> copyTargets=new java.util.ArrayList<>();
+    private record LineKey(String text,int width) {}
+    private final java.util.Map<LineKey,java.util.List<String>> lineCache=new java.util.HashMap<>();
+    private int lastWidth=-1;
+    private Font lastFont;
+    private boolean heightDirty=true;
+    private int copyText(GuiGraphics g,Font font,String text,int y,int maxW,int color) {
+        int height=wrappedHeight(font,text,maxW);
+        if(y+height>bounds.y()+HEADER_H+2&&y<bounds.bottom()-2)copyTargets.add(new CopyTarget(y,height,text));
+        return wrapped(g,font,text,bounds.x()+PAD,y,maxW,color);
+    }
+
+    private java.util.List<String> lines(Font font,String text,int width) {
+        var key=new LineKey(text,width);
+        var cached=lineCache.get(key);if(cached!=null)return cached;
+        var result=new java.util.ArrayList<String>();
+        for(String paragraph:text.split("\\R",-1))result.addAll(TextUtils.wrapLinesCached(font,paragraph,width));
+        var immutable=java.util.List.copyOf(result);if(lineCache.size()<2048)lineCache.put(key,immutable);return immutable;
+    }
+    private int wrappedHeight(Font font,String text,int width){return lines(font,text,width).size()*LINE_H;}
+    private int wrapped(GuiGraphics g,Font font,String text,int x,int y,int width,int color) {
+        var lines=lines(font,text,width);
+        int first=Math.max(0,(bounds.y()+HEADER_H-y)/LINE_H);
+        int end=Math.min(lines.size(),Math.max(0,(bounds.bottom()-y+LINE_H-1)/LINE_H));
+        for(int i=first;i<end;i++)g.drawString(font,lines.get(i),x,y+i*LINE_H,color,false);
+        return y+lines.size()*LINE_H;
+    }
 
     public InspectorComponent(StudioEventBus bus) {
         subs.add(bus.subscribe(StudioEvents.CommandSelectedEvent.class,
@@ -37,6 +66,7 @@ public final class InspectorComponent extends MaredComponent implements Disposab
     public MaredCommandRegistry.CommandInfo current() { return current; }
 
     public void select(MaredCommandRegistry.CommandInfo info) {
+        copyTargets.clear();lineCache.clear();heightDirty=true;
         this.current = info;
         this.scrollOffset = 0;
         this.contentHeight = 0;
@@ -44,20 +74,26 @@ public final class InspectorComponent extends MaredComponent implements Disposab
 
     @Override
     protected void safeRender(MaredRenderContext ctx) {
+        if(catalogRevision!=MaredCommandRegistry.revision()) {
+            catalogRevision=MaredCommandRegistry.revision();
+            if(current!=null)select(MaredCommandRegistry.findByName(current.name,current.source));
+        }
+        copyTargets.clear();
         GuiGraphics g = ctx.graphics();
         Font font = ctx.font();
+        if(lastWidth!=bounds.width()||lastFont!=font){lastWidth=bounds.width();lastFont=font;lineCache.clear();heightDirty=true;}
 
-        g.fill(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), 0xFF14141C);
-        g.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + HEADER_H, 0xFF1A1A24);
-        g.drawString(font, "Inspector", bounds.x() + PAD, bounds.y() + 6,
-            ThemeColors.accent(), false);
+        g.fill(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), com.fixmer.mared.technology.editor.GenesisEditorVisuals.panel());
+        g.fill(bounds.x(), bounds.y(), bounds.right(), bounds.y() + HEADER_H, com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised());
+        g.drawString(font, com.fixmer.mared.technology.editor.EditorText.translate("DETAILS · click syntax to copy"), bounds.x() + PAD, bounds.y() + 4,
+            com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent(), false);
         g.fill(bounds.x(), bounds.y() + HEADER_H - 1,
-               bounds.right(), bounds.y() + HEADER_H, 0xFF222233);
+               bounds.right(), bounds.y() + HEADER_H, com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge());
 
         if (current == null) {
-            g.drawString(font, "No command selected",
+            g.drawString(font, com.fixmer.mared.technology.editor.EditorText.translate("No command selected"),
                 bounds.x() + PAD, bounds.y() + HEADER_H + 8,
-                ThemeColors.muted(), false);
+                com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
             contentHeight = 0;
             return;
         }
@@ -66,7 +102,7 @@ public final class InspectorComponent extends MaredComponent implements Disposab
         int bodyH = bounds.height() - HEADER_H - 4;
         int maxW = Math.max(40, bounds.width() - PAD * 2 - 6);
 
-        contentHeight = computeContentHeight(font, maxW);
+        if(heightDirty){contentHeight=computeContentHeight(font,maxW);heightDirty=false;}
 
         int maxScroll = Math.max(0, contentHeight - bodyH);
         if (scrollOffset > maxScroll) scrollOffset = maxScroll;
@@ -77,36 +113,34 @@ public final class InspectorComponent extends MaredComponent implements Disposab
         int y = bodyY - scrollOffset + 2;
 
         y = sectionHeader(g, font, "COMMAND", y);
-        g.drawString(font, current.name, bounds.x() + PAD, y, ThemeColors.accent(), false);
+        g.drawString(font, current.name, bounds.x() + PAD, y, com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent(), false);
         y += LINE_H + 2;
         y = kv(g, font, "category", current.category, y);
-        y = kv(g, font, "op level", String.valueOf(current.opLevel), y);
+        y = kv(g, font, "source", current.source.name(), y);
         y += 4;
 
         if (notEmpty(current.description)) {
             y = sectionHeader(g, font, "DESCRIPTION", y);
-            y = TextUtils.wrapped(g, font, current.description,
-                bounds.x() + PAD, y, maxW, ThemeColors.text());
+            y = wrapped(g, font, current.description,
+                bounds.x() + PAD, y, maxW, com.fixmer.mared.technology.editor.GenesisEditorVisuals.text());
             y += 6;
         }
 
-        if (notEmpty(current.example)) {
-            y = sectionHeader(g, font, "EXAMPLE", y);
-            y = TextUtils.wrapped(g, font, current.example,
-                bounds.x() + PAD, y, maxW, 0xFF55FF88);
-            y += 6;
+        if(!current.usages.isEmpty()) {
+            y=sectionHeader(g,font,"SYNTAX · click to copy",y);
+            for(String usage:current.usages){y=copyText(g,font,usage,y,maxW,com.fixmer.mared.technology.editor.GenesisEditorVisuals.success());y+=4;}
+            y+=2;
         }
-
         if (!current.arguments.isEmpty()) {
             y = sectionHeader(g, font, "ARGUMENTS (" + current.arguments.size() + ")", y);
             for (MaredCommandRegistry.Argument arg : current.arguments) {
-                g.drawString(font, "▸ " + arg.value,
-                    bounds.x() + PAD + 2, y, ThemeColors.text(), false);
-                y += LINE_H + 1;
+                y=copyText(g,font,arg.value,y,maxW,com.fixmer.mared.technology.editor.GenesisEditorVisuals.text());
+                y+=2;
                 if (notEmpty(arg.description)) {
-                    y = TextUtils.wrapped(g, font, arg.description,
-                        bounds.x() + PAD + 10, y, maxW - 10, ThemeColors.muted());
+                    y = wrapped(g, font, arg.description,
+                        bounds.x() + PAD + 10, y, maxW - 10, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim());
                 }
+                if(!arg.examples.isEmpty())y=copyText(g,font,"Type examples: "+String.join(", ",arg.examples),y,maxW,com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim());
                 y += 4;
             }
             y += 2;
@@ -116,19 +150,19 @@ public final class InspectorComponent extends MaredComponent implements Disposab
             y = sectionHeader(g, font, "NBT (" + current.nbtHints.size() + ")", y);
             for (MaredCommandRegistry.NbtHint nbt : current.nbtHints) {
                 g.drawString(font, nbt.tag,
-                    bounds.x() + PAD + 2, y, ThemeColors.accent(), false);
+                    bounds.x() + PAD + 2, y, com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent(), false);
                 y += LINE_H + 1;
                 if (notEmpty(nbt.what)) {
-                    y = TextUtils.wrapped(g, font, nbt.what,
-                        bounds.x() + PAD + 10, y, maxW - 10, ThemeColors.text());
+                    y = wrapped(g, font, nbt.what,
+                        bounds.x() + PAD + 10, y, maxW - 10, com.fixmer.mared.technology.editor.GenesisEditorVisuals.text());
                 }
                 if (notEmpty(nbt.why)) {
-                    y = TextUtils.wrapped(g, font, nbt.why,
-                        bounds.x() + PAD + 10, y, maxW - 10, ThemeColors.muted());
+                    y = wrapped(g, font, nbt.why,
+                        bounds.x() + PAD + 10, y, maxW - 10, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim());
                 }
                 if (notEmpty(nbt.example)) {
-                    y = TextUtils.wrapped(g, font, nbt.example,
-                        bounds.x() + PAD + 10, y, maxW - 10, 0xFF55FF88);
+                    y = wrapped(g, font, nbt.example,
+                        bounds.x() + PAD + 10, y, maxW - 10, com.fixmer.mared.technology.editor.GenesisEditorVisuals.success());
                 }
                 y += 6;
             }
@@ -139,12 +173,14 @@ public final class InspectorComponent extends MaredComponent implements Disposab
     }
 
     private int sectionHeader(GuiGraphics g, Font font, String title, int y) {
-        g.drawString(font, title, bounds.x() + PAD, y, ThemeColors.muted(), false);
+        if(title.startsWith("ARGUMENTS ("))title=com.fixmer.mared.technology.editor.EditorText.translate("ARGUMENTS")+" "+title.substring(9);
+        else title=com.fixmer.mared.technology.editor.EditorText.translate(title);
+        g.drawString(font, title, bounds.x() + PAD, y, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
         return y + LINE_H + 2;
     }
 
     private int kv(GuiGraphics g, Font font, String key, String value, int y) {
-        g.drawString(font, key + ": " + value, bounds.x() + PAD, y, ThemeColors.muted(), false);
+        g.drawString(font, com.fixmer.mared.technology.editor.EditorText.translate(key) + ": " + value, bounds.x() + PAD, y, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
         return y + LINE_H;
     }
 
@@ -152,10 +188,10 @@ public final class InspectorComponent extends MaredComponent implements Disposab
         if (maxScroll <= 0) return;
         int trackX = bounds.right() - 4;
         int trackW = 3;
-        g.fill(trackX, bodyY, trackX + trackW, bodyY + bodyH, 0xFF15151E);
+        g.fill(trackX, bodyY, trackX + trackW, bodyY + bodyH, com.fixmer.mared.technology.editor.GenesisEditorVisuals.track());
         int thumbH = Math.max(10, bodyH * bodyH / Math.max(1, contentHeight));
         int thumbY = bodyY + (bodyH - thumbH) * scrollOffset / maxScroll;
-        g.fill(trackX, thumbY, trackX + trackW, thumbY + thumbH, ThemeColors.accent());
+        g.fill(trackX, thumbY, trackX + trackW, thumbY + thumbH, com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent());
     }
 
     private static boolean notEmpty(String s) { return s != null && !s.isEmpty(); }
@@ -164,17 +200,20 @@ public final class InspectorComponent extends MaredComponent implements Disposab
         int h = 4;
         h += LINE_H + 2 + LINE_H + 2 + LINE_H + LINE_H + 4;
         if (notEmpty(current.description)) {
-            h += LINE_H + 2 + TextUtils.wrappedHeight(font, current.description, maxW) + 6;
+            h += LINE_H + 2 + wrappedHeight(font, current.description, maxW) + 6;
         }
-        if (notEmpty(current.example)) {
-            h += LINE_H + 2 + TextUtils.wrappedHeight(font, current.example, maxW) + 6;
+        if(!current.usages.isEmpty()) {
+            h+=LINE_H+2;
+            for(String usage:current.usages)h+=wrappedHeight(font,usage,maxW)+4;
+            h+=2;
         }
         if (!current.arguments.isEmpty()) {
             h += LINE_H + 2;
             for (MaredCommandRegistry.Argument a : current.arguments) {
-                h += LINE_H + 1;
+                h += wrappedHeight(font,a.value,maxW)+2;
                 if (notEmpty(a.description))
-                    h += TextUtils.wrappedHeight(font, a.description, maxW - 10);
+                    h += wrappedHeight(font, a.description, maxW - 10);
+                if(!a.examples.isEmpty())h+=wrappedHeight(font,"Type examples: "+String.join(", ",a.examples),maxW);
                 h += 4;
             }
             h += 2;
@@ -183,9 +222,9 @@ public final class InspectorComponent extends MaredComponent implements Disposab
             h += LINE_H + 2;
             for (MaredCommandRegistry.NbtHint n : current.nbtHints) {
                 h += LINE_H + 1;
-                if (notEmpty(n.what))    h += TextUtils.wrappedHeight(font, n.what, maxW - 10);
-                if (notEmpty(n.why))     h += TextUtils.wrappedHeight(font, n.why, maxW - 10);
-                if (notEmpty(n.example)) h += TextUtils.wrappedHeight(font, n.example, maxW - 10);
+                if (notEmpty(n.what))    h += wrappedHeight(font, n.what, maxW - 10);
+                if (notEmpty(n.why))     h += wrappedHeight(font, n.why, maxW - 10);
+                if (notEmpty(n.example)) h += wrappedHeight(font, n.example, maxW - 10);
                 h += 6;
             }
         }
@@ -204,6 +243,9 @@ public final class InspectorComponent extends MaredComponent implements Disposab
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        return bounds.contains(mx, my);
+        if(!bounds.contains(mx,my))return false;
+        if(button==0&&my>=bounds.y()+HEADER_H+2&&my<bounds.bottom()-2)
+            for(var target:copyTargets)if(my>=target.y&&my<target.y+target.height){net.minecraft.client.Minecraft.getInstance().keyboardHandler.setClipboard(target.text);return true;}
+        return true;
     }
 }

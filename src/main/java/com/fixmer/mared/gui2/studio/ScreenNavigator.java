@@ -8,6 +8,7 @@ import com.fixmer.mared.gui2.framework.overlay.ConfirmDialogOverlay;
 import com.fixmer.mared.gui2.framework.overlay.NameDialogOverlay;
 import com.fixmer.mared.gui2.framework.overlay.OverlayManager;
 import com.fixmer.mared.gui2.settings.MaredSettingsScreen;
+import com.fixmer.mared.technology.editor.GenesisEditorVisuals;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -29,17 +30,30 @@ public final class ScreenNavigator {
     //  Dialogs (overlays)
     // ============================================================
 
+    private static String validateAvailableName(String name) {
+        try {return MaredCommandStorage.listCommands().contains(name)?MaredLang.format("mared.dialog.error.exists",name):null;}
+        catch(Exception error){return "Cannot read commands directory: "+error.getMessage();}
+    }
+
     public static void openNewFileDialog(OverlayManager overlays,
                                          BiConsumer<String, Boolean> onAccept) {
         if (overlays == null) return;
         overlays.push(new NameDialogOverlay(
             MaredLang.get("mared.dialog.new_command_file"),
             onAccept,
-            0xFFFF55FF,
+            GenesisEditorVisuals.LOGIC,
             true,
-            name -> MaredCommandStorage.listCommands().contains(name)
-                ? MaredLang.format("mared.dialog.error.exists", name) : null
+            ScreenNavigator::validateAvailableName
         ));
+    }
+
+    public static void openSaveAsDialog(OverlayManager overlays, String initial,
+                                        java.util.function.Consumer<String> onAccept,
+                                        Runnable onCancel) {
+        if (overlays == null) return;
+        overlays.push(new NameDialogOverlay(MaredLang.get("mared.dialog.save_as"),
+            onAccept, GenesisEditorVisuals.LOGIC, false, ScreenNavigator::validateAvailableName)
+            .acceptLabel("mared.dialog.save").initialValue(initial).onCancel(onCancel));
     }
 
     public static void openRenameDialog(OverlayManager overlays,
@@ -49,11 +63,10 @@ public final class ScreenNavigator {
         overlays.push(new NameDialogOverlay(
             MaredLang.format("mared.dialog.rename_title", oldName),
             onAccept,
-            0xFFAA00,
-            true,
-            name -> MaredCommandStorage.listCommands().contains(name)
-                ? MaredLang.format("mared.dialog.error.exists", name) : null
-        ));
+            GenesisEditorVisuals.LOGIC,
+            false,
+            name -> name.equals(oldName) ? null : validateAvailableName(name)
+        ).acceptLabel("mared.dialog.rename").initialValue(oldName));
     }
 
     public static void openDeleteConfirm(OverlayManager overlays,
@@ -63,13 +76,13 @@ public final class ScreenNavigator {
         if (overlays == null) return;
         String title = persistent
             ? MaredLang.format("mared.dialog.delete_persistent_title", fileName)
-            : MaredLang.format("mared.dialog.delete_title", "file", fileName);
+            : MaredLang.format("mared.dialog.delete_file_title", fileName);
         String message = persistent
             ? MaredLang.get("mared.dialog.delete_persistent_message")
             : MaredLang.format("mared.dialog.delete_message", fileName);
 
         overlays.push(new ConfirmDialogOverlay(title, message, onConfirm,
-            persistent));
+            true, GenesisEditorVisuals.LOGIC, true, "mared.dialog.delete"));
     }
 
     public static void openUnsavedConfirm(OverlayManager overlays,
@@ -79,7 +92,7 @@ public final class ScreenNavigator {
             MaredLang.get("mared.dialog.unsaved_title"),
             MaredLang.get("mared.dialog.unsaved_message"),
             onDiscard,
-            true
+            true, GenesisEditorVisuals.LOGIC, true, "mared.dialog.confirm"
         ));
     }
 
@@ -88,10 +101,11 @@ public final class ScreenNavigator {
     // ============================================================
 
     public static void openSettings(Screen parent) {
+        if(parent instanceof com.fixmer.mared.gui2.shell.MaredShellScreen shell)shell.suspendForSettings();
         Minecraft.getInstance().setScreen(new MaredSettingsScreen(parent));
     }
 
     public static void openStudio() {
-        Minecraft.getInstance().setScreen(new MaredStudioScreen());
+        com.fixmer.mared.gui2.launcher.MaredScreenManager.openStudio();
     }
 }

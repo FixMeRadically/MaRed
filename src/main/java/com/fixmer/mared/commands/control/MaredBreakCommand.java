@@ -4,7 +4,7 @@ import com.fixmer.mared.MaredSettings;
 import com.fixmer.mared.commands.engine.MaredScriptCommand;
 import com.fixmer.mared.commands.engine.MaredScriptContext;
 import com.fixmer.mared.commands.engine.MaredScriptExecutor;
-import com.fixmer.mared.commands.engine.MaredScriptExecutor.Frame;
+import com.fixmer.genesis.technology.runtime.FrameExecutor.Frame;
 
 public class MaredBreakCommand extends MaredScriptCommand {
 

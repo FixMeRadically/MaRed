@@ -35,7 +35,7 @@ public final class MaredTabStyles {
 
     public static int topColor(String tab) {
         MaredTheme t = MaredThemeRegistry.active();
-        if (t.monotoneTabs) return t.accent;
+        if (t.monotoneTabs || com.fixmer.mared.MaredSettings.isMonotoneTabs()) return t.accent;
         return switch (tab) {
             case "scripts"  -> t.tabScripts;
             case "commands" -> t.tabCommands;
@@ -60,7 +60,7 @@ public final class MaredTabStyles {
 
     public static Pattern pattern(String tab) {
         MaredTheme t = MaredThemeRegistry.active();
-        if (t.monotoneTabs) return Pattern.NOISE;
+        if (t.monotoneTabs || com.fixmer.mared.MaredSettings.isMonotoneTabs()) return Pattern.NOISE;
         return switch (tab) {
             case "scripts"  -> Pattern.ZIGZAG;
             case "commands" -> Pattern.GRID;

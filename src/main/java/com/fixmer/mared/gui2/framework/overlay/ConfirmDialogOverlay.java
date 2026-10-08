@@ -1,12 +1,10 @@
 package com.fixmer.mared.gui2.framework.overlay;
 
-import java.util.ArrayList;
-import java.util.List;
 
 import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.gui2.framework.render.Render;
 import com.fixmer.mared.gui2.framework.render.TextUtils;
-import com.fixmer.mared.gui2.framework.render.widgets.UiControls;
+import com.fixmer.mared.technology.editor.EditorDialogStyle;
 import com.fixmer.mared.gui2.framework.theme.MaredTheme;
 import com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry;
 
@@ -34,18 +32,17 @@ public final class ConfirmDialogOverlay implements Overlay {
     private static final int PANEL_H = 140;
     private static final int BTN_W   = 120;
     private static final int BTN_H   = 20;
-    private static final int BTN_GAP = 20;
-
-    private static final int TEXT   = 0xFFFFFFFF;
-    private static final int DANGER = 0xFFFF4444;
-    private static final int WARN   = 0xFFFFAA00;
+    private static final int BTN_GAP = EditorDialogStyle.BUTTON_GAP;
 
     private final String title;
     private final String message;
     private final Runnable onConfirm;
     private final boolean warning;
+    private final Integer categoryColor;
+    private final boolean destructive;
+    private final String confirmLabelKey;
 
-    private int panelX, panelY;
+    private int panelX, panelY, panelW, panelH, buttonW;
     private int cancelX, cancelY;
     private int confirmX, confirmY;
 
@@ -53,10 +50,19 @@ public final class ConfirmDialogOverlay implements Overlay {
 
     public ConfirmDialogOverlay(String title, String message,
                                 Runnable onConfirm, boolean warning) {
+        this(title, message, onConfirm, warning, null, warning, "mared.dialog.confirm");
+    }
+
+    public ConfirmDialogOverlay(String title, String message, Runnable onConfirm,
+                                boolean warning, Integer categoryColor,
+                                boolean destructive, String confirmLabelKey) {
         this.title = title != null ? title : "";
         this.message = message != null ? message : "";
         this.onConfirm = onConfirm;
         this.warning = warning;
+        this.categoryColor = categoryColor;
+        this.destructive = destructive;
+        this.confirmLabelKey = java.util.Objects.requireNonNull(confirmLabelKey);
     }
 
     @Override public OverlayLayer layer() { return OverlayLayer.MODAL; }
@@ -77,42 +83,44 @@ public final class ConfirmDialogOverlay implements Overlay {
     public void render(GuiGraphics g, Font font,
                        int screenW, int screenH,
                        int mouseX, int mouseY) {
-        panelX = (screenW - PANEL_W) / 2;
-        panelY = (screenH - PANEL_H) / 2;
-        int btnY = panelY + PANEL_H - 40;
-        int cancelX = panelX + PANEL_W / 2 - BTN_W - BTN_GAP / 2;
-        int confirmX = panelX + PANEL_W / 2 + BTN_GAP / 2;
+        panelW = Math.min(PANEL_W, Math.max(1, screenW - 16));
+        int messageHeight = TextUtils.wrappedHeight(font, message,
+            Math.max(1, panelW - EditorDialogStyle.PADDING * 2));
+        panelH = Math.max(PANEL_H, 50 + messageHeight + BTN_H + EditorDialogStyle.PADDING * 2);
+        panelX = (screenW - panelW) / 2;
+        panelY = (screenH - panelH) / 2;
+        buttonW = Math.min(BTN_W, Math.max(1, (panelW - EditorDialogStyle.PADDING * 2 - BTN_GAP) / 2));
+        int btnY = panelY + panelH - EditorDialogStyle.PADDING - BTN_H;
+        int cancelX = panelX + panelW / 2 - buttonW - BTN_GAP / 2;
+        int confirmX = panelX + panelW / 2 + BTN_GAP / 2;
         this.cancelX = cancelX;
         this.cancelY = btnY;
         this.confirmX = confirmX;
         this.confirmY = btnY;
 
-        int accent = warning ? WARN : DANGER;
+        MaredTheme theme = MaredThemeRegistry.active();
+        EditorDialogStyle style = EditorDialogStyle.from(theme,
+            categoryColor == null ? theme.accent : categoryColor);
 
         // Затемнение всего фона.
         Render.dialogBackground(g, screenW, screenH);
-        Render.dialogPanel(g, panelX, panelY, PANEL_W, PANEL_H, accent);
+        style.panel(g, panelX, panelY, panelW, panelH);
 
-        Render.text(g, font, title, panelX + 20, panelY + 20, accent);
+        Render.text(g, font, TextUtils.ellipsize(font, title, panelW - EditorDialogStyle.PADDING * 2), panelX + EditorDialogStyle.PADDING, panelY + EditorDialogStyle.PADDING, style.text());
         TextUtils.wrapped(g, font, message,
-            panelX + 20, panelY + 50, PANEL_W - 40, TEXT);
+            panelX + EditorDialogStyle.PADDING, panelY + 50,
+            panelW - EditorDialogStyle.PADDING * 2, style.text());
 
         // Кнопки — свои, не AbstractWidget.
         boolean cancelHover = Render.hovered(mouseX, mouseY,
-            cancelX, btnY, BTN_W, BTN_H);
-        UiControls.button(g, font, cancelX, btnY, BTN_W, BTN_H,
-            MaredLang.get("mared.dialog.cancel"),
-            0xFF3A2020,
-            cancelHover ? 0xFF55FF88 : 0xFF4A4A4A,
-            cancelHover, TEXT);
+            cancelX, btnY, buttonW, BTN_H);
+        style.button(g, font, cancelX, btnY, buttonW, BTN_H,
+            MaredLang.get("mared.dialog.cancel"), cancelHover, false, false);
 
         boolean confirmHover = Render.hovered(mouseX, mouseY,
-            confirmX, btnY, BTN_W, BTN_H);
-        UiControls.button(g, font, confirmX, btnY, BTN_W, BTN_H,
-            MaredLang.get("mared.dialog.confirm"),
-            warning ? 0xFF663333 : 0xFF336633,
-            confirmHover ? accent : 0xFF4A4A4A,
-            confirmHover, TEXT);
+            confirmX, btnY, buttonW, BTN_H);
+        style.button(g, font, confirmX, btnY, buttonW, BTN_H,
+            MaredLang.get(confirmLabelKey), confirmHover, true, destructive);
     }
 
     // ============================================================
@@ -123,11 +131,11 @@ public final class ConfirmDialogOverlay implements Overlay {
     public boolean mouseClicked(double mx, double my, int button) {
         if (button != 0) return true;
 
-        if (Render.hovered(mx, my, cancelX, cancelY, BTN_W, BTN_H)) {
+        if (Render.hovered(mx, my, cancelX, cancelY, buttonW, BTN_H)) {
             cancel();
             return true;
         }
-        if (Render.hovered(mx, my, confirmX, confirmY, BTN_W, BTN_H)) {
+        if (Render.hovered(mx, my, confirmX, confirmY, buttonW, BTN_H)) {
             confirm();
             return true;
         }

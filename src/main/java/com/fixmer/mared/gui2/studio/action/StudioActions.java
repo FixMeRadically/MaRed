@@ -22,6 +22,13 @@ public final class StudioActions {
 
     public static final String FILE_NEW                = "mared:file.new";
     public static final String FILE_SAVE               = "mared:file.save";
+    public static final String FILE_SAVE_AS = "mared:file.save_as";
+    public static final String EDIT_FIND = "mared:edit.find";
+    public static final String EDIT_FIND_NEXT = "mared:edit.find_next";
+    public static final String EDIT_FIND_PREVIOUS = "mared:edit.find_previous";
+    public static final String EDIT_COMPLETE = "mared:edit.complete";
+    public static final String EDIT_CHECK = "mared:edit.check";
+    public static final String FILE_STOP = "mared:file.stop";
     public static final String FILE_RUN                = "mared:file.run";
     public static final String FILE_RELOAD_PERSISTENT  = "mared:file.reload_persistent";
     public static final String VIEW_SETTINGS           = "mared:view.settings";
@@ -40,7 +47,7 @@ public final class StudioActions {
     public static final String SEPARATOR = "---";
 
     public static final List<String> TOP_BAR_ORDER = List.of(
-        FILE_NEW, FILE_SAVE, FILE_RUN, FILE_RELOAD_PERSISTENT,
+        FILE_NEW, FILE_SAVE, FILE_RUN, FILE_STOP, FILE_RELOAD_PERSISTENT,
         VIEW_SETTINGS, STUDIO_CLOSE
     );
 
@@ -67,9 +74,24 @@ public final class StudioActions {
             ctx -> ctx.controller().bus().publish(
                 new StudioEvents.SaveRequestedEvent())));
 
+        registry.register(new EditorAction(FILE_SAVE_AS, "mared.action.file.save_as.title", "Ctrl+Shift+S",
+            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().requestSaveAs()));
+        registry.register(new EditorAction(EDIT_FIND, "mared.action.edit.find.title", "Ctrl+F",
+            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().openSearch()));
+        registry.register(new EditorAction(EDIT_FIND_NEXT, "mared.action.edit.find_next.title", "F3",
+            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().findNext(false)));
+        registry.register(new EditorAction(EDIT_FIND_PREVIOUS, "mared.action.edit.find_previous.title", "Shift+F3",
+            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().findNext(true)));
+        registry.register(new EditorAction(EDIT_COMPLETE, "mared.action.edit.complete.title", "Ctrl+Space",
+            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().completeMinecraft()));
+        registry.register(new EditorAction(EDIT_CHECK, "mared.action.edit.check.title", "F7",
+            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().checkSyntax()));
+
         registry.register(new EditorAction(
             FILE_RUN, "mared.action.file.run.title", "Ctrl+R",
-            ctx -> ctx.workspace() != null, StudioActions::runFile));
+            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty() && ctx.runs().canStart(), StudioActions::runFile));
+        registry.register(new EditorAction(FILE_STOP, "mared.action.file.stop.title", "Ctrl+Shift+R",
+            ctx -> ctx.runs().canStop(), ctx -> ctx.runs().stop()));
 
         registry.register(new EditorAction(
             FILE_RELOAD_PERSISTENT,
@@ -146,7 +168,10 @@ public final class StudioActions {
         ScreenNavigator.openNewFileDialog(overlays, (name, persistent) -> {
             var r = ctx.commands().create(name, persistent);
             ctx.publish(r);
-            if (r.ok()) ctx.refreshExplorer();
+            if (r.ok()) {
+                ctx.refreshExplorer();
+                ctx.controller().bus().publish(new StudioEvents.FileSelectedEvent(name));
+            }
         });
     }
 
@@ -158,8 +183,7 @@ public final class StudioActions {
             ctx.log("[run] file is empty");
             return;
         }
-        if (ws.currentFileName() != null && ws.isDirty()) ws.save();
-        MaredFileRunner.run(text, ctx::log);
+        ctx.runs().start(text, ws.currentFileName());
     }
 
     private static void openCommandPalette(EditorActionContext ctx) {
@@ -225,7 +249,9 @@ public final class StudioActions {
             ctx.refreshExplorer();
             return;
         }
-        boolean persistent = ctx.commands().isPersistent(fileName);
+        boolean persistent;
+        try{persistent=ctx.commands().isPersistent(fileName);}
+        catch(Exception error){ctx.log("[studio] cannot read persistent configuration: "+error.getMessage());return;}
         OverlayManager overlays = ctx.overlays();
         if (overlays == null) return;
 

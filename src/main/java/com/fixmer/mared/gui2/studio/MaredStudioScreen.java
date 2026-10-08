@@ -118,13 +118,13 @@ public final class MaredStudioScreen extends Screen implements Disposable {
         }
         stripRedundantDividers(items);
         if (items.isEmpty()) return;
-        session.overlayManager().push(new ContextMenuOverlay(x, y, items));
+        session.overlayManager().push(new ContextMenuOverlay(x, y, items).category(com.fixmer.mared.technology.editor.GenesisEditorVisuals.LOGIC));
     }
 
     private void showRawContextMenu(int x, int y, List<ContextMenuEntry> entries) {
         if (session.overlayManager() == null) return;
         if (entries == null || entries.isEmpty()) return;
-        session.overlayManager().push(new ContextMenuOverlay(x, y, entries));
+        session.overlayManager().push(new ContextMenuOverlay(x, y, entries).category(com.fixmer.mared.technology.editor.GenesisEditorVisuals.LOGIC));
     }
 
     private static void stripRedundantDividers(List<ContextMenuEntry> items) {
@@ -148,7 +148,7 @@ public final class MaredStudioScreen extends Screen implements Disposable {
             MaredLang.get("mared.dialog.unsaved_title"),
             MaredLang.format("mared.dialog.unsaved_message_named", title),
             () -> wc.confirmPendingClose(WorkspaceComponent.CloseAction.DISCARD),
-            true
+            true, com.fixmer.mared.technology.editor.GenesisEditorVisuals.LOGIC, true, "mared.dialog.confirm"
         ));
     }
 

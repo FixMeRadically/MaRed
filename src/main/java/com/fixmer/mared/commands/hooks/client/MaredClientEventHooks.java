@@ -55,9 +55,15 @@ public final class MaredClientEventHooks {
     @SubscribeEvent
     public static void onMouseButton(InputEvent.MouseButton.Pre event) {
         try {
+            MaredActionRegistry.observeMouse(event.getButton(),event.getAction());
+            Minecraft mc = Minecraft.getInstance();
+            if(mc.screen==null&&mc.player!=null){
+                int code=switch(event.getButton()){case GLFW.GLFW_MOUSE_BUTTON_LEFT->MaredKeyNames.MOUSE_LEFT;case GLFW.GLFW_MOUSE_BUTTON_RIGHT->MaredKeyNames.MOUSE_RIGHT;case GLFW.GLFW_MOUSE_BUTTON_MIDDLE->MaredKeyNames.MOUSE_MIDDLE;default->Integer.MIN_VALUE;};
+                com.fixmer.mared.commands.input.MaredInputBridge.input(code,event.getAction(),mc.getSingleplayerServer());
+                if(MaredKeyBlocker.isBlocked(code))event.setCanceled(true);
+            }
             if (event.getAction() != GLFW.GLFW_PRESS) return;
 
-            Minecraft mc = Minecraft.getInstance();
             if (mc.screen != null || mc.player == null) return;
 
             String type = switch (event.getButton()) {
@@ -94,12 +100,15 @@ public final class MaredClientEventHooks {
     @SubscribeEvent
     public static void onKey(InputEvent.Key event) {
         try {
+            MaredActionRegistry.observeKey(event.getKey(),event.getScanCode(),event.getAction());
             int key = event.getKey();
             if (key == GLFW.GLFW_KEY_ESCAPE) return;
 
             Minecraft mc = Minecraft.getInstance();
             if (mc.screen != null || mc.player == null) return;
 
+            com.fixmer.mared.commands.input.MaredInputBridge.input(key,event.getAction(),mc.getSingleplayerServer());
+            MaredKeyBlocker.tick();
             String type;
             if (event.getAction() == GLFW.GLFW_PRESS) type = "key_press";
             else if (event.getAction() == GLFW.GLFW_RELEASE) type = "key_release";
@@ -254,8 +263,10 @@ public final class MaredClientEventHooks {
     public static void onTick(ClientTickEvent.Post event) {
         try {
             Minecraft mc = Minecraft.getInstance();
+            com.fixmer.mared.technology.catalog.MinecraftCommandCatalog.poll(mc.getConnection());
+            com.fixmer.mared.commands.runner.MaredFileRunner.tickClient();
             LocalPlayer player = mc.player;
-            if (player == null) return;
+            if (player == null) {MaredActionRegistry.applyTick();com.fixmer.mared.commands.input.MaredInputBridge.tick(null,false);return;}
 
             MinecraftServer server = mc.getSingleplayerServer();
             Map<String, Object> playerData = playerData(player);
@@ -273,7 +284,10 @@ public final class MaredClientEventHooks {
             MaredClientStatePoller.poll();
 
             // В мультиплеере executor'ы тикают клиентом
+            com.fixmer.mared.commands.input.MaredInputBridge.tick(server,mc.screen==null);
             if (server == null) MaredScriptRunner.tick(null);
+            MaredActionRegistry.applyTick();
+            MaredKeyBlocker.tick();
 
             // State diff
             MaredStateTracker.Diff diff = MaredStateTracker.poll();
@@ -293,6 +307,7 @@ public final class MaredClientEventHooks {
     public static void onLogin(ClientPlayerNetworkEvent.LoggingIn event) {
         try {
             Minecraft mc = Minecraft.getInstance();
+            com.fixmer.mared.technology.catalog.MinecraftCommandCatalog.poll(mc.getConnection());
             LocalPlayer player = mc.player;
             if (player == null) return;
 
@@ -321,6 +336,7 @@ public final class MaredClientEventHooks {
 
     @SubscribeEvent
     public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+        com.fixmer.mared.technology.catalog.MinecraftCommandCatalog.reset();
         try {
             Minecraft mc = Minecraft.getInstance();
 

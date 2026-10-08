@@ -36,7 +36,10 @@ public final class MaredScriptSpanResolver implements SpanResolver {
     public static final MaredScriptSpanResolver INSTANCE =
         new MaredScriptSpanResolver();
 
-    private MaredScriptSpanResolver() {}
+    public static final MaredScriptSpanResolver DARK_EDITOR=new MaredScriptSpanResolver(true);
+    private final boolean darkOnly;
+    private MaredScriptSpanResolver(){this(false);}
+    private MaredScriptSpanResolver(boolean darkOnly){this.darkOnly=darkOnly;}
 
     // ============================================================
     //  Палитра
@@ -89,13 +92,13 @@ public final class MaredScriptSpanResolver implements SpanResolver {
 
     /** One Light–style. */
     private static final Palette LIGHT = new Palette(
-        0xFFA0A1A7,   // comment
+        0xFF62656B,   // comment
         0xFFA626A4,   // keyword
         0xFFA626A4,   // control
         0xFF986801,   // literal
         0xFF4078F2,   // builtin
         0xFFE45649,   // variable
-        0xFF50A14F,   // string
+        0xFF28712A,   // string
         0xFF986801,   // number
         0xFF0184BC,   // operator
         0xFF383A42,   // punct
@@ -192,7 +195,7 @@ public final class MaredScriptSpanResolver implements SpanResolver {
 
     @Override
     public int baseColor() {
-        return palette().ident;
+        return MaredThemeRegistry.active().text;
     }
 
     @Override
@@ -340,7 +343,8 @@ public final class MaredScriptSpanResolver implements SpanResolver {
     //  Helpers
     // ============================================================
 
-    private static Palette palette() {
+    private Palette palette() {
+        if(darkOnly)return DARK;
         MaredTheme t = MaredThemeRegistry.active();
         return (t != null && t.light) ? LIGHT : DARK;
     }

@@ -17,7 +17,7 @@ public class MaredExitCommand extends MaredScriptCommand {
     @Override
     public void execute(MaredScriptContext ctx, MaredScriptExecutor exec) {
         // Проверяем, есть ли текущий Entry (значит, мы внутри on-тела)
-        MaredEventRegistry.Entry entry = MaredEventRegistry.currentEntry();
+        MaredEventRegistry.Entry entry = ctx.eventEntry() != null ? ctx.eventEntry() : MaredEventRegistry.currentEntry();
         if (entry != null) {
             boolean removed = MaredEventRegistry.removeEntry(entry);
             if (removed) {

@@ -15,18 +15,18 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
-public class MaredScriptContext {
+public class MaredScriptContext implements com.fixmer.genesis.technology.expression.ExpressionEnvironment {
 
     public static final class Func {
         public final List<String> params;
         public final List<MaredScriptCommand> body;
         public Func(List<String> params, List<MaredScriptCommand> body) {
-            this.params = params;
-            this.body = body;
+            this.params = List.copyOf(params);
+            this.body = List.copyOf(body);
         }
     }
 
-    private static final int MAX_CALL_DEPTH = 256;
+    private static final int MAX_CALL_DEPTH = 64;
 
     private ServerPlayer initiator;
     private final MinecraftServer server;
@@ -35,13 +35,23 @@ public class MaredScriptContext {
 
     private final Map<String, Func> functions = new HashMap<>(8);
 
+    private com.fixmer.mared.commands.events.MaredEventRegistry.Entry eventEntry;
+    public com.fixmer.mared.commands.events.MaredEventRegistry.Entry eventEntry() { return eventEntry; }
+    public void setEventEntry(com.fixmer.mared.commands.events.MaredEventRegistry.Entry entry) { eventEntry = entry; }
+    private com.fixmer.genesis.technology.runtime.ExecutionScope executionScope;
+    public com.fixmer.genesis.technology.runtime.ExecutionScope executionScope() { return executionScope; }
+    public void setExecutionScope(com.fixmer.genesis.technology.runtime.ExecutionScope scope) {
+        if (executionScope != null && executionScope != scope) throw new IllegalStateException("Context owner cannot be replaced");
+        executionScope = scope;
+    }
+
+    private com.fixmer.genesis.technology.links.InvocationCapabilities<MaredScriptContext> capabilityHost;
+    private com.fixmer.genesis.technology.runtime.ExecutionLimits invocationLimits=com.fixmer.genesis.technology.runtime.ExecutionLimits.DEFAULT;
+    public void setCapabilityHost(com.fixmer.genesis.technology.links.InvocationCapabilities<MaredScriptContext> host){capabilityHost=host;}
+    public void setInvocationLimits(com.fixmer.genesis.technology.runtime.ExecutionLimits limits){invocationLimits=java.util.Objects.requireNonNull(limits);}
     private boolean persistent = false;
     private int callDepth = 0;
     private long lastRefreshTick = -1;
-
-    // per-tick кэш substitute
-    private final Map<String, String> substCache = new HashMap<>(16);
-    private long substCacheTick = -1;
 
     public MaredScriptContext(ServerPlayer initiator, MinecraftServer server, Consumer<String> logger) {
         this.initiator = initiator;
@@ -61,12 +71,15 @@ public class MaredScriptContext {
      * обработчика имел собственные переменные — иначе параллельные
      * вызовы могут перезаписать друг другу $v, $i, и т.п.
      *
-     * Функции НЕ копируются: это статические определения.
+     * Копируются ссылки на неизменяемые определения функций.
      */
     public MaredScriptContext fork() {
         MaredScriptContext copy = new MaredScriptContext(initiator, server, logger);
         copy.functions.putAll(this.functions);
         copy.persistent = this.persistent;
+        copy.executionScope = executionScope;
+        copy.eventEntry = eventEntry;
+        copy.capabilityHost = capabilityHost;copy.invocationLimits=invocationLimits;
         return copy;
     }
 
@@ -75,6 +88,20 @@ public class MaredScriptContext {
         MaredScriptContext copy = new MaredScriptContext(newInitiator, server, logger);
         copy.functions.putAll(this.functions);
         copy.persistent = this.persistent;
+        copy.executionScope = executionScope;
+        copy.eventEntry = eventEntry;
+        copy.capabilityHost = capabilityHost;copy.invocationLimits=invocationLimits;
+        return copy;
+    }
+
+    /** Bind an event invocation to the server that actually fired it. */
+    public MaredScriptContext forkFor(ServerPlayer player, MinecraftServer targetServer) {
+        MaredScriptContext copy = new MaredScriptContext(player, targetServer, logger);
+        copy.functions.putAll(functions);
+        copy.persistent = persistent;
+        copy.executionScope = executionScope;
+        copy.eventEntry = eventEntry;
+        copy.capabilityHost = capabilityHost;copy.invocationLimits=invocationLimits;
         return copy;
     }
 
@@ -131,6 +158,11 @@ public class MaredScriptContext {
         return false;
     }
 
+    public void removeVariable(String name) {
+        if (name != null && name.startsWith("global.")) MaredGlobalStorage.remove(name);
+        else variables.remove(name);
+    }
+
     public Map<String, Object> getAllVariables() { return variables; }
 
     // ============================================================
@@ -138,9 +170,19 @@ public class MaredScriptContext {
     // ============================================================
 
     public void registerFunction(String name, List<String> params, List<MaredScriptCommand> body) {
-        functions.put(name, new Func(params, body));
+        if (new java.util.HashSet<>(params).size() != params.size()) throw new IllegalArgumentException("Duplicate parameters");
+        for (String p : params) if (!p.matches("[a-zA-Z_][a-zA-Z0-9_]*") || p.equals("self") || p.equals("world"))
+            throw new IllegalArgumentException("Invalid parameter: " + p);
+        functions.put(name, new Func(List.copyOf(params), List.copyOf(body)));
     }
 
+    @Override public Object callBuiltin(String name, List<Object> args) {
+        if(capabilityHost!=null&&capabilityHost.supports(name))return capabilityHost.call(name,args,this);
+        return com.fixmer.mared.commands.expr.MaredBuiltins.call(name, args, this);
+    }
+    @Override public Object callMethod(Object receiver, String name, List<Object> args) {
+        return com.fixmer.mared.commands.expr.MaredMethods.call(receiver, name, args);
+    }
     public boolean hasFunction(String name) { return functions.containsKey(name); }
     public Func getFunction(String name) { return functions.get(name); }
 
@@ -154,6 +196,7 @@ public class MaredScriptContext {
 
         int pn = fn.params.size();
         Map<String, Object> backup = new HashMap<>(pn * 2);
+        java.util.Set<String> present = new java.util.HashSet<>(variables.keySet());
         for (int i = 0; i < pn; i++) {
             String p = fn.params.get(i);
             backup.put(p, variables.get(p));
@@ -165,21 +208,21 @@ public class MaredScriptContext {
 
         callDepth++;
         Object result = null;
+        MaredScriptExecutor exec = new MaredScriptExecutor(this, fn.body, invocationLimits);
         try {
-            MaredScriptExecutor exec = new MaredScriptExecutor(this, fn.body);
             MaredScriptExecutor.Frame top = exec.peekTopFrame();
             if (top != null) top.functionCall = true;
 
-            int safety = 100_000;
-            while (!exec.isFinished() && safety-- > 0) {
-                exec.tick();
-                if (exec.isWaiting()) break;
-            }
+            exec.tick();
+            if (exec.failure() != null) throw new IllegalStateException("Function failed: " + name, exec.failure());
+            if (!exec.isFinished()) throw new IllegalStateException("Expression function cannot wait or exceed a tick budget: " + name);
             if (exec.hasReturnValue()) result = exec.getReturnValue();
         } finally {
+            exec.stopAll();
             callDepth--;
             for (Map.Entry<String, Object> e : backup.entrySet()) {
-                variables.put(e.getKey(), e.getValue());
+                if (present.contains(e.getKey())) variables.put(e.getKey(), e.getValue());
+                else variables.remove(e.getKey());
             }
         }
         return result;
@@ -407,24 +450,13 @@ public class MaredScriptContext {
     }
 
     // ============================================================
-    //  substitute — per-tick кэш
+    //  substitute — вычисление по текущей области без кэша результатов
     // ============================================================
 
     public String substitute(String input) {
         if (input == null || input.isEmpty()) return input;
 
-        long nowTick = MaredTicks.get();
-        if (nowTick != substCacheTick) {
-            substCache.clear();
-            substCacheTick = nowTick;
-        } else {
-            String cached = substCache.get(input);
-            if (cached != null) return cached;
-        }
-
-        String result = doSubstitute(input);
-        if (substCache.size() < 128) substCache.put(input, result);
-        return result;
+        return doSubstitute(input);
     }
 
     private String doSubstitute(String input) {

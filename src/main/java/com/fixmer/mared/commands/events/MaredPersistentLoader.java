@@ -31,7 +31,9 @@ public final class MaredPersistentLoader {
         }
         loaded = true;
 
-        List<String> names = MaredPersistentStorage.load();
+        List<String> names;
+        try {names=MaredPersistentStorage.load();}
+        catch(Exception error){loaded=false;Mared.LOGGER.error("Cannot read persistent configuration; load can be retried",error);return;}
         if (names.isEmpty()) {
             Mared.LOGGER.info("[Mared] No persistent scripts found.");
             return;
@@ -39,24 +41,12 @@ public final class MaredPersistentLoader {
 
         Mared.LOGGER.info("[Mared] Loading {} persistent script(s)...", names.size());
 
-        List<String> validNames = new ArrayList<>(names.size());
-        boolean needsRewrite = false;
-
         for (String name : names) {
             try {
-                if (loadScript(name)) validNames.add(name);
-                else needsRewrite = true;
+                if(!loadScript(name))Mared.LOGGER.warn("Persistent '{}' skipped; configured name retained",name);
             } catch (Exception e) {
-                Mared.LOGGER.error("[Mared] Failed to load persistent '{}': {}",
-                    name, e.getMessage());
-                needsRewrite = true;
+                Mared.LOGGER.error("Failed to load persistent '{}'; configured name retained",name,e);
             }
-        }
-
-        if (needsRewrite) {
-            MaredPersistentStorage.save(validNames);
-            Mared.LOGGER.info("[Mared] Cleaned persistent.txt: {} valid, {} removed.",
-                validNames.size(), names.size() - validNames.size());
         }
 
         Mared.LOGGER.info("[Mared] Persistent scripts loaded. Events total: {}",
@@ -68,14 +58,14 @@ public final class MaredPersistentLoader {
 
         String text = MaredCommandStorage.readCommand(name);
         if (text == null || text.trim().isEmpty()) {
-            Mared.LOGGER.warn("[Mared] Persistent '{}' is empty or missing — removing.", name);
+            Mared.LOGGER.warn("[Mared] Persistent '{}' is empty or missing — skipping.", name);
             return false;
         }
 
         int firstNl = text.indexOf('\n');
         String firstLine = (firstNl >= 0 ? text.substring(0, firstNl) : text).trim();
         if (!firstLine.startsWith("#persistent")) {
-            Mared.LOGGER.warn("[Mared] '{}' not marked as #persistent — removing.", name);
+            Mared.LOGGER.warn("[Mared] '{}' not marked as #persistent — skipping.", name);
             return false;
         }
 
@@ -90,7 +80,7 @@ public final class MaredPersistentLoader {
         }
 
         if (commands.isEmpty()) {
-            Mared.LOGGER.warn("[Mared] '{}' has no commands — removing.", name);
+            Mared.LOGGER.warn("[Mared] '{}' has no commands — skipping.", name);
             return false;
         }
 
@@ -117,7 +107,7 @@ public final class MaredPersistentLoader {
         }
 
         if (registered == 0) {
-            Mared.LOGGER.warn("[Mared] '{}' has no on-events — removing.", name);
+            Mared.LOGGER.warn("[Mared] '{}' has no on-events — skipping.", name);
             return false;
         }
 

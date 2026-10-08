@@ -1,0 +1,10 @@
+{
+  "module":"WORLD",
+  "color":4281513984,
+
+  "intro":"generation_code",
+
+  "transition":"leaves",
+
+  "finalState":"landscape"
+}

@@ -27,24 +27,27 @@ import net.minecraft.network.chat.Component;
  */
 public class MaredLogPanel {
 
-    private static final int BG             = 0xFF101018;
-    private static final int TEXT           = MaredUi.TEXT;
-    private static final int TEXT_DIM       = MaredUi.TEXT_DIM;
-    private static final int BTN_BG         = 0xFF2D2D2D;
-    private static final int BTN_HOVER      = 0xFF3E3E42;
-    private static final int BTN_ACTIVE     = 0xFF3A6A3A;
-    private static final int ACCENT         = 0xFF55AAFF;
-    private static final int SELECT_BG      = 0x804466CC;
-    private static final int PANEL_SETTINGS = 0xFF0E0E14;
+    private static int BG(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.panel();}
+    private static int TEXT(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.text();}
+    private static int TEXT_DIM(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim();}
+    private static int BTN_BG(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised();}
+    private static int BTN_HOVER(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.hover();}
+    private static int BTN_ACTIVE(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.selected();}
+    private static int ACCENT(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent();}
+    private static int SELECT_BG(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.selected();}
+    private static int PANEL_SETTINGS(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.panel();}
     private static final int SCROLLBAR_W    = 6;
-    private static final int CHECK_ON       = MaredUi.SUCCESS;
-    private static final int CHECK_BRD      = 0xFF4A4A4A;
-    private static final int SEARCH_BG      = 0xFF0A0A10;
+    private static int CHECK_ON(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent();}
+    private static int CHECK_BRD(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge();}
+    private static int SEARCH_BG(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.sunken();}
 
-    private static final int BORDER_TOP     = 0x40FFFFFF;
-    private static final int BORDER_BOTTOM  = 0x20000000;
+    private static int BORDER_TOP(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge();}
+    private static int BORDER_BOTTOM(){return com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge();}
 
     public static final int LOG_HEADER = 20;
+    private boolean compact;
+    public void setCompact(boolean value){compact=value;}
+    private int headerHeight(){return compact?(searchOpen?34:18):LOG_HEADER;}
     public static final int LOG_LINE   = 10;
     public static final int PANEL_H    = 140;
 
@@ -85,6 +88,29 @@ public class MaredLogPanel {
 
     private List<LogEntry> visibleCache = null;
     private int visibleCacheKey = 0;
+    private List<LogEntry> localEntries;
+    private int localRevision;
+    private Runnable localClear;
+
+    /** Panel-local run view. null restores the shared Studio log. */
+    public void setLocalEntries(List<LogEntry> entries) {
+        setLocalEntries(entries, null);
+    }
+    public void setLocalEntries(List<LogEntry> entries, Runnable clear) {
+        boolean sameAnchor = localEntries != null && entries != null
+            && !localEntries.isEmpty() && !entries.isEmpty()
+            && java.util.Objects.equals(localEntries.get(0).source, entries.get(0).source)
+            && localEntries.get(0).epochMillis == entries.get(0).epochMillis
+            && localEntries.get(0).message.equals(entries.get(0).message);
+        localClear = clear;
+        localEntries = entries == null ? null : List.copyOf(entries);
+        localRevision++;
+        if (!sameAnchor) {
+            selStart = new Pos(-1, -1); selEnd = new Pos(-1, -1);
+            scroll.offset = 0;
+        }
+        invalidateVisibleCache();
+    }
 
     public MaredLogPanel() {
         LogSettings.load();
@@ -114,10 +140,15 @@ public class MaredLogPanel {
      */
     public void add(StudioEvents.LogEvent event) {
         if (event == null) return;
-        addStructured(event.level(), event.category(), event.message());
+        LogService.get().addStructured(event.level(), event.category(), event.message(), event.source());
+        invalidateVisibleCache();
     }
 
     public void clear() {
+        if (localEntries != null) {
+            if (localClear != null) localClear.run();
+            setLocalEntries(List.of()); scroll.offset = 0; return;
+        }
         LogService.get().clear();
         selStart = new Pos(-1, -1);
         selEnd   = new Pos(-1, -1);
@@ -149,7 +180,7 @@ public class MaredLogPanel {
     }
 
     public List<LogEntry> snapshot() {
-        return LogService.get().snapshot();
+        return localEntries == null ? LogService.get().snapshot() : localEntries;
     }
 
     public static List<LogEntry> snapshotForStats() {
@@ -169,6 +200,7 @@ public class MaredLogPanel {
     private int currentCacheKey() {
         int h = 17;
         h = h * 31 + LogService.get().version();
+        h = h * 31 + localRevision;
         h = h * 31 + LogSettings.getVersion();
         h = h * 31 + (searchQuery == null ? 0 : searchQuery.hashCode());
         return h;
@@ -178,7 +210,7 @@ public class MaredLogPanel {
         int key = currentCacheKey();
         if (visibleCache != null && visibleCacheKey == key) return visibleCache;
 
-        List<LogEntry> all = LogService.get().snapshot();
+        List<LogEntry> all = snapshot();
         int n = all.size();
         List<LogEntry> result = new ArrayList<>(n);
 
@@ -215,11 +247,11 @@ public class MaredLogPanel {
 
     public EditBox searchBox() { return searchBox; }
 
-    private int searchBoxX(int x) { return x + SEARCH_BOX_OFFSET_X; }
+    private int searchBoxX(int x) { return x + (compact?4:SEARCH_BOX_OFFSET_X); }
     private int searchBoxW(int w) {
-        return Math.max(60, w - SEARCH_BOX_OFFSET_X - SEARCH_BOX_RIGHT_PAD);
+        return compact?Math.max(20,w-8):Math.max(60, w - SEARCH_BOX_OFFSET_X - SEARCH_BOX_RIGHT_PAD);
     }
-    private int searchBoxY(int y) { return y + SEARCH_BOX_Y_OFFSET; }
+    private int searchBoxY(int y) { return y + (compact?19:SEARCH_BOX_Y_OFFSET); }
 
     public EditBox ensureSearchBox(Font font, int x, int y, int w) {
         if (!searchOpen) { searchBox = null; return null; }
@@ -235,8 +267,8 @@ public class MaredLogPanel {
             searchBox.setBordered(false);
             searchBox.setMaxLength(128);
             searchBox.setValue(searchQuery);
-            searchBox.setTextColor(0xFFFFFFFF);
-            searchBox.setTextColorUneditable(0xFFAAAAAA);
+            searchBox.setTextColor(com.fixmer.mared.technology.editor.GenesisEditorVisuals.text());
+            searchBox.setTextColorUneditable(com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim());
             searchBox.setResponder(s -> {
                 searchQuery = s == null ? "" : s;
                 scroll.offset = 0;
@@ -248,13 +280,16 @@ public class MaredLogPanel {
             searchBox.setWidth(boxW);
             searchBox.setHeight(boxH);
         }
+        searchBox.setTextColor(com.fixmer.mared.technology.editor.GenesisEditorVisuals.text());
+        searchBox.setTextColorUneditable(com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim());
         return searchBox;
     }
 
     private void drawHeader(GuiGraphics g, Font font, int x, int y, int w,
                             int mouseX, int mouseY) {
+        if(compact){drawCompactHeader(g,font,x,y,w,mouseX,mouseY);return;}
         MaredUi.text(g, font, MaredLang.get("mared.log.title"),
-            x + 6, y + 6, ACCENT);
+            x + 6, y + 6, ACCENT());
 
         if (searchOpen) {
             int boxX = searchBoxX(x);
@@ -262,9 +297,9 @@ public class MaredLogPanel {
             int boxY = searchBoxY(y);
             int boxH = SEARCH_BOX_HEIGHT;
             MaredUi.rect(g, boxX - 1, boxY - 1,
-                boxX + boxW + 1, boxY + boxH + 1, SEARCH_BG);
+                boxX + boxW + 1, boxY + boxH + 1, SEARCH_BG());
             MaredUi.outlineGradient(g, boxX - 1, boxY - 1,
-                boxW + 2, boxH + 2, ACCENT, ACCENT);
+                boxW + 2, boxH + 2, ACCENT(), ACCENT());
         }
 
         int btnY = y + 2;
@@ -273,22 +308,45 @@ public class MaredLogPanel {
 
         right = drawBtn(g, font, right, btnY, btnH, 50,
             MaredLang.get("mared.log.button.export"),
-            mouseX, mouseY, BTN_BG, ACCENT, false);
+            mouseX, mouseY, BTN_BG(), ACCENT(), false);
         right = drawBtn(g, font, right, btnY, btnH, 44,
             MaredLang.get("mared.log.button.clear"),
-            mouseX, mouseY, BTN_BG, 0xFFFF5555, false);
+            mouseX, mouseY, BTN_BG(), com.fixmer.mared.technology.editor.GenesisEditorVisuals.danger(), false);
         right = drawBtn(g, font, right, btnY, btnH, 44,
             MaredLang.get("mared.log.button.copy"),
-            mouseX, mouseY, BTN_BG, ACCENT, false);
+            mouseX, mouseY, BTN_BG(), ACCENT(), false);
         right = drawBtn(g, font, right, btnY, btnH, 18,
             MaredLang.get("mared.log.button.search"),
-            mouseX, mouseY, BTN_BG, ACCENT, searchOpen);
+            mouseX, mouseY, BTN_BG(), ACCENT(), searchOpen);
         right = drawBtn(g, font, right, btnY, btnH, 18,
             MaredLang.get("mared.log.button.settings"),
-            mouseX, mouseY, BTN_BG, ACCENT, settingsOpen);
+            mouseX, mouseY, BTN_BG(), ACCENT(), settingsOpen);
         right = drawBtn(g, font, right, btnY, btnH, 18,
             MaredLang.get("mared.log.button.toggle"),
-            mouseX, mouseY, BTN_BG, ACCENT, false);
+            mouseX, mouseY, BTN_BG(), ACCENT(), false);
+    }
+
+    private void drawCompactHeader(GuiGraphics g,Font font,int x,int y,int w,int mx,int my){
+        if(w>150)MaredUi.text(g,font,MaredLang.get("mared.log.title"),x+4,y+5,TEXT_DIM());
+        String[] labels={"E","X","C","/","F"};
+        int right=x+w-4;
+        for(int i=0;i<labels.length;i++){right=drawBtn(g,font,right,y+2,14,16,labels[i],mx,my,BTN_BG(),ACCENT(),i==3&&searchOpen||i==4&&settingsOpen);}
+        if(searchOpen)MaredUi.rect(g,searchBoxX(x)-1,searchBoxY(y)-1,searchBoxX(x)+searchBoxW(w)+1,searchBoxY(y)+SEARCH_BOX_HEIGHT+1,SEARCH_BG());
+    }
+    private boolean compactHeaderClick(double mx,double my,int x,int y,int w){
+        int right=x+w-4;
+        for(int i=0;i<5;i++){
+            right-=16;
+            if(MaredUi.hovered(mx,my,right,y+2,16,14)){
+                switch(i){case 0->exportLog();case 1->clear();case 2->copySelectedOrAll();case 3->{
+                    searchOpen=!searchOpen;
+                    if(!searchOpen){searchQuery="";if(searchBox!=null)searchBox.setFocused(false);searchBox=null;invalidateVisibleCache();}
+                }case 4->settingsOpen=!settingsOpen;}
+                return true;
+            }
+            right-=4;
+        }
+        return false;
     }
 
     private int drawBtn(GuiGraphics g, Font font, int right, int btnY, int btnH,
@@ -296,14 +354,15 @@ public class MaredLogPanel {
                         int bgNormal, int accent, boolean active) {
         int bx = right - width;
         boolean hover = MaredUi.hovered(mouseX, mouseY, bx, btnY, width, btnH);
-        int bg = hover ? BTN_HOVER : (active ? BTN_ACTIVE : bgNormal);
+        int bg = hover ? BTN_HOVER() : (active ? BTN_ACTIVE() : bgNormal);
         MaredUi.button3D(g, font, bx, btnY, width, btnH, label, bg, accent,
-            TEXT, hover);
+            TEXT(), hover);
         return bx - 4;
     }
 
     private boolean headerClick(double mx, double my, int x, int y, int w) {
-        if (my < y || my >= y + LOG_HEADER) return false;
+        if (my < y || my >= y + headerHeight()) return false;
+        if(compact)return compactHeaderClick(mx,my,x,y,w);
         int btnY = y + 2;
         int btnH = 14;
         int right = x + w - 6;
@@ -344,25 +403,25 @@ public class MaredLogPanel {
                        int mouseX, int mouseY) {
         cachedX = x; cachedY = y; cachedW = w; cachedH = h; cachedFont = font;
 
-        MaredUi.rect(g, x, y, x + w, y + h, BG);
-        MaredUi.rect(g, x, y, x + w, y + 1, BORDER_TOP);
+        MaredUi.rect(g, x, y, x + w, y + h, BG());
+        MaredUi.rect(g, x, y, x + w, y + 1, BORDER_TOP());
 
         drawHeader(g, font, x, y, w, mouseX, mouseY);
 
-        MaredUi.gradientV(g, x, y + LOG_HEADER - 1, x + w, y + LOG_HEADER,
-            BORDER_TOP, BORDER_BOTTOM);
+        MaredUi.gradientV(g, x, y + headerHeight() - 1, x + w, y + headerHeight(),
+            BORDER_TOP(), BORDER_BOTTOM());
 
         if (collapsed) return;
 
         if (settingsOpen) {
-            renderSettings(g, font, x, y + LOG_HEADER, w, h - LOG_HEADER,
+            renderSettings(g, font, x, y + headerHeight(), w, h - headerHeight(),
                 mouseX, mouseY);
             return;
         }
 
         List<LogEntry> visible = getVisibleEntries();
-        int innerY = y + LOG_HEADER;
-        int innerH = h - LOG_HEADER;
+        int innerY = y + headerHeight();
+        int innerH = h - headerHeight();
 
         scroll.set(x, innerY, w, innerH).inverted(true)
               .items(LOG_LINE, visible.size());
@@ -393,7 +452,7 @@ public class MaredLogPanel {
                 int xFrom = x + PAD + font.width(fullLine.substring(0, selFrom));
                 int xTo   = x + PAD + font.width(fullLine.substring(0, selTo));
                 if (xTo > xFrom) {
-                    MaredUi.rect(g, xFrom, lineY, xTo, lineY + LOG_LINE, SELECT_BG);
+                    MaredUi.rect(g, xFrom, lineY, xTo, lineY + LOG_LINE, SELECT_BG());
                 }
             }
 
@@ -402,7 +461,7 @@ public class MaredLogPanel {
 
         MaredUi.scissorOff(g);
 
-        scroll.drawScrollbar(g, ACCENT, SCROLLBAR_W);
+        scroll.drawScrollbar(g, ACCENT(), SCROLLBAR_W);
     }
 
     private int settingsContentHeight(Font font, int w) {
@@ -420,7 +479,7 @@ public class MaredLogPanel {
 
     private void renderSettings(GuiGraphics g, Font font, int x, int y, int w, int h,
                                 int mouseX, int mouseY) {
-        MaredUi.rect(g, x, y, x + w, y + h, PANEL_SETTINGS);
+        MaredUi.rect(g, x, y, x + w, y + h, PANEL_SETTINGS());
 
         int contentH = settingsContentHeight(font, w);
         filterScroll.set(x, y, w, h).content(contentH);
@@ -432,7 +491,7 @@ public class MaredLogPanel {
         int innerW = w - 12 - SCROLLBAR_W - 2;
 
         MaredUi.text(g, font, MaredLang.get("mared.log.filter.title"),
-            startX, startY, ACCENT);
+            startX, startY, ACCENT());
         MaredUi.text(g, font, MaredLang.get("mared.log.filter.levels"),
             startX, startY + 16, MaredUi.WARN);
 
@@ -446,13 +505,13 @@ public class MaredLogPanel {
             int cx = startX + col * (lvlItemW + 4);
             int cy = lvlRowY + row * 14;
             boolean hov = MaredUi.hovered(mouseX, mouseY, cx, cy, lvlItemW, 12);
-            int bg = enabled ? BTN_ACTIVE : (hov ? BTN_HOVER : BTN_BG);
+            int bg = enabled ? BTN_ACTIVE() : (hov ? BTN_HOVER() : BTN_BG());
             MaredUi.rect(g, cx, cy, cx + lvlItemW, cy + 12, bg);
             MaredUi.outline(g, cx, cy, lvlItemW, 12,
-                enabled ? CHECK_ON : CHECK_BRD);
-            MaredUi.drawCheckbox(g, cx + 3, cy + 1, 10, enabled, CHECK_BRD, CHECK_ON);
+                enabled ? CHECK_ON() : CHECK_BRD());
+            MaredUi.drawCheckbox(g, cx + 3, cy + 1, 10, enabled, CHECK_BRD(), CHECK_ON());
             MaredUi.text(g, font, lvl.name(), cx + 18, cy + 2,
-                enabled ? CHECK_ON : TEXT_DIM);
+                enabled ? CHECK_ON() : TEXT_DIM());
             col++;
             if (col >= lvlCols) { col = 0; row++; }
         }
@@ -472,19 +531,19 @@ public class MaredLogPanel {
             int cx = startX + col * (catItemW + 4);
             int cy = lvlRowY + row * 14;
             boolean hov = MaredUi.hovered(mouseX, mouseY, cx, cy, catItemW, 12);
-            int bg = enabled ? BTN_ACTIVE : (hov ? BTN_HOVER : BTN_BG);
+            int bg = enabled ? BTN_ACTIVE() : (hov ? BTN_HOVER() : BTN_BG());
             MaredUi.rect(g, cx, cy, cx + catItemW, cy + 12, bg);
             MaredUi.outline(g, cx, cy, catItemW, 12,
-                enabled ? CHECK_ON : CHECK_BRD);
-            MaredUi.drawCheckbox(g, cx + 3, cy + 1, 10, enabled, CHECK_BRD, CHECK_ON);
+                enabled ? CHECK_ON() : CHECK_BRD());
+            MaredUi.drawCheckbox(g, cx + 3, cy + 1, 10, enabled, CHECK_BRD(), CHECK_ON());
             MaredUi.text(g, font, "[" + cat + "]", cx + 18, cy + 2,
-                enabled ? CHECK_ON : TEXT_DIM);
+                enabled ? CHECK_ON() : TEXT_DIM());
             col++;
             if (col >= catCols) { col = 0; row++; }
         }
 
         MaredUi.scissorOff(g);
-        filterScroll.drawScrollbarGradient(g, ACCENT, ACCENT, SCROLLBAR_W);
+        filterScroll.drawScrollbarGradient(g, ACCENT(), ACCENT(), SCROLLBAR_W);
     }
 
     private int selMinLine() { return Math.min(selStart.line, selEnd.line); }
@@ -536,7 +595,7 @@ public class MaredLogPanel {
 
     public boolean mouseClicked(double mx, double my, int button, int x, int y,
                                 int w, int h, Font font) {
-        if (my >= y && my < y + LOG_HEADER) {
+        if (my >= y && my < y + headerHeight()) {
             if (searchOpen && searchBox != null && searchBox.isMouseOver(mx, my))
                 return false;
             return headerClick(mx, my, x, y, w);
@@ -547,17 +606,17 @@ public class MaredLogPanel {
         if (settingsOpen) {
             if (mx < x || mx > x + w || my < y || my > y + h) return false;
 
-            filterScroll.set(x, y + LOG_HEADER, w, h - LOG_HEADER);
+            filterScroll.set(x, y + headerHeight(), w, h - headerHeight());
             if (filterScroll.clickScrollbar(mx, my, SCROLLBAR_W, drag,
                 DragKind.FILTER_SCROLL)) return true;
 
-            return settingsClick(mx, my, x, y + LOG_HEADER, w, h - LOG_HEADER);
+            return settingsClick(mx, my, x, y + headerHeight(), w, h - headerHeight());
         }
 
-        if (my >= y + LOG_HEADER) {
+        if (my >= y + headerHeight()) {
             List<LogEntry> visible = getVisibleEntries();
-            int innerY = y + LOG_HEADER;
-            int innerH = h - LOG_HEADER;
+            int innerY = y + headerHeight();
+            int innerH = h - headerHeight();
 
             scroll.set(x, innerY, w, innerH).inverted(true)
                   .items(LOG_LINE, visible.size());
@@ -600,8 +659,8 @@ public class MaredLogPanel {
             List<LogEntry> visible = getVisibleEntries();
             if (visible.isEmpty()) return true;
 
-            int innerY = y + LOG_HEADER;
-            int innerH = h - LOG_HEADER;
+            int innerY = y + headerHeight();
+            int innerH = h - headerHeight();
 
             autoScrollDir = 0;
             if (my < innerY + 2) autoScrollDir = -1;
@@ -639,8 +698,8 @@ public class MaredLogPanel {
         List<LogEntry> visible = getVisibleEntries();
         if (visible.isEmpty()) return;
 
-        int innerH = cachedH - LOG_HEADER;
-        scroll.set(cachedX, cachedY + LOG_HEADER, cachedW, innerH)
+        int innerH = cachedH - headerHeight();
+        scroll.set(cachedX, cachedY + headerHeight(), cachedW, innerH)
               .inverted(true).items(LOG_LINE, visible.size());
 
         if (autoScrollDir < 0) {
@@ -656,11 +715,11 @@ public class MaredLogPanel {
         if (collapsed) return false;
 
         if (settingsOpen) {
-            filterScroll.set(x, y + LOG_HEADER, w, h - LOG_HEADER);
+            filterScroll.set(x, y + headerHeight(), w, h - headerHeight());
             filterScroll.wheel(deltaY, 15);
             return true;
         }
-        scroll.set(x, y + LOG_HEADER, w, h - LOG_HEADER);
+        scroll.set(x, y + headerHeight(), w, h - headerHeight());
         scroll.wheelLog(deltaY, 3);
         return true;
     }
@@ -770,35 +829,18 @@ public class MaredLogPanel {
     }
 
     public void exportLog() {
-        LogService.get().export();
+        LogService.get().export(snapshot());
         invalidateVisibleCache();
     }
 
     private int logColor(LogEntry e) {
-        if (e == null) return TEXT;
+        if (e == null) return TEXT();
 
-        if (e.level == LogSettings.Level.ERROR) return 0xFFFF5555;
-        if (e.level == LogSettings.Level.WARN)  return 0xFFFFAA00;
+        if (e.level == LogSettings.Level.ERROR) return com.fixmer.mared.technology.editor.GenesisEditorVisuals.danger();
+        if (e.level == LogSettings.Level.WARN)  return com.fixmer.mared.technology.editor.GenesisEditorVisuals.warn();
 
         String cat = e.category;
-        if (cat == null) return TEXT;
-        return switch (cat) {
-            case "chat"     -> 0xFF55FFFF;
-            case "give"     -> 0xFF55FF88;
-            case "mc", "cmd"-> 0xFF88DDFF;
-            case "log"      -> 0xFFCCCCFF;
-            case "mared"    -> 0xFF55FF88;
-            case "bind"     -> 0xFFFF55FF;
-            case "unblock"  -> 0xFF55FF55;
-            case "block"    -> 0xFFFFAA00;
-            case "toggle"   -> 0xFF55AAFF;
-            case "assert"   -> 0xFF55FF88;
-            case "run"      -> 0xFFFFD700;
-            case "info"     -> 0xFFAAAAAA;
-            case "auto-save"-> 0xFF88DDFF;
-            case "say"      -> 0xFF88DDFF;
-            case "print"    -> 0xFFCCCCFF;
-            default         -> TEXT;
-        };
+        if (cat == null) return TEXT();
+        return com.fixmer.mared.technology.editor.GenesisEditorVisuals.text();
     }
 }

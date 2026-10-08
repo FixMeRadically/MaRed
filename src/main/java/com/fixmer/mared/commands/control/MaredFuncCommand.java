@@ -21,6 +21,10 @@ public class MaredFuncCommand extends MaredScriptCommand {
         this.body = body;
     }
 
+    public String name(){return name;}
+    public List<String> parameters(){return List.copyOf(params);}
+    public List<MaredScriptCommand> body(){return List.copyOf(body);}
+
     @Override
     public boolean execute(MaredScriptContext ctx) {
         ctx.registerFunction(name, params, body);

@@ -15,6 +15,8 @@ import net.minecraft.client.gui.screens.Screen;
 public final class EditorActionContext {
 
     private final Screen screen;
+    private final com.fixmer.mared.technology.editor.EditorRuns runs = new com.fixmer.mared.technology.editor.EditorRuns();
+    public com.fixmer.mared.technology.editor.EditorRuns runs() { return runs; }
     private final MaredStudioController controller;
     private final CommandFileService commandService;
     private final OverlayManager overlayManager;

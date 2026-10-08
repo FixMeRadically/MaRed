@@ -44,7 +44,7 @@ public final class MaredThemeTab implements MaredSettingsTab {
     @Override public String displayName() {
         return MaredLang.get("mared.settings.tab.theme");
     }
-    @Override public int accentColor() { return 0xFFFF55FF; }
+    @Override public int accentColor() { return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent; }
 
     @Override
     public void render(GuiGraphics g, Font font, int x, int y, int w, int h,
@@ -58,7 +58,7 @@ public final class MaredThemeTab implements MaredSettingsTab {
 
         // --- Live preview ---
         MaredUi.text(g, font, MaredLang.get("mared.settings.theme.preview"),
-            x, cy, 0xFFFFAA00);
+            x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 14;
         previewY = cy;
 
@@ -68,7 +68,7 @@ public final class MaredThemeTab implements MaredSettingsTab {
 
         // --- Theme cards ---
         MaredUi.text(g, font, MaredLang.get("mared.settings.theme.pick"),
-            x, cy, 0xFFFFAA00);
+            x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
         firstCardY = cy;
 
@@ -96,7 +96,7 @@ public final class MaredThemeTab implements MaredSettingsTab {
         cy = firstCardY + rows * (cardH + cardGap) + 20;
 
         MaredUi.text(g, font, MaredLang.get("mared.settings.theme.options"),
-            x, cy, 0xFFFFAA00);
+            x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
 
         monotoneY = cy;
@@ -119,7 +119,7 @@ public final class MaredThemeTab implements MaredSettingsTab {
         // Hint про reduced motion.
         MaredUi.text(g, font,
             MaredLang.get("mared.settings.theme.reduced_motion_hint"),
-            x + 20, cy, 0xFF888888);
+            x + 20, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textFaint);
         cy += 14;
 
         contentHeight = cy - (y - scroll) + 20;
@@ -202,7 +202,7 @@ public final class MaredThemeTab implements MaredSettingsTab {
                                int x, int y, int w, int h,
                                boolean active, boolean hover) {
         int border = active ? t.accent
-            : (hover ? MaredUi.lighten(t.accent, 0.2f) : 0xFF333344);
+            : (hover ? MaredUi.lighten(t.accent, 0.2f) : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border);
 
         MaredUi.rect(g, x, y, x + w, y + h, t.bgPanel);
         MaredUi.outline(g, x, y, w, h, border);
@@ -231,9 +231,9 @@ public final class MaredThemeTab implements MaredSettingsTab {
 
     private int drawCheckbox(GuiGraphics g, Font font, int x, int y, int maxW,
                              String label, boolean checked) {
-        MaredUi.drawCheckbox(g, x, y + 2, 14, checked, 0xFF4A4A4A, 0xFFFF55FF);
+        MaredUi.drawCheckbox(g, x, y + 2, 14, checked, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent);
         MaredUi.text(g, font, label, x + 20, y + 5,
-            checked ? 0xFFFFFFFF : 0xFFAAAAAA);
+            checked ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim);
         return y + 18;
     }
 

@@ -1,0 +1,11 @@
+// @genesis module c817e3e5-9ad0-4e80-b655-21c771b88701
+// @genesis export 58e67a0c-2a83-43ed-8759-0d1f48f57002 condition shouldFollow | Follow only outside the stop radius
+// @genesis export aa678e20-5297-4d58-8b0c-5b6d20f13003 action follow | Navigate towards the selected player
+
+func shouldFollow($distance, $stopDistance) {
+    return $distance > $stopDistance
+}
+
+func follow($target, $speed) {
+    return ai_move_to($target, $speed)
+}

@@ -26,7 +26,7 @@ public final class MaredEditorTab implements MaredSettingsTab {
     @Override public String displayName() {
         return MaredLang.get("mared.settings.tab.editor");
     }
-    @Override public int accentColor() { return 0xFFFFAA00; }
+    @Override public int accentColor() { return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn; }
 
     @Override
     public void render(GuiGraphics g, Font font, int x, int y, int w, int h,
@@ -37,50 +37,50 @@ public final class MaredEditorTab implements MaredSettingsTab {
         int cy = y;
 
         MaredUi.text(g, font, MaredLang.get("mared.settings.auto_indent"),
-            x, cy, 0xFFFFAA00);
+            x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
         aiY0 = cy;
 
         for (MaredSettings.AutoIndent mode : MaredSettings.AutoIndent.values()) {
             boolean on = ed.autoIndent() == mode;
-            MaredUi.drawRadio(g, x, cy + 2, CB_SZ, on, 0xFFFFAA00, 0xFFFFAA00);
+            MaredUi.drawRadio(g, x, cy + 2, CB_SZ, on, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
             MaredUi.text(g, font, autoLabel(mode), x + CB_SZ + 6, cy + 5,
-                on ? 0xFFFFFFFF : 0xFFAAAAAA);
+                on ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim);
             cy += ROW_H;
         }
         cy += 8;
 
         MaredUi.text(g, font, MaredLang.get("mared.settings.indent_style"),
-            x, cy, 0xFFFFAA00);
+            x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
         indentY0 = cy;
 
         for (MaredSettings.IndentStyle style : MaredSettings.IndentStyle.values()) {
             boolean on = ed.indentStyle() == style;
-            MaredUi.drawRadio(g, x, cy + 2, CB_SZ, on, 0xFFFFAA00, 0xFFFFAA00);
+            MaredUi.drawRadio(g, x, cy + 2, CB_SZ, on, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
             MaredUi.text(g, font, indentLabel(style), x + CB_SZ + 6, cy + 5,
-                on ? 0xFFFFFFFF : 0xFFAAAAAA);
+                on ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim);
             cy += ROW_H;
         }
         cy += 8;
 
         MaredUi.text(g, font, MaredLang.get("mared.settings.backspace"),
-            x, cy, 0xFFFFAA00);
+            x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
         backspaceY = cy;
         MaredUi.drawCheckMark(g, x, cy + 2, CB_SZ, ed.backspaceRemovesIndent(),
-            0xFFFFAA00, 0xFFFFAA00);
+            com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         MaredUi.text(g, font,
             MaredLang.get("mared.settings.backspace_whole_indent"),
             x + CB_SZ + 6, cy + 5,
-            ed.backspaceRemovesIndent() ? 0xFFFFFFFF : 0xFFAAAAAA);
+            ed.backspaceRemovesIndent() ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim);
         cy += ROW_H + 16;
 
         MaredUi.text(g, font, MaredLang.get("mared.settings.hint"),
-            x, cy, 0xFFFFAA00);
+            x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 12;
         MaredUi.wrapped(g, font, MaredLang.get("mared.settings.hint_text"),
-            x, cy, w - 20, 0xFFAAAAAA);
+            x, cy, w - 20, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim);
 
         g.disableScissor();
     }

@@ -64,6 +64,8 @@ public final class ConsoleComponent extends MaredComponent
         logPanel.render(g, font,
             bounds.x(), bounds.y(), bounds.width(), bounds.height(),
             lastMouseX, lastMouseY);
+        var search=logPanel.ensureSearchBox(font,bounds.x(),bounds.y(),bounds.width());
+        if(search!=null)search.render(g,context.mouseX(),context.mouseY(),0f);
     }
 
     @Override
@@ -77,6 +79,8 @@ public final class ConsoleComponent extends MaredComponent
     public boolean mouseClicked(double mx, double my, int button) {
         if (!bounds.contains(mx, my)) return false;
         requestFocus();
+        var search=logPanel.searchBox();
+        if(search!=null){search.setFocused(button==0&&search.isMouseOver(mx,my));if(search.isFocused())return search.mouseClicked(mx,my,button);}
         capturePointer(button);
         Font font = LegacyFontBridge.font();
         return logPanel.mouseClicked(
@@ -113,6 +117,17 @@ public final class ConsoleComponent extends MaredComponent
             bounds.x(), bounds.y(), bounds.width(), bounds.height()
         );
     }
+
+    @Override public void onFocusLost(){var box=logPanel.searchBox();if(box!=null)box.setFocused(false);}
+    @Override public boolean keyPressed(int key,int scan,int mods){
+        var box=logPanel.searchBox();
+        if(box!=null&&box.isFocused())return box.keyPressed(key,scan,mods);
+        if(!isFocused())return false;
+        if((mods&2)!=0&&key==67){logPanel.copySelectedOrAll();return true;}
+        if((mods&2)!=0&&key==65){logPanel.selectAll();return true;}
+        return false;
+    }
+    @Override public boolean charTyped(char value,int mods){var box=logPanel.searchBox();return box!=null&&box.isFocused()&&box.charTyped(value,mods);}
 
     // ============================================================
     //  Narration (0.3.2 accessibility)

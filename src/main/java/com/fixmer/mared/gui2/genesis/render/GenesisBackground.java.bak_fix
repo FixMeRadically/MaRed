@@ -1,0 +1,438 @@
+package com.fixmer.mared.gui2.genesis.render;
+
+import com.fixmer.mared.gui2.genesis.GenesisCamera;
+import com.fixmer.mared.gui2.genesis.GenesisWorld;
+
+import net.minecraft.client.gui.GuiGraphics;
+
+import java.util.Random;
+
+/**
+ * Genesis 0.4.2: fully 3D background.
+ *
+ * Everything lives in world space:
+ *   - Stars: box 4400 x 2600 x 4400 around origin.
+ *   - Nebulas: cylinder at radius 1500-2400, soft ellipses.
+ *   - Light beams: rays from (0,0,0) in 3D directions.
+ *   - Dust: sphere at 500-1400.
+ *
+ * No screen-space layers. Rotating the camera rotates the whole sky.
+ * Depth-based scaling/alpha gives parallax.
+ *
+ * Perf:
+ *   - span-based Bresenham (1 fill per row segment).
+ *   - 12-band vignette (was 256).
+ *   - single soft glow instead of nested rings.
+ */
+public final class GenesisBackground {
+
+    private static final int STAR_COUNT    = 120;
+    private static final int DUST_COUNT    = 60;
+    private static final int NEBULA_COUNT  = 6;
+    private static final int BEAM_COUNT    = 4;
+
+    private static final int NEBULA_RINGS   = 3;
+    private static final int VIGNETTE_BANDS = 12;
+    private static final int VIGNETTE_ALPHA = 42;
+    private static final int BEAM_SEGMENTS  = 12;
+
+    private static final float BG_DEPTH_MIN    = 300f;
+    private static final float BG_DEPTH_MAX    = 4000f;
+    private static final float BG_SCALE_AT_MIN = 1.6f;
+    private static final float BG_SCALE_AT_MAX = 0.35f;
+    private static final float BG_ALPHA_AT_MAX = 0.35f;
+
+    // ---- objects ----
+
+    private static final class Star {
+        float x, y, z;
+        int brightness, size;
+        float phase;
+    }
+
+    private static final class Dust {
+        float x, y, z;
+        float phase;
+        int alpha;
+    }
+
+    private static final class Nebula {
+        float x, y, z;
+        float rx, ry;
+        float phase, drift;
+        int rgb, alpha;
+    }
+
+    private static final class Beam {
+        float dx, dy, dz;
+        float len;
+        float phase, speed;
+        int alpha;
+    }
+
+    private final Star[]   stars   = new Star[STAR_COUNT];
+    private final Dust[]   dust    = new Dust[DUST_COUNT];
+    private final Nebula[] nebulas = new Nebula[NEBULA_COUNT];
+    private final Beam[]   beams   = new Beam[BEAM_COUNT];
+
+    private final Integer[] nebulaOrder = new Integer[NEBULA_COUNT];
+    private final float[]   nebulaDepth = new float[NEBULA_COUNT];
+
+    public GenesisBackground() {
+        Random rng = new Random(0xFACEB00C);
+
+        for (int i = 0; i < STAR_COUNT; i++) {
+            Star s = new Star();
+            s.x = (rng.nextFloat() - 0.5f) * 4400f;
+            s.y = (rng.nextFloat() - 0.5f) * 2600f;
+            s.z = (rng.nextFloat() - 0.5f) * 4400f;
+            s.brightness = 40 + rng.nextInt(150);
+            s.size = rng.nextFloat() < 0.2f ? 2 : 1;
+            s.phase = rng.nextFloat() * (float)(Math.PI * 2);
+            stars[i] = s;
+        }
+
+        for (int i = 0; i < DUST_COUNT; i++) {
+            Dust d = new Dust();
+            float r = 500f + rng.nextFloat() * 900f;
+            float theta = rng.nextFloat() * (float)(Math.PI * 2);
+            float phi = (rng.nextFloat() - 0.5f) * 1.4f;
+            d.x = r * (float)Math.cos(theta) * (float)Math.cos(phi);
+            d.y = r * (float)Math.sin(phi);
+            d.z = r * (float)Math.sin(theta) * (float)Math.cos(phi);
+            d.phase = rng.nextFloat() * (float)(Math.PI * 2);
+            d.alpha = 30 + rng.nextInt(50);
+            dust[i] = d;
+        }
+
+        int[][] colors = {
+            {0x55, 0x66, 0xFF}, {0xFF, 0x66, 0xAA},
+            {0xAA, 0x66, 0xFF}, {0x66, 0xAA, 0xFF},
+            {0x88, 0xCC, 0xFF}, {0x66, 0xFF, 0xCC}
+        };
+        for (int i = 0; i < NEBULA_COUNT; i++) {
+            Nebula n = new Nebula();
+            float angle = i * (float)(Math.PI * 2 / NEBULA_COUNT)
+                        + rng.nextFloat() * 0.7f;
+            float r = 1500f + rng.nextFloat() * 900f;
+            n.x = (float)Math.cos(angle) * r;
+            n.y = (rng.nextFloat() - 0.5f) * 900f;
+            n.z = (float)Math.sin(angle) * r;
+            n.rx = 500f + rng.nextFloat() * 350f;
+            n.ry = 350f + rng.nextFloat() * 250f;
+            n.phase = rng.nextFloat() * (float)(Math.PI * 2);
+            n.drift = 0.04f + rng.nextFloat() * 0.05f;
+            int[] c = colors[i % colors.length];
+            n.rgb = (c[0] << 16) | (c[1] << 8) | c[2];
+            n.alpha = 40 + rng.nextInt(20);
+            nebulas[i] = n;
+            nebulaOrder[i] = i;
+        }
+
+        for (int i = 0; i < BEAM_COUNT; i++) {
+            Beam b = new Beam();
+            float angle = i * (float)(Math.PI * 2 / BEAM_COUNT)
+                        + rng.nextFloat() * 0.6f;
+            float tilt = (rng.nextFloat() - 0.5f) * 0.9f;
+            float ct = (float)Math.cos(tilt);
+            b.dx = (float)Math.cos(angle) * ct;
+            b.dy = (float)Math.sin(tilt);
+            b.dz = (float)Math.sin(angle) * ct;
+            b.len = 2500f + rng.nextFloat() * 1200f;
+            b.phase = rng.nextFloat() * (float)(Math.PI * 2);
+            b.speed = 0.5f + rng.nextFloat() * 0.6f;
+            b.alpha = 30 + rng.nextInt(15);
+            beams[i] = b;
+        }
+    }
+
+    public void render(GuiGraphics g,
+                       GenesisCamera camera,
+                       int width, int height,
+                       float timeSec,
+                       int accentRgb,
+                       float accentStrength) {
+        if (width <= 0 || height <= 0) return;
+
+        // Base sky gradient (screen-space, no accent rings).
+        drawGradient(g, width, height, accentRgb, accentStrength);
+
+        // Single subtle central glow (NOT nested rings).
+        int cx = width / 2;
+        int cy = height / 2;
+        int glowRgb = (accentStrength > 0.01f)
+            ? mixRgb(0x303050, accentRgb, accentStrength * 0.5f)
+            : 0x202030;
+        int maxGlowR = (int)(Math.min(width, height) * 0.45f);
+        drawSoftCircle(g, cx, cy, maxGlowR, glowRgb, 10, 4);
+
+        boolean reduced = GenesisWorld.isReducedMotion();
+        if (reduced) {
+            drawVignette(g, width, height);
+            return;
+        }
+
+        // Far stars (world space).
+        for (Star s : stars) {
+            float[] p = camera.worldToScreen(s.x, s.y, s.z, width, height);
+            int sx = (int)p[0];
+            int sy = (int)p[1];
+            if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
+            float tw = 0.55f + 0.45f * (float)Math.sin(timeSec * 0.8f + s.phase);
+            float df = bgDepthAlpha(p[2]);
+            int a = (int)(s.brightness * tw * df);
+            if (a < 8) continue;
+            g.fill(sx, sy, sx + s.size, sy + s.size, (a << 24) | 0x00FFFFFF);
+        }
+
+        // Nebulas (world space, back-to-front).
+        drawNebulas(g, camera, width, height, timeSec, accentRgb, accentStrength);
+
+        // Light beams from origin (world space).
+        drawLightBeams(g, camera, width, height, timeSec);
+
+        // Dust (world space, near).
+        for (Dust d : dust) {
+            float angle = timeSec * 0.03f + d.phase;
+            float x = d.x * (float)Math.cos(angle) - d.z * (float)Math.sin(angle);
+            float z = d.x * (float)Math.sin(angle) + d.z * (float)Math.cos(angle);
+            float[] p = camera.worldToScreen(x, d.y, z, width, height);
+            int sx = (int)p[0];
+            int sy = (int)p[1];
+            if (sx < 0 || sx >= width || sy < 0 || sy >= height) continue;
+            float tw = 0.6f + 0.4f * (float)Math.sin(timeSec * 1.3f + d.phase);
+            int a = (int)(d.alpha * tw * camera.depthAlpha(p[2]) / 255f);
+            if (a < 6) continue;
+            g.fill(sx, sy, sx + 1, sy + 1, (a << 24) | 0x00DDCCFF);
+        }
+
+        drawVignette(g, width, height);
+    }
+
+    // ============================================================
+    //  Depth curves for background (looser than scene clamp)
+    // ============================================================
+
+    private static float bgDepthScale(float depth) {
+        if (depth < BG_DEPTH_MIN) depth = BG_DEPTH_MIN;
+        if (depth > BG_DEPTH_MAX) depth = BG_DEPTH_MAX;
+        float t = (depth - BG_DEPTH_MIN) / (BG_DEPTH_MAX - BG_DEPTH_MIN);
+        return BG_SCALE_AT_MIN + (BG_SCALE_AT_MAX - BG_SCALE_AT_MIN) * t;
+    }
+
+    private static float bgDepthAlpha(float depth) {
+        if (depth < BG_DEPTH_MIN) depth = BG_DEPTH_MIN;
+        if (depth > BG_DEPTH_MAX) depth = BG_DEPTH_MAX;
+        float t = (depth - BG_DEPTH_MIN) / (BG_DEPTH_MAX - BG_DEPTH_MIN);
+        return 1f - t * (1f - BG_ALPHA_AT_MAX);
+    }
+
+    // ============================================================
+    //  Nebulas 3D
+    // ============================================================
+
+    private void drawNebulas(GuiGraphics g, GenesisCamera camera,
+                             int w, int h, float timeSec,
+                             int accentRgb, float accentStrength) {
+        for (int i = 0; i < NEBULA_COUNT; i++) {
+            Nebula n = nebulas[i];
+            nebulaDepth[i] = camera.toCameraSpace(n.x, n.y, n.z)[2];
+        }
+        java.util.Arrays.sort(nebulaOrder, (a, b) ->
+            Float.compare(nebulaDepth[b], nebulaDepth[a]));
+
+        for (int order = 0; order < NEBULA_COUNT; order++) {
+            Nebula nb = nebulas[nebulaOrder[order]];
+            float dx = (float)Math.sin(timeSec * nb.drift + nb.phase) * 40f;
+            float dy = (float)Math.cos(timeSec * nb.drift * 0.8f + nb.phase) * 30f;
+            float[] p = camera.worldToScreen(nb.x + dx, nb.y + dy, nb.z, w, h);
+            if (p[2] < 100f) continue;
+
+            float dScale = bgDepthScale(p[2]);
+            float dAlpha = bgDepthAlpha(p[2]);
+            float zoom = camera.zoom();
+            int cx = (int)p[0];
+            int cy = (int)p[1];
+            int rx = (int)(nb.rx * dScale * zoom);
+            int ry = (int)(nb.ry * dScale * zoom);
+            if (rx < 12 || ry < 8) continue;
+
+            if (cx + rx < -50 || cx - rx > w + 50) continue;
+            if (cy + ry < -50 || cy - ry > h + 50) continue;
+
+            int rgb = nb.rgb;
+            if (accentStrength > 0.01f) {
+                rgb = mixRgb(rgb, accentRgb, accentStrength * 0.2f);
+            }
+            int alpha = (int)(nb.alpha * dAlpha);
+            if (alpha < 4) continue;
+
+            drawSoftEllipse(g, cx, cy, rx, ry, rgb, NEBULA_RINGS, alpha);
+        }
+    }
+
+    // ============================================================
+    //  Beams from origin
+    // ============================================================
+
+    private void drawLightBeams(GuiGraphics g, GenesisCamera camera,
+                                int w, int h, float timeSec) {
+        float[] origin = camera.worldToScreen(0f, 0f, 0f, w, h);
+        if (origin[2] < 50f) return;
+        int ox = (int)origin[0];
+        int oy = (int)origin[1];
+
+        for (Beam b : beams) {
+            float pulse = 0.65f + 0.35f
+                * (float)Math.sin(timeSec * b.speed + b.phase);
+            int alpha = (int)(b.alpha * pulse);
+            if (alpha < 4) continue;
+
+            float[] end = camera.worldToScreen(
+                b.dx * b.len, b.dy * b.len, b.dz * b.len, w, h);
+            int ex = (int)end[0];
+            int ey = (int)end[1];
+
+            int px = ox, py = oy;
+            for (int i = 1; i <= BEAM_SEGMENTS; i++) {
+                float t = i / (float) BEAM_SEGMENTS;
+                int qx = (int)(ox + (ex - ox) * t);
+                int qy = (int)(oy + (ey - oy) * t);
+                float falloff = (1f - t) * (1f - t);
+                int a = (int)(falloff * alpha);
+                if (a >= 3) {
+                    drawLineFast(g, px, py, qx, qy, (a << 24) | 0x00DDE8FF);
+                }
+                px = qx;
+                py = qy;
+            }
+        }
+    }
+
+    // ============================================================
+    //  Utils
+    // ============================================================
+
+    private static void drawGradient(GuiGraphics g, int w, int h,
+                                     int accentRgb, float accentStrength) {
+        int top    = 0xFF010104;
+        int middle = 0xFF050510;
+        int bottom = 0xFF000002;
+        if (accentStrength > 0.01f) {
+            float t = accentStrength;
+            top    = mixRgb(top,    accentRgb, t * 0.15f);
+            middle = mixRgb(middle, accentRgb, t * 0.30f);
+            bottom = mixRgb(bottom, accentRgb, t * 0.08f);
+        }
+        int halfH = h / 2;
+        g.fillGradient(0, 0, w, halfH, top, middle);
+        g.fillGradient(0, halfH, w, h, middle, bottom);
+    }
+
+    private static void drawVignette(GuiGraphics g, int w, int h) {
+        int bandSize = Math.min(w, h) / 4;
+        if (bandSize <= 0) return;
+        int step = Math.max(1, bandSize / VIGNETTE_BANDS);
+        for (int i = 0; i < VIGNETTE_BANDS; i++) {
+            int offset = i * step;
+            float t = i / (float) VIGNETTE_BANDS;
+            float falloff = (1f - t) * (1f - t);
+            int alpha = (int)(falloff * VIGNETTE_ALPHA);
+            if (alpha < 2) continue;
+            int c = alpha << 24;
+            g.fill(0, offset, w, offset + step, c);
+            g.fill(0, h - offset - step, w, h - offset, c);
+            g.fill(offset, 0, offset + step, h, c);
+            g.fill(w - offset - step, 0, w - offset, h, c);
+        }
+    }
+
+    private static int mixRgb(int baseArgb, int accentRgb, float t) {
+        if (t < 0f) t = 0f;
+        if (t > 1f) t = 1f;
+        int br = (baseArgb >> 16) & 0xFF;
+        int bg = (baseArgb >> 8)  & 0xFF;
+        int bb =  baseArgb        & 0xFF;
+        int ar = (accentRgb >> 16) & 0xFF;
+        int ag = (accentRgb >> 8)  & 0xFF;
+        int ab =  accentRgb        & 0xFF;
+        int rr = (int)(br + (ar - br) * t);
+        int rg = (int)(bg + (ag - bg) * t);
+        int rb = (int)(bb + (ab - bb) * t);
+        return 0xFF000000 | (rr << 16) | (rg << 8) | rb;
+    }
+
+    private static void drawSoftCircle(GuiGraphics g, int cx, int cy,
+                                        int radius, int rgb, int alpha) {
+        GenesisTextures.blitDisc(g, cx, cy, radius, rgb, alpha);
+    }
+
+
+    private static void drawSoftEllipse(GuiGraphics g, int cx, int cy,
+                                         int rx, int ry, int rgb,
+                                         int rings, int totalAlpha) {
+        GenesisTextures.blitNebula(g, cx, cy, rx, ry, rgb, totalAlpha, rings);
+    }
+
+
+    /**
+     * Span-based Bresenham: 1 fill per row (or column) segment.
+     */
+    private static void drawLineFast(GuiGraphics g,
+                                     int x1, int y1, int x2, int y2,
+                                     int color) {
+        int dx = Math.abs(x2 - x1);
+        int dy = Math.abs(y2 - y1);
+        if (dx == 0 && dy == 0) return;
+
+        if (dx >= dy) {
+            if (x1 > x2) {
+                int t;
+                t = x1; x1 = x2; x2 = t;
+                t = y1; y1 = y2; y2 = t;
+            }
+            int sy = (y2 > y1) ? 1 : -1;
+            int err = dx / 2;
+            int y = y1;
+            int spanStart = x1;
+            for (int x = x1; x <= x2; x++) {
+                err -= dy;
+                if (err < 0) {
+                    if (x >= spanStart) {
+                        g.fill(spanStart, y, x + 1, y + 1, color);
+                    }
+                    y += sy;
+                    err += dx;
+                    spanStart = x + 1;
+                }
+            }
+            if (spanStart <= x2) {
+                g.fill(spanStart, y, x2 + 1, y + 1, color);
+            }
+        } else {
+            if (y1 > y2) {
+                int t;
+                t = x1; x1 = x2; x2 = t;
+                t = y1; y1 = y2; y2 = t;
+            }
+            int sx = (x2 > x1) ? 1 : -1;
+            int err = dy / 2;
+            int x = x1;
+            int spanStart = y1;
+            for (int y = y1; y <= y2; y++) {
+                err -= dx;
+                if (err < 0) {
+                    if (y >= spanStart) {
+                        g.fill(x, spanStart, x + 1, y + 1, color);
+                    }
+                    x += sx;
+                    err += dy;
+                    spanStart = y + 1;
+                }
+            }
+            if (spanStart <= y2) {
+                g.fill(x, spanStart, x + 1, y2 + 1, color);
+            }
+        }
+    }
+}

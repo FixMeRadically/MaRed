@@ -1,7 +1,5 @@
 package com.fixmer.mared.gui2.framework.overlay;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -10,7 +8,7 @@ import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.commands.storage.MaredCommandStorage;
 import com.fixmer.mared.gui2.framework.render.Render;
 import com.fixmer.mared.gui2.framework.render.TextUtils;
-import com.fixmer.mared.gui2.framework.render.widgets.UiControls;
+import com.fixmer.mared.technology.editor.EditorDialogStyle;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -41,39 +39,31 @@ public final class NameDialogOverlay implements Overlay {
     private static final int SCREEN_EDGE = 40;
 
     // ---- Вертикальные отступы ----
-    private static final int PAD_TOP = 20;
-    private static final int PAD_BOTTOM = 20;
-    private static final int PAD_H = 20;
+    private static final int PAD_TOP = EditorDialogStyle.PADDING;
+    private static final int PAD_BOTTOM = EditorDialogStyle.PADDING;
+    private static final int PAD_H = EditorDialogStyle.PADDING;
 
-    private static final int ROW_TITLE_H = 20;
-    private static final int ROW_LABEL_H = 18;
+    private static final int ROW_TITLE_H = 16;
+    private static final int ROW_LABEL_H = 12;
     private static final int INPUT_H = 18;
-    private static final int ROW_ERROR_H = 16;
-    private static final int ROW_CHECK_H = 16;
-    private static final int ROW_HINT_H = 14;
-    private static final int BTN_ROW_H = 24;
-    private static final int ROW_GAP = 6;
+    private static final int ROW_ERROR_H = 12;
+    private static final int ROW_CHECK_H = 14;
+    private static final int ROW_HINT_H = 12;
+    private static final int BTN_ROW_H = 20;
+    private static final int ROW_GAP = 4;
 
-    private static final int BTN_W_MIN = 100;
+    private static final int BTN_W_MIN = 64;
     private static final int BTN_H = 20;
-    private static final int BTN_GAP = 20;
+    private static final int BTN_GAP = EditorDialogStyle.BUTTON_GAP;
 
     private static final int CHECK_SIZE = 14;
-
-    private static final int TEXT         = 0xFFFFFFFF;
-    private static final int TEXT_DIM     = 0xFFAAAAAA;
-    private static final int ERROR_COLOR  = 0xFFFF5555;
-    private static final int INPUT_BG     = 0xFF0A0A10;
-    private static final int INPUT_BORDER = 0xFF4A4A4A;
-    private static final int CURSOR_COLOR = 0xFFFFFFFF;
-    private static final int CHECK_ON     = 0xFF55FF88;
-    private static final int CHECK_BRD    = 0xFF4A4A4A;
 
     private static final long ERROR_BLINK_DURATION_MS = 3000;
     private static final long ERROR_BLINK_HALF_PERIOD_MS = 300;
 
     // ---- Config ----
     private final String title;
+    private String acceptLabelKey = "mared.dialog.create";
     private final Consumer<String> onAcceptSimple;
     private final BiConsumer<String, Boolean> onAcceptWithFlag;
     private final int accentColor;
@@ -83,6 +73,7 @@ public final class NameDialogOverlay implements Overlay {
     // ---- Состояние ----
     private final StringBuilder value = new StringBuilder();
     private int cursor = 0;
+    private int textScroll = 0;
     private int selAnchor = -1;
     private int selCursor = -1;
 
@@ -91,6 +82,13 @@ public final class NameDialogOverlay implements Overlay {
     private long errorBlinkStart = 0;
 
     private boolean closeRequested = false;
+    private boolean accepted;
+    private Runnable cancelHandler = () -> {};
+    public NameDialogOverlay onCancel(Runnable handler) {
+        cancelHandler = java.util.Objects.requireNonNull(handler);
+        return this;
+    }
+    @Override public void onClose() { if (!accepted) cancelHandler.run(); }
 
     // ---- Layout (рассчитывается в render) ----
     private int panelX, panelY, panelW, panelH;
@@ -148,6 +146,21 @@ public final class NameDialogOverlay implements Overlay {
         this.nameValidator = nameValidator;
     }
 
+    /** Configure the action without introducing another dialog implementation. */
+    public NameDialogOverlay acceptLabel(String key) {
+        acceptLabelKey = java.util.Objects.requireNonNull(key);
+        return this;
+    }
+
+    public NameDialogOverlay initialValue(String initial) {
+        value.setLength(0);
+        String name = initial == null ? "" : initial;
+        value.append(name, 0, Math.min(name.length(), MaredCommandStorage.MAX_NAME_LEN));
+        cursor = value.length();
+        selectAll();
+        return this;
+    }
+
     @Override public OverlayLayer layer() { return OverlayLayer.MODAL; }
     @Override public boolean isInputBarrier() { return true; }
     @Override public boolean closeOnEscape() { return true; }
@@ -164,7 +177,7 @@ public final class NameDialogOverlay implements Overlay {
 
     private void computeLayout(Font font, int screenW, int screenH) {
         String cancelText = MaredLang.get("mared.dialog.cancel");
-        String okText     = MaredLang.get("mared.dialog.create");
+        String okText     = MaredLang.get(acceptLabelKey);
         String labelText  = MaredLang.get("mared.dialog.name_label");
         String checkText  = showPersistentOption
             ? MaredLang.get("mared.dialog.persistent") : "";
@@ -191,9 +204,9 @@ public final class NameDialogOverlay implements Overlay {
                     + PAD_H * 2;
         needed = Math.max(needed, btnsRow);
 
-        int maxAllowed = Math.max(PANEL_W_MIN,
+        int maxAllowed = Math.max(1,
             Math.min(PANEL_W_MAX, screenW - SCREEN_EDGE * 2));
-        panelW = clamp(needed + PANEL_W_PAD, PANEL_W_MIN, maxAllowed);
+        panelW = clamp(needed + PANEL_W_PAD, Math.min(PANEL_W_MIN, maxAllowed), maxAllowed);
 
         // Высота — сумма блоков.
         int h = PAD_TOP;
@@ -222,6 +235,9 @@ public final class NameDialogOverlay implements Overlay {
             font.width(cancelText) + 30);
         int okW = Math.max(BTN_W_MIN,
             font.width(okText) + 30);
+        int buttonLimit = Math.max(1, (innerW - BTN_GAP) / 2);
+        cancelW = Math.min(cancelW, buttonLimit);
+        okW = Math.min(okW, buttonLimit);
         int totalW = cancelW + BTN_GAP + okW;
         int startX = panelX + (panelW - totalW) / 2;
 
@@ -262,18 +278,19 @@ public final class NameDialogOverlay implements Overlay {
         computeLayout(font, screenW, screenH);
 
         Render.dialogBackground(g, screenW, screenH);
-        Render.dialogPanel(g, panelX, panelY, panelW, panelH, accentColor);
+        EditorDialogStyle style = EditorDialogStyle.active(accentColor);
+        style.panel(g, panelX, panelY, panelW, panelH);
 
         // Title
-        Render.text(g, font, title,
-            panelX + PAD_H, panelY + PAD_TOP, accentColor);
+        Render.text(g, font, TextUtils.ellipsize(font, title, panelW - PAD_H * 2),
+            panelX + PAD_H, panelY + PAD_TOP, style.text());
 
         // Label
         Render.text(g, font, MaredLang.get("mared.dialog.name_label"),
             panelX + PAD_H,
-            panelY + PAD_TOP + ROW_TITLE_H + ROW_GAP, TEXT_DIM);
+            panelY + PAD_TOP + ROW_TITLE_H + ROW_GAP, style.muted());
 
-        drawInput(g, font);
+        drawInput(g, font, style);
 
         // Error
         if (!errorMessage.isEmpty()) {
@@ -283,8 +300,8 @@ public final class NameDialogOverlay implements Overlay {
                 || ((elapsed / ERROR_BLINK_HALF_PERIOD_MS) % 2 == 0);
             if (visible) {
                 int errY = inputY + INPUT_H + ROW_GAP;
-                Render.text(g, font, errorMessage,
-                    panelX + PAD_H, errY, ERROR_COLOR);
+                Render.text(g, font, TextUtils.ellipsize(font, errorMessage, panelW - PAD_H * 2),
+                    panelX + PAD_H, errY, style.danger());
             }
         }
 
@@ -293,61 +310,63 @@ public final class NameDialogOverlay implements Overlay {
             int hitW = CHECK_SIZE + 6 + checkLabelW;
             boolean hovered = Render.hovered(mouseX, mouseY,
                 checkX, checkY, hitW, CHECK_SIZE);
-            UiControls.drawCheckbox(g, checkX, checkY, CHECK_SIZE,
+            Render.drawCheckbox(g, checkX, checkY, CHECK_SIZE,
                 persistent,
-                hovered ? accentColor : CHECK_BRD, CHECK_ON);
+                hovered ? style.accent() : style.border(), style.accent(), style.input());
 
             Render.text(g, font, MaredLang.get("mared.dialog.persistent"),
                 checkX + CHECK_SIZE + 6, checkY + 3,
-                persistent ? CHECK_ON : TEXT_DIM);
+                persistent ? style.accent() : style.muted());
 
             Render.text(g, font, MaredLang.get("mared.dialog.persistent_hint"),
-                checkX, checkY + CHECK_SIZE + 4, TEXT_DIM);
+                checkX, checkY + CHECK_SIZE + 4, style.muted());
         }
 
         // Buttons.
         boolean cancelHover = Render.hovered(mouseX, mouseY,
             cancelX, cancelY, cancelW, BTN_H);
-        UiControls.button(g, font, cancelX, cancelY, cancelW, BTN_H,
-            MaredLang.get("mared.dialog.cancel"),
-            0xFF3A2020,
-            cancelHover ? 0xFFFF5555 : 0xFF4A4A4A,
-            cancelHover, TEXT);
+        style.button(g, font, cancelX, cancelY, cancelW, BTN_H,
+            MaredLang.get("mared.dialog.cancel"), cancelHover, false, false);
 
         boolean okHover = Render.hovered(mouseX, mouseY,
             okX, okY, okW, BTN_H);
-        UiControls.button(g, font, okX, okY, okW, BTN_H,
-            MaredLang.get("mared.dialog.create"),
-            0xFF203A20,
-            okHover ? 0xFF55FF88 : 0xFF4A4A4A,
-            okHover, TEXT);
+        style.button(g, font, okX, okY, okW, BTN_H,
+            MaredLang.get(acceptLabelKey), okHover, true, false);
     }
 
-    private void drawInput(GuiGraphics g, Font font) {
+    private void drawInput(GuiGraphics g, Font font, EditorDialogStyle style) {
         Render.rect(g, inputX, inputY, inputX + inputW, inputY + INPUT_H,
-            INPUT_BG);
-        Render.outline(g, inputX, inputY, inputW, INPUT_H, INPUT_BORDER);
+            style.input());
+        Render.outline(g, inputX, inputY, inputW, INPUT_H, style.border());
 
         String text = value.toString();
         int textY = inputY + (INPUT_H - 8) / 2;
+        int available = Math.max(1, inputW - 9);
+        int caret = font.width(text.substring(0, cursor));
+        if (caret < textScroll) textScroll = caret;
+        if (caret > textScroll + available) textScroll = caret - available;
+        textScroll = Math.max(0, Math.min(textScroll, Math.max(0, font.width(text) - available)));
+        g.enableScissor(inputX + 2, inputY + 1, inputX + inputW - 2, inputY + INPUT_H - 1);
+        try {
 
-        if (hasSelection()) {
-            int lo = selLo();
-            int hi = selHi();
-            int xLo = inputX + 4 + font.width(text.substring(0, lo));
-            int xHi = inputX + 4 + font.width(text.substring(0, hi));
-            Render.rect(g, xLo, inputY + 2, xHi, inputY + INPUT_H - 2,
-                0x804466CC);
-        }
+            if (hasSelection()) {
+                int lo = selLo();
+                int hi = selHi();
+                int xLo = inputX + 4 - textScroll + font.width(text.substring(0, lo));
+                int xHi = inputX + 4 - textScroll + font.width(text.substring(0, hi));
+                Render.rect(g, xLo, inputY + 2, xHi, inputY + INPUT_H - 2,
+                    style.selection());
+            }
 
-        Render.textNoShadow(g, font, text, inputX + 4, textY, TEXT);
+            Render.textNoShadow(g, font, text, inputX + 4 - textScroll, textY, style.text());
 
-        long now = System.currentTimeMillis();
-        if ((now / 500) % 2 == 0) {
-            int cx = inputX + 4 + font.width(text.substring(0, cursor));
-            Render.rect(g, cx, inputY + 3, cx + 1, inputY + INPUT_H - 3,
-                CURSOR_COLOR);
-        }
+            long now = System.currentTimeMillis();
+            if ((now / 500) % 2 == 0) {
+                int cx = inputX + 4 - textScroll + font.width(text.substring(0, cursor));
+                Render.rect(g, cx, inputY + 3, cx + 1, inputY + INPUT_H - 3,
+                    style.text());
+            }
+        } finally { g.disableScissor(); }
     }
 
     // ============================================================
@@ -554,7 +573,7 @@ public final class NameDialogOverlay implements Overlay {
 
     private void placeCursorFromMouse(double mx) {
         Font font = Minecraft.getInstance().font;
-        int relX = (int) mx - (inputX + 4);
+        int relX = (int) mx - (inputX + 4) + textScroll;
         if (relX < 0) { cursor = 0; return; }
         String text = value.toString();
         int best = text.length();
@@ -586,14 +605,14 @@ public final class NameDialogOverlay implements Overlay {
         final boolean flag = persistent;
         final String finalName = name;
 
-        if (showPersistentOption && onAcceptWithFlag != null) {
-            try { onAcceptWithFlag.accept(finalName, flag); }
-            catch (Throwable ignored) { }
-        } else if (onAcceptSimple != null) {
-            try { onAcceptSimple.accept(finalName); }
-            catch (Throwable ignored) { }
+        try {
+            if (onAcceptWithFlag != null) onAcceptWithFlag.accept(finalName, flag);
+            else if (onAcceptSimple != null) onAcceptSimple.accept(finalName);
+        } catch (RuntimeException error) {
+            showError(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+            return;
         }
-
+        accepted = true;
         closeRequested = true;
     }
 

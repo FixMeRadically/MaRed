@@ -1,0 +1,75 @@
+package com.fixmer.mared.gui2.welcome.render.environment;
+
+import com.fixmer.mared.gui2.welcome.render.environment.layers.GlowFieldLayer;
+import com.fixmer.mared.gui2.welcome.render.environment.layers.GradientSkyLayer;
+import com.fixmer.mared.gui2.welcome.render.environment.layers.NebulaLayer;
+
+import net.minecraft.client.gui.GuiGraphics;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Genesis: РєРѕРЅС‚СЂРѕР»Р»РµСЂ СЃСЂРµРґС‹.
+ *
+ * РџРѕСЂСЏРґРѕРє СЃР»РѕС‘РІ (СЃРЅРёР·Сѓ РІРІРµСЂС…):
+ *   1. GradientSkyLayer   - Р±Р°Р·Р°
+ *   2. NebulaLayer        - РјСЏРіРєРёРµ РѕР±Р»Р°РєР° (parallax 0.15)
+ *   3. GlowFieldLayer     - РѕР±С‰Р°СЏ Р°С‚РјРѕСЃС„РµСЂР°
+ *   4. CoreObjectLayer    - Genesis Core (parallax 0.30 + shear)
+ *
+ * Glow РёРґС‘С‚ РџР•Р Р•Р” Core РЅР°РјРµСЂРµРЅРЅРѕ: glow - Р°С‚РјРѕСЃС„РµСЂРЅР°СЏ РїРѕРґСЃРІРµС‚РєР°
+ * СЃР·Р°РґРё, Core - РѕР±СЉРµРєС‚ РїРµСЂРµРґРЅРµРіРѕ РїР»Р°РЅР°. Р•СЃР»Рё РїРѕРјРµРЅСЏС‚СЊ РјРµСЃС‚Р°РјРё,
+ * Core РїРѕС‚РµСЂСЏРµС‚ РіР»СѓР±РёРЅСѓ Рё "РїСЂРёРєР»РµРёС‚СЃСЏ" Рє glow.
+ */
+public final class WelcomeEnvironment {
+
+    private final EnvironmentTime   time   = new EnvironmentTime();
+    private final EnvironmentCamera camera = new EnvironmentCamera();
+    private final List<EnvironmentLayer> layers = new ArrayList<>(8);
+
+    private EnvironmentPalette palette = EnvironmentPalette.defaultPalette();
+    private int lastAccent = 0;
+
+    public WelcomeEnvironment() {
+        layers.add(new GradientSkyLayer());
+        layers.add(new NebulaLayer());
+        layers.add(new GlowFieldLayer());
+        layers.add(new CoreObjectLayer());
+    }
+
+    public void tick() {
+        time.tick();
+        camera.tick();
+    }
+
+    public void setAccent(int accent) {
+        int clean = 0xFF000000 | (accent & 0x00FFFFFF);
+        if (clean == lastAccent) return;
+        lastAccent = clean;
+        palette = EnvironmentPalette.fromAccent(clean);
+    }
+
+    public void setMouse(double mouseX, double mouseY, int width, int height) {
+        if (width <= 0 || height <= 0) {
+            camera.reset();
+            return;
+        }
+        float nx = (float)(mouseX / width)  * 2f - 1f;
+        float ny = (float)(mouseY / height) * 2f - 1f;
+        camera.setTarget(nx, ny);
+        camera.setRotationTarget(nx, ny);
+    }
+
+    public void render(GuiGraphics g, int width, int height) {
+        for (int i = 0; i < layers.size(); i++) {
+            EnvironmentLayer layer = layers.get(i);
+            if (!layer.isEnabled()) continue;
+            layer.render(g, width, height, time, palette, camera);
+        }
+    }
+
+    public EnvironmentPalette palette() { return palette; }
+    public EnvironmentTime    time()    { return time; }
+    public EnvironmentCamera  camera()  { return camera; }
+}

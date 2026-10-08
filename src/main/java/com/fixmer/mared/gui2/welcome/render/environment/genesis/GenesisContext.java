@@ -1,0 +1,40 @@
+package com.fixmer.mared.gui2.welcome.render.environment.genesis;
+
+import com.fixmer.mared.gui2.modules.ModuleId;
+
+/**
+ * Genesis: СЃРЅРёРјРѕРє СЃРѕСЃС‚РѕСЏРЅРёСЏ Genesis РЅР° С‚РµРєСѓС‰РёР№ РєР°РґСЂ.
+ *
+ * Immutable record. РџРµСЂРµСЃРѕР±РёСЂР°РµС‚СЃСЏ РєР°Р¶РґС‹Р№ render С‡РµСЂРµР·
+ * GenesisSequence.contextAt(). РќРµ С…СЂР°РЅРёС‚СЃСЏ РЅРёРіРґРµ.
+ *
+ * lifetime - Р°Р±СЃРѕР»СЋС‚РЅРѕРµ РІСЂРµРјСЏ, РїСЂРѕС€РµРґС€РµРµ СЃ РјРѕРјРµРЅС‚Р° РІС…РѕРґР° РІ LIVING.
+ *           РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РґР»СЏ "РґС‹С…Р°РЅРёСЏ" СЏРґСЂР° РІ Р±РµСЃСЃРјРµСЂС‚РЅРѕР№ С„Р°Р·Рµ.
+ *           Р•СЃР»Рё СЃС‚Р°РґРёСЏ != LIVING, lifetime = 0.
+ *
+ * module - РїРѕСЃР»РµРґРЅРёР№ РјРѕРґСѓР»СЊ РёР· CoreMemory, РјРѕР¶РµС‚ Р±С‹С‚СЊ null.
+ *          Р’РёР·СѓР°Р»СЊРЅРѕ РїРѕРєР° РЅРµ РІР»РёСЏРµС‚, Р±СѓРґРµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊСЃСЏ РІ 1.5.38.5.
+ */
+public record GenesisContext(
+    GenesisStage stage,
+    float stageProgress,
+    float totalProgress,
+    float lifetime,
+    boolean fastMode,
+    ModuleId module
+) {
+
+    public boolean isLive() {
+        return stage == GenesisStage.LIVING;
+    }
+
+    /** РЈРґРѕР±РЅС‹Р№ С€РѕСЂС‚РєР°С‚: СЃС‚Р°РґРёСЏ РёРґС‘С‚ РІ РїРµСЂРІРѕР№ РїРѕР»РѕРІРёРЅРµ. */
+    public boolean earlyInStage() {
+        return stageProgress < 0.5f;
+    }
+
+    /** РЈРґРѕР±РЅС‹Р№ С€РѕСЂС‚РєР°С‚: СЃС‚Р°РґРёСЏ РёРґС‘С‚ РІРѕ РІС‚РѕСЂРѕР№ РїРѕР»РѕРІРёРЅРµ. */
+    public boolean lateInStage() {
+        return stageProgress >= 0.5f;
+    }
+}

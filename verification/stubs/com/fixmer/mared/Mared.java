@@ -1,0 +1,1 @@
+package com.fixmer.mared; public class Mared { public static final Logger LOGGER=new Logger(); public static class Logger { public void warn(String s,Object...args){} public void error(String s,Object...args){} } }

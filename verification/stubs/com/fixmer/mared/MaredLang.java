@@ -1,0 +1,1 @@
+package com.fixmer.mared; public class MaredLang {public static String get(String s){return s;} public static String format(String s,Object... args){return s;}}

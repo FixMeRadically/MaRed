@@ -37,6 +37,9 @@ import net.minecraft.network.chat.Component;
 public final class ExplorerComponent extends MaredPanel
         implements NarratableComponent {
 
+    private boolean filesOnly;
+    public void setFilesOnly(boolean value){filesOnly=value;if(value){commands.clear();if(filter!=null)filter.setFocused(false);}}
+
     private static final int ROW_H = 14;
     private static final int PAD = 4;
     private static final int HEADER_H = 14;
@@ -60,6 +63,19 @@ public final class ExplorerComponent extends MaredPanel
     private int hoveredCommandIndex = -1;
     private int selectedCommandIndex = -1;
     private int commandsScroll = 0;
+    private MaredCommandRegistry.Source source=MaredCommandRegistry.Source.MC;
+    private long catalogRevision=-1;
+    private net.minecraft.client.gui.components.EditBox filter;
+    private void reloadCommands() {
+        String selected=selectedCommandIndex>=0&&selectedCommandIndex<commands.size()?commands.get(selectedCommandIndex).name:null;
+        commands.clear();commands.addAll(MaredCommandRegistry.search(filter==null?"":filter.getValue(),source,null));
+        selectedCommandIndex=-1;
+        for(int i=0;i<commands.size();i++)if(commands.get(i).name.equals(selected)){selectedCommandIndex=i;break;}
+        catalogRevision=MaredCommandRegistry.revision();clampScroll();
+    }
+    @Override public void onFocusLost(){if(filter!=null)filter.setFocused(false);}
+    @Override public boolean keyPressed(int key,int scan,int mods){return filter!=null&&filter.isFocused()&&filter.keyPressed(key,scan,mods);}
+    @Override public boolean charTyped(char c,int mods){return filter!=null&&filter.isFocused()&&filter.charTyped(c,mods);}
 
     public ExplorerComponent(StudioEventBus bus) {
         this.bus = bus;
@@ -93,7 +109,7 @@ public final class ExplorerComponent extends MaredPanel
         }
 
         try {
-            commands.addAll(MaredCommandRegistry.all());
+            if(!filesOnly)reloadCommands();
         } catch (Throwable t) {
             Mared.LOGGER.warn(
                 "[studio] failed to load registry", t);
@@ -126,14 +142,16 @@ public final class ExplorerComponent extends MaredPanel
 
     private int filesListY() { return bounds.y() + HEADER_H; }
     private int filesListH() {
+        if(filesOnly)return Math.max(0,bounds.height()-HEADER_H);
         int half = (bounds.height() - SPLIT_GAP) / 2;
         return Math.max(20, half - HEADER_H);
     }
     private int commandsHeaderY() {
         return filesListY() + filesListH() + SPLIT_GAP;
     }
-    private int commandsListY()   { return commandsHeaderY() + HEADER_H; }
+    private int commandsListY()   { return commandsHeaderY() + HEADER_H + 16; }
     private int commandsListH()   {
+        if(filesOnly)return 0;
         return Math.max(20, bounds.bottom() - commandsListY());
     }
     private int filesVisibleRows()    { return Math.max(1, filesListH() / ROW_H); }
@@ -143,27 +161,28 @@ public final class ExplorerComponent extends MaredPanel
 
     @Override
     protected void safeRender(MaredRenderContext ctx) {
-        super.safeRender(ctx);
+        if(!filesOnly&&catalogRevision!=MaredCommandRegistry.revision())reloadCommands();
+        ctx.graphics().fill(bounds.x(),bounds.y(),bounds.right(),bounds.bottom(),com.fixmer.mared.technology.editor.GenesisEditorVisuals.panel());
         GuiGraphics g = ctx.graphics();
         Font font = ctx.font();
 
-        g.drawString(font, "Files", bounds.x() + PAD, bounds.y() + 3,
-            ThemeColors.muted(), false);
+        g.drawString(font, com.fixmer.mared.technology.editor.EditorText.translate("Files"), bounds.x() + PAD, bounds.y() + 3,
+            com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
 
         int px = plusX();
         int py = plusY();
-        int bg = plusHover ? ThemeColors.hover() : 0xFF252530;
-        int border = plusHover ? ThemeColors.accent() : 0xFF3A3A4A;
+        int bg = plusHover ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised();
+        int border = plusHover ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge();
         g.fill(px, py, px + PLUS_SIZE, py + PLUS_SIZE, bg);
         g.renderOutline(px, py, PLUS_SIZE, PLUS_SIZE, border);
         g.drawString(font, "+",
             px + PLUS_SIZE / 2 - font.width("+") / 2,
             py + PLUS_SIZE / 2 - 4,
-            ThemeColors.accent(), false);
+            com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent(), false);
 
         if (files.isEmpty()) {
-            g.drawString(font, "(empty)",
-                bounds.x() + PAD, filesListY() + 2, ThemeColors.muted(), false);
+            g.drawString(font, com.fixmer.mared.technology.editor.EditorText.translate("(empty)"),
+                bounds.x() + PAD, filesListY() + 2, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
         } else {
             int visible = filesVisibleRows();
             int end = Math.min(files.size(), filesScroll + visible);
@@ -173,17 +192,25 @@ public final class ExplorerComponent extends MaredPanel
             }
         }
 
-        int sepY = commandsHeaderY() - SPLIT_GAP / 2;
-        g.fill(bounds.x(), sepY, bounds.right(), sepY + 1, 0x33FFFFFF);
+        if(filesOnly)return;
 
-        g.drawString(font, "Commands (" + commands.size() + ")",
-            bounds.x() + PAD, commandsHeaderY() + 3,
-            ThemeColors.muted(), false);
+        int sepY = commandsHeaderY() - SPLIT_GAP / 2;
+        g.fill(bounds.x(), sepY, bounds.right(), sepY + 1, com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge());
+
+        g.drawString(font, source.name()+" ("+commands.size()+")",bounds.x()+PAD,commandsHeaderY()+3,com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(),false);
+        int switchX=bounds.right()-46;
+        g.drawString(font,"MC",switchX,commandsHeaderY()+3,source==MaredCommandRegistry.Source.MC?com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent():com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(),false);
+        g.drawString(font,"MR",switchX+24,commandsHeaderY()+3,source==MaredCommandRegistry.Source.MR?com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent():com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(),false);
+        if(filter==null){
+            filter=new net.minecraft.client.gui.components.EditBox(font,0,0,80,12,Component.literal("Filter commands"));
+            filter.setMaxLength(128);filter.setBordered(false);filter.setHint(Component.literal("Filter…"));filter.setResponder(value->{commandsScroll=0;reloadCommands();});
+        }
+        filter.setX(bounds.x()+PAD);filter.setY(commandsHeaderY()+HEADER_H+1);filter.setWidth(Math.max(20,bounds.width()-PAD*2));filter.render(g,ctx.mouseX(),ctx.mouseY(),0f);
 
         if (commands.isEmpty()) {
-            g.drawString(font, "(none loaded)",
+            g.drawString(font, "(no matches)",
                 bounds.x() + PAD, commandsListY() + 2,
-                ThemeColors.muted(), false);
+                com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
             return;
         }
         int cVisible = commandsVisibleRows();
@@ -201,19 +228,19 @@ public final class ExplorerComponent extends MaredPanel
 
         if (selected) {
             g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1,
-                ThemeColors.hover());
+                com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised());
         } else if (hovered) {
             g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1,
-                0x33FFFFFF);
+                com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge());
         }
 
         // 0.3.2: persistent — из модели, не из Storage.
         if (entry.persistent()) {
-            g.fill(bounds.x() + 1, y, bounds.x() + 3, y + ROW_H - 1, 0xFF55FF88);
+            g.fill(bounds.x() + 1, y, bounds.x() + 3, y + ROW_H - 1, com.fixmer.mared.technology.editor.GenesisEditorVisuals.success());
         }
 
-        int color = selected ? ThemeColors.accent() : ThemeColors.text();
-        g.drawString(font, entry.name(),
+        int color = selected ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.text();
+        g.drawString(font, ellipsize(font,entry.name(),Math.max(0,bounds.width()-PAD*2-8)),
             bounds.x() + PAD + 4, y + 3, color, false);
     }
 
@@ -222,13 +249,13 @@ public final class ExplorerComponent extends MaredPanel
         boolean hovered = (i == hoveredCommandIndex);
         if (selected) {
             g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1,
-                ThemeColors.hover());
+                com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised());
         } else if (hovered) {
             g.fill(bounds.x() + 1, y, bounds.right() - 1, y + ROW_H - 1,
-                0x33FFFFFF);
+                com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge());
         }
         MaredCommandRegistry.CommandInfo info = commands.get(i);
-        int color = selected ? ThemeColors.accent() : ThemeColors.text();
+        int color = selected ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.text();
         int maxW = bounds.width() - PAD * 2 - 6;
         g.drawString(font, ellipsize(font, info.name, maxW),
             bounds.x() + PAD, y + 3, color, false);
@@ -272,11 +299,18 @@ public final class ExplorerComponent extends MaredPanel
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
+        if(bounds.contains(mx,my)&&button==0&&my>=commandsHeaderY()&&my<commandsHeaderY()+HEADER_H&&mx>=bounds.right()-46) {
+            source=mx<bounds.right()-22?MaredCommandRegistry.Source.MC:MaredCommandRegistry.Source.MR;
+            selectedCommandIndex=-1;commandsScroll=0;reloadCommands();bus.publish(new StudioEvents.CommandSelectedEvent(null));return true;
+        }
+        if(filter!=null&&filter.isMouseOver(mx,my)&&button==0){requestFocus();filter.setFocused(true);return filter.mouseClicked(mx,my,button);}
+        if(filter!=null)filter.setFocused(false);
+
         if (!bounds.contains(mx, my)) return false;
 
         requestFocus();
 
-        if (button == 0 && plusHover) {
+        if (button == 0 && mx>=plusX()&&mx<plusX()+PLUS_SIZE&&my>=plusY()&&my<plusY()+PLUS_SIZE) {
             bus.publish(new StudioEvents.RequestNewFileEvent());
             return true;
         }
@@ -311,7 +345,7 @@ public final class ExplorerComponent extends MaredPanel
             if (idx < 0 || idx >= commands.size()) return true;
             if (idx == selectedCommandIndex) return true;
             selectedCommandIndex = idx;
-            MaredCommandRegistry.CommandInfo info = commands.get(idx);
+            MaredCommandRegistry.CommandInfo info = MaredCommandRegistry.findByName(commands.get(idx).name,source);
             bus.publish(new StudioEvents.CommandSelectedEvent(info));
             bus.publish(StudioEvents.LogEvent.legacy(
                 "[studio] selected command: " + info.name));

@@ -1,164 +1,503 @@
 package com.fixmer.mared.gui2.framework.core;
 
-/**
- * Базовый компонент GUI2 MaRed.
- *
- * 0.3.1 (FocusManager):
- *   - focused больше не локальное boolean-поле. Делегирует в
- *     FocusManager.
- *   - focusable(), onFocusGained()/onFocusLost().
- *
- * 0.3.1 (PointerCaptureManager):
- *   - Компонент может захватить pointer на время drag через
- *     capturePointer(button). До mouseReleased все события идут
- *     только ему.
- *   - Освобождение — автоматическое в MaredContainer/Screen после
- *     mouseReleased, или явное через releasePointer().
- */
+
+import java.util.ArrayList;
+import java.util.List;
+
+
+
 public abstract class MaredComponent {
 
-    protected MaredBounds bounds = new MaredBounds(0, 0, 0, 0);
+
+    protected MaredBounds bounds =
+            new MaredBounds(0,0,0,0);
+
 
     protected boolean visible = true;
+
     protected boolean enabled = true;
 
+
+    protected final List<MaredComponent> children =
+            new ArrayList<>();
+
+
     private FocusManager focusManager;
+
     private PointerCaptureManager pointerManager;
 
-    // ============================================================
-    //  Attach (см. FocusManager.attachTo / PointerCaptureManager.attachTo)
-    // ============================================================
 
-    public void attachFocusManager(FocusManager fm) {
-        this.focusManager = fm;
-    }
-
-    public void attachPointerManager(PointerCaptureManager pm) {
-        this.pointerManager = pm;
-    }
 
     // ============================================================
-    //  Focus
+    // Children
     // ============================================================
 
-    public boolean isFocused() {
-        return focusManager != null && focusManager.isFocused(this);
+
+    public void addChild(
+            MaredComponent component
+    ){
+
+        if(component != null){
+
+            children.add(component);
+
+        }
+
     }
 
-    public void requestFocus() {
-        if (focusManager != null) focusManager.request(this);
+
+
+    public void removeChild(
+            MaredComponent component
+    ){
+
+        children.remove(component);
+
     }
 
-    public void clearFocus() {
-        if (focusManager != null) focusManager.clear(this);
+
+
+    public List<MaredComponent> children(){
+
+        return children;
+
     }
 
-    /** @deprecated используйте requestFocus()/clearFocus(). */
+
+
+
+    // ============================================================
+    // Managers
+    // ============================================================
+
+
+    public void attachFocusManager(
+            FocusManager manager
+    ){
+
+        this.focusManager = manager;
+
+    }
+
+
+
+    public void attachPointerManager(
+            PointerCaptureManager manager
+    ){
+
+        this.pointerManager = manager;
+
+    }
+
+
+
+
+    // ============================================================
+    // Focus
+    // ============================================================
+
+
+    public boolean isFocused(){
+
+        return focusManager != null
+                &&
+                focusManager.isFocused(this);
+
+    }
+
+
+
+    public void requestFocus(){
+
+        if(focusManager != null){
+
+            focusManager.request(this);
+
+        }
+
+    }
+
+
+
+    public void clearFocus(){
+
+        if(focusManager != null){
+
+            focusManager.clear(this);
+
+        }
+
+    }
+
+
+
     @Deprecated
-    public void setFocused(boolean focused) {
-        if (focused) requestFocus();
-        else clearFocus();
+    public void setFocused(
+            boolean focused
+    ){
+
+        if(focused){
+
+            requestFocus();
+
+        }
+        else{
+
+            clearFocus();
+
+        }
+
     }
 
-    public boolean focusable() { return false; }
 
-    public void onFocusGained() {}
-    public void onFocusLost() {}
+
+    public boolean focusable(){
+
+        return false;
+
+    }
+
+
+
+    public void onFocusGained(){}
+
+
+    public void onFocusLost(){}
+
+
+
 
     // ============================================================
-    //  Pointer capture
+    // Pointer
     // ============================================================
 
-    /**
-     * Захватить pointer для кнопки button.
-     * Обычно вызывается в mouseClicked/mousePressed при старте drag.
-     */
-    public void capturePointer(int button) {
-        if (pointerManager != null) pointerManager.capture(this, button);
+
+    public void capturePointer(
+            int button
+    ){
+
+        if(pointerManager != null){
+
+            pointerManager.capture(
+                    this,
+                    button
+            );
+
+        }
+
     }
 
-    /** Освободить pointer, если он удерживается этим компонентом. */
-    public void releasePointer() {
-        if (pointerManager != null) pointerManager.release(this);
+
+
+
+
+    public void releasePointer(){
+
+        if(pointerManager != null){
+
+            pointerManager.release(this);
+
+        }
+
     }
 
-    /** Удерживает ли этот компонент pointer. */
-    public boolean hasPointerCapture() {
-        return pointerManager != null && pointerManager.isCapturedBy(this);
-    }
 
-    public boolean hasPointerCapture(int button) {
+
+
+
+    public boolean hasPointerCapture(){
+
         return pointerManager != null
-            && pointerManager.isCapturedBy(this)
-            && pointerManager.button() == button;
+                &&
+                pointerManager.isCapturedBy(this);
+
     }
 
-    /** Кто сейчас удерживает pointer для указанной кнопки, или null. */
-    protected MaredComponent pointerOwner(int button) {
-        if (pointerManager == null) return null;
-        if (!pointerManager.isCapturedForButton(button)) return null;
+
+
+
+
+    public boolean hasPointerCapture(
+            int button
+    ){
+
+        return pointerManager != null
+                &&
+                pointerManager.isCapturedBy(this)
+                &&
+                pointerManager.button() == button;
+
+    }
+
+
+
+
+
+    protected MaredComponent pointerOwner(
+            int button
+    ){
+
+        if(pointerManager == null){
+
+            return null;
+
+        }
+
+
+        if(!pointerManager.isCapturedForButton(button)){
+
+            return null;
+
+        }
+
+
         return pointerManager.owner();
+
     }
 
-    /** Кто сейчас удерживает pointer (для любой кнопки), или null. */
-    protected MaredComponent pointerOwner() {
-        return pointerManager != null ? pointerManager.owner() : null;
-    }
+
+
+
 
     // ============================================================
-    //  Рендер
+    // Render
     // ============================================================
 
-    public final void render(MaredRenderContext context) {
-        if (!visible) return;
+
+    public final void render(
+            MaredRenderContext context
+    ){
+
+        if(!visible){
+
+            return;
+
+        }
+
+
         safeRender(context);
+
+
+
+        for(MaredComponent child : children){
+
+            child.render(context);
+
+        }
+
     }
 
-    protected abstract void safeRender(MaredRenderContext context);
+
+
+    protected abstract void safeRender(
+            MaredRenderContext context
+    );
+
+
+
+
 
     // ============================================================
-    //  Layout / состояние
+    // Layout
     // ============================================================
 
-    public void layout(MaredBounds bounds) { this.bounds = bounds; }
-    public MaredBounds bounds() { return bounds; }
 
-    public boolean isVisible() { return visible; }
-    public void setVisible(boolean visible) { this.visible = visible; }
+    public void layout(
+            MaredBounds bounds
+    ){
 
-    public boolean isEnabled() { return enabled; }
-    public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        this.bounds = bounds;
 
-    public boolean contains(double mouseX, double mouseY) {
-        return bounds.contains(mouseX, mouseY);
     }
+
+
+
+    public MaredBounds bounds(){
+
+        return bounds;
+
+    }
+
+
+
+    public boolean isVisible(){
+
+        return visible;
+
+    }
+
+
+
+    public void setVisible(
+            boolean visible
+    ){
+
+        this.visible = visible;
+
+    }
+
+
+
+    public boolean isEnabled(){
+
+        return enabled;
+
+    }
+
+
+
+    public void setEnabled(
+            boolean enabled
+    ){
+
+        this.enabled = enabled;
+
+    }
+
+
+
+    public boolean contains(
+            double mouseX,
+            double mouseY
+    ){
+
+        return bounds.contains(
+                mouseX,
+                mouseY
+        );
+
+    }
+
+
+
+
 
     // ============================================================
-    //  Input
+    // Input
     // ============================================================
 
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+
+    public boolean mouseClicked(
+            double mouseX,
+            double mouseY,
+            int button
+    ){
+
         return false;
+
     }
-    public boolean mousePressed(double mouseX, double mouseY, int button) {
+
+
+
+    public boolean mouseClicked(
+            double mouseX,
+            double mouseY
+    ){
+
+        return mouseClicked(
+                mouseX,
+                mouseY,
+                0
+        );
+
+    }
+
+
+
+
+
+    public boolean mousePressed(
+            double mouseX,
+            double mouseY,
+            int button
+    ){
+
         return false;
+
     }
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+
+
+
+
+
+    public boolean mouseReleased(
+            double mouseX,
+            double mouseY,
+            int button
+    ){
+
         return false;
+
     }
-    public boolean mouseDragged(double mouseX, double mouseY, int button,
-                                double dragX, double dragY) {
+
+
+
+
+
+    public boolean mouseDragged(
+            double mouseX,
+            double mouseY,
+            int button,
+            double dragX,
+            double dragY
+    ){
+
         return false;
+
     }
-    public boolean mouseScrolled(double mouseX, double mouseY,
-                                 double scrollX, double scrollY) {
+
+
+
+
+
+    public boolean mouseScrolled(
+            double mouseX,
+            double mouseY,
+            double scrollX,
+            double scrollY
+    ){
+
         return false;
+
     }
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+
+
+
+
+
+    public boolean keyPressed(
+            int keyCode,
+            int scanCode,
+            int modifiers
+    ){
+
         return false;
+
     }
-    public boolean charTyped(char codePoint, int modifiers) {
+
+
+
+
+
+    public boolean charTyped(
+            char codePoint,
+            int modifiers
+    ){
+
         return false;
+
     }
-    public void mouseMoved(double mouseX, double mouseY) {}
+
+
+
+
+
+    public void mouseMoved(
+            double mouseX,
+            double mouseY
+    ){
+
+    }
+
+
 }

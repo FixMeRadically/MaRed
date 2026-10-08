@@ -1,150 +1,96 @@
 package com.fixmer.mared.commands.engine;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
+import java.util.Map;
+import java.util.WeakHashMap;
 import com.fixmer.mared.Mared;
 import com.fixmer.mared.commands.events.MaredEventRegistry;
-
 import net.minecraft.server.MinecraftServer;
 
-/**
- * Глобальный менеджер активных executor'ов.
- *
- * Работает без блокировок на горячем пути: ACTIVE — это immutable-снимок,
- * который атомарно подменяется при мутациях. Tick читает один снимок,
- * собирает «живые» executor'ы, затем одним CAS'ом заменяет список.
- */
+/** Immutable active snapshots; mutations never invoke executors while holding WRITE_LOCK. */
 public final class MaredScriptRunner {
-
     private MaredScriptRunner() {}
-
     private static final int MAX_ACTIVE = 100;
-    private static final long MAX_LIFETIME_MS = 10_000;
-
-    private static final class Entry {
-        final MaredScriptExecutor exec;
-        final long createdAt;
-        Entry(MaredScriptExecutor exec) {
-            this.exec = exec;
-            this.createdAt = System.currentTimeMillis();
-        }
-    }
-
-    /** Immutable-снимок. Заменяется целиком. */
-    private static volatile List<Entry> active = Collections.emptyList();
+    private static final long TICK_BUDGET_NANOS = 4_000_000;
     private static final Object WRITE_LOCK = new Object();
-
-    /** Счётчик добавлений в текущем tick'е. */
-    private static final AtomicInteger addedThisTick = new AtomicInteger(0);
-
-    // ============================================================
-    //  Public
-    // ============================================================
+    private static volatile List<MaredScriptExecutor> active = List.of();
+    private static final Map<MinecraftServer, Integer> cursors = new WeakHashMap<>();
 
     public static void start(MaredScriptExecutor executor) {
-        if (executor == null) return;
-
+        if (executor == null || executor.isFinished()) return;
+        var owner = executor.getContext().executionScope();
+        if (owner != null && owner.cancelled()) { executor.stopAll(); return; }
+        boolean rejected = false;
         synchronized (WRITE_LOCK) {
-            List<Entry> cur = active;
-            if (cur.size() >= MAX_ACTIVE) {
-                Mared.LOGGER.warn("[Mared] ACTIVE full ({}), dropping executor", cur.size());
-                return;
+            for (var existing : active) if (existing == executor) return;
+            if (active.size() >= MAX_ACTIVE) rejected = true;
+            else {
+                var next = new ArrayList<>(active);
+                next.add(executor);
+                active = List.copyOf(next);
             }
-            List<Entry> next = new ArrayList<>(cur.size() + 1);
-            next.addAll(cur);
-            next.add(new Entry(executor));
-            active = next;
-            addedThisTick.incrementAndGet();
+        }
+        if (rejected) {
+            executor.fail(new IllegalStateException("Active-script limit exceeded: " + MAX_ACTIVE));
+            Mared.LOGGER.warn("[Mared] ACTIVE full ({}), executor rejected", MAX_ACTIVE);
         }
     }
 
     public static void stopAll() {
+        List<MaredScriptExecutor> stopped;
         synchronized (WRITE_LOCK) {
-            for (Entry e : active) e.exec.stopAll();
-            active = Collections.emptyList();
-            addedThisTick.set(0);
+            stopped = active;
+            active = List.of();
+            cursors.clear();
+        }
+        for (var executor : stopped) executor.stopAll();
+    }
+
+    /** Must run on the matching owner thread. Used after MP logout when ordinary ticks stop. */
+    public static void finishOwnedCancellation(com.fixmer.genesis.technology.runtime.ExecutionScope owner, MinecraftServer server) {
+        if (owner == null) return;
+        for (var executor : active) if (executor.getContext().executionScope() == owner
+                && executor.getContext().getServer() == server && owner.cancelled()) executor.tick();
+        synchronized (WRITE_LOCK) {
+            active = active.stream().filter(executor -> !executor.isFinished()).toList();
         }
     }
 
     public static int getActiveCount() { return active.size(); }
 
-    // ============================================================
-    //  Tick
-    // ============================================================
-
     public static void tick(MinecraftServer server) {
         MaredEventRegistry.tickServer(server);
-
-        List<Entry> snapshot = active;
-        if (snapshot.isEmpty()) {
-            addedThisTick.set(0);
-            return;
-        }
-
-        long now = System.currentTimeMillis();
-        List<Entry> survivors = null;
-
+        List<MaredScriptExecutor> snapshot = active;
+        if (snapshot.isEmpty()) return;
+        int cursor;
+        synchronized (WRITE_LOCK) { cursor = cursors.getOrDefault(server, 0); }
         int n = snapshot.size();
-        for (int i = 0; i < n; i++) {
-            Entry entry = snapshot.get(i);
-            MaredScriptExecutor exec = entry.exec;
-
-            if (now - entry.createdAt > MAX_LIFETIME_MS) {
-                exec.stopAll();
-                Mared.LOGGER.warn("[Mared] Force-stopped executor (age > {}ms)", MAX_LIFETIME_MS);
-                if (survivors == null) survivors = new ArrayList<>(n - 1);
-                continue;
+        int nextCursor = Math.floorMod(cursor, n);
+        long started = System.nanoTime();
+        int dispatched = 0;
+        for (int offset = 0; offset < n; offset++) {
+            int index = (Math.floorMod(cursor, n) + offset) % n;
+            var executor = snapshot.get(index);
+            nextCursor = (index + 1) % n;
+            if (executor.getContext().getServer() != server || executor.isFinished()) continue;
+            if (dispatched > 0 && System.nanoTime() - started >= TICK_BUDGET_NANOS) {
+                nextCursor = index;
+                break;
             }
-
-            try {
-                exec.tick();
-            } catch (Throwable t) {
-                Mared.LOGGER.error("[Mared] Executor tick error", t);
-                exec.getContext().log("[error] " + t.getMessage());
-                if (survivors == null) survivors = new ArrayList<>(n - 1);
-                continue;
+            try { executor.tick(); }
+            catch (Throwable error) {
+                executor.fail(error);
+                Mared.LOGGER.error("[Mared] Executor tick failed", error);
             }
-
-            if (exec.isFinished()) {
-                if (survivors == null) survivors = new ArrayList<>(n - 1);
-                continue;
-            }
-
-            if (survivors != null) survivors.add(entry);
+            dispatched++;
         }
-
-        // Если никто не умер — оставляем тот же снимок (не аллоцируем).
-        if (survivors != null) {
-            synchronized (WRITE_LOCK) {
-                // На случай, если за время tick'а кто-то добавился —
-                // добавляем новые в конец.
-                List<Entry> cur = active;
-                if (cur.size() != snapshot.size()) {
-                    List<Entry> merged = new ArrayList<>(survivors.size() + 4);
-                    merged.addAll(survivors);
-                    int curN = cur.size();
-                    for (int i = 0; i < curN; i++) {
-                        Entry e = cur.get(i);
-                        if (!containsByIdentity(snapshot, e)) merged.add(e);
-                    }
-                    active = merged;
-                } else {
-                    active = survivors;
-                }
-            }
+        synchronized (WRITE_LOCK) {
+            cursors.put(server, nextCursor);
+            // Filter the CURRENT snapshot, preserving new starts and never resurrecting a stop.
+            var next = new ArrayList<MaredScriptExecutor>(active.size());
+            for (var executor : active) if (!executor.isFinished()) next.add(executor);
+            if (next.size() != active.size()) active = List.copyOf(next);
         }
-
-        addedThisTick.set(0);
-    }
-
-    private static boolean containsByIdentity(List<Entry> list, Entry e) {
-        int n = list.size();
-        for (int i = 0; i < n; i++) {
-            if (list.get(i) == e) return true;
-        }
-        return false;
     }
 }

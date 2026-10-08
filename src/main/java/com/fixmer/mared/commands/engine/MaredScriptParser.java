@@ -72,10 +72,12 @@ public final class MaredScriptParser {
 
         String trimmed = text.trim();
         if (trimmed.startsWith("{") && trimmed.endsWith("}") && coversWhole(trimmed)) {
-            trimmed = trimmed.substring(1, trimmed.length() - 1);
+            int opening = text.indexOf('{'), closing = text.lastIndexOf('}');
+            text = text.substring(0, opening) + " " + text.substring(opening + 1, closing)
+                + " " + text.substring(closing + 1);
         }
 
-        Cursor cur = new Cursor(trimmed);
+        Cursor cur = new Cursor(text);
         List<MaredScriptCommand> result = parseStatements(cur, 1);
         cur.skipSeparators();
         if (!cur.eof()) throw new ParseException(cur.line(), "unexpected text: " + cur.peekChar());
@@ -84,22 +86,23 @@ public final class MaredScriptParser {
 
     private static boolean coversWhole(String s) {
         int depth = 0;
-        boolean inString = false;
-        int n = s.length();
-        for (int i = 0; i < n; i++) {
+        char quote = 0;
+        for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
-            if (inString && c == '\\' && i + 1 < n) { i++; continue; }
-            if (c == '"') { inString = !inString; continue; }
-            if (inString) continue;
-            if (c == '{') depth++;
-            else if (c == '}') {
-                depth--;
-                if (depth == 0 && i < n - 1) {
-                    if (!s.substring(i + 1).trim().isEmpty()) return false;
-                }
+            if (quote != 0) {
+                if (c == '\\') { i++; continue; }
+                if (c == quote) quote = 0;
+                continue;
             }
+            if (c == '"' || c == '\'') { quote = c; continue; }
+            if (c == '/' && i+1 < s.length() && s.charAt(i+1) == '/') {
+                while (i < s.length() && s.charAt(i) != '\n') i++;
+                continue;
+            }
+            if (c == '{') depth++;
+            else if (c == '}' && --depth == 0 && i != s.length()-1) return false;
         }
-        return depth == 0;
+        return depth == 0 && quote == 0;
     }
 
     // ============================================================
@@ -107,6 +110,15 @@ public final class MaredScriptParser {
     // ============================================================
 
     private static List<MaredScriptCommand> parseStatements(Cursor cur, int line) {
+        if (++cur.depth > 128) {
+            --cur.depth;
+            throw new ParseException(cur.line(), "maximum block nesting exceeded (128)");
+        }
+        try { return parseStatementsBody(cur, line); }
+        finally { --cur.depth; }
+    }
+
+    private static List<MaredScriptCommand> parseStatementsBody(Cursor cur, int line) {
         List<MaredScriptCommand> commands = new ArrayList<>(8);
         int lastPos = -1;
         int stuckCount = 0;
@@ -209,7 +221,7 @@ public final class MaredScriptParser {
             case "unblock":    return parseUnblock(tokens, startLine);
             case "block":      return parseBlockCmd(tokens, startLine);
             case "toggle":     return parseToggle(tokens, startLine);
-            case "mc":         return parseMc(tokens, startLine);
+            case "mc":         return parseMc(headTrim, startLine);
 
             default: return new MaredEvalCommand(join(tokens));
         }
@@ -611,9 +623,12 @@ public final class MaredScriptParser {
         return new MaredToggleCommand(keyRaw);
     }
 
-    private static MaredScriptCommand parseMc(List<String> tokens, int line) {
-        if (tokens.size() < 2) throw new ParseException(line, "mc: missing command");
-        return new MaredMcCommand(join(tokens.subList(1, tokens.size())));
+    private static MaredScriptCommand parseMc(String head, int line) {
+        String payload = head.substring(2).stripLeading();
+        if (payload.startsWith("/")) payload = payload.substring(1);
+        String command = new com.fixmer.genesis.technology.editor.CommandInput(payload, 0).text().stripTrailing();
+        if (command.isEmpty()) throw new ParseException(line, "mc: missing command");
+        return new MaredMcCommand(command);
     }
 
     // ============================================================
@@ -744,6 +759,7 @@ public final class MaredScriptParser {
     // ============================================================
 
     private static final class Cursor {
+        private int depth;
         private final String text;
         private int pos;
         private int line;
@@ -809,38 +825,10 @@ public final class MaredScriptParser {
 
         String readHead() {
             lastHeadStart = pos;
-            StringBuilder sb = new StringBuilder(32);
-            boolean inString = false;
-            int braceDepth = 0;
-
-            while (!eof()) {
-                char c = peekChar();
-                if (!inString && c == '$' && pos + 1 < text.length() && text.charAt(pos + 1) == '{') {
-                    braceDepth++;
-                    sb.append(next()).append(next());
-                    continue;
-                }
-                if (!inString && c == '}' && braceDepth > 0) {
-                    braceDepth--;
-                    sb.append(next());
-                    continue;
-                }
-                if (c == '\\' && inString && pos + 1 < text.length()) {
-                    sb.append(next()).append(next());
-                    continue;
-                }
-                if (c == '"' && braceDepth == 0) {
-                    inString = !inString;
-                    sb.append(next());
-                    continue;
-                }
-                if (!inString && braceDepth == 0) {
-                    if (c == '{' || c == '}' || c == ';' || c == '\n') break;
-                    if (c == '/' && pos + 1 < text.length() && text.charAt(pos + 1) == '/') break;
-                }
-                sb.append(next());
-            }
-            return sb.toString();
+            int end = com.fixmer.genesis.technology.editor.ScriptHeads.end(text, pos);
+            String head = text.substring(pos, end);
+            seekTo(end);
+            return head;
         }
     }
 }

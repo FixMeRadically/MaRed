@@ -1,0 +1,10 @@
+{
+  "module":"RESOURCES",
+  "color":4282668390,
+
+  "intro":"file",
+
+  "transition":"texture",
+
+  "finalState":"asset_browser"
+}

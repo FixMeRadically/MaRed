@@ -1,35 +1,102 @@
 package com.fixmer.mared.modules;
 
-import com.fixmer.mared.gui2.modules.theme.ModuleType;
 
-/**
- * Описание модуля MaRed Studio.
- *
- * Один descriptor наполняет:
- *   - Welcome screen (карточки);
- *   - Module switcher (будущий);
- *   - Command Palette (будущий);
- *   - Theme accent для module-tab'ов (MaredTabStyles);
- *   - Settings-секции (модуль → набор страниц).
- *
- * Никаких UI-строк внутри — только ключи локализации. Тема/иконка —
- * метаданные, они не переводятся.
- */
-public record ModuleDescriptor(
-    String id,
-    String displayNameKey,
-    String descriptionKey,
-    String icon,
-    ModuleType type,
-    ModuleAvailability availability,
-    int order
-) {
-    public ModuleDescriptor {
-        if (id == null || id.isBlank()) {
-            throw new IllegalArgumentException("module id required");
-        }
-        if (type == null) type = ModuleType.TOOLS;
-        if (availability == null) availability = ModuleAvailability.AVAILABLE;
-        if (icon == null) icon = "";
+public final class ModuleDescriptor {
+
+
+    private final String id;
+
+    private final ModuleAvailability availability;
+
+    private final String icon;
+
+    private final String displayNameKey;
+
+    private final String descriptionKey;
+
+
+
+    public ModuleDescriptor(
+            String id
+    ){
+
+        this(
+                id,
+                ModuleAvailability.AVAILABLE,
+                "",
+                "module." + id + ".name",
+                "module." + id + ".description"
+        );
+
     }
+
+
+
+    public ModuleDescriptor(
+
+            String id,
+
+            ModuleAvailability availability,
+
+            String icon,
+
+            String displayNameKey,
+
+            String descriptionKey
+
+    ){
+
+        this.id=id;
+
+        this.availability=availability;
+
+        this.icon=icon;
+
+        this.displayNameKey=displayNameKey;
+
+        this.descriptionKey=descriptionKey;
+
+    }
+
+
+
+    public String id(){
+
+        return id;
+
+    }
+
+
+
+    public ModuleAvailability availability(){
+
+        return availability;
+
+    }
+
+
+
+    public String icon(){
+
+        return icon;
+
+    }
+
+
+
+    public String displayNameKey(){
+
+        return displayNameKey;
+
+    }
+
+
+
+    public String descriptionKey(){
+
+        return descriptionKey;
+
+    }
+
+
 }

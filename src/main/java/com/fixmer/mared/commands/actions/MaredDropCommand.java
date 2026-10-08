@@ -10,7 +10,7 @@ public class MaredDropCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        MaredActionRegistry.queueDrop();
+        MaredActionRegistry.queueDrop(ctx.executionScope());
         ctx.log("[action] drop");
         return true;
     }

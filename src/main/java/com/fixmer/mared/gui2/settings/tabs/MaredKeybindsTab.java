@@ -70,7 +70,7 @@ public final class MaredKeybindsTab implements MaredSettingsTab {
     @Override public String displayName() {
         return MaredLang.get("mared.settings.tab.keybinds");
     }
-    @Override public int accentColor() { return 0xFF55AAFF; }
+    @Override public int accentColor() { return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent; }
 
     @Override
     public void onOpen(SettingsContext ctx) {
@@ -137,31 +137,31 @@ public final class MaredKeybindsTab implements MaredSettingsTab {
             MaredUi.px(RESET_BTN_W), MaredUi.px(20),
             MaredLang.get("mared.settings.keybinds.reset_all"),
             resetHover ? 0xFF663333 : 0xFF3A2020,
-            0xFFFF5555, 0xFFFFFFFF, resetHover);
+            com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().danger, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text, resetHover);
 
         if (ctx.keybinds().isResetRequested()) {
             MaredUi.text(g, font, "● " + MaredLang.get(
                 "mared.settings.keybinds.reset_done"),
                 x + MaredUi.px(RESET_BTN_W) + 8, resetBtnY + 6,
-                0xFFFFAA00);
+                com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         }
 
         // --- Error hint под списком ---
         if (!rebindError.isEmpty()) {
             MaredUi.text(g, font, rebindError,
-                x, resetBtnY - 18, 0xFFFF5555);
+                x, resetBtnY - 18, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().danger);
         } else if (rebindKey != null) {
             MaredUi.text(g, font,
                 MaredLang.get("mared.settings.keybinds.awaiting"),
-                x, resetBtnY - 18, 0xFFFFAA00);
+                x, resetBtnY - 18, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         }
     }
 
     private void drawSearch(GuiGraphics g, Font font, int mouseX, int mouseY) {
         MaredUi.rect(g, searchX, searchY, searchX + searchW, searchY + SEARCH_H,
-            0xFF0A0A10);
+            com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgSunken);
         MaredUi.outline(g, searchX, searchY, searchW, SEARCH_H,
-            searchFocused ? 0xFF55AAFF : 0xFF4A4A4A);
+            searchFocused ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border);
 
         String q = searchQuery.toString();
         int textY = searchY + (SEARCH_H - 8) / 2;
@@ -169,14 +169,14 @@ public final class MaredKeybindsTab implements MaredSettingsTab {
         if (q.isEmpty() && !searchFocused) {
             MaredUi.textNoShadow(g, font,
                 MaredLang.get("mared.settings.keybinds.search_hint"),
-                searchX + 6, textY, 0xFF666677);
+                searchX + 6, textY, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textFaint);
         } else {
-            MaredUi.textNoShadow(g, font, q, searchX + 6, textY, 0xFFFFFFFF);
+            MaredUi.textNoShadow(g, font, q, searchX + 6, textY, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text);
 
             if (searchFocused && (System.currentTimeMillis() / 500) % 2 == 0) {
                 int cx = searchX + 6 + font.width(q);
                 MaredUi.rect(g, cx, searchY + 3, cx + 1, searchY + SEARCH_H - 3,
-                    0xFFFFFFFF);
+                    com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text);
             }
         }
     }
@@ -190,18 +190,18 @@ public final class MaredKeybindsTab implements MaredSettingsTab {
         MaredUi.rect(g, x, y, x + keyW, y + ROW_H - 2, 0xFF23232E);
 
         boolean isRebinding = rebindKey != null && rebindKey.equals(it.key());
-        int keyColor = isRebinding ? 0xFFFFAA00 : 0xFFFF55FF;
+        int keyColor = isRebinding ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent;
         String keyText = isRebinding
             ? MaredLang.get("mared.settings.keybinds.awaiting_short")
             : it.key();
         MaredUi.text(g, font, keyText, x + 6, y + 6, keyColor);
 
-        MaredUi.text(g, font, it.label(), x + keyW + 8, y + 6, 0xFFFFFFFF);
+        MaredUi.text(g, font, it.label(), x + keyW + 8, y + 6, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text);
 
         if (it.blocking()) {
             MaredUi.text(g, font, "[BLOCK]",
                 x + rowW - BLOCK_TAG_W - REBIND_BTN_W - 8, y + 6,
-                0xFFFF5555);
+                com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().danger);
         }
 
         // Rebind button
@@ -211,11 +211,11 @@ public final class MaredKeybindsTab implements MaredSettingsTab {
         int btnBg = hover ? 0xFF2D2D3D : 0xFF23232E;
         MaredUi.rect(g, btnX, y + 2, btnX + REBIND_BTN_W, y + ROW_H - 4, btnBg);
         MaredUi.outline(g, btnX, y + 2, REBIND_BTN_W, ROW_H - 6,
-            hover ? 0xFF55AAFF : 0xFF333344);
+            hover ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border);
         MaredUi.centered(g, font,
             MaredLang.get("mared.settings.keybinds.rebind"),
             btnX + REBIND_BTN_W / 2, y + 6,
-            hover ? 0xFFFFFFFF : 0xFFAAAAAA);
+            hover ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim);
 
         rowHits.add(new RowHit(-1, y, btnX));
     }

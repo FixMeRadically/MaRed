@@ -31,6 +31,9 @@ public final class ContextMenuOverlay implements Overlay {
     /** Как долго буфер type-to-search живёт без ввода. */
     private static final long SEARCH_BUFFER_TIMEOUT_MS = 1000L;
 
+    private Integer categoryColor;
+    public ContextMenuOverlay category(int color){categoryColor=color;return this;}
+
     private final int anchorX;
     private final int anchorY;
     private final List<ContextMenuEntry> entries;
@@ -100,7 +103,7 @@ public final class ContextMenuOverlay implements Overlay {
             menuX + menuW + 3, menuY + menuH + 3, 0x80000000);
         Render.rect(g, menuX, menuY, menuX + menuW, menuY + menuH,
             t.bgPanelRaised);
-        Render.outline(g, menuX, menuY, menuW, menuH, t.accent);
+        Render.outline(g, menuX, menuY, menuW, menuH, categoryColor==null?t.accent:com.fixmer.mared.technology.editor.EditorDialogStyle.from(t,categoryColor).accent());
 
         int hoveredIdx = indexAt(mouseX, mouseY);
         if (hoveredIdx >= 0 && isSelectable(hoveredIdx)) {

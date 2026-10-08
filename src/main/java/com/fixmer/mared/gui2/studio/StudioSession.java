@@ -33,6 +33,13 @@ public final class StudioSession implements Disposable {
 
     private Screen screen;
     private UiContext uiContext;
+    private com.fixmer.mared.technology.editor.EditorWorkbench workbench;
+    public com.fixmer.mared.technology.editor.EditorWorkbench workbench(){
+        if(!initialized)throw new IllegalStateException("Studio not initialized");
+        if(workbench==null)workbench=new com.fixmer.mared.technology.editor.EditorWorkbench(this);
+        return workbench;
+    }
+
     private boolean initialized;
     private boolean closing;
 
@@ -69,6 +76,12 @@ public final class StudioSession implements Disposable {
         actionContext = new EditorActionContext(screen, controller,
             commandService, overlayManager);
 
+        var workspace = actionContext.workspace();
+        if (workspace != null) workspace.setSaveAsHandler(document ->
+            ScreenNavigator.openSaveAsDialog(overlayManager, document.storageId,
+                name -> workspace.saveAs(document, name, this::refreshExplorer),
+                () -> document.closeAfterSaveAs = false));
+
         var topBar = controller.topBarPanel();
         if (topBar != null) {
             topBar.topBar().bind(actionRegistry, actionContext,
@@ -92,6 +105,8 @@ public final class StudioSession implements Disposable {
         if (overlayManager != null) overlayManager.clear();
         if (actionRegistry != null) actionRegistry.clear();
 
+        if(workbench!=null){workbench.dispose();workbench=null;}
+        if (actionContext != null) actionContext.runs().close();
         controller.shutdown();
 
         focusManager = null;

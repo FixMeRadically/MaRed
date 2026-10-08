@@ -41,7 +41,7 @@ public final class MaredLayoutTab implements MaredSettingsTab {
     @Override public String displayName() {
         return MaredLang.get("mared.settings.tab.layout");
     }
-    @Override public int accentColor() { return 0xFF55AAFF; }
+    @Override public int accentColor() { return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent; }
 
     @Override
     public void render(GuiGraphics g, Font font, int x, int y, int w, int h,
@@ -56,7 +56,7 @@ public final class MaredLayoutTab implements MaredSettingsTab {
         int maxW = w - MaredUi.px(8);
 
         MaredUi.text(g, font, MaredLang.get("mared.settings.layout.preset"),
-            cx, cy, 0xFFFFAA00);
+            cx, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 14;
         presetY0 = cy;
 
@@ -75,15 +75,15 @@ public final class MaredLayoutTab implements MaredSettingsTab {
                 presetBtnW, presetH);
 
             int bg = active ? 0xFF3355AA
-                : (hov ? 0xFF23232E : 0xFF14141C);
-            int border = active ? 0xFF55AAFF
-                : (hov ? 0xFF5555AA : 0xFF333344);
+                : (hov ? 0xFF23232E : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgPanel);
+            int border = active ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent
+                : (hov ? 0xFF5555AA : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border);
 
             MaredUi.rect(g, bx, cy, bx + presetBtnW, cy + presetH, bg);
             MaredUi.outline(g, bx, cy, presetBtnW, presetH, border);
 
             MaredUi.text(g, font, MaredLang.get(p.displayNameKey()),
-                bx + 6, cy + 6, active ? 0xFFFFFFFF : 0xFFAAAAAA);
+                bx + 6, cy + 6, active ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim);
 
             int descY = cy + 20;
             String desc = MaredLang.get(p.descriptionKey());
@@ -92,7 +92,7 @@ public final class MaredLayoutTab implements MaredSettingsTab {
                 String test = line.length() == 0 ? word : line + " " + word;
                 if (font.width(test) > presetBtnW - 12) {
                     MaredUi.text(g, font, line.toString(), bx + 6, descY,
-                        0xFF888888);
+                        com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textFaint);
                     descY += 10;
                     line = new StringBuilder(word);
                 } else {
@@ -101,13 +101,13 @@ public final class MaredLayoutTab implements MaredSettingsTab {
             }
             if (line.length() > 0) {
                 MaredUi.text(g, font, line.toString(), bx + 6, descY,
-                    0xFF888888);
+                    com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textFaint);
             }
         }
         cy += presetH + MaredUi.px(16);
 
         MaredUi.text(g, font, MaredLang.get("mared.settings.layout.panels"),
-            cx, cy, 0xFFFFAA00);
+            cx, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
 
         sidebarToggleY = cy;
@@ -138,7 +138,7 @@ public final class MaredLayoutTab implements MaredSettingsTab {
         cy += MaredUi.px(8);
 
         MaredUi.text(g, font, MaredLang.get("mared.settings.layout.split"),
-            cx, cy, 0xFFFFAA00);
+            cx, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
         splitToggleY = cy;
         cy = drawCheckbox(g, font, cx, cy, maxW,
@@ -147,7 +147,7 @@ public final class MaredLayoutTab implements MaredSettingsTab {
         cy += MaredUi.px(8);
 
         MaredUi.text(g, font, MaredLang.get("mared.settings.layout.sizes"),
-            cx, cy, 0xFFFFAA00);
+            cx, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
 
         sidebarSliderY = cy;
@@ -176,7 +176,7 @@ public final class MaredLayoutTab implements MaredSettingsTab {
         MaredUi.button3D(g, font, cx, cy, MaredUi.px(160), MaredUi.px(20),
             MaredLang.get("mared.settings.layout.reset"),
             resetHover ? 0xFF663333 : 0xFF3A2020,
-            0xFFFF5555, 0xFFFFFFFF, resetHover);
+            com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().danger, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text, resetHover);
         cy += MaredUi.px(24);
 
         contentHeight = cy - (y - scroll);
@@ -186,21 +186,21 @@ public final class MaredLayoutTab implements MaredSettingsTab {
 
     private int drawCheckbox(GuiGraphics g, Font font, int x, int y, int maxW,
                              String label, boolean checked) {
-        MaredUi.drawCheckbox(g, x, y + 2, CB_SZ, checked, 0xFF4A4A4A, 0xFF55AAFF);
+        MaredUi.drawCheckbox(g, x, y + 2, CB_SZ, checked, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent);
         MaredUi.text(g, font, label, x + CB_SZ + 6, y + 5,
-            checked ? 0xFFFFFFFF : 0xFFAAAAAA);
+            checked ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().text : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim);
         return y + ROW_H;
     }
 
     private int drawSlider(GuiGraphics g, Font font, int x, int y, int maxW,
                            String label, int value, int min, int max) {
-        MaredUi.text(g, font, label + "   " + value, x, y, 0xFFAAAAAA);
+        MaredUi.text(g, font, label + "   " + value, x, y, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().textDim);
         y += 12;
 
         int sliderW = MaredUi.px(220);
         float t = (value - min) / (float) (max - min);
         t = Math.max(0f, Math.min(1f, t));
-        MaredUi.slider(g, x, y + 2, sliderW, 10, t, 0xFF333344, 0xFF55AAFF);
+        MaredUi.slider(g, x, y + 2, sliderW, 10, t, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent);
         return y + ROW_H + 6;
     }
 

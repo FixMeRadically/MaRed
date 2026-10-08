@@ -1,0 +1,27 @@
+{
+  "background": -15132416,
+
+  "objects": [
+
+    {
+      "type": "code",
+      "x": 230,
+      "y": 200,
+      "properties": {
+        "text":
+        "debug.start()"
+      }
+    },
+
+
+    {
+      "type": "blueprint",
+      "x": 520,
+      "y": 300,
+      "properties": {
+        "nodes": "8"
+      }
+    }
+
+  ]
+}

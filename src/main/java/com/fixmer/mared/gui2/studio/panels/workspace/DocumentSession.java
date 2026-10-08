@@ -46,8 +46,18 @@ public final class DocumentSession {
     //  Save state (per-document)
     // ============================================================
 
+    public final String recoveryId = java.util.UUID.randomUUID().toString().replace("-", "");
+    public long saveSequence;
     public boolean saveInFlight = false;
+    public String inFlightText;
     public boolean pendingSave  = false;
+    public boolean saveAsInFlight;
+    public boolean closeAfterSaveAs;
+    public long diagnosticSequence;
+    public int diagnosticVersion = -1;
+    public String diagnosticMessage = "";
+    public int diagnosticLine;
+    public long diagnosticCatalogRevision = -1;
 
     /** Файл, который хотят открыть, но save текущего провалился. */
     public String pendingOpenFile = null;
@@ -85,7 +95,7 @@ public final class DocumentSession {
     }
 
     public void recomputeDirty() {
-        if (storageId == null) {
+        if (storageId == null || !exists) {
             // untitled всегда dirty, если непустой
             dirty = !document.getValue().isEmpty();
             return;

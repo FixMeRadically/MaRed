@@ -17,8 +17,8 @@ import com.fixmer.mared.handbook.MaredHandbookSection;
  * Содержит:
  *   - все Mared-команды
  *   - все Mared-переменные и builtin-функции
- *   - популярные Vanilla-команды
- *   - селекторы, NBT, синтаксис координат
+ *   - динамические команды подключения Minecraft
+ *   - параметры из настоящего дерева команд; произвольные NBT-схемы не выдумываются
  *   - готовые рецепты (скрипты-примеры)
  */
 public final class MaredCommandsHandbookData implements MaredHandbookData {
@@ -36,24 +36,48 @@ public final class MaredCommandsHandbookData implements MaredHandbookData {
         buildMaredActions();
         buildMaredExpressions();
         buildMaredBuiltins();
-        buildVanillaCommands();
-        buildVanillaSelectors();
-        buildVanillaNbt();
         buildRecipes();
     }
 
     @Override public String id() { return "commands"; }
     @Override public String displayName() { return "Commands"; }
 
+    private long mcRevision=-1;
+    private List<MaredHandbookEntry> mcEntries=List.of();
+    private List<MaredHandbookSection> mcSections=List.of();
+    /** MR documentation remains available without a world/connection. */
+    public List<MaredHandbookEntry> mrEntries(){return List.copyOf(allEntries);}
+    private void refreshMc() {
+        long revision=com.fixmer.mared.commands.registry.MaredCommandRegistry.revision();
+        if(mcRevision==revision)return;
+        var group=new MaredHandbookSection("mc.commands","Команды подключения","MC",0,true);
+        var entries=new ArrayList<MaredHandbookEntry>();
+        for(var basic:com.fixmer.mared.commands.registry.MaredCommandRegistry.all()) {
+            // List views stay cheap; detailed paths are generated only for the selected entry.
+            var entry=MaredHandbookEntry.builder("mc."+basic.name,basic.name).syntax(basic.name)
+                .shortDescription("Команда текущего подключения").section("MC").category(basic.category).vanilla(true).build();
+            entries.add(entry);group.addEntry(entry);
+        }
+        mcEntries=List.copyOf(entries);mcSections=List.of(group);mcRevision=revision;
+    }
     @Override public List<MaredHandbookSection> sections() {
-        return Collections.unmodifiableList(sections);
+        refreshMc();var result=new ArrayList<>(sections);result.addAll(mcSections);return List.copyOf(result);
     }
 
     @Override public List<MaredHandbookEntry> allEntries() {
-        return Collections.unmodifiableList(allEntries);
+        refreshMc();var result=new ArrayList<>(allEntries);result.addAll(mcEntries);return List.copyOf(result);
     }
 
     @Override public MaredHandbookEntry findById(String id) {
+        if(id!=null&&id.startsWith("mc.")) {
+            var info=com.fixmer.mared.commands.registry.MaredCommandRegistry.findByName(id.substring(3));
+            if(info==null)return null;
+            var builder=MaredHandbookEntry.builder(id,info.name).syntax(String.join("\n",info.usages))
+                .shortDescription("Команда подключения Minecraft").fullDescription(info.description).section("MC").category(info.category).vanilla(true);
+            for(var arg:info.arguments)builder.param(arg.value,arg.description,"Примеры типа: "+String.join(", ",arg.examples));
+            for(String usage:info.usages)builder.example(usage,"Шаблон синтаксиса, не готовая команда");
+            return builder.build();
+        }
         return byId.get(id);
     }
 
@@ -63,12 +87,6 @@ public final class MaredCommandsHandbookData implements MaredHandbookData {
 
     private MaredHandbookSection section(String id, String name, String parent, int order) {
         MaredHandbookSection s = new MaredHandbookSection(id, name, parent, order, false);
-        sections.add(s);
-        return s;
-    }
-
-    private MaredHandbookSection vanillaSection(String id, String name, String parent, int order) {
-        MaredHandbookSection s = new MaredHandbookSection(id, name, parent, order, true);
         sections.add(s);
         return s;
     }
@@ -973,219 +991,6 @@ public final class MaredCommandsHandbookData implements MaredHandbookData {
     //  Vanilla / Команды
     // ============================================================
 
-    private void buildVanillaCommands() {
-        MaredHandbookSection s = vanillaSection("vanilla.commands", "Команды", "Vanilla", 0);
-
-        add(s, vanilla("vanilla.give", "give",
-            "give <target> <item> [count]",
-            "Выдать предмет игроку",
-            "@s, @a, @p, @r или имя",
-            "give @s diamond 5",
-            "give @a minecraft:bread 10"));
-
-        add(s, vanilla("vanilla.tp", "tp",
-            "tp <target> <x> <y> <z>",
-            "Телепортировать игрока",
-            "@s, @a, имя",
-            "tp @s 100 64 200",
-            "tp @s ~ ~5 ~"));
-
-        add(s, vanilla("vanilla.time", "time",
-            "time set <day|night|noon|midnight|N>",
-            "Установить время суток",
-            "day, night, noon, midnight, число",
-            "time set day",
-            "time set 6000"));
-
-        add(s, vanilla("vanilla.weather", "weather",
-            "weather <clear|rain|thunder> [duration]",
-            "Установить погоду",
-            "clear | rain | thunder",
-            "weather clear",
-            "weather thunder 60"));
-
-        add(s, vanilla("vanilla.effect", "effect",
-            "effect give <target> <effect> [duration] [amplifier]",
-            "Наложить эффект",
-            "speed, strength, regeneration, ...",
-            "effect give @s speed 10 2",
-            "effect give @a regeneration 30 1"));
-
-        add(s, vanilla("vanilla.summon", "summon",
-            "summon <entity> [x] [y] [z] [nbt]",
-            "Создать сущность",
-            "minecraft:zombie, minecraft:creeper, ...",
-            "summon minecraft:zombie ~ ~ ~",
-            "summon minecraft:creeper 100 64 200"));
-
-        add(s, vanilla("vanilla.kill", "kill",
-            "kill [target]",
-            "Убить сущность",
-            "@e, @a, имя",
-            "kill @e[type=zombie]",
-            "kill @s"));
-
-        add(s, vanilla("vanilla.fill", "fill",
-            "fill <x1 y1 z1> <x2 y2 z2> <block> [replace|keep|...]",
-            "Заполнить область блоками",
-            "10 64 10 → 20 70 20",
-            "fill 0 64 0 10 70 10 minecraft:stone",
-            "fill ~-2 ~-1 ~-2 ~2 ~3 ~2 minecraft:air"));
-
-        add(s, vanilla("vanilla.setblock", "setblock",
-            "setblock <x> <y> <z> <block>",
-            "Поставить блок",
-            "10 64 20",
-            "setblock 10 64 20 minecraft:oak_planks"));
-
-        add(s, vanilla("vanilla.playsound", "playsound",
-            "playsound <sound> <source> <target>",
-            "Проиграть звук",
-            "entity.zombie.death player @s",
-            "playsound entity.zombie.death player @s",
-            "playsound ui.button.click master @a"));
-
-        add(s, vanilla("vanilla.tellraw", "tellraw",
-            "tellraw <target> <json>",
-            "Показать форматированное сообщение",
-            "@a, @s",
-            "tellraw @s {\"text\":\"Hello\",\"color\":\"gold\"}"));
-
-        add(s, vanilla("vanilla.title", "title",
-            "title <target> <title|subtitle|actionbar> <json>",
-            "Показать title на экране",
-            "@s",
-            "title @s title {\"text\":\"Hello!\"}"));
-
-        add(s, vanilla("vanilla.gamemode", "gamemode",
-            "gamemode <mode> [target]",
-            "Сменить режим игры",
-            "survival, creative, adventure, spectator",
-            "gamemode creative @s"));
-
-        add(s, vanilla("vanilla.xp", "xp",
-            "xp add <target> <amount> [levels|points]",
-            "Дать опыт",
-            "@s, 100",
-            "xp add @s 100 levels"));
-
-        add(s, vanilla("vanilla.clear", "clear",
-            "clear [target] [item] [count]",
-            "Очистить инвентарь",
-            "@s, @a",
-            "clear @s minecraft:diamond",
-            "clear @a"));
-
-        add(s, vanilla("vanilla.particle", "particle",
-            "particle <name> <x> <y> <z> <dx> <dy> <dz> <speed> <count>",
-            "Создать частицы",
-            "flame, smoke, heart, ...",
-            "particle flame ~ ~1 ~ 0 0 0 0 10"));
-
-        add(s, vanilla("vanilla.enchant", "enchant",
-            "enchant <target> <enchantment> [level]",
-            "Зачаровать предмет",
-            "@s",
-            "enchant @s minecraft:sharpness 5"));
-
-        add(s, vanilla("vanilla.difficulty", "difficulty",
-            "difficulty <peaceful|easy|normal|hard>",
-            "Установить сложность",
-            "peaceful, easy, normal, hard",
-            "difficulty hard"));
-
-        add(s, vanilla("vanilla.seed", "seed",
-            "seed",
-            "Показать seed мира",
-            "—",
-            "seed"));
-
-        add(s, vanilla("vanilla.list", "list",
-            "list",
-            "Список игроков на сервере",
-            "—",
-            "list"));
-    }
-
-    // ============================================================
-    //  Vanilla / Селекторы
-    // ============================================================
-
-    private void buildVanillaSelectors() {
-        MaredHandbookSection s = vanillaSection("vanilla.selectors", "Селекторы", "Vanilla", 1);
-
-        add(s, vanilla("vanilla.sel.at", "@s",
-            "@s",
-            "Текущий игрок (тот, кто выполнил команду)",
-            "—",
-            "give @s diamond",
-            "tp @s 0 64 0"));
-
-        add(s, vanilla("vanilla.sel.all", "@a",
-            "@a",
-            "Все игроки на сервере",
-            "—",
-            "tellraw @a {\"text\":\"Hello all\"}"));
-
-        add(s, vanilla("vanilla.sel.p", "@p",
-            "@p",
-            "Ближайший игрок",
-            "—",
-            "tp @p 0 64 0"));
-
-        add(s, vanilla("vanilla.sel.r", "@r",
-            "@r",
-            "Случайный игрок",
-            "—",
-            "give @r diamond"));
-
-        add(s, vanilla("vanilla.sel.e", "@e",
-            "@e",
-            "Все сущности (с фильтрами)",
-            "type=, name=, distance=, ...",
-            "kill @e[type=zombie]",
-            "tp @e[type=item,distance=..5] ~ ~1 ~"));
-    }
-
-    // ============================================================
-    //  Vanilla / NBT
-    // ============================================================
-
-    private void buildVanillaNbt() {
-        MaredHandbookSection s = vanillaSection("vanilla.nbt", "NBT и координаты", "Vanilla", 2);
-
-        add(s, vanilla("vanilla.nbt.coords", "Координаты",
-            "x y z | ~ ~ ~ | ^ ^ ^",
-            "Способы задать координаты",
-            "~ — относительно текущей, ^ — относительно взгляда",
-            "tp @s ~ ~1 ~",
-            "setblock ^ ^ ^2 minecraft:stone"));
-
-        add(s, vanilla("vanilla.nbt.tilde", "~ (тильда)",
-            "~<offset>",
-            "Относительная координата",
-            "~ — без смещения, ~5 — +5",
-            "tp @s ~ ~10 ~",
-            "setblock ~1 ~-1 ~ minecraft:air"));
-
-        add(s, vanilla("vanilla.nbt.caret", "^ (карет)",
-            "^(left) ^(up) ^(forward)",
-            "Координаты относительно взгляда",
-            "^1 ^ ^ — вправо на 1",
-            "setblock ^1 ^ ^2 minecraft:stone"));
-
-        add(s, vanilla("vanilla.nbt.compound", "NBT-компонент",
-            "{tag:value,tag2:value2}",
-            "Составной тег",
-            "Используется в summon, data, item",
-            "summon zombie ~ ~ ~ {CustomName:'\"Boss\"'}",
-            "item replace entity @s armor.head with diamond_helmet{CustomName:'\"Helmet\"'}"));
-    }
-
-    // ============================================================
-    //  Рецепты (готовые скрипты)
-    // ============================================================
-
     private void buildRecipes() {
         MaredHandbookSection s = section("mared.recipes", "Рецепты", "Примеры", 0);
 
@@ -1271,18 +1076,4 @@ public final class MaredCommandsHandbookData implements MaredHandbookData {
     //  Хелпер для Vanilla-записей
     // ============================================================
 
-    private static MaredHandbookEntry vanilla(String id, String name, String syntax,
-                                              String shortDesc, String paramHint,
-                                              String... examples) {
-        MaredHandbookEntry.Builder b = MaredHandbookEntry.builder(id, name)
-            .syntax(syntax)
-            .shortDescription(shortDesc)
-            .category("Vanilla")
-            .section("Vanilla")
-            .vanilla(true)
-            .param("hint", "string", paramHint);
-
-        for (String ex : examples) b.example(ex);
-        return b.build();
-    }
 }

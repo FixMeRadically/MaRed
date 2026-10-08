@@ -1,0 +1,1 @@
+package com.fixmer.mared; public class MaredSettings {public static boolean isVerboseScriptLog(){return false;}}

@@ -158,6 +158,6 @@ public final class PanelRegistry {
 
     public static synchronized Map<String, PanelDescriptor> raw() {
         bootstrap();
-        return Collections.unmodifiableMap(PANELS);
+        return Collections.unmodifiableMap(new LinkedHashMap<>(PANELS));
     }
 }

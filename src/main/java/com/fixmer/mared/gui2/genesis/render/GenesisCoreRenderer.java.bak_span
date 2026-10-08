@@ -1,0 +1,206 @@
+package com.fixmer.mared.gui2.genesis.render;
+
+import com.fixmer.mared.gui2.genesis.GenesisCamera;
+
+import net.minecraft.client.gui.GuiGraphics;
+
+/**
+ * Genesis: РІСЃРµ 4 РєРѕР»СЊС†Р° РІСЂР°С‰Р°СЋС‚СЃСЏ РІ 3D, РєР°Р¶РґРѕРµ РІ СЃРІРѕРµР№ РїР»РѕСЃРєРѕСЃС‚Рё.
+ *
+ * Р Р°РЅСЊС€Рµ С‚РѕР»СЊРєРѕ 1 РЅР°РєР»РѕРЅС‘РЅРЅРѕРµ РєРѕР»СЊС†Рѕ РєСЂСѓС‚РёР»РѕСЃСЊ, Р° 3 РѕСЂС‚-РєРѕР»СЊС†Р°
+ * Р±С‹Р»Рё СЃС‚Р°С‚РёС‡РЅС‹. РўРµРїРµСЂСЊ вЂ” 3 РєРѕР»СЊС†Р° СЃ РЅРµР·Р°РІРёСЃРёРјРѕР№ 3D-СЂРѕС‚Р°С†РёРµР№:
+ *   - РєРѕР»СЊС†Рѕ A: РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕРµ, РєСЂСѓС‚РёС‚СЃСЏ РІРѕРєСЂСѓРі X
+ *   - РєРѕР»СЊС†Рѕ B: РІРµСЂС‚РёРєР°Р»СЊРЅРѕРµ, РєСЂСѓС‚РёС‚СЃСЏ РІРѕРєСЂСѓРі Y
+ *   - РєРѕР»СЊС†Рѕ C: СЃР°РіРёС‚С‚Р°Р»СЊРЅРѕРµ, РєСЂСѓС‚РёС‚СЃСЏ РІРѕРєСЂСѓРі Z
+ *   - РєРѕР»СЊС†Рѕ D: РїСЂРµС†РµСЃСЃРёСЏ вЂ” РїР»РѕСЃРєРѕСЃС‚СЊ РєР°С‡Р°РµС‚СЃСЏ
+ */
+public final class GenesisCoreRenderer {
+
+    private static final int RING_SEGMENTS = 96;
+
+    private static final float[][] OCTA_V = {
+        { 0f,  1f,  0f}, { 1f,  0f,  0f}, { 0f,  0f,  1f},
+        {-1f,  0f,  0f}, { 0f,  0f, -1f}, { 0f, -1f,  0f},
+    };
+    private static final int[][] OCTA_E = {
+        {0,1},{0,2},{0,3},{0,4},
+        {1,2},{2,3},{3,4},{4,1},
+        {5,1},{5,2},{5,3},{5,4},
+    };
+
+    public void render(GuiGraphics g,
+                       GenesisCamera camera,
+                       int screenW, int screenH,
+                       float timeSec,
+                       int baseRadius,
+                       int accent) {
+
+        float[] sc = camera.worldToScreen(0f, 0f, 0f, screenW, screenH);
+        int cx = (int)sc[0];
+        int cy = (int)sc[1];
+        float depth = sc[2];
+
+        float depthScale = camera.depthScale(depth);
+        float alphaMul = camera.depthAlpha(depth) / 255f;
+        int r = (int)(baseRadius * camera.zoom() * depthScale);
+        if (r <= 4) return;
+
+        int rgb = accent & 0x00FFFFFF;
+        float pulse = (float)Math.sin(timeSec * 1.8f) * 0.5f + 0.5f;
+
+        // Р‘РѕР»СЊС€РѕРµ РјСЏРіРєРѕРµ РіР°Р»Рѕ
+        drawSoftCircle(g, cx, cy, (int)(r * 3.2f), rgb, (int)(24 * alphaMul));
+
+        // Р’С‚РѕСЂРѕРµ РіР°Р»Рѕ вЂ” pulse
+        int pulseHaloR = (int)(r * (2.4f + 0.4f * pulse));
+        drawSoftCircle(g, cx, cy, pulseHaloR, rgb,
+                       (int)((20 + 20 * pulse) * alphaMul));
+
+        // --- 4 РІСЂР°С‰Р°СЋС‰РёС…СЃСЏ РєРѕР»СЊС†Р° ---
+        // РљРѕР»СЊС†Рѕ A: РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕРµ, РІСЂР°С‰Р°РµС‚СЃСЏ РІРѕРєСЂСѓРі X (РїСЂРµС†РµСЃСЃРёСЏ)
+        drawRotatingRing(g, camera, screenW, screenH, r * 1.05f,
+                         timeSec * 0.40f, 0, 0.0f,
+                         ((int)(140 * alphaMul) << 24) | rgb);
+        // РљРѕР»СЊС†Рѕ B: РІРµСЂС‚РёРєР°Р»СЊРЅРѕРµ, РІСЂР°С‰Р°РµС‚СЃСЏ РІРѕРєСЂСѓРі Y
+        drawRotatingRing(g, camera, screenW, screenH, r * 0.88f,
+                         0.0f, timeSec * 0.55f, 0.0f,
+                         ((int)(110 * alphaMul) << 24) | rgb);
+        // РљРѕР»СЊС†Рѕ C: СЃР°РіРёС‚С‚Р°Р»СЊРЅРѕРµ, РІСЂР°С‰Р°РµС‚СЃСЏ РІРѕРєСЂСѓРі Z
+        drawRotatingRing(g, camera, screenW, screenH, r * 1.18f,
+                         0.0f, 0.0f, timeSec * 0.45f,
+                         ((int)(95 * alphaMul) << 24) | rgb);
+        // РљРѕР»СЊС†Рѕ D: РЅР°РєР»РѕРЅС‘РЅРЅРѕРµ, РєСЂСѓС‚РёС‚СЃСЏ РІРѕРєСЂСѓРі X Рё РјРµРґР»РµРЅРЅРѕ РїСЂРµС†РµСЃСЃРёСЂСѓРµС‚
+        drawRotatingRing(g, camera, screenW, screenH, r * 1.35f,
+                         timeSec * 0.35f,
+                         timeSec * 0.22f,
+                         0.0f,
+                         ((int)(75 * alphaMul) << 24) | rgb);
+
+        // РћРєС‚Р°СЌРґСЂ-РєР°СЂРєР°СЃ
+        drawOctahedron(g, camera, screenW, screenH,
+                       r * 0.65f, timeSec,
+                       (int)(190 * alphaMul), rgb);
+
+        // РџСѓР»СЊСЃРёСЂСѓСЋС‰РёР№ С†РµРЅС‚СЂ
+        int pulseR = (int)(r * (0.20f + 0.08f * pulse));
+        int pulseAlpha = (int)((190 + 65 * pulse) * alphaMul);
+
+        drawSoftCircle(g, cx, cy, pulseR * 2, 0xFFFFFF, pulseAlpha / 2);
+        drawFilledCircle(g, cx, cy, pulseR, (pulseAlpha << 24) | 0x00FFFFFF);
+        g.fill(cx - 2, cy - 2, cx + 3, cy + 3, 0xFFFFFFFF);
+    }
+
+    /**
+     * РљРѕР»СЊС†Рѕ РІ РїР»РѕСЃРєРѕСЃС‚Рё XZ, РїРѕРІРµСЂРЅСѓС‚РѕРµ РЅР° (rx, ry, rz) РІРѕРєСЂСѓРі РѕСЃРµР№.
+     */
+    private void drawRotatingRing(GuiGraphics g, GenesisCamera camera,
+                                   int sw, int sh, float r,
+                                   float rx, float ry, float rz,
+                                   int color) {
+        float cxr = (float)Math.cos(rx), sxr = (float)Math.sin(rx);
+        float cyr = (float)Math.cos(ry), syr = (float)Math.sin(ry);
+        float czr = (float)Math.cos(rz), szr = (float)Math.sin(rz);
+
+        int prevX = 0, prevY = 0;
+        boolean first = true;
+        for (int i = 0; i <= RING_SEGMENTS; i++) {
+            float a = i * 2f * (float)Math.PI / RING_SEGMENTS;
+            float wx = (float)Math.cos(a) * r;
+            float wy = 0f;
+            float wz = (float)Math.sin(a) * r;
+
+            // Rotate around X
+            float y1 = wy * cxr - wz * sxr;
+            float z1 = wy * sxr + wz * cxr;
+            // Rotate around Y
+            float x2 = wx * cyr - z1 * syr;
+            float z2 = wx * syr + z1 * cyr;
+            // Rotate around Z
+            float x3 = x2 * czr - y1 * szr;
+            float y3 = x2 * szr + y1 * czr;
+
+            float[] s = camera.worldToScreen(x3, y3, z2, sw, sh);
+            int sx = (int)s[0];
+            int sy = (int)s[1];
+            if (!first) drawLine(g, prevX, prevY, sx, sy, color);
+            prevX = sx; prevY = sy; first = false;
+        }
+    }
+
+    private void drawOctahedron(GuiGraphics g, GenesisCamera camera,
+                                 int sw, int sh, float r, float timeSec,
+                                 int alpha, int rgb) {
+        float rotY = timeSec * 0.4f;
+        float c = (float)Math.cos(rotY);
+        float s = (float)Math.sin(rotY);
+        int n = OCTA_V.length;
+        int[] xs = new int[n];
+        int[] ys = new int[n];
+        for (int i = 0; i < n; i++) {
+            float x = OCTA_V[i][0];
+            float y = OCTA_V[i][1];
+            float z = OCTA_V[i][2];
+            float xr = x * c - z * s;
+            float zr = x * s + z * c;
+            float[] p = camera.worldToScreen(xr * r, y * r, zr * r, sw, sh);
+            xs[i] = (int)p[0];
+            ys[i] = (int)p[1];
+        }
+        int color = (alpha << 24) | rgb;
+        for (int[] e : OCTA_E) {
+            drawLine(g, xs[e[0]], ys[e[0]], xs[e[1]], ys[e[1]], color);
+        }
+        for (int i = 0; i < n; i++) {
+            g.fill(xs[i] - 1, ys[i] - 1, xs[i] + 2, ys[i] + 2,
+                   (255 << 24) | 0x00FFFFFF);
+        }
+    }
+
+    private static void drawSoftCircle(GuiGraphics g, int cx, int cy,
+                                        int radius, int rgb, int alpha) {
+        if (radius <= 0 || alpha <= 0) return;
+        long r2 = (long)radius * radius;
+        for (int dy = -radius; dy <= radius; dy++) {
+            long d2 = (long)dy * dy;
+            if (d2 > r2) continue;
+            int half = (int)Math.sqrt((double)(r2 - d2));
+            float dn = (float)Math.abs(dy) / radius;
+            float falloff = 1f - dn;
+            falloff *= falloff;
+            int a = (int)(falloff * alpha);
+            if (a <= 0) continue;
+            g.fill(cx - half, cy + dy, cx + half, cy + dy + 1,
+                   (a << 24) | rgb);
+        }
+    }
+
+    private static void drawFilledCircle(GuiGraphics g,
+                                          int cx, int cy, int radius,
+                                          int color) {
+        if (radius <= 0) return;
+        long r2 = (long)radius * radius;
+        for (int dy = -radius; dy <= radius; dy++) {
+            long d2 = (long)dy * dy;
+            if (d2 > r2) continue;
+            int half = (int)Math.sqrt((double)(r2 - d2));
+            g.fill(cx - half, cy + dy, cx + half, cy + dy + 1, color);
+        }
+    }
+
+    private static void drawLine(GuiGraphics g,
+                                  int x1, int y1, int x2, int y2,
+                                  int color) {
+        int dx = Math.abs(x2 - x1);
+        int dy = Math.abs(y2 - y1);
+        int sx = x1 < x2 ? 1 : -1;
+        int sy = y1 < y2 ? 1 : -1;
+        int err = dx - dy;
+        while (true) {
+            g.fill(x1, y1, x1 + 1, y1 + 1, color);
+            if (x1 == x2 && y1 == y2) break;
+            int e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x1 += sx; }
+            if (e2 <  dx) { err += dx; y1 += sy; }
+        }
+    }
+}

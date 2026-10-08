@@ -22,7 +22,7 @@ public class MaredUnblockCommand extends MaredScriptCommand {
             ctx.log(MaredLang.format("mared.log.unblock.unknown_key", keyRaw));
             return true;
         }
-        MaredBindRegistry.unblock(keyRaw);
+        MaredBindRegistry.unblock(keyRaw, ctx);
         ctx.log(MaredLang.format("mared.log.unblock.done", keyRaw));
         return true;
     }

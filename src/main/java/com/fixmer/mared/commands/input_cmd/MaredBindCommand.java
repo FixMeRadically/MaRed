@@ -42,7 +42,7 @@ public class MaredBindCommand extends MaredScriptCommand {
 
         switch (mode) {
             case CLEAR -> {
-                MaredBindRegistry.clear(display);
+                MaredBindRegistry.clear(display, ctx);
                 ctx.log(MaredLang.format("mared.log.bind.cleared", display));
             }
             case ADD -> {

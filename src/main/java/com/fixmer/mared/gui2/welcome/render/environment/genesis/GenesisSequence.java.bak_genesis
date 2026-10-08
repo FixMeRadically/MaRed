@@ -1,0 +1,80 @@
+package com.fixmer.mared.gui2.welcome.render.environment.genesis;
+
+import com.fixmer.mared.gui2.modules.ModuleId;
+
+/**
+ * 1.5.38.0: С‡РёСЃС‚С‹Р№ СЂР°СЃС‡С‘С‚ GenesisContext РїРѕ РІСЂРµРјРµРЅРё.
+ *
+ * Stateless. РќРёРєР°РєРёС… РїРѕР»РµР№, РЅРёРєР°РєРѕРіРѕ tick.
+ * Р’С‹Р·С‹РІР°РµС‚СЃСЏ РёР· CoreObjectLayer.render() РєР°Р¶РґС‹Р№ РєР°РґСЂ.
+ *
+ * Р•СЃР»Рё timeSec > СЃСѓРјРјР°_РґР»РёС‚РµР»СЊРЅРѕСЃС‚РµР№ РІСЃРµС… СЃС‚Р°РґРёР№ РґРѕ LIVING,
+ * РІРѕР·РІСЂР°С‰Р°РµС‚СЃСЏ LIVING СЃ lifetime = timeSec - preLifeDuration.
+ */
+public final class GenesisSequence {
+
+    private GenesisSequence() {}
+
+    private static final GenesisStage[] STAGES = GenesisStage.values();
+
+    /** РЎСѓРјРјР°СЂРЅР°СЏ РґР»РёС‚РµР»СЊРЅРѕСЃС‚СЊ РІСЃРµС… СЃС‚Р°РґРёР№, РєСЂРѕРјРµ LIVING. */
+    public static float preLifeDuration(boolean fast) {
+        float s = 0f;
+        for (GenesisStage st : STAGES) {
+            if (st.isLast()) break;
+            s += st.duration(fast);
+        }
+        return s;
+    }
+
+    public static GenesisContext contextAt(float timeSec,
+                                           boolean fastMode,
+                                           ModuleId module) {
+
+        if (timeSec < 0f) timeSec = 0f;
+
+        float preLife = preLifeDuration(fastMode);
+
+        // LIVING - Р±РµСЃРєРѕРЅРµС‡РЅРѕРµ РїСЂРѕРґРѕР»Р¶РµРЅРёРµ РїРѕСЃР»Рµ РІСЃРµС… РѕСЃС‚Р°Р»СЊРЅС‹С… СЃС‚Р°РґРёР№
+        if (timeSec >= preLife) {
+            return new GenesisContext(
+                GenesisStage.LIVING,
+                0f,
+                1f,
+                timeSec - preLife,
+                fastMode,
+                module
+            );
+        }
+
+        float acc = 0f;
+        for (GenesisStage st : STAGES) {
+            if (st.isLast()) break;
+            float dur = st.duration(fastMode);
+            if (dur <= 0f) continue;
+
+            if (timeSec < acc + dur) {
+                float progress = (timeSec - acc) / dur;
+                float total = preLife > 0f ? timeSec / preLife : 0f;
+                return new GenesisContext(
+                    st,
+                    clamp01(progress),
+                    clamp01(total),
+                    0f,
+                    fastMode,
+                    module
+                );
+            }
+            acc += dur;
+        }
+
+        // Fallback - РЅРµ РґРѕР»Р¶РЅРѕ СЃР»СѓС‡РёС‚СЊСЃСЏ
+        return new GenesisContext(
+            GenesisStage.LIVING, 0f, 1f,
+            timeSec - preLife, fastMode, module);
+    }
+
+    private static float clamp01(float v) {
+        return v < 0f ? 0f : (v > 1f ? 1f : v);
+    }
+}

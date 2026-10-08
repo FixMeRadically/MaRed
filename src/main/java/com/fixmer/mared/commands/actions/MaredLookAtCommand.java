@@ -20,7 +20,7 @@ public class MaredLookAtCommand extends MaredScriptCommand {
         double x = MaredExpr.toNumber(MaredExpr.eval(xExpr, ctx));
         double y = MaredExpr.toNumber(MaredExpr.eval(yExpr, ctx));
         double z = MaredExpr.toNumber(MaredExpr.eval(zExpr, ctx));
-        MaredActionRegistry.lookAt(x, y, z);
+        MaredActionRegistry.lookAt(ctx.executionScope(), x, y, z);
         ctx.log("[action] look_at " + x + " " + y + " " + z);
         return true;
     }

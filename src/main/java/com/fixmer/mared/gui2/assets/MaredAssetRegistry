@@ -1,0 +1,73 @@
+package com.fixmer.mared.gui2.assets;
+
+
+import java.util.HashMap;
+import java.util.Map;
+
+
+
+public final class MaredAssetRegistry {
+
+
+
+    private static final Map<String,MaredAsset> ASSETS =
+            new HashMap<>();
+
+
+
+
+
+    private MaredAssetRegistry(){
+
+    }
+
+
+
+
+
+    public static void register(
+
+            MaredAsset asset
+
+    ){
+
+        ASSETS.put(
+
+                asset.id(),
+
+                asset
+
+        );
+
+    }
+
+
+
+
+
+    public static MaredAsset get(
+
+            String id
+
+    ){
+
+        return ASSETS.get(id);
+
+    }
+
+
+
+
+
+    public static boolean contains(
+
+            String id
+
+    ){
+
+        return ASSETS.containsKey(id);
+
+    }
+
+
+}

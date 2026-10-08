@@ -1,0 +1,10 @@
+{
+  "module":"TOOLS",
+  "color":4283782485,
+
+  "intro":"console",
+
+  "transition":"debug",
+
+  "finalState":"profiler"
+}

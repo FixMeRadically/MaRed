@@ -1,0 +1,10 @@
+{
+  "module":"CONTENT",
+  "color":4286578816,
+
+  "intro":"code",
+
+  "transition":"texture",
+
+  "finalState":"model"
+}

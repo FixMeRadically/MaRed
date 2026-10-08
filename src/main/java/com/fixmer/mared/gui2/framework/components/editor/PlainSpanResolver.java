@@ -11,9 +11,11 @@ import java.util.List;
  */
 final class PlainSpanResolver implements SpanResolver {
 
-    static final PlainSpanResolver INSTANCE = new PlainSpanResolver(0xFFDDDDDD);
+    static final PlainSpanResolver INSTANCE = new PlainSpanResolver();
 
-    private final int color;
+    private final Integer color;
+
+    private PlainSpanResolver(){color=null;}
 
     PlainSpanResolver(int color) {
         this.color = color;
@@ -21,7 +23,7 @@ final class PlainSpanResolver implements SpanResolver {
 
     @Override
     public int baseColor() {
-        return color;
+        return color==null?com.fixmer.mared.technology.editor.GenesisEditorVisuals.text():color;
     }
 
     @Override
@@ -31,6 +33,6 @@ final class PlainSpanResolver implements SpanResolver {
             return Collections.emptyList();
         }
         return Collections.singletonList(
-            new TextSpan(0, lineText.length(), color));
+            new TextSpan(0, lineText.length(), baseColor()));
     }
 }

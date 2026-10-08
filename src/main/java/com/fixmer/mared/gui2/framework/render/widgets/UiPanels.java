@@ -83,11 +83,11 @@ public final class UiPanels {
     }
 
     public static void dialogBackground(GuiGraphics g, int width, int height) {
-        g.fill(0, 0, width, height, FrameworkPalette.SCREEN_BG);
+        g.fill(0, 0, width, height, FrameworkPalette.SCREEN_BG());
     }
 
     public static void dialogPanel(GuiGraphics g, int x, int y, int w, int h, int accent) {
-        Render.panelGradient(g, x, y, w, h, FrameworkPalette.PANEL_BG, accent,
+        Render.panelGradient(g, x, y, w, h, FrameworkPalette.PANEL_BG(), accent,
             MaredColor.darken(accent, 0.4f));
     }
 

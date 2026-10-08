@@ -1,0 +1,25 @@
+package com.fixmer.mared.gui2.welcome.input;
+
+import com.fixmer.mared.gui2.welcome.layout.ButtonLayout;
+import com.fixmer.mared.gui2.welcome.layout.WelcomeLayout;
+
+public final class WelcomeMouseHandler {
+
+    private final WelcomeInputState state;
+
+    public WelcomeMouseHandler(WelcomeInputState state) {
+        this.state = state;
+    }
+
+    /**
+     * Genesis: handler Р±РѕР»СЊС€Рµ РЅРµ Р·РЅР°РµС‚ РЅРё startX, РЅРё buttonY, РЅРё
+     * С€Р°РіР° РєРЅРѕРїРѕРє. Р•РґРёРЅСЃС‚РІРµРЅРЅС‹Р№ РёСЃС‚РѕС‡РЅРёРє РіРµРѕРјРµС‚СЂРёРё - WelcomeLayout.
+     */
+    public void moved(double x, double y, WelcomeLayout layout) {
+        state.updateMouse(x, y);
+
+        for (ButtonLayout bl : layout.buttons()) {
+            bl.button().updateHover(bl.contains(x, y));
+        }
+    }
+}
