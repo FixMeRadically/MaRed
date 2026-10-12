@@ -43,15 +43,26 @@ public final class SourceProjects {
         return leaf.matches(".+\\.(java|py|rs|cpp|c|h|hpp|json|txt|md|toml|properties)");
     }
     private static IOException fail(String reason) { return new IOException(reason); }
+    /**
+     * Accepts paths under either the current bound (linked workspace) or the managed root.
+     * Linked projects keep their genesis-project.properties under root/id while their
+     * working tree lives outside; both must remain addressable during a withBound() block.
+     */
     private void safe(Path path) throws IOException {
         Path bound=bound();
-        if (!path.normalize().startsWith(bound)) throw fail("Outside project root");
+        Path normalized=path.normalize();
+        boolean underBound=normalized.startsWith(bound);
+        boolean underRoot=normalized.startsWith(root);
+        if(!underBound&&!underRoot)throw fail("Outside project root");
         Path p=path.toAbsolutePath();
-        while(p!=null) { if(Files.isSymbolicLink(p)) throw fail("Symbolic links are not supported: "+p.getFileName());p=p.getParent(); }
+        while(p!=null){if(Files.isSymbolicLink(p))throw fail("Symbolic links are not supported: "+p.getFileName());p=p.getParent();}
         // Resolve existing ancestors as well: Windows junctions need not report isSymbolicLink.
-        if(Files.exists(bound,LinkOption.NOFOLLOW_LINKS)){
-            Path existing=path;while(existing!=null&&!Files.exists(existing,LinkOption.NOFOLLOW_LINKS))existing=existing.getParent();
-            if(existing==null||!existing.toRealPath().startsWith(bound.toRealPath()))throw fail("Resolved path escapes project root");
+        Path check=underBound?bound:root;
+        if(Files.exists(check,LinkOption.NOFOLLOW_LINKS)){
+            Path existing=normalized;
+            while(existing!=null&&!Files.exists(existing,LinkOption.NOFOLLOW_LINKS))existing=existing.getParent();
+            if(existing==null||!existing.toRealPath().startsWith(check.toRealPath()))
+                throw fail("Resolved path escapes project root");
         }
     }
     private void directories(Path path) throws IOException { safe(path);Files.createDirectories(path);safe(path); }
@@ -158,9 +169,12 @@ public final class SourceProjects {
         Path staging=Files.createTempDirectory(root,".link-minecraft-");
         try{
             var hints=com.fixmer.genesis.technology.minecraft.MinecraftWorkspaceCreator.manifestHints(info,com.fixmer.genesis.technology.minecraft.MinecraftImportMode.LINK,external);
+            // Прямые слеши: Properties.load() не трогает '/', путь остаётся валидным на Windows.
+            String normalizedPath = external.toAbsolutePath().normalize().toString().replace('\\', '/');
+            hints.setProperty("linked_path", normalizedPath);
+
             StringBuilder manifest=new StringBuilder("format=1\nlanguage=JAVA\nmod_version=0.4.0\nproject_layout=shared\nworkspace=linked_minecraft\n");
             for(String key:hints.stringPropertyNames())manifest.append(key).append('=').append(hints.getProperty(key)).append('\n');
-            if(!hints.containsKey("linked_path"))manifest.append("linked_path=").append(external.toAbsolutePath().normalize()).append('\n');
             Files.writeString(staging.resolve(MANIFEST),manifest.toString(),StandardCharsets.UTF_8,StandardOpenOption.CREATE_NEW);
             if(bytes(manifest.toString()).length>4096)throw fail("Project metadata size limit");
             safe(target);noAlias(target);Files.move(staging,target);return new Project(id,Language.JAVA);
@@ -178,8 +192,11 @@ public final class SourceProjects {
         catch(IllegalArgumentException bad){throw fail("Malformed project metadata");}
         if(!"linked_minecraft".equals(properties.getProperty("workspace")))return managed;
         String linked=properties.getProperty("linked_path","");
-        if(!BuildTools.validAbsolutePath(linked))throw fail("Invalid linked Minecraft path");
-        Path path=Path.of(linked).toAbsolutePath().normalize();
+        if(linked.isEmpty())throw fail("Invalid linked Minecraft path");
+        Path path;
+        try { path=Path.of(linked).toAbsolutePath().normalize(); }
+        catch (RuntimeException ex) { throw fail("Invalid linked Minecraft path: "+linked); }
+        if(!path.isAbsolute())throw fail("Invalid linked Minecraft path: "+linked);
         if(!Files.isDirectory(path,LinkOption.NOFOLLOW_LINKS)||Files.isSymbolicLink(path))throw fail("Linked Minecraft project is missing");
         Path real=path.toRealPath(),own=root.toRealPath();
         if(real.startsWith(own)||own.startsWith(real))throw fail("Linked Minecraft path collides with Genesis storage");
@@ -234,15 +251,38 @@ public final class SourceProjects {
         if(linkedMinecraft(id))return linkedEntry(id,file);
         Path p=projectPath(id).resolve(file);safe(p);return p;
     }
+    /**
+     * Linked projects: workingDirectory(id) is computed ONCE, before withBound(), so the
+     * second call inside the lambda never re-enters safe() with a mismatched bound.
+     */
     public synchronized List<String> files(String id) throws IOException {
-        project(id);return GradleProjectImport.editableFiles(workingDirectory(id));
+        project(id);
+        if(linkedMinecraft(id)){
+            Path wd=workingDirectory(id);
+            return withBound(wd,()->GradleProjectImport.editableFiles(wd));
+        }
+        return GradleProjectImport.editableFiles(workingDirectory(id));
     }
-    public synchronized List<String> entries(String id)throws IOException{project(id);return GradleProjectImport.allFiles(workingDirectory(id));}
+    public synchronized List<String> entries(String id)throws IOException{
+        project(id);
+        if(linkedMinecraft(id)){
+            Path wd=workingDirectory(id);
+            return withBound(wd,()->GradleProjectImport.allFiles(wd));
+        }
+        return GradleProjectImport.allFiles(workingDirectory(id));
+    }
     public synchronized byte[] asset(String id,String path)throws IOException{
         if(linkedMinecraft(id))return withBound(workingDirectory(id),()->readBytes(entryPath(id,path),GradleProjectImport.MAX_FILE_BYTES));
         return readBytes(entryPath(id,path),GradleProjectImport.MAX_FILE_BYTES);
     }
-    public synchronized List<String> folders(String id)throws IOException{project(id);return GradleProjectImport.folders(workingDirectory(id));}
+    public synchronized List<String> folders(String id)throws IOException{
+        project(id);
+        if(linkedMinecraft(id)){
+            Path wd=workingDirectory(id);
+            return withBound(wd,()->GradleProjectImport.folders(wd));
+        }
+        return GradleProjectImport.folders(workingDirectory(id));
+    }
     private Path entryPath(String id,String path)throws IOException{
         project(id);if(!com.fixmer.genesis.technology.storage.ProjectPath.valid(path)||path.equalsIgnoreCase(MANIFEST)||path.toLowerCase(Locale.ROOT).startsWith(".build-tools"))throw fail("Invalid or protected project path");
         if(linkedMinecraft(id))return linkedEntry(id,path);

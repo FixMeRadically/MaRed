@@ -197,19 +197,21 @@ public final class GradleOutputs  {
      pending.withWriter('UTF-8') { report.store(it, 'Genesis build outputs') }
      Files.move(pending.toPath(), new File(genesisFolder, 'outputs.properties').toPath(), StandardCopyOption.REPLACE_EXISTING)
  }
- gradle.projectsEvaluated {
+  gradle.projectsEvaluated {
      def capture = gradle.rootProject.tasks.register('genesisCaptureOutputs_' + genesisId.replace('-', '_')) {
          group = 'genesis'
          description = 'Capture verified archive outputs and runtime libraries for this invocation'
          doLast { genesisCapture() }
      }
+     def archivePaths = []
      gradle.allprojects { project ->
          project.tasks.configureEach { archive ->
              if (!genesisPackagingTask(archive)) return
              archive.finalizedBy(capture)
-             capture.configure { mustRunAfter(archive) }
+             archivePaths << archive.path
          }
      }
- }
+     capture.configure { mustRunAfter(*archivePaths) }
+  }
  """;
 }

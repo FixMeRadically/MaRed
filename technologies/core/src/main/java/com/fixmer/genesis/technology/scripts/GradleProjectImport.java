@@ -22,7 +22,7 @@ public final class GradleProjectImport {
     private record Stamp(long size,String sha256,boolean directory) {}
     private record Snapshot(SortedMap<String,Stamp> entries,long bytes) {}
     private static final Set<String> HIDDEN=Set.of(".gitignore",".gitattributes",".editorconfig",".gitkeep",".github");
-    private static final Set<String> SKIP=Set.of(".git",".gradle",".idea",".vscode",".settings",".genesis-gradle-cache",".genesis-recovery",".exports",".genesis-build");
+    private static final Set<String> SKIP=Set.of(".git",".gradle",".idea",".vscode",".settings",".genesis",".genesis-gradle-cache",".genesis-recovery",".exports",".genesis-build");
     private GradleProjectImport() {}
     public static boolean editable(String path){
         return com.fixmer.genesis.technology.storage.ProjectPath.valid(path)&&!path.equalsIgnoreCase("genesis-project.properties")&&
