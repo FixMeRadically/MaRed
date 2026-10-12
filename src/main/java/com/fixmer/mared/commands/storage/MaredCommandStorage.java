@@ -2,15 +2,14 @@ package com.fixmer.mared.commands.storage;
 import java.io.*;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.regex.Pattern;
+import com.fixmer.genesis.technology.storage.RepositoryPath;
 import net.neoforged.fml.loading.FMLPaths;
 import com.fixmer.genesis.technology.storage.TextRepository;
 import com.fixmer.mared.Mared;
 /** Minecraft adapter; all writes require an existing file and an unexpired version ticket. */
 public final class MaredCommandStorage {
  private MaredCommandStorage() {}
- public static final int MAX_NAME_LEN=64;
- private static final Pattern NAME_PATTERN=Pattern.compile("[a-zA-Z0-9_\\-]+(\\.[a-zA-Z0-9_\\-]+)*");
+ public static final int MAX_NAME_LEN=RepositoryPath.MAX_LENGTH;
  private static TextRepository repository;
  private static Path repositoryPath;
  private static synchronized TextRepository repo() {
@@ -20,14 +19,9 @@ public final class MaredCommandStorage {
  }
     public static String validateName(String name) {
         if (name == null || name.isEmpty()) return "empty";
-        if (name.length() > MAX_NAME_LEN)   return "too_long";
-        if (name.equals(".") || name.equals("..")) return "reserved";
-        if (name.indexOf('/') >= 0 || name.indexOf('\\') >= 0) return "slash";
-        if (name.charAt(0) == '.') return "hidden";
-        if (name.charAt(0) == ' ' || name.charAt(name.length() - 1) == ' ')
-            return "whitespace";
-        if (!NAME_PATTERN.matcher(name).matches()) return "charset";
-        return null;
+        if (name.length() > MAX_NAME_LEN) return "too_long";
+        if (name.indexOf('\\') >= 0 || name.startsWith("/")) return "slash";
+        return RepositoryPath.valid(name) ? null : "charset";
     }
 
     public static boolean isValidName(String name) {
@@ -35,6 +29,24 @@ public final class MaredCommandStorage {
     }
 
 
+ public static List<TextRepository.Entry> entries(String folder) {try{return repo().entries(folder);}catch(IOException e){throw new UncheckedIOException(e);}}
+ public static boolean directoryExists(String folder) {try{return repo().directoryExists(folder);}catch(IOException e){return false;}}
+ public static void createDirectory(String folder) throws IOException {repo().createDirectory(folder);}
+ public static com.fixmer.genesis.technology.editor.DocumentSearch.Result search(String query,
+  com.fixmer.genesis.technology.editor.DocumentSearch.Mode mode, boolean matchCase,
+  java.util.function.BooleanSupplier cancelled) throws IOException {
+  return com.fixmer.genesis.technology.editor.DocumentSearch.search(repo(),query,mode,matchCase,cancelled);
+ }
+ public static com.fixmer.genesis.technology.storage.ProjectArchive.Plan projectSnapshot() throws IOException {
+  return com.fixmer.genesis.technology.storage.ProjectArchive.snapshot(repo());
+ }
+ public static List<String> projectConflicts(com.fixmer.genesis.technology.storage.ProjectArchive.Plan plan) throws IOException {
+  return repo().previewBatch(plan.documents(),plan.directories());
+ }
+ public static void importProject(com.fixmer.genesis.technology.storage.ProjectArchive.Plan plan) throws IOException {
+  repo().createBatch(plan.documents(),plan.directories());
+  com.fixmer.mared.technology.links.ScriptLinkService.changed();
+ }
  public static List<String> listCommands(){try{return repo().list();}catch(IOException e){throw new UncheckedIOException(e);}}
  public static boolean exists(String name){if(!isValidName(name))return false;try{return repo().exists(name);}catch(IOException e){return false;}}
  public static String readCommand(String name){try{return repo().read(name);}catch(IOException e){throw new UncheckedIOException(e);}}

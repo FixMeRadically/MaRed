@@ -21,8 +21,13 @@ public final class StudioActions {
     // --- TopBar actions ---
 
     public static final String FILE_NEW                = "mared:file.new";
+    public static final String FOLDER_NEW = "mared:folder.new";
     public static final String FILE_SAVE               = "mared:file.save";
     public static final String FILE_SAVE_AS = "mared:file.save_as";
+    public static final String EDIT_FIND_FILES = "mared:edit.find_files";
+    public static final String EDIT_DUPLICATE_LINES="mared:edit.duplicate_lines", EDIT_MOVE_UP="mared:edit.move_up", EDIT_MOVE_DOWN="mared:edit.move_down", EDIT_COMMENT="mared:edit.comment", RUN_FRAGMENT="mared:run.fragment";
+    public static final String PROJECT_TRANSFER = "mared:project.transfer";
+    public static final String EDIT_REPLACE = "mared:edit.replace";
     public static final String EDIT_FIND = "mared:edit.find";
     public static final String EDIT_FIND_NEXT = "mared:edit.find_next";
     public static final String EDIT_FIND_PREVIOUS = "mared:edit.find_previous";
@@ -66,37 +71,68 @@ public final class StudioActions {
 
         registry.register(new EditorAction(
             FILE_NEW, "mared.action.file.new.title", "Ctrl+N",
-            ctx -> true, StudioActions::openNewFileDialog));
+            ctx -> ctx.commandsActive(), StudioActions::openNewFileDialog));
+
+        registry.register(new EditorAction(FOLDER_NEW, "mared.action.folder.new.title", "",
+            ctx -> ctx.commandsActive(), ctx -> {
+                String folder = ctx.explorer() == null ? "" : ctx.explorer().currentFolder();
+                ScreenNavigator.openNewFolderDialog(ctx.overlays(), folder, name -> {
+                    try {
+                        com.fixmer.mared.commands.storage.MaredCommandStorage.createDirectory(name);
+                        ctx.log("[studio] created folder: " + name);
+                        ctx.refreshExplorer();
+                    } catch (Exception error) { ctx.log("[studio] cannot create folder: " + error.getMessage()); }
+                });
+            }));
 
         registry.register(new EditorAction(
             FILE_SAVE, "mared.action.file.save.title", "Ctrl+S",
-            ctx -> true,
+            ctx -> ctx.commandsActive(),
             ctx -> ctx.controller().bus().publish(
                 new StudioEvents.SaveRequestedEvent())));
 
         registry.register(new EditorAction(FILE_SAVE_AS, "mared.action.file.save_as.title", "Ctrl+Shift+S",
-            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().requestSaveAs()));
+            ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().requestSaveAs()));
+        registry.register(new EditorAction(EDIT_DUPLICATE_LINES,"mared.lines.duplicate","Ctrl+Shift+D",
+            ctx->ctx.commandsActive()&&ctx.workspace()!=null&&ctx.workspace().canEditLines(),ctx->ctx.workspace().editLines(com.fixmer.genesis.technology.editor.LineTools.Operation.DUPLICATE)));
+        registry.register(new EditorAction(EDIT_MOVE_UP,"mared.lines.up","Alt+Up",
+            ctx->ctx.commandsActive()&&ctx.workspace()!=null&&ctx.workspace().canEditLines(),ctx->ctx.workspace().editLines(com.fixmer.genesis.technology.editor.LineTools.Operation.UP)));
+        registry.register(new EditorAction(EDIT_MOVE_DOWN,"mared.lines.down","Alt+Down",
+            ctx->ctx.commandsActive()&&ctx.workspace()!=null&&ctx.workspace().canEditLines(),ctx->ctx.workspace().editLines(com.fixmer.genesis.technology.editor.LineTools.Operation.DOWN)));
+        registry.register(new EditorAction(EDIT_COMMENT,"mared.lines.comment","Ctrl+Shift+C",
+            ctx->ctx.commandsActive()&&ctx.workspace()!=null&&ctx.workspace().canEditLines(),ctx->ctx.workspace().editLines(com.fixmer.genesis.technology.editor.LineTools.Operation.COMMENT)));
+        registry.register(new EditorAction(RUN_FRAGMENT,"mared.fragment.run","Ctrl+Shift+Enter",
+            ctx->ctx.commandsActive()&&ctx.workspace()!=null&&ctx.workspace().canEditLines()&&ctx.runs().canStart(),ctx->{
+                try{String fragment=ctx.workspace().commandFragment();ctx.runs().start(fragment,com.fixmer.mared.MaredLang.format("mared.fragment.title",ctx.workspace().currentFileName()==null?"Commands":ctx.workspace().currentFileName()));}
+                catch(RuntimeException error){String reason=error.getMessage();ctx.log(reason!=null&&reason.startsWith("mared.")?com.fixmer.mared.MaredLang.get(reason):reason);}
+            }));
+        registry.register(new EditorAction(PROJECT_TRANSFER, "mared.transfer.title", "Ctrl+Alt+I",
+            ctx -> ctx.commandsActive(), ctx -> ctx.overlays().push(new com.fixmer.mared.technology.editor.ProjectTransferOverlay(ctx::refreshExplorer, ctx::log, path -> ctx.workspace() != null && ctx.workspace().host().byStorageId(path) != null))));
+        registry.register(new EditorAction(EDIT_REPLACE, "mared.action.edit.replace.title", "Ctrl+H",
+            ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().openReplace()));
         registry.register(new EditorAction(EDIT_FIND, "mared.action.edit.find.title", "Ctrl+F",
-            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().openSearch()));
+            ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().openSearch()));
+        registry.register(new EditorAction(EDIT_FIND_FILES, "mared.project_search.action", "Ctrl+Shift+F",
+            ctx -> ctx.commandsActive(), ctx -> ctx.controller().bus().publish(new StudioEvents.RequestProjectSearchEvent())));
         registry.register(new EditorAction(EDIT_FIND_NEXT, "mared.action.edit.find_next.title", "F3",
-            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().findNext(false)));
+            ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().findNext(false)));
         registry.register(new EditorAction(EDIT_FIND_PREVIOUS, "mared.action.edit.find_previous.title", "Shift+F3",
-            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().findNext(true)));
+            ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().findNext(true)));
         registry.register(new EditorAction(EDIT_COMPLETE, "mared.action.edit.complete.title", "Ctrl+Space",
-            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().completeMinecraft()));
+            ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().completeMinecraft()));
         registry.register(new EditorAction(EDIT_CHECK, "mared.action.edit.check.title", "F7",
-            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().checkSyntax()));
+            ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().checkSyntax()));
 
         registry.register(new EditorAction(
             FILE_RUN, "mared.action.file.run.title", "Ctrl+R",
-            ctx -> ctx.workspace() != null && !ctx.workspace().host().isEmpty() && ctx.runs().canStart(), StudioActions::runFile));
+            ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty() && ctx.runs().canStart(), StudioActions::runFile));
         registry.register(new EditorAction(FILE_STOP, "mared.action.file.stop.title", "Ctrl+Shift+R",
-            ctx -> ctx.runs().canStop(), ctx -> ctx.runs().stop()));
+            ctx -> ctx.commandsActive() && ctx.runs().canStop(), ctx -> ctx.runs().stop()));
 
         registry.register(new EditorAction(
             FILE_RELOAD_PERSISTENT,
             "mared.action.file.reload_persistent.title", "",
-            ctx -> true, ctx -> ctx.publish(ctx.commands().reloadPersistent())));
+            ctx -> ctx.commandsActive(), ctx -> ctx.publish(ctx.commands().reloadPersistent())));
 
         registry.register(new EditorAction(
             VIEW_SETTINGS, "mared.action.view.settings.title", "",
@@ -142,19 +178,19 @@ public final class StudioActions {
 
         registry.register(new EditorAction(
             FILE_OPEN, "mared.action.file.open.title", "",
-            (ctx, args) -> args.has("fileName"),
+            (ctx, args) -> ctx.commandsActive() && args.has("fileName"),
             (ctx, args) -> openFileAction(ctx, args)));
         registry.register(new EditorAction(
             FILE_RENAME, "mared.action.file.rename.title", "",
-            (ctx, args) -> args.has("fileName"),
+            (ctx, args) -> ctx.commandsActive() && args.has("fileName"),
             (ctx, args) -> renameFileAction(ctx, args)));
         registry.register(new EditorAction(
             FILE_DUPLICATE, "mared.action.file.duplicate.title", "",
-            (ctx, args) -> args.has("fileName"),
+            (ctx, args) -> ctx.commandsActive() && args.has("fileName"),
             (ctx, args) -> duplicateFileAction(ctx, args)));
         registry.register(new EditorAction(
             FILE_DELETE, "mared.action.file.delete.title", "",
-            (ctx, args) -> args.has("fileName"),
+            (ctx, args) -> ctx.commandsActive() && args.has("fileName"),
             (ctx, args) -> deleteFileAction(ctx, args)));
     }
 
@@ -165,7 +201,7 @@ public final class StudioActions {
     private static void openNewFileDialog(EditorActionContext ctx) {
         OverlayManager overlays = ctx.overlays();
         if (overlays == null) return;
-        ScreenNavigator.openNewFileDialog(overlays, (name, persistent) -> {
+        ScreenNavigator.openNewFileDialog(overlays, ctx.explorer() == null ? "" : ctx.explorer().currentFolder(), (name, persistent) -> {
             var r = ctx.commands().create(name, persistent);
             ctx.publish(r);
             if (r.ok()) {

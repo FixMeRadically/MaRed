@@ -30,6 +30,9 @@ public final class MaredThemeTab implements MaredSettingsTab {
 
     private int previewY = 0;
     private int firstCardY = 0;
+    private final boolean scriptsContext;
+    public MaredThemeTab(){this(false);}
+    public MaredThemeTab(boolean scriptsContext){this.scriptsContext=scriptsContext;}
     private int monotoneY = 0;
     private int patternsY = 0;
     private int tornEdgesY = 0;
@@ -99,9 +102,8 @@ public final class MaredThemeTab implements MaredSettingsTab {
             x, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
 
-        monotoneY = cy;
-        cy = drawCheckbox(g, font, x, cy, w,
-            MaredLang.get("mared.settings.theme.monotone"), th.monotoneTabs());
+        monotoneY = -1000;
+        if(!scriptsContext){monotoneY=cy;cy=drawCheckbox(g,font,x,cy,w,MaredLang.get("mared.settings.theme.monotone"),th.monotoneTabs());}
 
         patternsY = cy;
         cy = drawCheckbox(g, font, x, cy, w,
@@ -263,7 +265,7 @@ public final class MaredThemeTab implements MaredSettingsTab {
             }
         }
 
-        if (my >= monotoneY && my < monotoneY + 18) {
+        if (!scriptsContext && my >= monotoneY && my < monotoneY + 18) {
             th.setMonotoneTabs(!th.monotoneTabs());
             return true;
         }

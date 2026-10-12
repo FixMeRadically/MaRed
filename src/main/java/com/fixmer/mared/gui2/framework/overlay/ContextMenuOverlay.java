@@ -40,6 +40,7 @@ public final class ContextMenuOverlay implements Overlay {
     private final Runnable onClose;
 
     private int menuX, menuY, menuW, menuH;
+    private int contentH,scrollOffset,layoutW=-1,layoutH=-1;
     private boolean layoutDone = false;
     private int highlightedIndex = -1;
     private boolean closeRequested = false;
@@ -91,9 +92,9 @@ public final class ContextMenuOverlay implements Overlay {
                        int mouseX, int mouseY) {
         if (entries.isEmpty()) return;
 
-        if (!layoutDone) {
+        if (!layoutDone||layoutW!=screenW||layoutH!=screenH) {
             computeLayout(font, screenW, screenH);
-            layoutDone = true;
+            layoutDone = true;layoutW=screenW;layoutH=screenH;
         }
 
         MaredTheme t = MaredThemeRegistry.active();
@@ -110,9 +111,10 @@ public final class ContextMenuOverlay implements Overlay {
             highlightedIndex = hoveredIdx;
         }
 
-        int curY = menuY + PAD_Y;
+        int curY = menuY + PAD_Y-scrollOffset;
         int n = entries.size();
-        for (int i = 0; i < n; i++) {
+        g.enableScissor(menuX+1,menuY+1,menuX+menuW-1,menuY+menuH-1);
+        try{for (int i = 0; i < n; i++) {
             ContextMenuEntry it = entries.get(i);
             if (it.separator()) {
                 Render.rect(g, menuX + PAD_X, curY + SEP_H / 2,
@@ -143,7 +145,9 @@ public final class ContextMenuOverlay implements Overlay {
             }
 
             curY += ITEM_H;
-        }
+        }}finally{g.disableScissor();}
+        if(scrollOffset>0)g.drawString(font,"^",menuX+menuW-8,menuY+1,t.textDim,false);
+        if(scrollOffset<contentH-menuH)g.drawString(font,"v",menuX+menuW-8,menuY+menuH-10,t.textDim,false);
 
         // 0.3.2: показать буфер поиска в углу панели.
         if (searchBuffer.length() > 0 && !isSearchExpired()) {
@@ -172,13 +176,13 @@ public final class ContextMenuOverlay implements Overlay {
             }
             if (textW > w) w = textW;
         }
-        menuW = w + PAD_X * 2;
+        menuW = Math.max(1,Math.min(w + PAD_X * 2,screenW-8));
 
         int h = PAD_Y * 2;
         for (ContextMenuEntry it : entries) {
             h += it.separator() ? SEP_H : ITEM_H;
         }
-        menuH = h;
+        contentH=h;menuH=Math.max(1,Math.min(h,screenH-16));scrollOffset=Math.max(0,Math.min(scrollOffset,contentH-menuH));
 
         int bx = anchorX;
         int by = anchorY;
@@ -223,7 +227,7 @@ public final class ContextMenuOverlay implements Overlay {
         if (mx < menuX || mx >= menuX + menuW) return -1;
         if (my < menuY || my >= menuY + menuH) return -1;
 
-        int curY = menuY + PAD_Y;
+        int curY = menuY + PAD_Y-scrollOffset;
         int n = entries.size();
         for (int i = 0; i < n; i++) {
             ContextMenuEntry it = entries.get(i);
@@ -268,7 +272,7 @@ public final class ContextMenuOverlay implements Overlay {
         lastSearchKeyMs = now;
 
         int found = findFirstMatch(searchBuffer.toString());
-        if (found >= 0) highlightedIndex = found;
+        if (found >= 0){highlightedIndex = found;ensureSelectionVisible();}
         return true;
     }
 
@@ -323,7 +327,7 @@ public final class ContextMenuOverlay implements Overlay {
             if (i < 0) i = n - 1;
             if (i >= n) i = 0;
             if (isSelectable(i)) {
-                highlightedIndex = i;
+                highlightedIndex = i;ensureSelectionVisible();
                 return;
             }
         }
@@ -335,15 +339,26 @@ public final class ContextMenuOverlay implements Overlay {
 
         if (home) {
             for (int i = 0; i < n; i++) {
-                if (isSelectable(i)) { highlightedIndex = i; return; }
+                if (isSelectable(i)) { highlightedIndex = i;ensureSelectionVisible(); return; }
             }
         } else {
             for (int i = n - 1; i >= 0; i--) {
-                if (isSelectable(i)) { highlightedIndex = i; return; }
+                if (isSelectable(i)) { highlightedIndex = i;ensureSelectionVisible(); return; }
             }
         }
     }
 
+    private void ensureSelectionVisible(){
+        if(!layoutDone||highlightedIndex<0)return;int top=PAD_Y;
+        for(int i=0;i<highlightedIndex;i++)top+=entries.get(i).separator()?SEP_H:ITEM_H;
+        if(top-scrollOffset<PAD_Y)scrollOffset=top-PAD_Y;
+        if(top+ITEM_H-scrollOffset>menuH-PAD_Y)scrollOffset=top+ITEM_H-menuH+PAD_Y;
+        scrollOffset=Math.max(0,Math.min(scrollOffset,Math.max(0,contentH-menuH)));
+    }
+    @Override public boolean mouseScrolled(double mx,double my,double dx,double dy){
+        if(mx<menuX||mx>=menuX+menuW||my<menuY||my>=menuY+menuH)return false;
+        scrollOffset=Math.max(0,Math.min(scrollOffset+(dy<0?ITEM_H*3:dy>0?-ITEM_H*3:0),Math.max(0,contentH-menuH)));return true;
+    }
     private void activateHighlighted() {
         if (highlightedIndex < 0 || highlightedIndex >= entries.size()) return;
         if (!isSelectable(highlightedIndex)) return;

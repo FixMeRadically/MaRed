@@ -25,6 +25,7 @@ public final class EditorDocument {
     private int selEndLine = -1, selEndCol = -1;
 
     private int contentVersion = 0;
+    private int desiredColumn = -1;
 
     public EditorDocument() {
         lines.add(new StringBuilder());
@@ -35,7 +36,7 @@ public final class EditorDocument {
     // ============================================================
 
     public int contentVersion() { return contentVersion; }
-    private void touch() { contentVersion++; }
+    private void touch() { contentVersion++; desiredColumn=-1; }
 
     public int lineCount() { return lines.size(); }
 
@@ -104,6 +105,7 @@ public final class EditorDocument {
     // ============================================================
 
     public void setCursor(int line, int col) {
+        desiredColumn=-1;
         cursorLine = clamp(line, 0, lines.size() - 1);
         cursorCol  = clamp(col, 0, lines.get(cursorLine).length());
     }
@@ -130,6 +132,7 @@ public final class EditorDocument {
         selStartLine = 0; selStartCol = 0;
         selEndLine = lines.size() - 1;
         selEndCol = lines.get(selEndLine).length();
+        setCursor(selEndLine,selEndCol);
     }
 
     // ============================================================
@@ -341,6 +344,63 @@ public final class EditorDocument {
     // ============================================================
     //  Cursor movement
     // ============================================================
+
+    /** Movement never changes content/history. Shift keeps a stable selection anchor. */
+    public boolean navigate(int key, boolean ctrl, boolean shift) {
+        if(key<262||key>265&&key!=268&&key!=269)return false;
+        if(!shift&&hasSelection()&&!ctrl&&(key==262||key==263)) {
+            int[] range=orderedSelection();
+            setCursor(key==263?range[0]:range[2],key==263?range[1]:range[3]);
+            clearSelection();return true;
+        }
+        if(shift&&!hasSelection())startSelection(cursorLine,cursorCol);
+        if(!shift)clearSelection();
+        if(key==262||key==263) {
+            desiredColumn=-1;
+            if(ctrl)moveWord(key==262);else step(key==262);
+        } else if(key==268||key==269) {
+            desiredColumn=-1;
+            if(ctrl)cursorLine=key==268?0:lines.size()-1;
+            cursorCol=key==268?0:lines.get(cursorLine).length();
+        } else {
+            if(desiredColumn<0)desiredColumn=cursorCol;
+            int direction=key==265?-1:1;
+            if(ctrl) {
+                int next=cursorLine;
+                do {next+=direction;}while(next>0&&next<lines.size()-1&&!lines.get(next).toString().isBlank());
+                cursorLine=clamp(next,0,lines.size()-1);
+            } else cursorLine=clamp(cursorLine+direction,0,lines.size()-1);
+            cursorCol=Math.min(desiredColumn,lines.get(cursorLine).length());
+        }
+        var current=lines.get(cursorLine);
+        if(cursorCol>0&&cursorCol<current.length()&&Character.isHighSurrogate(current.charAt(cursorCol-1))&&Character.isLowSurrogate(current.charAt(cursorCol)))cursorCol--;
+        if(shift)extendSelection(cursorLine,cursorCol);
+        return true;
+    }
+    private int neighbor(boolean right) {
+        var line=lines.get(cursorLine);
+        if(right)return cursorCol<line.length()?Character.codePointAt(line,cursorCol):cursorLine<lines.size()-1?'\n':-1;
+        return cursorCol>0?Character.codePointBefore(line,cursorCol):cursorLine>0?'\n':-1;
+    }
+    private void step(boolean right) {
+        int code=neighbor(right);if(code<0)return;
+        if(right) {
+            if(cursorCol==lines.get(cursorLine).length()){cursorLine++;cursorCol=0;}
+            else cursorCol+=Character.charCount(code);
+        } else {
+            if(cursorCol==0){cursorLine--;cursorCol=lines.get(cursorLine).length();}
+            else cursorCol-=Character.charCount(code);
+        }
+    }
+    private static int wordKind(int code) {
+        return code<0?-1:Character.isWhitespace(code)?0:Character.isJavaIdentifierPart(code)?1:2;
+    }
+    private void moveWord(boolean right) {
+        if(!right)while(wordKind(neighbor(false))==0)step(false);
+        int kind=wordKind(neighbor(right));
+        if(kind>=0)while(wordKind(neighbor(right))==kind)step(right);
+        if(right)while(wordKind(neighbor(true))==0)step(true);
+    }
 
     public void moveLeft() {
         if (hasSelection()) { clearSelection(); return; }

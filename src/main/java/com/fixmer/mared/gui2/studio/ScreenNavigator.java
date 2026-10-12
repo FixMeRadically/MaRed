@@ -31,11 +31,16 @@ public final class ScreenNavigator {
     // ============================================================
 
     private static String validateAvailableName(String name) {
-        try {return MaredCommandStorage.listCommands().contains(name)?MaredLang.format("mared.dialog.error.exists",name):null;}
+        try {return MaredCommandStorage.exists(name)?MaredLang.format("mared.dialog.error.exists",name):null;}
         catch(Exception error){return "Cannot read commands directory: "+error.getMessage();}
     }
 
     public static void openNewFileDialog(OverlayManager overlays,
+                                         BiConsumer<String, Boolean> onAccept) {
+        openNewFileDialog(overlays, "", onAccept);
+    }
+
+    public static void openNewFileDialog(OverlayManager overlays, String folder,
                                          BiConsumer<String, Boolean> onAccept) {
         if (overlays == null) return;
         overlays.push(new NameDialogOverlay(
@@ -44,7 +49,17 @@ public final class ScreenNavigator {
             GenesisEditorVisuals.LOGIC,
             true,
             ScreenNavigator::validateAvailableName
-        ));
+        ).initialValue(folder.isEmpty() ? "" : folder + "/"));
+    }
+
+    public static void openNewFolderDialog(OverlayManager overlays, String folder,
+                                           java.util.function.Consumer<String> onAccept) {
+        if (overlays == null) return;
+        overlays.push(new NameDialogOverlay(MaredLang.get("mared.dialog.new_folder"),
+            onAccept, GenesisEditorVisuals.LOGIC, false,
+            name -> MaredCommandStorage.directoryExists(name)
+                ? MaredLang.format("mared.dialog.error.exists", name) : null)
+            .initialValue(folder.isEmpty() ? "" : folder + "/"));
     }
 
     public static void openSaveAsDialog(OverlayManager overlays, String initial,

@@ -107,17 +107,24 @@ public final class EditorController {
     // ============================================================
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (!host.focused() || !host.editable()) return false;
+        if (!host.focused()) return false;
 
         boolean ctrl = (modifiers & 2) != 0;
 
+        boolean shift=(modifiers&1)!=0;
+        if(document.navigate(keyCode,ctrl,shift)) {
+            view.resetBlink();ensureCursorVisible();return true;
+        }
+        if(ctrl&&keyCode==67){copySelection();return true;}
+        if(ctrl&&keyCode==65){document.selectAll();view.resetBlink();ensureCursorVisible();return true;}
+        if(!host.editable())return false;
         if (ctrl) {
             switch (keyCode) {
                 case 67: copySelection(); return true;
                 case 86: pasteFromClipboard(); return true;
                 case 88: cutSelection(); return true;
                 case 65: document.selectAll(); view.resetBlink(); return true;
-                case 90: undo(); return true;
+                case 90: if(shift)redo();else undo(); return true;
                 case 89: redo(); return true;
                 default: return false;
             }

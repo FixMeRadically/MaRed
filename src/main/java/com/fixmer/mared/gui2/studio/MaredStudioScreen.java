@@ -83,6 +83,8 @@ public final class MaredStudioScreen extends Screen implements Disposable {
 
         screenSubs.add(bus.subscribe(StudioEvents.RequestNewFileEvent.class,
             e -> session.executeAction(StudioActions.FILE_NEW)));
+        screenSubs.add(bus.subscribe(StudioEvents.RequestNewFolderEvent.class,
+            e -> session.executeAction(StudioActions.FOLDER_NEW)));
         screenSubs.add(bus.subscribe(StudioEvents.RequestReloadPersistentEvent.class,
             e -> session.executeAction(StudioActions.FILE_RELOAD_PERSISTENT)));
 

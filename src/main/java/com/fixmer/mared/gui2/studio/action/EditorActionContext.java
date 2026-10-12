@@ -15,6 +15,9 @@ import net.minecraft.client.gui.screens.Screen;
 public final class EditorActionContext {
 
     private final Screen screen;
+    private boolean commandsActive = true;
+    public boolean commandsActive() { return commandsActive; }
+    public void setCommandsActive(boolean active) { commandsActive = active; }
     private final com.fixmer.mared.technology.editor.EditorRuns runs = new com.fixmer.mared.technology.editor.EditorRuns();
     public com.fixmer.mared.technology.editor.EditorRuns runs() { return runs; }
     private final MaredStudioController controller;

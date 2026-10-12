@@ -62,6 +62,11 @@ public final class NameDialogOverlay implements Overlay {
     private static final long ERROR_BLINK_HALF_PERIOD_MS = 300;
 
     // ---- Config ----
+    private boolean customInput;
+    /** General text/path input. Keeps the length bound, uses only the supplied validator. */
+    public NameDialogOverlay customInput(){if(nameValidator==null)throw new IllegalStateException("Validator required");customInput=true;return this;}
+    private int maxLength=MaredCommandStorage.MAX_NAME_LEN;
+    public NameDialogOverlay maxLength(int length){if(length<1||length>4096)throw new IllegalArgumentException("Invalid input length");maxLength=length;return this;}
     private final String title;
     private String acceptLabelKey = "mared.dialog.create";
     private final Consumer<String> onAcceptSimple;
@@ -155,7 +160,7 @@ public final class NameDialogOverlay implements Overlay {
     public NameDialogOverlay initialValue(String initial) {
         value.setLength(0);
         String name = initial == null ? "" : initial;
-        value.append(name, 0, Math.min(name.length(), MaredCommandStorage.MAX_NAME_LEN));
+        value.append(name, 0, Math.min(name.length(), maxLength));
         cursor = value.length();
         selectAll();
         return this;
@@ -401,7 +406,7 @@ public final class NameDialogOverlay implements Overlay {
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (codePoint < 32) return true;
-        if (value.length() >= MaredCommandStorage.MAX_NAME_LEN) return true;
+        if (value.length() - (hasSelection() ? selHi() - selLo() : 0) >= maxLength) return true;
 
         deleteSelection();
         value.insert(cursor, codePoint);
@@ -523,7 +528,7 @@ public final class NameDialogOverlay implements Overlay {
 
         deleteSelection();
 
-        int remaining = MaredCommandStorage.MAX_NAME_LEN - value.length();
+        int remaining = maxLength - value.length();
         if (remaining <= 0) return;
         String insert = clip.length() > remaining
             ? clip.substring(0, remaining) : clip;
@@ -617,12 +622,14 @@ public final class NameDialogOverlay implements Overlay {
     }
 
     private String validateBase(String name) {
+        if (name.length() > maxLength) return MaredLang.format("mared.dialog.error.too_long", maxLength);
+        if (customInput) return null;
         String code = MaredCommandStorage.validateName(name);
         if (code == null) return null;
         return switch (code) {
             case "empty"      -> MaredLang.get("mared.dialog.error.empty");
             case "too_long"   -> MaredLang.format("mared.dialog.error.too_long",
-                                    MaredCommandStorage.MAX_NAME_LEN);
+                                    maxLength);
             case "reserved"   -> MaredLang.get("mared.dialog.error.reserved");
             case "slash"      -> MaredLang.get("mared.dialog.error.slash_forbidden");
             case "hidden"     -> MaredLang.get("mared.dialog.error.hidden");

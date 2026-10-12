@@ -198,15 +198,20 @@ public final class CommandFileService {
     }
 
     public String suggestDuplicateName(String sourceName) {
-        Set<String> existing =
-            new HashSet<>(MaredCommandStorage.listCommands());
-
-        String candidate = sourceName + "_copy";
-        int n = 1;
-        while (existing.contains(candidate)) {
-            candidate = sourceName + "_copy" + n++;
+        String folder = com.fixmer.genesis.technology.storage.RepositoryPath.parent(sourceName);
+        String leaf = com.fixmer.genesis.technology.storage.RepositoryPath.leaf(sourceName);
+        Set<String> existing = new HashSet<>(MaredCommandStorage.listCommands());
+        for (int n = 0; n <= existing.size(); n++) {
+            String suffix = "_copy" + (n == 0 ? "" : n);
+            int available = Math.min(com.fixmer.genesis.technology.storage.RepositoryPath.MAX_SEGMENT,
+                MaredCommandStorage.MAX_NAME_LEN - (folder.isEmpty() ? 0 : folder.length() + 1)) - suffix.length();
+            if (available < 1) throw new IllegalArgumentException("Path too long for a duplicate; move source to a shorter folder first");
+            String stem = leaf.substring(0, Math.min(leaf.length(), available));
+            while (stem.endsWith(".")) stem = stem.substring(0, stem.length() - 1);
+            String candidate = com.fixmer.genesis.technology.storage.RepositoryPath.child(folder, stem + suffix);
+            if (!existing.contains(candidate)) return candidate;
         }
-        return candidate;
+        throw new IllegalStateException("No free duplicate name");
     }
 
     // ============================================================

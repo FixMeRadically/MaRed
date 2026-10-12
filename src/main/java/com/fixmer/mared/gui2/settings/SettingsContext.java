@@ -61,6 +61,13 @@ public final class SettingsContext {
      * Зафиксировать draft в глобальное состояние.
      * Вызывается MaredSettingsScreen.onSave().
      */
+    public void applyTheme(){
+        MaredSettings.setThemeId(themeView.themeId());
+        MaredSettings.setPatternsEnabled(themeView.patternsEnabled());
+        MaredSettings.setTornEdgesEnabled(themeView.tornEdgesEnabled());
+        MaredSettings.setReducedMotion(themeView.reducedMotion());
+        MaredSettings.save();
+    }
     public void apply() {
         snapshot.apply();
         logsView.commit();

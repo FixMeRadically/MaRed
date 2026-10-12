@@ -39,6 +39,8 @@ public final class StudioEvents {
     // ============================================================
 
     public record RequestNewFileEvent() implements StudioEvent {}
+    public record RequestProjectSearchEvent() implements StudioEvent {}
+    public record RequestNewFolderEvent() implements StudioEvent {}
     public record RequestReloadPersistentEvent() implements StudioEvent {}
 
     public record RequestContextMenuForFileEvent(int x, int y, String fileName)
