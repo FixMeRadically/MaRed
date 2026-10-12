@@ -112,10 +112,15 @@ public class MaredLogPanel {
         invalidateVisibleCache();
     }
 
-    public MaredLogPanel() {
-        LogSettings.load();
-        LogService.get().ensureLoaded();
-    }
+    public MaredLogPanel(){this(false);}
+    protected MaredLogPanel(boolean localOnly){if(!localOnly){LogSettings.load();LogService.get().ensureLoaded();}}
+    protected int filterVersion(){return LogSettings.getVersion();}
+    protected List<String> filterCategories(){return LogSettings.CATEGORIES;}
+    protected boolean levelEnabled(LogSettings.Level level){return LogSettings.isLevelEnabled(level);}
+    protected boolean categoryEnabled(String category){return LogSettings.isCategoryEnabled(category);}
+    protected void toggleLevel(LogSettings.Level level){LogSettings.toggleLevel(level);}
+    protected void toggleCategory(String category){LogSettings.toggleCategory(category);}
+    protected boolean shouldShow(LogEntry entry){return com.fixmer.mared.services.logging.LogSettingsService.get().shouldShow(entry.level,entry.category);}
 
     // ============================================================
     //  Add
@@ -147,7 +152,7 @@ public class MaredLogPanel {
     public void clear() {
         if (localEntries != null) {
             if (localClear != null) localClear.run();
-            setLocalEntries(List.of()); scroll.offset = 0; return;
+            setLocalEntries(List.of(),localClear); scroll.offset = 0; return;
         }
         LogService.get().clear();
         selStart = new Pos(-1, -1);
@@ -199,9 +204,9 @@ public class MaredLogPanel {
 
     private int currentCacheKey() {
         int h = 17;
-        h = h * 31 + LogService.get().version();
+        h = h * 31 + (localEntries==null?LogService.get().version():0);
         h = h * 31 + localRevision;
-        h = h * 31 + LogSettings.getVersion();
+        h = h * 31 + filterVersion();
         h = h * 31 + (searchQuery == null ? 0 : searchQuery.hashCode());
         return h;
     }
@@ -217,12 +222,10 @@ public class MaredLogPanel {
         String q = searchQuery == null ? "" : searchQuery;
         String qLower = q.isEmpty() ? "" : q.toLowerCase();
 
-        var settings = com.fixmer.mared.services.logging
-            .LogSettingsService.get();
 
         for (int i = 0; i < n; i++) {
             LogEntry e = all.get(i);
-            if (!settings.shouldShow(e.level, e.category)) continue;
+            if (!shouldShow(e)) continue;
             if (!qLower.isEmpty()
                 && !containsIgnoreCase(e.text, qLower)
                 && !containsIgnoreCase(e.time, q)) continue;
@@ -472,7 +475,7 @@ public class MaredLogPanel {
 
         int catItemW = 90;
         int catCols = Math.max(1, innerW / (catItemW + 4));
-        int catRows = (LogSettings.CATEGORIES.size() + catCols - 1) / catCols;
+        int catRows = (filterCategories().size() + catCols - 1) / catCols;
 
         return 20 + 16 + lvlRows * 14 + 8 + 14 + catRows * 14 + 10;
     }
@@ -501,7 +504,7 @@ public class MaredLogPanel {
         int col = 0, row = 0;
 
         for (LogSettings.Level lvl : LogSettings.Level.values()) {
-            boolean enabled = LogSettings.isLevelEnabled(lvl);
+            boolean enabled = levelEnabled(lvl);
             int cx = startX + col * (lvlItemW + 4);
             int cy = lvlRowY + row * 14;
             boolean hov = MaredUi.hovered(mouseX, mouseY, cx, cy, lvlItemW, 12);
@@ -526,8 +529,8 @@ public class MaredLogPanel {
         int catCols = Math.max(1, innerW / (catItemW + 4));
         col = 0; row = 0;
 
-        for (String cat : LogSettings.CATEGORIES) {
-            boolean enabled = LogSettings.isCategoryEnabled(cat);
+        for (String cat : filterCategories()) {
+            boolean enabled = categoryEnabled(cat);
             int cx = startX + col * (catItemW + 4);
             int cy = lvlRowY + row * 14;
             boolean hov = MaredUi.hovered(mouseX, mouseY, cx, cy, catItemW, 12);
@@ -740,7 +743,7 @@ public class MaredLogPanel {
             int cx = startX + col * (lvlItemW + 4);
             int cy = lvlRowY + row * 14;
             if (MaredUi.hovered(mx, my, cx, cy, lvlItemW, 12)) {
-                LogSettings.toggleLevel(lvl);
+                toggleLevel(lvl);
                 invalidateVisibleCache();
                 return true;
             }
@@ -755,11 +758,11 @@ public class MaredLogPanel {
         int catCols = Math.max(1, innerW / (catItemW + 4));
         col = 0; row = 0;
 
-        for (String cat : LogSettings.CATEGORIES) {
+        for (String cat : filterCategories()) {
             int cx = startX + col * (catItemW + 4);
             int cy = lvlRowY + row * 14;
             if (MaredUi.hovered(mx, my, cx, cy, catItemW, 12)) {
-                LogSettings.toggleCategory(cat);
+                toggleCategory(cat);
                 invalidateVisibleCache();
                 return true;
             }

@@ -73,6 +73,7 @@ public class MaredSettingsScreen extends Screen {
     private final boolean initialShowToolbar;
 
     // Sidebar layout cache.
+    private int sidebarStep=TAB_ROW_H;
     private int[] sidebarY = new int[0];
     private int[] sidebarHeaderY = new int[0]; // -1 if no header before tab
 
@@ -85,9 +86,13 @@ public class MaredSettingsScreen extends Screen {
     private boolean logicContext;
     private boolean settingsApplied;
 
-    public MaredSettingsScreen(Screen parent) {
+    private final com.fixmer.mared.technology.editor.WorkbenchPreferences scriptsPreferences,scriptsDraft;
+    private final Runnable scriptsSaved;
+    public MaredSettingsScreen(Screen parent){this(parent,null,()->{},action->{});}
+    public MaredSettingsScreen(Screen parent,com.fixmer.mared.technology.editor.WorkbenchPreferences preferences,Runnable saved,java.util.function.Consumer<String> tools) {
         super(Component.literal("Mared Settings"));
         this.parent = parent;
+        this.scriptsPreferences=preferences;this.scriptsDraft=preferences==null?null:preferences.settingsDraft();this.scriptsSaved=saved;
         this.logicContext=parent instanceof MaredStudioScreen;
         if(parent instanceof com.fixmer.mared.gui2.shell.MaredShellScreen && com.fixmer.mared.gui2.runtime.RuntimeProvider.isInstalled()){
             var current=com.fixmer.mared.gui2.runtime.RuntimeProvider.get().navigation().current();
@@ -103,7 +108,17 @@ public class MaredSettingsScreen extends Screen {
         this.initialShowStatusBar  = MaredSettings.isLayoutShowStatusBar();
         this.initialShowToolbar    = MaredSettings.isLayoutShowToolbar();
 
-        this.tabs = SettingsPageRegistry.instantiateAll();
+        if(preferences==null)this.tabs=SettingsPageRegistry.instantiateAll();
+        else {
+            this.tabs=new ArrayList<>();
+            tabs.add(new ScriptsSettingsTab("layout",scriptsDraft,tools));
+            tabs.add(new com.fixmer.mared.gui2.settings.tabs.MaredThemeTab(true));
+            tabs.add(new ScriptsSettingsTab("editor",scriptsDraft,tools));
+            tabs.add(new ScriptsSettingsTab("logs",scriptsDraft,tools));
+            tabs.add(new ScriptsSettingsTab("tools",scriptsDraft,action->{onSave();tools.accept(action);}));
+            tabs.add(new ScriptsSettingsTab("keys",scriptsDraft,tools));
+            tabs.add(new com.fixmer.mared.gui2.settings.tabs.MaredAboutTab());
+        }
         if (this.tabs.isEmpty()) {
             Mared.LOGGER.error(
                 "[settings] no pages registered — screen may be empty");
@@ -154,17 +169,24 @@ public class MaredSettingsScreen extends Screen {
         MaredScale.unbind();
     }
 
+    private String category(MaredSettingsTab tab){
+        if(scriptsPreferences!=null){
+            if(tab.id().equals("scripts_layout")||tab.id().equals("theme"))return SettingsPageDescriptor.CATEGORY_APPEARANCE;
+            return tab.id().equals("about")?SettingsPageDescriptor.CATEGORY_ABOUT:SettingsPageDescriptor.CATEGORY_EDITOR;
+        }
+        var descriptor=SettingsPageRegistry.byId(tab.id());
+        return descriptor==null?SettingsPageDescriptor.CATEGORY_GENERAL:descriptor.category();
+    }
     private void computeSidebarLayout() {
         int n = tabs.size();
+        sidebarStep=scriptsPreferences==null?TAB_ROW_H:Math.max(16,Math.min(TAB_ROW_H,(height-SIDEBAR_PAD*2-CATEGORY_H*3)/Math.max(1,n)));
         sidebarY = new int[n];
         sidebarHeaderY = new int[n];
 
         int y = SIDEBAR_PAD;
         String prevCat = null;
         for (int i = 0; i < n; i++) {
-            SettingsPageDescriptor d = SettingsPageRegistry.byId(tabs.get(i).id());
-            String cat = d != null ? d.category()
-                : SettingsPageDescriptor.CATEGORY_GENERAL;
+            String cat=category(tabs.get(i));
             if (!cat.equals(prevCat)) {
                 sidebarHeaderY[i] = y;
                 y += CATEGORY_H;
@@ -173,7 +195,7 @@ public class MaredSettingsScreen extends Screen {
                 sidebarHeaderY[i] = -1;
             }
             sidebarY[i] = y;
-            y += TAB_ROW_H;
+            y += sidebarStep;
         }
     }
 
@@ -200,11 +222,12 @@ public class MaredSettingsScreen extends Screen {
 
         tabs.get(activeIndex).onClose(ctx);
         activeIndex = idx;
-        MaredSettings.setSettingsActiveTab(tabs.get(idx).id());
+        if(scriptsPreferences==null)MaredSettings.setSettingsActiveTab(tabs.get(idx).id());
         tabs.get(activeIndex).onOpen(ctx);
     }
 
     private void onSave() {
+        if(scriptsPreferences!=null){ctx.applyTheme();scriptsPreferences.applySettings(scriptsDraft);scriptsPreferences.save();scriptsSaved.run();settingsApplied=true;onClose();return;}
         ctx.apply();
         settingsApplied=true;
 
@@ -273,9 +296,7 @@ public class MaredSettingsScreen extends Screen {
         String prevCat = null;
         for (int i = 0; i < tabs.size(); i++) {
             MaredSettingsTab tab = tabs.get(i);
-            SettingsPageDescriptor d = SettingsPageRegistry.byId(tab.id());
-            String cat = d != null ? d.category()
-                : SettingsPageDescriptor.CATEGORY_GENERAL;
+            String cat=category(tab);
 
             if (!cat.equals(prevCat)) {
                 String label = MaredLang.get("mared.settings.category." + cat);
@@ -288,7 +309,7 @@ public class MaredSettingsScreen extends Screen {
             int rowX = SIDEBAR_PAD;
             int rowW = SIDEBAR_W - SIDEBAR_PAD * 2;
             int rowY = sidebarY[i];
-            int rowH = TAB_ROW_H - 2;
+            int rowH = sidebarStep - 2;
 
             boolean active = i == activeIndex;
             boolean hover = MaredUi.hovered(mouseX, mouseY, rowX, rowY, rowW, rowH);
@@ -365,7 +386,7 @@ public class MaredSettingsScreen extends Screen {
             int rowX = SIDEBAR_PAD;
             int rowW = SIDEBAR_W - SIDEBAR_PAD * 2;
             int rowY = sidebarY[i];
-            int rowH = TAB_ROW_H - 2;
+            int rowH = sidebarStep - 2;
             if (MaredUi.hovered(mx, my, rowX, rowY, rowW, rowH)) {
                 switchTab(i);
                 return true;

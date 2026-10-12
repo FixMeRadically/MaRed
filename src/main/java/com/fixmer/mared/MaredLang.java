@@ -111,10 +111,34 @@ public final class MaredLang {
         return key;
     }
 
+    private static final java.util.regex.Pattern INDEXED_ARGUMENT =
+        java.util.regex.Pattern.compile("\\{([0-9]+)\\}");
+
     public static String format(String key, Object... args) {
-        String s = get(key);
-        try { return String.format(s, args); }
-        catch (Throwable t) { return s; }
+        return formatTemplate(get(key), args);
+    }
+
+    /** Literal indexed substitution preserves quotes, percentages and inserted user text. */
+    public static String formatTemplate(String template, Object... args) {
+        java.util.Objects.requireNonNull(template, "template");
+        Object[] values = args == null ? new Object[0] : args;
+        var matcher = INDEXED_ARGUMENT.matcher(template);
+        if (matcher.find()) {
+            var result = new StringBuffer();
+            do {
+                String replacement = matcher.group();
+                try {
+                    int index = Integer.parseInt(matcher.group(1));
+                    if (index < values.length) replacement = String.valueOf(values[index]);
+                } catch (NumberFormatException ignored) { }
+                matcher.appendReplacement(result, java.util.regex.Matcher.quoteReplacement(replacement));
+            } while (matcher.find());
+            matcher.appendTail(result);
+            return result.toString();
+        }
+        if (values.length == 0 || template.indexOf('%') < 0) return template;
+        try { return String.format(java.util.Locale.ROOT, template, values); }
+        catch (java.util.IllegalFormatException error) { return template; }
     }
 
     public static void reload() {

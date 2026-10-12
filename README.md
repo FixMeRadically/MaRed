@@ -1,3 +1,7 @@
+# MaRed / Genesis 0.4.0
+
+Development of 0.4.0 starts with Genesis stage 7.1. Release tracking: [docs/RELEASE_0_4_0_TRACKING_RU.md](docs/RELEASE_0_4_0_TRACKING_RU.md). Publication instructions will be prepared at the project owner's final request.
+
 
 Installation information
 =======

@@ -95,6 +95,26 @@ class ScriptLinkServiceIntegrationTest {
             delete(root);
         }
     }
+    @Test void movingExportIntoNestedFolderPreservesAiBinding() throws Exception {
+        Path root = Files.createTempDirectory("genesis-nested-links-");
+        var service = new ScriptLinkService(root);
+        try {
+            var original = service.installDemo().get(5, TimeUnit.SECONDS);
+            var store = new com.fixmer.genesis.technology.storage.TextRepository(root.resolve("commands"));
+            store.createDirectory("behaviors");
+            store.createDirectory("behaviors/pets");
+            store.rename("genesis.follow", "behaviors/pets/follow");
+            var moved = revision(service, original.revision());
+            assertNull(moved.problem(GenesisAiDemo.profile()));
+            assertEquals(original.project(), moved.project());
+            assertEquals(2, moved.catalog().entries().size());
+            assertEquals("behaviors/pets/follow", moved.catalog().resolve(GenesisAiDemo.action().reference()).symbol().source());
+            assertEquals(1, moved.index().usages(GenesisAiDemo.condition().reference()).size());
+        } finally {
+            service.close();
+            delete(root);
+        }
+    }
     @Test void importedFunctionsDoNotRunTopLevelAndConditionsAreStrict()throws Exception {
         Path root=Files.createTempDirectory("genesis-links-");
         Files.createDirectories(root.resolve("commands"));

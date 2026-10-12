@@ -68,6 +68,7 @@ public final class WorkspaceComponent extends MaredComponent
     public void completeMinecraft() {
         if (host.active() == null || disposed) return;
         if (searchBox != null) searchBox.setFocused(false);
+        if (replaceBox != null) replaceBox.setFocused(false);
         requestFocus(); editor.setFocused(true);
         completion.request(host.active());
     }
@@ -150,20 +151,52 @@ public final class WorkspaceComponent extends MaredComponent
         }
     }
     private net.minecraft.client.gui.components.EditBox searchBox;
-    private boolean searchOpen, searchCase;
+    private boolean searchOpen, searchCase, replaceOpen;
+    private net.minecraft.client.gui.components.EditBox replaceBox;
+    private int searchHeight() { return searchOpen ? SEARCH_H * (replaceOpen ? 2 : 1) : 0; }
+    private boolean searchFieldFocused() { return searchBox != null && searchBox.isFocused() || replaceOpen && replaceBox != null && replaceBox.isFocused(); }
     private String searchMessage = "";
     private static final int SEARCH_H = 22, STATUS_H = 16;
     private long nextCheckpoint;
+
+    public boolean canEditLines() { return !disposed && host.active()!=null && editor.isEditable() && isFocused() && !searchFieldFocused(); }
+    public void editLines(com.fixmer.genesis.technology.editor.LineTools.Operation operation) {
+        var session=host.active();if(!canEditLines())return;
+        var doc=session.document;int[] selection=doc.orderedSelection();
+        int first=selection==null?doc.cursorLine():selection[0],last=selection==null?first:selection[2];
+        if(selection!=null&&selection[3]==0&&last>first)last--;
+        try {
+            String before=session.currentText();
+            var result=com.fixmer.genesis.technology.editor.LineTools.edit(before,first,last,doc.cursorLine(),doc.cursorCol(),operation,
+                com.fixmer.mared.technology.editor.DocumentReplacement.MAX_OUTPUT_CHARS);
+            int offset=com.fixmer.genesis.technology.editor.LineTools.offset(result.text(),selection==null?result.cursorLine():result.last(),
+                selection==null?result.cursorColumn():result.lastColumn());
+            if(!com.fixmer.mared.technology.editor.DocumentReplacement.apply(session,before,result.text(),offset))return;
+            if(selection!=null){doc.startSelection(result.first(),0);doc.extendSelection(result.last(),doc.lineLength(result.last()));}
+            onEditorChanged();closeSearch();requestFocus();editor.setFocused(true);
+            session.view.ensureCursorVisible(editor.getWidth(),editor.getHeight(),doc,net.minecraft.client.Minecraft.getInstance().font);
+        } catch(IllegalArgumentException error){searchMessage=MaredLang.get("mared.editor.replace.limit");}
+    }
+    public String commandFragment() {
+        var session=host.active();if(!canEditLines())throw new IllegalStateException("No focused document");
+        var doc=session.document;int[] selection=doc.orderedSelection();
+        int first=selection==null?doc.cursorLine():selection[0],last=selection==null?first:selection[2];
+        int start=selection==null?0:selection[1],end=selection==null?doc.lineLength(last):selection[3];
+        if(selection!=null&&end==0&&last>first){last--;end=doc.lineLength(last);}
+        return com.fixmer.mared.technology.runtime.CommandFragment.extract(session.currentText(),first,start,last,end);
+    }
 
     public void openSearch() {
         completion.dismiss();
         if (host.active() == null) return;
         searchOpen = true;
+        replaceOpen = false;
         ensureSearch();
         layout(bounds);
         requestFocus();
         editor.setFocused(false);
-        searchBox.setFocused(true);
+        searchBox.setFocused(bounds.width() >= 160 && bounds.height() >= 100);
+        replaceBox.setFocused(false);
     }
     private void ensureSearch() {
         if (searchBox != null) return;
@@ -174,10 +207,69 @@ public final class WorkspaceComponent extends MaredComponent
         searchBox.setMaxLength(128);
         searchBox.setHint(Component.literal(MaredLang.get("mared.editor.find")));
         searchBox.setResponder(query -> { searchMessage = ""; });
+        replaceBox = new net.minecraft.client.gui.components.EditBox(
+            net.minecraft.client.Minecraft.getInstance().font, 0, 0, 80, 16,
+            Component.literal(MaredLang.get("mared.editor.replace.with")));
+        replaceBox.setBordered(false);
+        replaceBox.setMaxLength(2048);
+        replaceBox.setHint(Component.literal(MaredLang.get("mared.editor.replace.with")));
+        replaceBox.setResponder(value -> { searchMessage = ""; });
+    }
+    public void openReplace() {
+        openSearch();
+        if (!searchOpen || host.active() == null) return;
+        replaceOpen = true;
+        String selected = host.active().document.getSelectedText();
+        if (!selected.isEmpty() && selected.length() <= 128 && selected.indexOf('\n') < 0) searchBox.setValue(selected);
+        layout(bounds);
+    }
+    public void replaceOne() {
+        var session = host.active();
+        if (session == null || disposed || !editor.isEditable()) return;
+        ensureSearch();
+        String before = session.currentText(), query = searchBox.getValue();
+        if (query.isEmpty()) return;
+        int[] selection = session.document.orderedSelection();
+        if (selection == null) { findNext(false); return; }
+        int start = selection[1], end = selection[3];
+        for (int i = 0; i < selection[0]; i++) start += session.document.lineLength(i) + 1;
+        for (int i = 0; i < selection[2]; i++) end += session.document.lineLength(i) + 1;
+        if (!new com.fixmer.genesis.technology.editor.TextSearch(query, searchCase).matches(before, start, end)) {
+            findNext(false); return;
+        }
+        String replacement = replaceBox.getValue();
+        if ((long) before.length() - (end - start) + replacement.length() > com.fixmer.mared.technology.editor.DocumentReplacement.MAX_OUTPUT_CHARS) {
+            searchMessage = MaredLang.get("mared.editor.replace.limit"); return;
+        }
+        try {
+            boolean changed = com.fixmer.mared.technology.editor.DocumentReplacement.apply(session, before,
+                before.substring(0, start) + replacement + before.substring(end), start + replacement.length());
+            onEditorChanged();
+            findNext(false);
+            searchMessage = changed ? MaredLang.format("mared.editor.replace.done", 1) : MaredLang.get("mared.editor.replace.unchanged");
+        } catch (IllegalArgumentException error) { searchMessage = MaredLang.get("mared.editor.replace.limit"); }
+    }
+    public void replaceAll() {
+        var session = host.active();
+        if (session == null || disposed || !editor.isEditable()) return;
+        ensureSearch();
+        String before = session.currentText();
+        try {
+            var result = new com.fixmer.genesis.technology.editor.TextSearch(searchBox.getValue(), searchCase)
+                .replaceAll(before, replaceBox.getValue(), com.fixmer.mared.technology.editor.DocumentReplacement.MAX_OUTPUT_CHARS);
+            if (result.count() == 0) { searchMessage = MaredLang.get("mared.editor.not_found"); return; }
+            int offset = session.document.cursorCol();
+            for (int i = 0; i < session.document.cursorLine(); i++) offset += session.document.lineLength(i) + 1;
+            boolean changed = com.fixmer.mared.technology.editor.DocumentReplacement.apply(session, before, result.text(), offset);
+            onEditorChanged();
+            session.view.ensureCursorVisible(editor.getWidth(), editor.getHeight(), session.document, net.minecraft.client.Minecraft.getInstance().font);
+            searchMessage = changed ? MaredLang.format("mared.editor.replace.done", result.count()) : MaredLang.get("mared.editor.replace.unchanged");
+        } catch (IllegalArgumentException error) { searchMessage = MaredLang.get("mared.editor.replace.limit"); }
     }
     private void closeSearch() {
         searchOpen = false;
         if (searchBox != null) searchBox.setFocused(false);
+        if (replaceBox != null) replaceBox.setFocused(false);
         searchMessage = "";
         layout(bounds);
         editor.setFocused(isFocused());
@@ -249,6 +341,7 @@ public final class WorkspaceComponent extends MaredComponent
             net.minecraft.client.Minecraft.getInstance().font);
         requestFocus();
         if (searchBox != null) searchBox.setFocused(false);
+        if (replaceBox != null) replaceBox.setFocused(false);
         editor.setFocused(true);
         s.view.resetBlink();
     }
@@ -260,14 +353,26 @@ public final class WorkspaceComponent extends MaredComponent
             searchBox.setTextColor(com.fixmer.mared.technology.editor.GenesisEditorVisuals.text());
             searchBox.setTextColorUneditable(com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim());
             int y = bounds.y() + HEADER_H;
-            g.fill(bounds.x(), y, bounds.right(), y + SEARCH_H,
+            g.fill(bounds.x(), y, bounds.right(), y + searchHeight(),
                 com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised());
-            searchBox.render(g, lastMouseX, lastMouseY, 0);
-            int x = bounds.right() - 70;
-            g.drawString(font, "<", x + 4, y + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.text(), false);
-            g.drawString(font, ">", x + 21, y + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.text(), false);
-            g.drawString(font, "Aa", x + 38, y + 6, searchCase ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
-            g.drawString(font, "x", x + 59, y + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
+            if (bounds.width() < 160 || bounds.height() < 100) {
+                g.drawString(font, ellipsize(font, MaredLang.get("mared.editor.replace.enlarge"), bounds.width() - 12), bounds.x() + 6, y + 6,
+                    com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
+            } else {
+                searchBox.render(g, lastMouseX, lastMouseY, 0);
+                int x = bounds.right() - 90;
+                g.drawString(font, "<", x + 4, y + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.text(), false);
+                g.drawString(font, ">", x + 21, y + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.text(), false);
+                g.drawString(font, "Aa", x + 38, y + 6, searchCase ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
+                g.drawString(font, "R", x + 59, y + 6, replaceOpen ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
+                g.drawString(font, "x", x + 79, y + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
+                if (replaceOpen) {
+                    replaceBox.setTextColor(com.fixmer.mared.technology.editor.GenesisEditorVisuals.text());
+                    replaceBox.render(g, lastMouseX, lastMouseY, 0);
+                    g.drawString(font, "1", bounds.right() - 65, y + SEARCH_H + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.text(), false);
+                    g.drawString(font, MaredLang.get("mared.editor.replace.all"), bounds.right() - 42, y + SEARCH_H + 6, com.fixmer.mared.technology.editor.GenesisEditorVisuals.text(), false);
+                }
+            }
         }
         int y = bounds.bottom() - STATUS_H;
         g.fill(bounds.x(), y, bounds.right(), bounds.bottom(), com.fixmer.mared.technology.editor.GenesisEditorVisuals.panel());
@@ -328,7 +433,7 @@ public final class WorkspaceComponent extends MaredComponent
 
     @Override
     public void onFocusGained() {
-        if (editor.isEditable()) editor.setFocused(searchBox == null || !searchBox.isFocused());
+        if (editor.isEditable()) editor.setFocused(!searchFieldFocused());
     }
 
     @Override
@@ -336,6 +441,7 @@ public final class WorkspaceComponent extends MaredComponent
         editor.setFocused(false);
         completion.dismiss();
         if (searchBox != null) searchBox.setFocused(false);
+        if (replaceBox != null) replaceBox.setFocused(false);
     }
 
     // ============================================================
@@ -375,7 +481,33 @@ public final class WorkspaceComponent extends MaredComponent
         activateSession(s);
     }
 
-    public void openFile(String name) {
+    /** Opening search results never saves another document or trusts an obsolete position. */
+    public boolean openSearchHit(com.fixmer.genesis.technology.editor.DocumentSearch.Hit hit) {
+        openFile(hit.path(), false);
+        var document = host.active();
+        if (document == null || !hit.path().equals(document.storageId)) return false;
+        if (hit.line() >= 0) {
+            String line = document.document.line(hit.line());
+            int end = hit.column() + hit.matchedText().length();
+            if (hit.line() >= document.document.lineCount() || hit.column() < 0 || end > line.length()
+                    || !line.substring(hit.column(), end).equals(hit.matchedText())) {
+                bus.publish(new StudioEvents.LogEvent(LogSettings.Level.WARN, "studio", MaredLang.get("mared.project_search.stale")));
+                return false;
+            }
+            document.document.startSelection(hit.line(), hit.column());
+            document.document.extendSelection(hit.line(), end);
+            document.document.setCursor(hit.line(), end);
+            document.view.ensureCursorVisible(editor.getWidth(), editor.getHeight(), document.document,
+                net.minecraft.client.Minecraft.getInstance().font);
+            document.view.resetBlink();
+        }
+        requestFocus(); editor.setFocused(true);
+        return true;
+    }
+
+    public void openFile(String name) { openFile(name, true); }
+
+    private void openFile(String name, boolean saveCurrent) {
         if (name == null || name.isEmpty()) return;
 
         DocumentSession existing = host.byStorageId(name);
@@ -385,7 +517,7 @@ public final class WorkspaceComponent extends MaredComponent
         }
 
         DocumentSession active = host.active();
-        if (active != null && active.dirty && active.storageId != null && !active.saveAsInFlight) {
+        if (saveCurrent && active != null && active.dirty && active.storageId != null && !active.saveAsInFlight) {
             boolean saved = saveSync(active);
             if (!saved) {
                 active.pendingOpenFile = name;
@@ -620,7 +752,7 @@ public final class WorkspaceComponent extends MaredComponent
         editor.setSpanResolver(spanResolver);
         editor.setEditable(true);
         completion.dismiss();
-        editor.setFocused(isFocused() && (searchBox == null || !searchBox.isFocused()));
+        editor.setFocused(isFocused() && !searchFieldFocused());
         searchMessage = "";
     }
 
@@ -685,12 +817,20 @@ public final class WorkspaceComponent extends MaredComponent
     public void layout(MaredBounds bounds) {
         super.layout(bounds);
         int ex = bounds.x() + 2;
-        int ey = bounds.y() + HEADER_H + (searchOpen ? SEARCH_H : 0) + 2;
+        int ey = bounds.y() + HEADER_H + searchHeight() + 2;
         int ew = Math.max(20, bounds.width() - 4);
-        int eh = Math.max(1, bounds.height() - HEADER_H - (searchOpen ? SEARCH_H : 0) - STATUS_H - 4);
+        int eh = Math.max(1, bounds.height() - HEADER_H - searchHeight() - STATUS_H - 4);
         if (searchBox != null) {
             searchBox.setX(bounds.x() + 6); searchBox.setY(bounds.y() + HEADER_H + 3);
-            searchBox.setWidth(Math.max(1, bounds.width() - 82)); searchBox.setHeight(16);
+            searchBox.setWidth(Math.max(1, bounds.width() - 102)); searchBox.setHeight(16);
+        }
+        if (replaceBox != null) {
+            replaceBox.setX(bounds.x() + 6); replaceBox.setY(bounds.y() + HEADER_H + SEARCH_H + 3);
+            replaceBox.setWidth(Math.max(1, bounds.width() - 82)); replaceBox.setHeight(16);
+        }
+        if (bounds.width() < 160 || bounds.height() < 100) {
+            if (searchBox != null) searchBox.setFocused(false);
+            if (replaceBox != null) replaceBox.setFocused(false);
         }
         editor.setX(ex);
         editor.setY(ey);
@@ -883,21 +1023,29 @@ public final class WorkspaceComponent extends MaredComponent
             if (button == 0) jumpToDiagnostic();
             return true;
         }
-        if (searchOpen && my < bounds.y() + HEADER_H + SEARCH_H) {
-            if (button != 0) return true;
+        if (searchOpen && my < bounds.y() + HEADER_H + searchHeight()) {
+            if (button != 0 || bounds.width() < 160 || bounds.height() < 100) return true;
             requestFocus(); editor.setFocused(false);
             ensureSearch();
-            if (mx >= bounds.right() - 70) {
-                int action = (int) mx - (bounds.right() - 70);
+            if (replaceOpen && my >= bounds.y() + HEADER_H + SEARCH_H) {
+                if (mx >= bounds.right() - 70) {
+                    if (mx < bounds.right() - 48) replaceOne(); else replaceAll();
+                } else {
+                    searchBox.setFocused(false); replaceBox.setFocused(true); replaceBox.mouseClicked(mx, my, button);
+                }
+            } else if (mx >= bounds.right() - 90) {
+                int action = (int) mx - (bounds.right() - 90);
                 if (action < 17) findNext(true);
                 else if (action < 34) findNext(false);
                 else if (action < 55) { searchCase = !searchCase; searchMessage = ""; }
+                else if (action < 75) { replaceOpen = !replaceOpen; replaceBox.setFocused(false); layout(bounds); }
                 else closeSearch();
-            } else { searchBox.setFocused(true); searchBox.mouseClicked(mx, my, button); }
+            } else { replaceBox.setFocused(false); searchBox.setFocused(true); searchBox.mouseClicked(mx, my, button); }
             return true;
         }
         if (editor.isMouseOver(mx, my)) {
             if (searchBox != null) searchBox.setFocused(false);
+        if (replaceBox != null) replaceBox.setFocused(false);
             requestFocus(); editor.setFocused(true);
             capturePointer(button);
             return editor.mouseClicked(mx, my, button);
@@ -926,7 +1074,7 @@ public final class WorkspaceComponent extends MaredComponent
     @Override
     public boolean mouseDragged(double mx, double my, int button,
                                 double dragX, double dragY) {
-        if (searchOpen && searchBox != null && searchBox.isFocused()) return searchBox.mouseDragged(mx, my, button, dragX, dragY);
+        if (searchOpen && searchFieldFocused()) return (replaceBox.isFocused() ? replaceBox : searchBox).mouseDragged(mx, my, button, dragX, dragY);
         return editor.mouseDragged(mx, my, button, dragX, dragY);
     }
 
@@ -952,9 +1100,20 @@ public final class WorkspaceComponent extends MaredComponent
         if (completion.key(keyCode, modifiers)) return true;
         boolean ctrl = (modifiers & 2) != 0;
         if (keyCode == 256 && searchOpen) { closeSearch(); return true; }
-        if (searchOpen && searchBox != null && searchBox.isFocused()) {
-            if (keyCode == 257 || keyCode == 335) { findNext((modifiers & 1) != 0); return true; }
-            if (searchBox.keyPressed(keyCode, scanCode, modifiers)) return true;
+        if (searchOpen && searchFieldFocused()) {
+            if (keyCode == 258 && replaceOpen && !ctrl) {
+                boolean replacing = replaceBox.isFocused();
+                replaceBox.setFocused(!replacing); searchBox.setFocused(replacing); return true;
+            }
+            if (keyCode == 257 || keyCode == 335) {
+                if (replaceOpen && ctrl) replaceAll();
+                else if (replaceOpen && replaceBox.isFocused()) replaceOne();
+                else findNext((modifiers & 1) != 0);
+                return true;
+            }
+            // Undo/redo belong to the document only after focus returns to the editor.
+            if (ctrl && (keyCode == 90 || keyCode == 89)) return true;
+            if ((replaceBox.isFocused() ? replaceBox : searchBox).keyPressed(keyCode, scanCode, modifiers)) return true;
         }
         if (ctrl && keyCode == 87) { // Ctrl+W — закрыть активный
             closeActive();
@@ -977,7 +1136,7 @@ public final class WorkspaceComponent extends MaredComponent
 
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
-        if (searchOpen && searchBox != null && searchBox.isFocused()) return searchBox.charTyped(codePoint, modifiers);
+        if (searchOpen && searchFieldFocused()) return (replaceBox.isFocused() ? replaceBox : searchBox).charTyped(codePoint, modifiers);
         if (editor.isFocused()) return editor.charTyped(codePoint, modifiers);
         return false;
     }

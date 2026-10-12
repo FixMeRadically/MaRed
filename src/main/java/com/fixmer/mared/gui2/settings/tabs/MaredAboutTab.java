@@ -13,6 +13,20 @@ import net.minecraft.client.gui.GuiGraphics;
  * 0.3.0 (Stage B5): перенос legacy gui.settings.tabs.MaredAboutTab в gui2.
  */
 public final class MaredAboutTab implements MaredSettingsTab {
+    private static final String REPOSITORY_URL = "https://github.com/FixMeRadically/MaRed";
+
+    private static int linkY(int y) { return y + 60 + 20 + 30 + 3 * 24 + 16 + 16; }
+
+    @Override
+    public boolean mouseClicked(double mx, double my, int button,
+                                int x, int y, int w, int h, SettingsContext ctx) {
+        int top = linkY(y);
+        if (button != 0 || w <= 40 || mx < x + 20 || mx >= x + w - 20
+            || my < Math.max(y, top) || my >= Math.min(y + h, top + 20)) return false;
+        net.minecraft.Util.getPlatform().openUri(java.net.URI.create(REPOSITORY_URL));
+        return true;
+    }
+
 
     @Override public String id() { return "about"; }
     @Override public String displayName() {
@@ -63,10 +77,12 @@ public final class MaredAboutTab implements MaredSettingsTab {
             infoX, cy, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().warn);
         cy += 16;
 
-        cy = drawLink(g, font, infoX, cy, infoW,
-            "github.com/FixMeRadically/MAPPET");
-        cy = drawLink(g, font, infoX, cy, infoW,
-            MaredLang.get("mared.settings.about.docs"));
+        boolean hovered = mouseX >= infoX && mouseX < infoX + infoW
+            && mouseY >= cy && mouseY < cy + 20;
+        var theme = com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active();
+        MaredUi.rect(g, infoX, cy, infoX + infoW, cy + 20,
+            hovered ? theme.border : theme.bgPanel);
+        cy = drawLink(g, font, infoX, cy, infoW, "github.com/FixMeRadically/MaRed");
 
         cy += 20;
 
@@ -89,6 +105,6 @@ public final class MaredAboutTab implements MaredSettingsTab {
     private int drawLink(GuiGraphics g, Font font, int x, int y, int w,
                          String url) {
         MaredUi.text(g, font, "→ " + url, x + 8, y + 4, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().accent);
-        return y + 16;
+        return y + 20;
     }
 }

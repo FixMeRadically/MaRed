@@ -132,6 +132,8 @@ public final class StudioRuntime implements Disposable {
 
         subs.add(bus.subscribe(StudioEvents.RequestNewFileEvent.class,
             e -> session.executeAction(StudioActions.FILE_NEW)));
+        subs.add(bus.subscribe(StudioEvents.RequestNewFolderEvent.class,
+            e -> session.executeAction(StudioActions.FOLDER_NEW)));
         subs.add(bus.subscribe(StudioEvents.RequestReloadPersistentEvent.class,
             e -> session.executeAction(StudioActions.FILE_RELOAD_PERSISTENT)));
         subs.add(bus.subscribe(StudioEvents.RequestContextMenuForFileEvent.class,

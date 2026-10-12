@@ -11,7 +11,10 @@ public final class EditorLayout {
     }
     public record Frame(Rect rail,Rect toolbar,Rect files,Rect editor,Rect logs,Rect help,Rect status) {}
     public static Frame calculate(int width,int height,double filesRatio,double helpRatio,double logsRatio,boolean filesOpen,boolean helpOpen,boolean logsOpen) {
-        int w=Math.max(0,width),h=Math.max(0,height),rail=Math.min(30,w),top=Math.min(22,h),footer=Math.min(13,h-top);
+        return calculate(width,height,filesRatio,helpRatio,logsRatio,filesOpen,helpOpen,logsOpen,22);
+    }
+    public static Frame calculate(int width,int height,double filesRatio,double helpRatio,double logsRatio,boolean filesOpen,boolean helpOpen,boolean logsOpen,int toolbarHeight) {
+        int w=Math.max(0,width),h=Math.max(0,height),rail=Math.min(30,w),top=Math.min(Math.max(0,toolbarHeight),h),footer=Math.min(13,h-top);
         int bodyH=h-top-footer,available=w-rail;
         int sideBudget=Math.max(0,available-Math.min(140,available));
         int fw=filesOpen?bounded(available*finite(filesRatio,.18),90,260):Math.min(14,sideBudget);

@@ -29,6 +29,16 @@ import java.util.Deque;
 public final class EditorHistory {
 
     private static final int  MAX_UNDO = 500;
+    private static final long MAX_RETAINED_CHARS = 8L * 1024 * 1024;
+    private long retainedCharacters;
+    private static long size(Edit e) { return (long) e.removedText().length() + e.insertedText().length(); }
+    private void discardRedo() { for (Edit e : redoStack) retainedCharacters -= size(e); redoStack.clear(); }
+    private void trim() {
+        // Keep the latest operation undoable even for an unusually large external edit.
+        while (undoStack.size() > MAX_UNDO || undoStack.size() > 1 && retainedCharacters > MAX_RETAINED_CHARS)
+            retainedCharacters -= size(undoStack.removeLast());
+    }
+    public long retainedCharacters() { return retainedCharacters; }
     private static final long COALESCE_WINDOW_NANOS = 500_000_000L; // 500ms
 
     private final Deque<Edit> undoStack = new ArrayDeque<>(MAX_UNDO);
@@ -45,9 +55,10 @@ public final class EditorHistory {
         if (e == null || e.isEmpty()) return;
 
         undoStack.push(e);
-        redoStack.clear();
-        while (undoStack.size() > MAX_UNDO) undoStack.removeLast();
-        lastRecordNanos = System.nanoTime();
+        retainedCharacters += size(e);
+        discardRedo();
+        trim();
+        lastRecordNanos = 0L; // Atomic edits never merge with later typing/deletion.
     }
 
     /**
@@ -63,14 +74,16 @@ public final class EditorHistory {
 
         Edit prev = undoStack.peek();
         if (withinWindow && prev != null && canCoalesce(prev, e)) {
-            undoStack.pop();
-            undoStack.push(merge(prev, e));
-            redoStack.clear();
+            undoStack.pop(); retainedCharacters -= size(prev);
+            Edit merged = merge(prev, e);
+            undoStack.push(merged); retainedCharacters += size(merged);
+            discardRedo(); trim();
             lastRecordNanos = now;
             return;
         }
 
         record(e);
+        lastRecordNanos = now;
     }
 
     // ============================================================
@@ -82,6 +95,7 @@ public final class EditorHistory {
         Edit e = undoStack.pop();
         doc.revertEdit(e);
         redoStack.push(e);
+        lastRecordNanos = 0L;
         return true;
     }
 
@@ -90,6 +104,7 @@ public final class EditorHistory {
         Edit e = redoStack.pop();
         doc.applyEdit(e);
         undoStack.push(e);
+        lastRecordNanos = 0L;
         return true;
     }
 
@@ -97,6 +112,7 @@ public final class EditorHistory {
         undoStack.clear();
         redoStack.clear();
         lastRecordNanos = 0L;
+        retainedCharacters = 0L;
     }
 
     public int undoSize() { return undoStack.size(); }

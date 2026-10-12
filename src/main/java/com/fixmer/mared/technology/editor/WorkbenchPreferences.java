@@ -8,10 +8,22 @@ import net.neoforged.fml.loading.FMLPaths;
 /** One load per Studio session; atomic writes on exit, never from the render loop. */
 public final class WorkbenchPreferences {
     public int version=2,selectedTab=0;
+    public boolean scriptsAutoReveal=true,scriptsJavaSnippet=true,scriptsKeepLogs=true,scriptsAutoOpenLogs=true;
+    public int scriptsLogCapacity=1024;
+    public java.util.Set<String> scriptsHiddenLevels=new java.util.HashSet<>(),scriptsHiddenCategories=new java.util.HashSet<>();
     public double filesRatio=.18,helpRatio=.29,logsRatio=.24;
     public boolean filesOpen=true,helpOpen=false,logsOpen=false,background=true,animation=true,depth=true;
     public boolean helpDocked=false;
     public double helpWindowX=.18,helpWindowY=.10,helpWindowW=.70,helpWindowH=.80;
+    /** Explicit copy keeps Scripts settings independent of Commands and tab selection. */
+    public WorkbenchPreferences settingsDraft(){var copy=new WorkbenchPreferences();copy.applySettings(this);return copy;}
+    public void applySettings(WorkbenchPreferences p){
+        scriptsAutoReveal=p.scriptsAutoReveal;scriptsJavaSnippet=p.scriptsJavaSnippet;scriptsKeepLogs=p.scriptsKeepLogs;scriptsAutoOpenLogs=p.scriptsAutoOpenLogs;
+        scriptsLogCapacity=p.scriptsLogCapacity;scriptsHiddenLevels=new java.util.HashSet<>(p.scriptsHiddenLevels);scriptsHiddenCategories=new java.util.HashSet<>(p.scriptsHiddenCategories);
+        filesRatio=p.filesRatio;helpRatio=p.helpRatio;logsRatio=p.logsRatio;filesOpen=p.filesOpen;helpOpen=p.helpOpen;logsOpen=p.logsOpen;
+        background=p.background;animation=p.animation;depth=p.depth;helpDocked=p.helpDocked;
+        helpWindowX=p.helpWindowX;helpWindowY=p.helpWindowY;helpWindowW=p.helpWindowW;helpWindowH=p.helpWindowH;
+    }
     private static Path path(){return FMLPaths.CONFIGDIR.get().resolve("mared/editor_workbench.json");}
     public static WorkbenchPreferences load(){
         Path path=path();
@@ -23,6 +35,11 @@ public final class WorkbenchPreferences {
             if(p.version==1){p.version=2;p.helpOpen=false;p.helpDocked=false;}
             p.helpWindowX=position(p.helpWindowX,.18);p.helpWindowY=position(p.helpWindowY,.10);
             p.helpWindowW=position(p.helpWindowW,.70);p.helpWindowH=position(p.helpWindowH,.80);
+            p.scriptsLogCapacity=Math.max(256,Math.min(2048,p.scriptsLogCapacity));
+            if(p.scriptsHiddenLevels==null)p.scriptsHiddenLevels=new java.util.HashSet<>();
+            if(p.scriptsHiddenCategories==null)p.scriptsHiddenCategories=new java.util.HashSet<>();
+            p.scriptsHiddenLevels.removeIf(v->v==null||!java.util.Set.of("TRACE","DEBUG","INFO","WARN","ERROR").contains(v));
+            p.scriptsHiddenCategories.removeIf(v->v==null||!java.util.Set.of("editor","java","gradle","server","tools").contains(v));
             p.selectedTab=Math.max(0,Math.min(7,p.selectedTab));p.filesRatio=ratio(p.filesRatio,.18);p.helpRatio=ratio(p.helpRatio,.29);p.logsRatio=ratio(p.logsRatio,.24);return p;
         }catch(Exception e){Mared.LOGGER.warn("[editor] Cannot load workbench settings; using defaults",e);return new WorkbenchPreferences();}
     }

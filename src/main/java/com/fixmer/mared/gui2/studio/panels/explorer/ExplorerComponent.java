@@ -35,21 +35,30 @@ import net.minecraft.network.chat.Component;
  *     число файлов и команд, выбранный файл.
  */
 public final class ExplorerComponent extends MaredPanel
-        implements NarratableComponent {
+        implements NarratableComponent, com.fixmer.mared.gui2.framework.core.Disposable {
 
     private boolean filesOnly;
     public void setFilesOnly(boolean value){filesOnly=value;if(value){commands.clear();if(filter!=null)filter.setFocused(false);}}
 
     private static final int ROW_H = 14;
     private static final int PAD = 4;
-    private static final int HEADER_H = 14;
+    private static final int HEADER_H = 28;
     private static final int SPLIT_GAP = 8;
     private static final int PLUS_SIZE = 12;
 
     /** 0.3.2: view model — immutable entry. */
-    public record FileEntry(String name, boolean persistent) {}
+    public record FileEntry(String name, boolean persistent, boolean directory) {}
+    private String currentFolder = "";
+    public String currentFolder() { return currentFolder; }
+    private void navigate(String folder) {
+        if (!MaredCommandStorage.directoryExists(folder)) return;
+        currentFolder = folder; filesScroll = 0; hoveredFileIndex = -1; reload();
+    }
+    private int folderButtonX() { return plusX() - PLUS_SIZE - 2; }
+
 
     private final StudioEventBus bus;
+    private final com.fixmer.mared.gui2.studio.events.SubscriptionGroup subscriptions = new com.fixmer.mared.gui2.studio.events.SubscriptionGroup();
 
     private final List<FileEntry> files = new ArrayList<>(16);
     private final List<MaredCommandRegistry.CommandInfo> commands =
@@ -74,13 +83,19 @@ public final class ExplorerComponent extends MaredPanel
         catalogRevision=MaredCommandRegistry.revision();clampScroll();
     }
     @Override public void onFocusLost(){if(filter!=null)filter.setFocused(false);}
-    @Override public boolean keyPressed(int key,int scan,int mods){return filter!=null&&filter.isFocused()&&filter.keyPressed(key,scan,mods);}
-    @Override public boolean charTyped(char c,int mods){return filter!=null&&filter.isFocused()&&filter.charTyped(c,mods);}
+    @Override public boolean keyPressed(int key,int scan,int mods){return !filesOnly&&filter!=null&&filter.isFocused()&&filter.keyPressed(key,scan,mods);}
+    @Override public boolean charTyped(char c,int mods){return !filesOnly&&filter!=null&&filter.isFocused()&&filter.charTyped(c,mods);}
 
     public ExplorerComponent(StudioEventBus bus) {
         this.bus = bus;
         reload();
+        subscriptions.add(bus.subscribe(StudioEvents.FileOpenedEvent.class, e -> setSelectedFile(e.fileName())));
+        subscriptions.add(bus.subscribe(StudioEvents.FileRenamedEvent.class, e -> {
+            if (e.oldName().equals(selectedFileName)) setSelectedFile(e.newName());
+        }));
     }
+
+    @Override public void dispose() { subscriptions.dispose(); onFocusLost(); }
 
     @Override
     public boolean focusable() { return true; }
@@ -100,8 +115,9 @@ public final class ExplorerComponent extends MaredPanel
         }
 
         try {
-            for (String name : MaredCommandStorage.listCommands()) {
-                files.add(new FileEntry(name, persistentNames.contains(name)));
+            if (!MaredCommandStorage.directoryExists(currentFolder)) currentFolder = "";
+            for (var entry : MaredCommandStorage.entries(currentFolder)) {
+                files.add(new FileEntry(entry.path(), !entry.directory() && persistentNames.contains(entry.path()), entry.directory()));
             }
         } catch (Throwable t) {
             Mared.LOGGER.warn(
@@ -116,7 +132,7 @@ public final class ExplorerComponent extends MaredPanel
         }
 
         // Если выбранного файла больше нет — сбрасываем selection.
-        if (selectedFileName != null && !containsFile(selectedFileName)) {
+        if (selectedFileName != null && !MaredCommandStorage.exists(selectedFileName)) {
             selectedFileName = null;
         }
         if (selectedCommandIndex >= commands.size()) selectedCommandIndex = -1;
@@ -138,7 +154,13 @@ public final class ExplorerComponent extends MaredPanel
 
     public String selectedFile() { return selectedFileName; }
 
-    public void setSelectedFile(String name) { this.selectedFileName = name; }
+    public void setSelectedFile(String name) {
+        this.selectedFileName = name;
+        if (name != null) {
+            String folder = com.fixmer.genesis.technology.storage.RepositoryPath.parent(name);
+            if (!folder.equals(currentFolder)) navigate(folder);
+        }
+    }
 
     private int filesListY() { return bounds.y() + HEADER_H; }
     private int filesListH() {
@@ -179,6 +201,14 @@ public final class ExplorerComponent extends MaredPanel
             px + PLUS_SIZE / 2 - font.width("+") / 2,
             py + PLUS_SIZE / 2 - 4,
             com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent(), false);
+
+        int fx = folderButtonX();
+        g.fill(fx, py, fx + PLUS_SIZE, py + PLUS_SIZE, com.fixmer.mared.technology.editor.GenesisEditorVisuals.raised());
+        g.renderOutline(fx, py, PLUS_SIZE, PLUS_SIZE, com.fixmer.mared.technology.editor.GenesisEditorVisuals.edge());
+        g.fill(fx + 2, py + 3, fx + 6, py + 5, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim());
+        g.renderOutline(fx + 2, py + 5, 8, 5, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim());
+        g.drawString(font, currentFolder.isEmpty() ? "/" : "< " + ellipsize(font, currentFolder, Math.max(0, bounds.width() - PAD * 2 - 14)),
+            bounds.x() + PAD, bounds.y() + 17, com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(), false);
 
         if (files.isEmpty()) {
             g.drawString(font, com.fixmer.mared.technology.editor.EditorText.translate("(empty)"),
@@ -240,7 +270,8 @@ public final class ExplorerComponent extends MaredPanel
         }
 
         int color = selected ? com.fixmer.mared.technology.editor.GenesisEditorVisuals.accent() : com.fixmer.mared.technology.editor.GenesisEditorVisuals.text();
-        g.drawString(font, ellipsize(font,entry.name(),Math.max(0,bounds.width()-PAD*2-8)),
+        String label = (entry.directory() ? "> " : "") + com.fixmer.genesis.technology.storage.RepositoryPath.leaf(entry.name());
+        g.drawString(font, ellipsize(font,label,Math.max(0,bounds.width()-PAD*2-8)),
             bounds.x() + PAD + 4, y + 3, color, false);
     }
 
@@ -299,17 +330,24 @@ public final class ExplorerComponent extends MaredPanel
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if(bounds.contains(mx,my)&&button==0&&my>=commandsHeaderY()&&my<commandsHeaderY()+HEADER_H&&mx>=bounds.right()-46) {
+        if(!filesOnly&&bounds.contains(mx,my)&&button==0&&my>=commandsHeaderY()&&my<commandsHeaderY()+HEADER_H&&mx>=bounds.right()-46) {
             source=mx<bounds.right()-22?MaredCommandRegistry.Source.MC:MaredCommandRegistry.Source.MR;
             selectedCommandIndex=-1;commandsScroll=0;reloadCommands();bus.publish(new StudioEvents.CommandSelectedEvent(null));return true;
         }
-        if(filter!=null&&filter.isMouseOver(mx,my)&&button==0){requestFocus();filter.setFocused(true);return filter.mouseClicked(mx,my,button);}
+        if(!filesOnly&&filter!=null&&filter.isMouseOver(mx,my)&&button==0){requestFocus();filter.setFocused(true);return filter.mouseClicked(mx,my,button);}
         if(filter!=null)filter.setFocused(false);
 
         if (!bounds.contains(mx, my)) return false;
 
         requestFocus();
 
+        if (button == 0 && my >= bounds.y() + 14 && my < bounds.y() + HEADER_H) {
+            navigate(com.fixmer.genesis.technology.storage.RepositoryPath.parent(currentFolder)); return true;
+        }
+        if (button == 0 && mx >= folderButtonX() && mx < folderButtonX() + PLUS_SIZE
+                && my >= plusY() && my < plusY() + PLUS_SIZE) {
+            bus.publish(new StudioEvents.RequestNewFolderEvent()); return true;
+        }
         if (button == 0 && mx>=plusX()&&mx<plusX()+PLUS_SIZE&&my>=plusY()&&my<plusY()+PLUS_SIZE) {
             bus.publish(new StudioEvents.RequestNewFileEvent());
             return true;
@@ -319,7 +357,12 @@ public final class ExplorerComponent extends MaredPanel
         if (my >= fListY && my < fListY + fListH) {
             int idx = filesScroll + (int) ((my - fListY) / ROW_H);
             if (idx < 0 || idx >= files.size()) return true;
-            String name = files.get(idx).name();
+            FileEntry entry = files.get(idx);
+            String name = entry.name();
+            if (entry.directory()) {
+                if (button == 0) navigate(name);
+                return true;
+            }
             if (button == 0) {
                 if (name.equals(selectedFileName)) return true;
                 selectedFileName = name;

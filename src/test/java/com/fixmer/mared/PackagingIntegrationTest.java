@@ -19,9 +19,9 @@ public class PackagingIntegrationTest {
         try(var archive=new ZipFile(mod.toFile())) {
             String json=new String(archive.getInputStream(archive.getEntry("META-INF/jarjar/metadata.json")).readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
             var metadata=com.google.gson.JsonParser.parseString(json).getAsJsonObject().getAsJsonArray("jars").get(0).getAsJsonObject();
-            assertEquals("0.1.8",metadata.getAsJsonObject("version").get("artifactVersion").getAsString());
-            assertEquals("[0.1.8,0.2.0)",metadata.getAsJsonObject("version").get("range").getAsString());
-            Path core=directory.resolve("genesis-core-0.1.8.jar");
+            assertEquals("0.1.38",metadata.getAsJsonObject("version").get("artifactVersion").getAsString());
+            assertEquals("[0.1.38,0.2.0)",metadata.getAsJsonObject("version").get("range").getAsString());
+            Path core=directory.resolve("genesis-core-0.1.38.jar");
             try(var in=archive.getInputStream(archive.getEntry(metadata.get("path").getAsString()))){Files.copy(in,core);}
             return core;
         }
