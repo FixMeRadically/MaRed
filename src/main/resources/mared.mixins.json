@@ -3,7 +3,10 @@
   "package": "com.fixmer.mared.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "MouseHandlerMixin"
+    "MouseHandlerMixin",
+    "TitleScreenMixin",
+    "RestartWindowMixin",
+    "RestartKeyboardMixin"
   ],
   "mixins": [
     "GenesisMobGoals"

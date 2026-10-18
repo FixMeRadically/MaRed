@@ -3,7 +3,8 @@ import java.io.*;import java.net.URI;import java.util.*;import java.util.regex.*
 /** Validated project dependencies; pure rendering, no downloads or script execution. */
 public final class ProjectDependencies {
  public static final String CONFIG="genesis-dependencies.properties",SCRIPT="genesis-dependencies.gradle",TOML="src/main/resources/META-INF/neoforge.mods.toml";
- public static final List<String> FILES=List.of("build.gradle",CONFIG,SCRIPT,TOML);
+ public static final String TEMPLATE_TOML="src/main/templates/META-INF/neoforge.mods.toml";
+ public static final List<String> FILES=List.of("build.gradle",CONFIG,SCRIPT,TOML,TEMPLATE_TOML,"gradle.properties");
  private static final String BEGIN="// BEGIN GENESIS DEPENDENCIES",END="// END GENESIS DEPENDENCIES",TB="# BEGIN GENESIS DEPENDENCIES",TE="# END GENESIS DEPENDENCIES";
  public enum Mode{LIBRARY,COMPILE_ONLY,EMBED,MOD}
  public record Dependency(Mode mode,String coordinate,String modId,String range,String type,String side){
@@ -43,21 +44,48 @@ public final class ProjectDependencies {
  public static void verifyResolved(Config config,Collection<java.nio.file.Path> jars)throws IOException{var versions=new HashMap<String,String>();for(var file:jars)for(var e:JarInspection.modVersions(file).entrySet()){String old=versions.putIfAbsent(e.getKey(),e.getValue());if(old!=null&&!old.equals(e.getValue()))throw new IOException("Conflicting resolved mod versions: "+e.getKey());}for(var d:config.dependencies())if(d.mode()==Mode.MOD){String actual=versions.get(d.modId());if(actual==null){if(d.type().equals("required"))throw new IOException("Resolved artifact does not provide required modId: "+d.modId());continue;}if(actual.isBlank()||actual.contains("${"))throw new IOException("Cannot verify resolved mod version: "+d.modId());if(!DependencySyntax.numericContains(d.range(),actual))throw new IOException("Resolved mod "+d.modId()+" version "+actual+" is outside "+d.range());}}
  public static Map<String,String> render(State state,Config c)throws IOException{
   String build=state.files().get("build.gradle");if(build==null)throw new IOException("Dependency manager requires build.gradle (Groovy)");
-  String toml=state.files().get(TOML);boolean neo=DependencySyntax.neo(build);if(c.dependencies().stream().anyMatch(d->d.mode()==Mode.MOD||d.mode()==Mode.EMBED)&&(!neo||toml==null))throw new IOException("Mod dependencies and embedding require a NeoGradle NeoForge project");
-  Config old=state.config();String existing=state.files().get(SCRIPT);if(existing!=null&&!existing.equals(script(old,neo))&&!existing.equals(legacyScript(old,neo)))throw new IOException("Managed dependency script changed externally; preserve edits before updating");
+  if(state.files().containsKey(TOML)&&state.files().containsKey(TEMPLATE_TOML))throw new IOException("Both resource and template mod metadata exist; select one source before dependency editing");
+  String tomlPath=state.files().containsKey(TOML)?TOML:TEMPLATE_TOML;
+  String toml=state.files().get(tomlPath);boolean moddev=DependencySyntax.modDev(build),neo=DependencySyntax.neo(build);if(c.dependencies().stream().anyMatch(d->d.mode()==Mode.MOD||d.mode()==Mode.EMBED)&&(!neo&&!moddev||toml==null))throw new IOException("Mod dependencies and embedding require a NeoForge project with NeoGradle or ModDevGradle");
+  Config old=state.config();String existing=state.files().get(SCRIPT);if(existing!=null&&!existing.equals(managedScript(old,neo,moddev))&&!( !moddev&&existing.equals(legacyScript(old,neo)) ))throw new IOException("Managed dependency script changed externally; preserve edits before updating");
   without(build,BEGIN,END);
   String owned=BEGIN+"\napply from: '"+SCRIPT+"'\n"+END;
   if(build.contains(BEGIN)&&!build.substring(build.indexOf(BEGIN),build.indexOf(END)+END.length()).equals(owned))throw new IOException("Managed build block changed externally");
   String manual=without(build,BEGIN,END);for(var d:c.dependencies())if(DependencySyntax.declares(manual,d.coordinate()))throw new IOException("Dependency is already declared manually: "+d.key());if(DependencySyntax.gradle(manual).contains("genesis-dependencies.gradle"))throw new IOException("Dependency script is already applied outside managed block");
-  var out=new LinkedHashMap<String,String>();out.put("build.gradle",manual+(manual.endsWith("\n")?"":"\n")+BEGIN+"\napply from: '"+SCRIPT+"'\n"+END+"\n");out.put(CONFIG,encode(c));out.put(SCRIPT,script(c,neo));
+  var out=new LinkedHashMap<String,String>();out.put("build.gradle",manual+(manual.endsWith("\n")?"":"\n")+BEGIN+"\napply from: '"+SCRIPT+"'\n"+END+"\n");out.put(CONFIG,encode(c));out.put(SCRIPT,managedScript(c,neo,moddev));
   if(toml!=null){String original=without(toml,TB,TE);var ids=DependencySyntax.modIds(original);int mods=ids.getOrDefault("mods",List.of()).size();String id=mods==1?ids.get("mods").get(0):"";
+   if(id.equals("${mod_id}")){
+       var properties=new Properties();properties.load(new StringReader(state.files().getOrDefault("gradle.properties","")));id=properties.getProperty("mod_id","");
+   }
+   if(mods==1&&!id.matches("[a-z][a-z0-9_]{1,63}"))throw new IOException("Cannot resolve mod id for dependency metadata");
    if(mods!=1&&!c.dependencies().stream().filter(d->d.mode()==Mode.MOD).toList().isEmpty())throw new IOException("Exactly one mod declaration is required for automatic dependency metadata");if(toml.contains(TB)){int a=toml.indexOf(TB),b=toml.indexOf(TE);if(b<a||!toml.substring(a,b+TE.length()).equals(modBlock(old,id)))throw new IOException("Managed mod metadata changed externally");}
    var tail=new StringBuilder(TB+"\n");
    for(var d:c.dependencies())if(d.mode()==Mode.MOD){if(d.modId().equals(id))throw new IOException("A mod cannot depend on itself");if(ids.entrySet().stream().filter(e->e.getKey().startsWith("dependencies.")).anyMatch(e->e.getValue().contains(d.modId())))throw new IOException("Mod dependency is already declared manually: "+d.modId());tail.append("[[dependencies.").append(id).append("]]\nmodId=\"").append(d.modId()).append("\"\ntype=\"").append(d.type()).append("\"\nversionRange=\"").append(d.range()).append("\"\nordering=\"NONE\"\nside=\"").append(d.side()).append("\"\n");}
-   out.put(TOML,original+(original.endsWith("\n")?"":"\n")+tail+TE+"\n");}
+   out.put(tomlPath,original+(original.endsWith("\n")?"":"\n")+tail+TE+"\n");}
   return Collections.unmodifiableMap(out);
  }
  private static String modBlock(Config c,String owner){var s=new StringBuilder(TB+"\n");for(var d:c.dependencies())if(d.mode()==Mode.MOD)s.append("[[dependencies.").append(owner).append("]]\nmodId=\"").append(d.modId()).append("\"\ntype=\"").append(d.type()).append("\"\nversionRange=\"").append(d.range()).append("\"\nordering=\"NONE\"\nside=\"").append(d.side()).append("\"\n");return s.append(TE).toString();}
+ private static String managedScript(Config c,boolean neo,boolean moddev){return moddev?modDevScript(c):script(c,neo);}
+ private static String modDevScript(Config c){
+  var s=new StringBuilder("// Generated by Genesis; edit through the dependency manager\nrepositories {\n    mavenCentral()\n");
+  for(String r:c.repositories())s.append("    maven { url = uri('").append(r).append("') }\n");
+  s.append("}\ndependencies {\n");
+  if(c.localLibraries())s.append("    implementation fileTree(dir: 'libraries', includes: ['*.jar', '*.JAR'])\n    additionalRuntimeClasspath fileTree(dir: 'libraries', includes: ['*.jar', '*.JAR'])\n");
+  for(var d:c.dependencies()){
+   if(d.mode()==Mode.EMBED){
+    String[] p=d.coordinate().split(":");String range=d.range().isEmpty()?"["+p[2]+"]":d.range();
+    s.append("    jarJar(implementation('").append(p[0]).append(':').append(p[1]).append("')) { version { strictly '").append(range).append("'; prefer '").append(p[2]).append("' } }\n");
+   }else s.append("    ").append(d.mode()==Mode.COMPILE_ONLY||d.mode()==Mode.MOD&&d.type().equals("optional")?"compileOnly":"implementation").append(" '").append(d.coordinate()).append("'\n");
+   if(d.mode()==Mode.LIBRARY||d.mode()==Mode.EMBED)s.append("    additionalRuntimeClasspath '").append(d.coordinate()).append("'\n");
+  }
+  s.append("}\n");
+  if(c.dependencies().stream().anyMatch(d->d.mode()==Mode.MOD&&d.type().equals("optional"))){
+   s.append("if (providers.gradleProperty('genesis.optionalMods').map { it.toBoolean() }.getOrElse(false)) {\n    dependencies {\n");
+   for(var d:c.dependencies())if(d.mode()==Mode.MOD&&d.type().equals("optional"))s.append("        runtimeOnly '").append(d.coordinate()).append("'\n");
+   s.append("    }\n}\n");
+  }
+  return s.toString();
+ }
  static String script(Config c,boolean neo){
   var s=new StringBuilder("// Generated by Genesis; edit through the dependency manager\nrepositories {\n    mavenCentral()\n");for(String r:c.repositories())s.append("    maven { url = uri('").append(r).append("') }\n");s.append("}\ndependencies {\n");if(c.localLibraries())s.append("    implementation fileTree(dir: 'libraries', includes: ['*.jar', '*.JAR'])\n");
   for(var d:c.dependencies()){String configuration=d.mode()==Mode.COMPILE_ONLY?"compileOnly":d.mode()==Mode.MOD&&d.type().equals("optional")?"compileOnly":"implementation";s.append("    ").append(configuration).append(" '").append(d.coordinate()).append("'\n");if(d.mode()==Mode.EMBED){String[] p=d.coordinate().split(":");s.append("    jarJar('").append(p[0]).append(':').append(p[1]).append(":").append(d.range().isEmpty()?"["+p[2]+"]":d.range()).append("') { version { prefer '").append(p[2]).append("' } }\n");}}

@@ -20,6 +20,7 @@ public final class MinecraftProjectDetector {
             "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "gradle.properties");
     private static final List<String> METADATA_PATHS = List.of(
             "src/main/resources/META-INF/neoforge.mods.toml",
+            "src/main/templates/META-INF/neoforge.mods.toml",
             "src/main/resources/META-INF/mods.toml",
             "src/main/resources/fabric.mod.json",
             "src/main/resources/quilt.mod.json",
@@ -28,7 +29,7 @@ public final class MinecraftProjectDetector {
             "src/main/java", "src/main/kotlin", "src/client/java", "src/common/java", "src/server/java",
             "src/client", "src/common", "src/server", "src");
     private static final List<String> RESOURCE_CANDIDATES = List.of(
-            "src/main/resources", "src/client/resources", "src/common/resources", "src/server/resources", "resources");
+            "src/main/resources", "src/main/templates", "src/client/resources", "src/common/resources", "src/server/resources", "resources");
 
     private MinecraftProjectDetector() {}
 

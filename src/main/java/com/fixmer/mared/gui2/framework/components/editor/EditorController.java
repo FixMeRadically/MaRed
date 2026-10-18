@@ -112,12 +112,23 @@ public final class EditorController {
         boolean ctrl = (modifiers & 2) != 0;
 
         boolean shift=(modifiers&1)!=0;
+        if(host.editable()&&(modifiers&4)!=0&&!ctrl&&!shift&&(keyCode==265||keyCode==264)){
+            var action=keyCode==265?EditorLineActions.Action.UP:EditorLineActions.Action.DOWN;
+            if(EditorLineActions.apply(document,history,action,MaredSettings.indentUnit(),"")){view.resetBlink();ensureCursorVisible();onChanged.run();}return true;
+        }
         if(document.navigate(keyCode,ctrl,shift)) {
             view.resetBlink();ensureCursorVisible();return true;
         }
         if(ctrl&&keyCode==67){copySelection();return true;}
         if(ctrl&&keyCode==65){document.selectAll();view.resetBlink();ensureCursorVisible();return true;}
         if(!host.editable())return false;
+        EditorLineActions.Action lineAction=null;
+        if(keyCode==258&&!ctrl)lineAction=shift?EditorLineActions.Action.OUTDENT:EditorLineActions.Action.INDENT;
+        else if(ctrl&&keyCode==68&&!shift)lineAction=EditorLineActions.Action.DUPLICATE;
+        if(lineAction!=null){
+            if(EditorLineActions.apply(document,history,lineAction,MaredSettings.indentUnit(),"")){view.resetBlink();ensureCursorVisible();onChanged.run();}
+            return true;
+        }
         if (ctrl) {
             switch (keyCode) {
                 case 67: copySelection(); return true;

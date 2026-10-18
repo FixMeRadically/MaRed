@@ -94,7 +94,9 @@ final class DependencySyntax  {
         }
         return tokens;
     }
-    static boolean neo(String build) {
+    static boolean neo(String build) {return plugin(build,"net.neoforged.gradle.userdev");}
+    static boolean modDev(String build) {return plugin(build,"net.neoforged.moddev");}
+    private static boolean plugin(String build,String id) {
         var tokens=tokens(build);
         var scopes=new ArrayDeque<Boolean>();
         for(int i=0;i<tokens.size();i++) {
@@ -110,11 +112,11 @@ final class DependencySyntax  {
             else if(t.text().equals("id")&&!scopes.isEmpty()&&scopes.peek()) {
                 int at=i+1;
                 if(at<tokens.size()&&tokens.get(at).text().equals("("))at++;
-                if(at<tokens.size()&&tokens.get(at).string()&&tokens.get(at).text().equals("net.neoforged.gradle.userdev"))return true;
+                if(at<tokens.size()&&tokens.get(at).string()&&tokens.get(at).text().equals(id))return true;
             }
             else if(t.text().equals("apply")&&i+3<tokens.size()&&tokens.get(i+1).text().equals("plugin")&&tokens.get(i+2).text().equals(":")) {
                 Token value=tokens.get(i+3);
-                if(value.string()&&value.text().equals("net.neoforged.gradle.userdev"))return true;
+                if(value.string()&&value.text().equals(id))return true;
             }
         }
         return false;

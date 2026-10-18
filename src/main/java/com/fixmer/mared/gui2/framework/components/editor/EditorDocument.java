@@ -26,6 +26,7 @@ public final class EditorDocument {
 
     private int contentVersion = 0;
     private int desiredColumn = -1;
+    private final int[] changedLines = new int[128];
 
     public EditorDocument() {
         lines.add(new StringBuilder());
@@ -36,7 +37,16 @@ public final class EditorDocument {
     // ============================================================
 
     public int contentVersion() { return contentVersion; }
-    private void touch() { contentVersion++; desiredColumn=-1; }
+    private void touch(int firstLine) { contentVersion++;changedLines[contentVersion&127]=Math.max(0,firstLine);desiredColumn=-1; }
+    /** Non-consuming edit journal: each view can invalidate from its own observed revision. */
+    public int changedLineSince(int version) {
+        long distance=(long)contentVersion-version;
+        if(distance==0)return lineCount();
+        if(distance<0||distance>changedLines.length)return 0;
+        int first=lineCount();
+        for(int offset=1;offset<=distance;offset++)first=Math.min(first,changedLines[(version+offset)&127]);
+        return first;
+    }
 
     public int lineCount() { return lines.size(); }
 
@@ -151,7 +161,7 @@ public final class EditorDocument {
         cursorLine = 0;
         cursorCol = 0;
         clearSelection();
-        touch();
+        touch(cursorLine);
     }
 
     // ============================================================
@@ -180,7 +190,7 @@ public final class EditorDocument {
         clearSelection();
         insertStringInternal(text);
 
-        touch();
+        touch(sl);
     }
 
     /**
@@ -249,24 +259,26 @@ public final class EditorDocument {
     // ============================================================
 
     public void insertChar(char c) {
+        int firstChanged=hasSelection()?orderedSelection()[0]:cursorLine;
         if (hasSelection()) deleteSelectionInternal();
         lines.get(cursorLine).insert(cursorCol, c);
         cursorCol++;
-        touch();
+        touch(firstChanged);
     }
 
     public void insertString(String s) {
         if (s == null || s.isEmpty()) return;
+        int firstChanged=hasSelection()?orderedSelection()[0]:cursorLine;
         if (hasSelection()) deleteSelectionInternal();
         insertStringInternal(s);
-        touch();
+        touch(firstChanged);
     }
 
     public void deleteBeforeCursor() {
         if (cursorCol > 0) {
             lines.get(cursorLine).deleteCharAt(cursorCol - 1);
             cursorCol--;
-            touch();
+            touch(cursorLine);
         }
     }
 
@@ -276,14 +288,14 @@ public final class EditorDocument {
         if (actual <= 0) return;
         lines.get(cursorLine).delete(cursorCol - actual, cursorCol);
         cursorCol -= actual;
-        touch();
+        touch(cursorLine);
     }
 
     public void deleteAfterCursor() {
         StringBuilder cur = lines.get(cursorLine);
         if (cursorCol < cur.length()) {
             cur.deleteCharAt(cursorCol);
-            touch();
+            touch(cursorLine);
         }
     }
 
@@ -295,17 +307,18 @@ public final class EditorDocument {
         prev.append(cur);
         lines.remove(cursorLine);
         cursorLine--;
-        touch();
+        touch(cursorLine);
     }
 
     public void mergeWithNextLine() {
         if (cursorLine >= lines.size() - 1) return;
         lines.get(cursorLine).append(lines.get(cursorLine + 1));
         lines.remove(cursorLine + 1);
-        touch();
+        touch(cursorLine);
     }
 
     public void insertNewLine(String indent) {
+        int firstChanged=hasSelection()?orderedSelection()[0]:cursorLine;
         if (hasSelection()) deleteSelectionInternal();
         if (indent == null) indent = "";
 
@@ -316,13 +329,13 @@ public final class EditorDocument {
         lines.add(cursorLine + 1, new StringBuilder(indent + rest));
         cursorLine++;
         cursorCol = indent.length();
-        touch();
+        touch(firstChanged);
     }
 
     public void deleteSelection() {
         if (!hasSelection()) return;
         deleteSelectionInternal();
-        touch();
+        touch(cursorLine);
     }
 
     private void deleteSelectionInternal() {
@@ -460,7 +473,7 @@ public final class EditorDocument {
         cursorLine = clamp(cl, 0, lines.size() - 1);
         cursorCol  = clamp(cc, 0, lines.get(cursorLine).length());
         clearSelection();
-        touch();
+        touch(0);
     }
 
     private static int clamp(int v, int lo, int hi) {

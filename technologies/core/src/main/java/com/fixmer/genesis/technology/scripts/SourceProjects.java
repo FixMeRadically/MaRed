@@ -224,11 +224,7 @@ public final class SourceProjects {
     public synchronized Project createNeoForge(String id)throws IOException {
         if(!NeoForgeProjectTemplate.validId(id))throw fail("Invalid or reserved mod id");
         directories(root);Path target=projectPath(id);noAlias(target);
-        BuildTools.Settings tools=buildTools();
-        byte[] wrapper,properties;
-        try(var in=Files.newInputStream(tools.wrapperJar(),LinkOption.NOFOLLOW_LINKS)){wrapper=in.readNBytes(8*1024*1024+1);}
-        try(var in=Files.newInputStream(tools.wrapperJar().resolveSibling("gradle-wrapper.properties"),LinkOption.NOFOLLOW_LINKS)){properties=in.readNBytes(64*1024+1);}
-        if(wrapper.length>8*1024*1024||properties.length>64*1024)throw fail("Wrapper size limit");
+        byte[] wrapper=NeoForgeProjectTemplate.wrapperJar();
         Path staging=Files.createTempDirectory(root,".create-");
         try{
             for(var entry:NeoForgeProjectTemplate.files(id).entrySet()){
@@ -236,8 +232,8 @@ public final class SourceProjects {
                 Files.writeString(output,entry.getValue(),StandardCharsets.UTF_8,StandardOpenOption.CREATE_NEW);
             }
             Path jar=staging.resolve("gradle/wrapper/gradle-wrapper.jar");Files.createDirectories(jar.getParent());
-            Files.write(jar,wrapper,StandardOpenOption.CREATE_NEW);Files.write(jar.resolveSibling("gradle-wrapper.properties"),properties,StandardOpenOption.CREATE_NEW);
-            BuildTools.validate(new BuildTools.Settings(tools.javaHome(),jar));
+            Files.write(jar,wrapper,StandardOpenOption.CREATE_NEW);
+            BuildTools.validateWrapper(jar);
             staging.resolve("gradlew").toFile().setExecutable(true);
             safe(target);noAlias(target);Files.move(staging,target);return new Project(id,Language.JAVA);
         }finally{if(Files.exists(staging,LinkOption.NOFOLLOW_LINKS))try(var entries=Files.walk(staging)){for(Path path:entries.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(path);}}
@@ -396,6 +392,13 @@ public final class SourceProjects {
         if(project(id).language()!=Language.JAVA)throw fail("Gradle task requires a Java project");if(!GradleBuildRunner.validTask(task))throw fail("Invalid Gradle task");
         setBuildMetadata(id,"gradle_task",task);
     }
+    public synchronized boolean watchApplyEnabled(String id)throws IOException {
+        project(id);String value=buildMetadata(decode(readBytes(projectPath(id).resolve(MANIFEST),4096))).getProperty("watch_apply","false");
+        if(!value.equals("true")&&!value.equals("false"))throw fail("watch_apply must be true or false");return Boolean.parseBoolean(value);
+    }
+    public synchronized void setWatchApplyEnabled(String id,boolean enabled)throws IOException {
+        project(id);setBuildMetadata(id,"watch_apply",Boolean.toString(enabled));
+    }
     public synchronized GradleBuildRunner.Options buildOptions(String id)throws IOException{
         project(id);var props=buildMetadata(decode(readBytes(projectPath(id).resolve(MANIFEST),4096)));try{
             long minutes=Long.parseLong(props.getProperty("build_timeout_minutes","10"));if(minutes<1||minutes>1440)throw new IllegalArgumentException();
@@ -415,7 +418,7 @@ public final class SourceProjects {
     /** Parse with Java Properties semantics, including escaped keys and continued declarations. */
     private static Properties buildMetadata(String text)throws IOException{
         var props=new Properties(){@Override public synchronized Object put(Object key,Object value){
-            if(Set.of("gradle_task","build_timeout_minutes","build_max_workers").contains(key)&&containsKey(key))throw new IllegalArgumentException("Duplicate build setting: "+key);
+            if(Set.of("gradle_task","build_timeout_minutes","build_max_workers","watch_apply").contains(key)&&containsKey(key))throw new IllegalArgumentException("Duplicate build setting: "+key);
             return super.put(key,value);
         }};
         try{props.load(new StringReader(text));return props;}catch(IllegalArgumentException bad){throw fail("Malformed build metadata: "+bad.getMessage());}
@@ -553,7 +556,10 @@ public final class SourceProjects {
     }
     /** Delivers one fingerprinted binary outside project trees; never installs it into mods. */
     public synchronized Path deliverArtifact(String id,BuildArtifacts.Artifact artifact,java.util.function.BooleanSupplier cancelled)throws IOException{
-        project(id);Path destination=root.resolve(".artifacts");directories(destination);return BuildArtifacts.deliver(projectPath(id),artifact,destination,cancelled);
+        project(id);Path destination=root.resolve(".artifacts");directories(destination);
+        Path directory=workingDirectory(id);
+        if(linkedMinecraft(id))return withBound(directory,()->BuildArtifacts.deliver(directory,artifact,destination,cancelled));
+        return BuildArtifacts.deliver(directory,artifact,destination,cancelled);
     }
     /** Full source workspace export; drafts are never saved back to disk. */
     public synchronized Path exportProject(String id,Map<String,Recovery> edits)throws IOException {

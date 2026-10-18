@@ -1,5 +1,7 @@
 package com.fixmer.mared.gui2.welcome.screen;
 
+import com.fixmer.mared.gui2.framework.screen.MaredScreen;
+
 import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.welcome.MaredWelcomeStorage;
 
@@ -27,7 +29,7 @@ import java.util.List;
  *
  * Р СџР С•Р С”Р В°Р В·РЎвЂ№Р Р†Р В°Р ВµРЎвЂљРЎРѓРЎРЏ Р С•Р Т‘Р С‘Р Р… РЎР‚Р В°Р В· (РЎвЂћР В»Р В°Р С– MaredWelcomeStorage.hasSeen()).
  */
-public final class MaredOnboardingScreen extends Screen {
+public final class MaredOnboardingScreen extends MaredScreen {
 
     private static final int PAGES = 8;
 

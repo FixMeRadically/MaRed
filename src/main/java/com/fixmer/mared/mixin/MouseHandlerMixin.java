@@ -10,6 +10,11 @@ import com.fixmer.mared.commands.input.MaredKeyBlocker;
 @Mixin(MouseHandler.class)
 public class MouseHandlerMixin {
 
+    @Inject(method="onMove",at=@At("HEAD"),require=0)
+    private void genesis$observeRestartMouse(long window,double x,double y,CallbackInfo ci){
+        com.fixmer.mared.dev.client.DevRestartWindow.inputEvent(window,false);
+    }
+
     @Inject(method = "turnPlayer", at = @At("HEAD"), cancellable = true)
     private void mared$blockTurnPlayer(CallbackInfo ci) {
         if (MaredKeyBlocker.isMouseMotionBlocked()) {

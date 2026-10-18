@@ -16,6 +16,9 @@ import java.util.List;
  */
 public interface SpanResolver {
 
+    /** Optional per-render budget/reset; existing resolvers need no changes. */
+    default void beginFrame(EditorDocument doc) { }
+
     /**
      * Spans для логической строки.
      *

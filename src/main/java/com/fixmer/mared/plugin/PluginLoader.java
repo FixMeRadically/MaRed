@@ -42,17 +42,18 @@ public final class PluginLoader {
         if (loaded) return;
         loaded = true;
 
-        // 1. Bootstrap built-in — до регистрации плагинов.
-        try { ModuleRegistry.bootstrap(); }     catch (Throwable ignored) {}
-        try { PanelRegistry.bootstrap(); }      catch (Throwable ignored) {}
-        try { SettingsPageRegistry.bootstrap(); } catch (Throwable ignored) {}
-
-        // 2. Discovery через ServiceLoader.
+        // Discover providers without constructing plugins or loading optional UI registries.
         Map<String, MaredPlugin> discovered = new HashMap<>(4);
         try {
-            ServiceLoader<MaredPlugin> sl =
-                ServiceLoader.load(MaredPlugin.class);
-            for (MaredPlugin p : sl) {
+            var providers=ServiceLoader.load(MaredPlugin.class).stream().iterator();
+            if(!providers.hasNext()){
+                Mared.LOGGER.info("[plugin] no plugins discovered; UI registries stay lazy");
+                return;
+            }
+            // Preserve the original ordering for plugins, including constructor-time registration.
+            UiRegistries.bootstrap();
+            while(providers.hasNext()) {
+                MaredPlugin p=providers.next().get();
                 if (p == null) continue;
                 String id = p.id();
                 if (id == null || id.isBlank()) {
@@ -110,6 +111,14 @@ public final class PluginLoader {
             ok, skip, fail);
     }
 
+    /** Keep optional UI class references out of the startup path with no providers. */
+    private static final class UiRegistries {
+        static void bootstrap(){
+            try { ModuleRegistry.bootstrap(); } catch(Throwable ignored) { }
+            try { PanelRegistry.bootstrap(); } catch(Throwable ignored) { }
+            try { SettingsPageRegistry.bootstrap(); } catch(Throwable ignored) { }
+        }
+    }
     public static void reset() {
         loaded = false;
     }

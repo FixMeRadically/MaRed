@@ -425,6 +425,7 @@ public final class EditorView {
         // при следующих её появлениях. Простой список + индекс.
         // На видимых строках обычно < 40 — линейного поиска достаточно.
         // Для простоты — резолвим для каждой строки, что видим.
+        try { spanResolver.beginFrame(doc); } catch (RuntimeException ignored) { }
         int baseColor = spanResolver.baseColor();
 
         for (int li = startLog; li <= endLog; li++) {

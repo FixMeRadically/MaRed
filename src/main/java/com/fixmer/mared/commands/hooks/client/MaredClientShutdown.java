@@ -1,6 +1,7 @@
 package com.fixmer.mared.commands.hooks.client;
 
 import com.fixmer.mared.Mared;
+import com.fixmer.mared.dev.DevMode;
 import com.fixmer.mared.plugin.PluginRegistry;
 import com.fixmer.mared.services.threading.MaredThreading;
 
@@ -12,10 +13,11 @@ import net.neoforged.neoforge.event.GameShuttingDownEvent;
 /**
  * Корректное завершение MaRed при выходе из клиента.
  *
- * 0.3.0: останавливаем threading-пул.
- * 0.3.2: выгружаем плагины (PluginRegistry.unloadAll()).
- *   Порядок: сначала плагины (могут держать ссылки на GUI-структуры),
- *   потом threading.
+ * Порядок:
+ *   1. Плагины (могут держать ссылки на GUI-структуры).
+ *   2. Threading-пул.
+ *   3. Снять dev-маркер (последним, чтобы он не исчез раньше,
+ *      чем клиент действительно готов завершиться).
  */
 @EventBusSubscriber(modid = Mared.MOD_ID, value = Dist.CLIENT)
 public class MaredClientShutdown {
@@ -31,5 +33,7 @@ public class MaredClientShutdown {
         }
 
         MaredThreading.shutdown();
+
+        DevMode.clearRunning();
     }
 }

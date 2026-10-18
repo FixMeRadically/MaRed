@@ -1,5 +1,7 @@
 package com.fixmer.mared.gui2.welcome.screen;
 
+import com.fixmer.mared.gui2.framework.screen.MaredScreen;
+
 import com.fixmer.mared.gui2.genesis.GenesisController;
 import com.fixmer.mared.gui2.genesis.GenesisWorld;
 
@@ -12,7 +14,7 @@ import org.lwjgl.glfw.GLFW;
 /**
  * Genesis: РґРѕР±Р°РІР»РµРЅ mouseScrolled в†’ zoom.
  */
-public final class MaredWelcomeScreen extends Screen {
+public final class MaredWelcomeScreen extends MaredScreen {
 
     private final GenesisWorld genesis;
 

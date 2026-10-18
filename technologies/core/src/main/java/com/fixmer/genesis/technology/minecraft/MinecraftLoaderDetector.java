@@ -17,7 +17,7 @@ public final class MinecraftLoaderDetector {
         String gradle = readAll(root, "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "gradle.properties");
         String lower = gradle.toLowerCase(Locale.ROOT);
 
-        boolean neoMeta = exists(root, "src/main/resources/META-INF/neoforge.mods.toml");
+        boolean neoMeta = exists(root, "src/main/resources/META-INF/neoforge.mods.toml") || exists(root,"src/main/templates/META-INF/neoforge.mods.toml");
         boolean forgeMeta = exists(root, "src/main/resources/META-INF/mods.toml");
         boolean fabricMeta = exists(root, "src/main/resources/fabric.mod.json");
         boolean quiltMeta = exists(root, "src/main/resources/quilt.mod.json");

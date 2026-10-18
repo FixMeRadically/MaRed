@@ -1,5 +1,8 @@
 package com.fixmer.mared;
 
+import com.fixmer.mared.dev.DevMode;
+
+
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;
@@ -17,5 +20,7 @@ public class Mared {
 
     public Mared(IEventBus modEventBus, ModContainer modContainer) {
         LOGGER.info("Mared {} loading...", VERSION);
+        DevMode.logStatus();
+        com.fixmer.mared.dev.DevTelemetry.mark("mod_loaded");
     }
 }

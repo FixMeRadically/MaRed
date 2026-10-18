@@ -1,0 +1,293 @@
+{
+  "schema": 1,
+  "date": "2026-10-16",
+  "minecraft": "1.21.1",
+  "neoforge_min": "21.1.235",
+  "profiles": {
+    "core": [
+      "modernfix",
+      "ferrite-core",
+      "lithium"
+    ],
+    "render": [
+      "modernfix",
+      "ferrite-core",
+      "lithium",
+      "sodium",
+      "immediatelyfast"
+    ],
+    "world": [
+      "modernfix",
+      "ferrite-core",
+      "lithium",
+      "noisiumed"
+    ],
+    "extended": [
+      "modernfix",
+      "ferrite-core",
+      "lithium",
+      "sodium",
+      "immediatelyfast",
+      "entityculling",
+      "badoptimizations",
+      "fast-ip-ping",
+      "fastsuite",
+      "placebo"
+    ],
+    "all": [
+      "modernfix",
+      "ferrite-core",
+      "lithium",
+      "sodium",
+      "immediatelyfast",
+      "entityculling",
+      "badoptimizations",
+      "fast-ip-ping",
+      "fastsuite",
+      "placebo",
+      "noisiumed"
+    ]
+  },
+  "mods": [
+    {
+      "slug": "modernfix",
+      "title": "ModernFix",
+      "project_id": "nmDcB62a",
+      "version_id": "7Jy58lnT",
+      "version": "5.27.26+mc1.21.1",
+      "filename": "modernfix-neoforge-5.27.26+mc1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/nmDcB62a/versions/7Jy58lnT/modernfix-neoforge-5.27.26%2Bmc1.21.1.jar",
+      "sha512": "37c76fc5bc72cfc1035260f891ffeb45b4f32651d2e490c5eb8c60f3b5686deca3145b32d4fab9036f65f5277b0ac66f4ad3855e52cd973e791b09e9c4b896d8",
+      "size": 611043,
+      "mod_ids": [
+        "modernfix"
+      ],
+      "role": "startup/resources/memory",
+      "dependencies": [],
+      "page": "https://modrinth.com/mod/modernfix",
+      "source": "https://github.com/embeddedt/ModernFix",
+      "metadata_verified": true,
+      "runtime_verified": false
+    },
+    {
+      "slug": "ferrite-core",
+      "title": "FerriteCore",
+      "project_id": "uXXizFIs",
+      "version_id": "x7kQWVju",
+      "version": "7.0.3-neoforge",
+      "filename": "ferritecore-7.0.3-neoforge.jar",
+      "url": "https://cdn.modrinth.com/data/uXXizFIs/versions/x7kQWVju/ferritecore-7.0.3-neoforge.jar",
+      "sha512": "19af89a2075bb10a63884fa853ebf84b02c79dc3242430ecdad056fd764fdcde367a7303276b329df01b0736e2ef264c5d80c7dc92c6aebd244f556a230bb417",
+      "size": 121559,
+      "mod_ids": [
+        "ferritecore"
+      ],
+      "role": "memory",
+      "dependencies": [],
+      "page": "https://modrinth.com/mod/ferrite-core",
+      "source": "https://github.com/malte0811/FerriteCore",
+      "metadata_verified": true,
+      "runtime_verified": false
+    },
+    {
+      "slug": "lithium",
+      "title": "Lithium",
+      "project_id": "gvQqBUqZ",
+      "version_id": "DDUrRVCA",
+      "version": "mc1.21.1-0.15.4-neoforge",
+      "filename": "lithium-neoforge-0.15.4+mc1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/gvQqBUqZ/versions/DDUrRVCA/lithium-neoforge-0.15.4%2Bmc1.21.1.jar",
+      "sha512": "2735da2088b88a8bdcd4ad02a2b6fffbfd3925557cefd4fa54b5477dfb9e582ea7f521300c060f57dff1325dd21bff276b7333363ad3371ed6893e3de9eca9cd",
+      "size": 774220,
+      "mod_ids": [
+        "lithium"
+      ],
+      "role": "world simulation",
+      "dependencies": [],
+      "page": "https://modrinth.com/mod/lithium",
+      "source": "https://github.com/caffeinemc/lithium-fabric",
+      "metadata_verified": true,
+      "runtime_verified": false
+    },
+    {
+      "slug": "sodium",
+      "title": "Sodium",
+      "project_id": "AANobbMI",
+      "version_id": "uMOpc5uV",
+      "version": "mc1.21.1-0.8.13-neoforge",
+      "filename": "sodium-neoforge-0.8.13+mc1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/AANobbMI/versions/uMOpc5uV/sodium-neoforge-0.8.13%2Bmc1.21.1.jar",
+      "sha512": "4f537696af95411e9daf15795fb5fcbc49913d488a96fa912fa8f1d7db408710995e8a1461190f3cd0f8217bf9e35e9539176592428ed587ca2d7aa84450a390",
+      "size": 1292934,
+      "mod_ids": [
+        "sodium"
+      ],
+      "role": "world rendering",
+      "dependencies": [],
+      "page": "https://modrinth.com/mod/sodium",
+      "source": "https://github.com/CaffeineMC/sodium",
+      "metadata_verified": true,
+      "runtime_verified": false
+    },
+    {
+      "slug": "immediatelyfast",
+      "title": "ImmediatelyFast",
+      "project_id": "5ZwdcRci",
+      "version_id": "EJzmEPZV",
+      "version": "1.6.15+1.21.1-neoforge",
+      "filename": "ImmediatelyFast-NeoForge-1.6.15+1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/5ZwdcRci/versions/EJzmEPZV/ImmediatelyFast-NeoForge-1.6.15%2B1.21.1.jar",
+      "sha512": "c115cad7b060373fc597aae08c685e2d56f173b88b792a4a2c229e222f8da293b99865e9553cf716483d3c3d6a18f31c51c5dd55be22d4625ed2c962d7b94fd0",
+      "size": 368896,
+      "mod_ids": [
+        "immediatelyfast"
+      ],
+      "role": "GUI/immediate rendering",
+      "dependencies": [],
+      "page": "https://modrinth.com/mod/immediatelyfast",
+      "source": "https://github.com/RaphiMC/ImmediatelyFast",
+      "metadata_verified": true,
+      "runtime_verified": false
+    },
+    {
+      "slug": "entityculling",
+      "title": "Entity Culling",
+      "project_id": "NNAgCjsB",
+      "version_id": "eieYbWYb",
+      "version": "1.11.3",
+      "filename": "entityculling-neoforge-1.11.3-mc1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/NNAgCjsB/versions/eieYbWYb/entityculling-neoforge-1.11.3-mc1.21.1.jar",
+      "sha512": "93e83dd690b91d610be29451b34836c9daa7e08bd952f88ffa07c62d8774bbaac2ff0c6768d2cbf1b14f47d0b86f98cef9fd341e0d29bd37207eaf4aa2abea63",
+      "size": 1510075,
+      "mod_ids": [
+        "entityculling"
+      ],
+      "role": "entity visibility",
+      "dependencies": [],
+      "page": "https://modrinth.com/mod/entityculling",
+      "source": "https://github.com/tr7zw/EntityCulling",
+      "metadata_verified": true,
+      "runtime_verified": false
+    },
+    {
+      "slug": "badoptimizations",
+      "title": "BadOptimizations",
+      "project_id": "g96Z4WVZ",
+      "version_id": "S2qthD5S",
+      "version": "2.4.1",
+      "filename": "BadOptimizations-2.4.1-1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/g96Z4WVZ/versions/S2qthD5S/BadOptimizations-2.4.1-1.21.1.jar",
+      "sha512": "2b66428bd98bd5ec0e09f2ec6af801cefb7b9b99cc4f0993daeaffe8d0ccc5ee0c2a73e9f38d4f92540ead0181704d2c9e946837ec05cf710fc3b20fce3b0cac",
+      "size": 283566,
+      "mod_ids": [
+        "badoptimizations"
+      ],
+      "role": "client optimizations",
+      "dependencies": [],
+      "page": "https://modrinth.com/mod/badoptimizations",
+      "source": "https://github.com/ItsThosea/BadOpitmizations",
+      "metadata_verified": true,
+      "runtime_verified": false
+    },
+    {
+      "slug": "noisiumed",
+      "title": "Noisiumed",
+      "project_id": "M8MasaZG",
+      "version_id": "U3gpLtpO",
+      "version": "3.0.6",
+      "filename": "noisiumed-3.0.6-neoforge-1.21.1.jar",
+      "url": "https://cdn.modrinth.com/data/M8MasaZG/versions/U3gpLtpO/noisiumed-3.0.6-neoforge-1.21.1.jar",
+      "sha512": "327f828d09b0a7365b31c9eae253969c2a18c6581fdc0b93032e5ccac813eaf3c09d84cf1cddc6242f5930a508f24b21e355e4998ff57c811586e8f983e66919",
+      "size": 60257,
+      "mod_ids": [
+        "noisiumed"
+      ],
+      "role": "world generation",
+      "dependencies": [],
+      "page": "https://modrinth.com/mod/noisiumed",
+      "source": "https://github.com/imbavirus/noisiumed",
+      "metadata_verified": true,
+      "runtime_verified": false
+    },
+    {
+      "slug": "fastsuite",
+      "title": "FastSuite",
+      "project_id": "roccmqou",
+      "version_id": "OQZRQcDM",
+      "version": "1.21.1-6.0.7",
+      "filename": "FastSuite-1.21.1-6.0.7.jar",
+      "url": "https://cdn.modrinth.com/data/roccmqou/versions/OQZRQcDM/FastSuite-1.21.1-6.0.7.jar",
+      "sha512": "16356d513a7569d3b6815c4697b916098e0fdfbe2f2d0189c19099e95569a363d1442607b32666c7028a2c702040bdaf18b4224bcc5a39fe32dc38b00947534f",
+      "size": 28192,
+      "mod_ids": [
+        "fastsuite"
+      ],
+      "role": "recipe matching",
+      "dependencies": [
+        "tCkE8p2N"
+      ],
+      "page": "https://modrinth.com/mod/fastsuite",
+      "source": "https://github.com/Shadows-of-Fire/FastSuite",
+      "metadata_verified": true,
+      "runtime_verified": false
+    },
+    {
+      "slug": "placebo",
+      "title": "Placebo",
+      "project_id": "tCkE8p2N",
+      "version_id": "B5zbSVlT",
+      "version": "1.21.1-9.9.4",
+      "filename": "Placebo-1.21.1-9.9.4.jar",
+      "url": "https://cdn.modrinth.com/data/tCkE8p2N/versions/B5zbSVlT/Placebo-1.21.1-9.9.4.jar",
+      "sha512": "4f3a9c5974132f3638c262c56b0c2886df2bc58027c961aa11d06d0ae2e608b63f24f949b2f8c240989e2a1bfe303fd237c5f2d49269453ad6c2ff1f85f2c648",
+      "size": 326063,
+      "mod_ids": [
+        "placebo"
+      ],
+      "role": "FastSuite dependency",
+      "dependencies": [],
+      "page": "https://modrinth.com/mod/placebo",
+      "source": "https://github.com/Shadows-of-Fire/Placebo",
+      "metadata_verified": true,
+      "runtime_verified": false
+    },
+    {
+      "slug": "fast-ip-ping",
+      "title": "Fast IP Ping",
+      "project_id": "9mtu0sUO",
+      "version_id": "SNWnJAqf",
+      "version": "v1.0.12-mc1.21.1-neoforge",
+      "filename": "fast-ip-ping-v1.0.12-mc1.21.1-neoforge.jar",
+      "url": "https://cdn.modrinth.com/data/9mtu0sUO/versions/SNWnJAqf/fast-ip-ping-v1.0.12-mc1.21.1-neoforge.jar",
+      "sha512": "aeb3a94cfd8076c9ab22e36b72178ea1baeb28aae23f820687acc8a3c341e0115b08fe51933c873d4c89894c86cdd485aa95649c4aa5f8b1fb1e26797f16eead",
+      "size": 10414,
+      "mod_ids": [
+        "fastipping"
+      ],
+      "role": "server-list IP ping",
+      "dependencies": [],
+      "page": "https://modrinth.com/mod/fast-ip-ping",
+      "source": "https://github.com/Fallen-Breath/fast-ip-ping",
+      "metadata_verified": true,
+      "runtime_verified": false
+    }
+  ],
+  "conflict_groups": [
+    [
+      "sodium",
+      "embeddium",
+      "rubidium",
+      "xenon"
+    ],
+    [
+      "noisium",
+      "noisiumed"
+    ]
+  ],
+  "incompatible_pairs": [
+    [
+      "noisiumed",
+      "biox"
+    ]
+  ]
+}

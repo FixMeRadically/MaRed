@@ -1,5 +1,7 @@
 package com.fixmer.mared.gui2.shell;
 
+import com.fixmer.mared.gui2.framework.screen.MaredScreen;
+
 import org.lwjgl.glfw.GLFW;
 
 import com.fixmer.mared.MaredLang;
@@ -28,7 +30,7 @@ import net.minecraft.network.chat.Component;
  *
  * Genesis НЕ знает о Runtime. Studio получает Session через Runtime.
  */
-public final class MaredShellScreen extends Screen {
+public final class MaredShellScreen extends MaredScreen {
 
     private StudioRuntime runtime;
     private boolean suspendedForSettings;
@@ -54,8 +56,10 @@ public final class MaredShellScreen extends Screen {
         super.init();
         suspendedForSettings=false;
 
+
         // Локализация — как в Studio.
         MaredLang.reload();
+
 
         Minecraft mc = Minecraft.getInstance();
         int physW = mc.getWindow().getWidth();
@@ -116,6 +120,8 @@ public final class MaredShellScreen extends Screen {
         BreadcrumbBar.render(g, this.font,
             runtime.navigation().stack(),
             16, 12, mouseX, mouseY);
+
+
     }
 
     // ============================================================

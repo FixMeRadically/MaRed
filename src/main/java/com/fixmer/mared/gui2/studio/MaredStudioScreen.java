@@ -1,5 +1,7 @@
 package com.fixmer.mared.gui2.studio;
 
+import com.fixmer.mared.gui2.framework.screen.MaredScreen;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,7 +39,7 @@ import net.minecraft.network.chat.Component;
  *   - Narration: FocusTraversal.narrate() озвучивает новую цель, если
  *     она реализует NarratableComponent.
  */
-public final class MaredStudioScreen extends Screen implements Disposable {
+public final class MaredStudioScreen extends MaredScreen implements Disposable {
 
     private final StudioSession session = new StudioSession();
     private SubscriptionGroup screenSubs = new SubscriptionGroup();

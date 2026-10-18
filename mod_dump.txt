@@ -14400,6 +14400,8 @@ public final class MaredClientEvents {
 package com.fixmer.mared.commands.hooks.client;
 
 import com.fixmer.mared.Mared;
+import com.fixmer.mared.MaredDevMode;
+import com.fixmer.mared.MaredDevRestart;
 import com.fixmer.mared.commands.events.MaredPersistentLoader;
 import com.fixmer.mared.plugin.PluginLoader;
 import com.fixmer.mared.services.threading.MaredThreading;
@@ -14412,24 +14414,52 @@ import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 /**
  * Клиентская инициализация MaRed.
  *
- * 0.3.0: только mod event bus — setup. Shutdown переехал в
- * MaredClientShutdown (game bus, GameShuttingDownEvent).
- * 0.3.2: PluginLoader.loadAll() — загрузка плагинов после
- * bootstrap реестров и persistent-скриптов.
+ * Шаг 2 — лог статуса dev-режима и тайминги фаз.
+ * Шаг 14 — лог про клавишу перезапуска (если мы под супервизором).
  */
 @EventBusSubscriber(modid = Mared.MOD_ID, value = Dist.CLIENT)
 public class MaredClientSetup {
 
     @SubscribeEvent
     public static void onClientSetup(FMLClientSetupEvent event) {
+        boolean dev = MaredDevMode.isEnabled();
+
         Mared.LOGGER.info("========================================");
-        Mared.LOGGER.info("  Mared {} — starting", Mared.VERSION);
+        Mared.LOGGER.info("  Mared {} — starting{}", Mared.VERSION, dev ? " [DEV]" : "");
         Mared.LOGGER.info("  Fast-path expressions + frame pool");
+        if (dev) {
+            Mared.LOGGER.info("  Dev mode: extra logging, running marker");
+            if (MaredDevRestart.isUnderSupervisor()) {
+                Mared.LOGGER.info("  Restart hotkey: F9 ({}), or /mared dev restart",
+                    MaredDevRestart.describe());
+            } else {
+                Mared.LOGGER.info("  Restart hotkey unavailable: supervisor not detected");
+            }
+        }
         Mared.LOGGER.info("========================================");
 
+        long t0 = System.nanoTime();
+
         MaredThreading.init();
+        long tThreading = System.nanoTime();
+
         MaredPersistentLoader.loadAll();
-        PluginLoader.loadAll();   // 0.3.2
+        long tPersistent = System.nanoTime();
+
+        PluginLoader.loadAll();
+        long tPlugins = System.nanoTime();
+
+        if (dev) {
+            long msThreading  = (tThreading  - t0)          / 1_000_000;
+            long msPersistent = (tPersistent - tThreading)  / 1_000_000;
+            long msPlugins    = (tPlugins    - tPersistent) / 1_000_000;
+            long msTotal      = (tPlugins    - t0)          / 1_000_000;
+            Mared.LOGGER.info(
+                "[Mared] client init timings: threading={} ms, persistent={} ms, plugins={} ms, total={} ms",
+                msThreading, msPersistent, msPlugins, msTotal);
+        }
+
+        MaredDevMode.markRunning("client_ready");
     }
 }
 
@@ -14437,6 +14467,7 @@ public class MaredClientSetup {
 package com.fixmer.mared.commands.hooks.client;
 
 import com.fixmer.mared.Mared;
+import com.fixmer.mared.MaredDevMode;
 import com.fixmer.mared.plugin.PluginRegistry;
 import com.fixmer.mared.services.threading.MaredThreading;
 
@@ -14448,10 +14479,11 @@ import net.neoforged.neoforge.event.GameShuttingDownEvent;
 /**
  * Корректное завершение MaRed при выходе из клиента.
  *
- * 0.3.0: останавливаем threading-пул.
- * 0.3.2: выгружаем плагины (PluginRegistry.unloadAll()).
- *   Порядок: сначала плагины (могут держать ссылки на GUI-структуры),
- *   потом threading.
+ * Порядок:
+ *   1. Плагины (могут держать ссылки на GUI-структуры).
+ *   2. Threading-пул.
+ *   3. Снять dev-маркер (последним, чтобы он не исчез раньше,
+ *      чем клиент действительно готов завершиться).
  */
 @EventBusSubscriber(modid = Mared.MOD_ID, value = Dist.CLIENT)
 public class MaredClientShutdown {
@@ -14467,6 +14499,8 @@ public class MaredClientShutdown {
         }
 
         MaredThreading.shutdown();
+
+        MaredDevMode.clearRunning();
     }
 }
 
@@ -14702,6 +14736,71 @@ final class MaredClientStatePoller {
         lastHpForHurt = -1;
         lastCraftingOpen = false;
         lastCraftResult = ItemStack.EMPTY;
+    }
+}
+
+===== src\main\java\com\fixmer\mared\commands\hooks\server\MaredDevWorldTracker.java =====
+package com.fixmer.mared.commands.hooks.server;
+
+import com.fixmer.mared.Mared;
+import com.fixmer.mared.MaredDevMode;
+import com.fixmer.mared.MaredDevWorldConfig;
+
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.storage.LevelResource;
+
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+
+/**
+ * Шаг 4: запоминает id последнего мира в dev-режиме.
+ *
+ * При заходе игрока в мир пишет имя папки в
+ * config/mared/dev-worlds.properties под ключом lastWorld.
+ *
+ * Пишет только если updateLastEnabled() и autoLoadEnabled()
+ * в конфиге (по умолчанию оба true). Если defaultWorld уже
+ * зафиксирован, lastWorld всё равно обновится — но при старте
+ * приоритет у defaultWorld.
+ */
+@EventBusSubscriber(modid = Mared.MOD_ID)
+public class MaredDevWorldTracker {
+
+    @SubscribeEvent
+    public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!MaredDevMode.isEnabled()) return;
+        if (!(event.getEntity() instanceof ServerPlayer sp)) return;
+
+        MinecraftServer server = sp.getServer();
+        if (server == null) return;
+
+        try {
+            var root = server.getWorldPath(LevelResource.ROOT);
+            String levelId = root.getFileName() == null
+                    ? ""
+                    : root.getFileName().toString();
+            if (levelId.isEmpty()) {
+                Mared.LOGGER.warn(
+                    "[Mared] dev: cannot determine world id from {}", root);
+                return;
+            }
+
+            Mared.LOGGER.info(
+                "[Mared] dev: PlayerLoggedIn, worldId='{}', recording...",
+                levelId);
+
+            if (!MaredDevWorldConfig.updateLastEnabled()) {
+                Mared.LOGGER.info(
+                    "[Mared] dev: updateLast=false, lastWorld not updated");
+                return;
+            }
+
+            MaredDevWorldConfig.recordLast(levelId);
+        } catch (Throwable t) {
+            Mared.LOGGER.warn("[Mared] dev: cannot record last world", t);
+        }
     }
 }
 
@@ -58095,6 +58194,7 @@ public class Mared {
 
     public Mared(IEventBus modEventBus, ModContainer modContainer) {
         LOGGER.info("Mared {} loading...", VERSION);
+        MaredDevMode.logStatus();
     }
 }
 
@@ -58117,6 +58217,1039 @@ public class MaredClient {
     static void onClientSetup(FMLClientSetupEvent event) {
         Mared.LOGGER.info("Mared client ready. Player: {}",
             Minecraft.getInstance().getUser().getName());
+    }
+}
+
+===== src\main\java\com\fixmer\mared\MaredDevCommands.java =====
+package com.fixmer.mared;
+
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.Commands;
+import net.minecraft.network.chat.Component;
+
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
+
+/**
+ * Служебные команды разработчика (Шаг 14, вариант «через чат»).
+ *
+ *   /mared dev restart   — перезапустить клиент через супервизор
+ *   /mared dev status    — короткий статус dev-режима
+ *
+ * Требует прав оператора (level 2) — не потому, что опасно,
+ * а чтобы игрок случайно не перезапустил себе клиент.
+ *
+ * В обычном (не-dev) режиме команда отвечает «dev mode выключен».
+ */
+@EventBusSubscriber(modid = Mared.MOD_ID)
+public final class MaredDevCommands {
+
+    private MaredDevCommands() {}
+
+    @SubscribeEvent
+    public static void onRegister(RegisterCommandsEvent event) {
+        LiteralArgumentBuilder<CommandSourceStack> dev = Commands.literal("dev")
+            .requires(src -> src.hasPermission(2))
+            .then(Commands.literal("restart")
+                .executes(ctx -> {
+                    boolean ok = MaredDevRestart.requestRestart();
+                    if (!ok) {
+                        ctx.getSource().sendFailure(
+                            Component.literal("mared: dev restart declined (see chat)"));
+                        return 0;
+                    }
+                    return 1;
+                })
+            )
+            .then(Commands.literal("status")
+                .executes(ctx -> {
+                    CommandSourceStack src = ctx.getSource();
+                    src.sendSuccess(() -> Component.literal(
+                        "mared dev: " + MaredDevMode.sourceDescription()
+                        + " | " + MaredDevRestart.describe()), false);
+                    return 1;
+                })
+            );
+
+        event.getDispatcher().register(
+            Commands.literal("mared").then(dev)
+        );
+    }
+}
+
+===== src\main\java\com\fixmer\mared\MaredDevKeybinds.java =====
+package com.fixmer.mared;
+
+import com.mojang.blaze3d.platform.InputConstants;
+
+import net.minecraft.client.KeyMapping;
+
+import org.lwjgl.glfw.GLFW;
+
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+
+/**
+ * Регистрация клавиши «перезапустить клиент» (Шаг 14).
+ *
+ * По умолчанию F9. Пользователь может перебиндить через обычный
+ * Options → Controls → Mared.
+ *
+ * bus = MOD обязателен: RegisterKeyMappingsEvent живёт только на
+ * MOD-шине. Параметр помечен deprecated в NeoForge 1.21.1, но
+ * по-прежнему является точным способом указать шину. @SuppressWarnings
+ * глушит предупреждение, не меняя поведение.
+ */
+@SuppressWarnings("removal")
+@EventBusSubscriber(modid = Mared.MOD_ID, value = Dist.CLIENT,
+    bus = EventBusSubscriber.Bus.MOD)
+public final class MaredDevKeybinds {
+
+    private MaredDevKeybinds() {}
+
+    public static final String CATEGORY = "key.categories.mared";
+
+    public static final KeyMapping RESTART = new KeyMapping(
+        "key.mared.dev.restart",
+        InputConstants.Type.KEYSYM,
+        GLFW.GLFW_KEY_F9,
+        CATEGORY
+    );
+
+    @SubscribeEvent
+    public static void onRegister(RegisterKeyMappingsEvent event) {
+        event.register(RESTART);
+    }
+}
+
+===== src\main\java\com\fixmer\mared\MaredDevMode.java =====
+package com.fixmer.mared;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+
+import net.neoforged.fml.loading.FMLPaths;
+
+/**
+ * Определение dev-режима MaRed.
+ *
+ * Приоритет источников (первый сработавший побеждает):
+ *
+ *   1. System property: -Dmared.dev=true|false
+ *   2. Переменная окружения GENESIS_DEV_MODE (её ставит супервизор)
+ *   3. Файл-маркер .genesis-dev в одном из мест:
+ *        - CWD                       (обычно run/ для gradlew runClient)
+ *        - родитель CWD              (обычно корень MaRed)
+ *        - рядом с jar мода
+ *
+ * Результат кэшируется: среда не меняется во время жизни процесса.
+ *
+ * Шаг 2 использует флаг для логов и маркера .dev-running.
+ * Шаг 3 использует флаг для пропуска главного меню (TitleScreenMixin).
+ */
+public final class MaredDevMode {
+
+    private MaredDevMode() {}
+
+    private static final String PROP    = "mared.dev";
+    private static final String ENV     = "GENESIS_DEV_MODE";
+    private static final String MARKER  = ".genesis-dev";
+    private static final String RUNNING = ".dev-running";
+
+    private static volatile Boolean cached;
+
+    /** Включён ли dev-режим. Потокобезопасно, результат кэшируется. */
+    public static boolean isEnabled() {
+        Boolean v = cached;
+        if (v != null) return v;
+        synchronized (MaredDevMode.class) {
+            if (cached == null) cached = detect();
+            return cached;
+        }
+    }
+
+    /** Сброс кэша. Только для тестов. */
+    public static void resetForTests() {
+        cached = null;
+    }
+
+    private static boolean detect() {
+        String prop = System.getProperty(PROP);
+        if (prop != null && !prop.isBlank()) {
+            return Boolean.parseBoolean(prop.trim());
+        }
+
+        String env = System.getenv(ENV);
+        if (env != null && !env.isBlank()) {
+            return Boolean.parseBoolean(env.trim());
+        }
+
+        Path marker = locateMarker();
+        return marker != null;
+    }
+
+    private static Path locateMarker() {
+        try {
+            Path cwd = Path.of("").toAbsolutePath().normalize();
+            Path direct = cwd.resolve(MARKER);
+            if (Files.isRegularFile(direct)) return direct;
+
+            Path parent = cwd.getParent();
+            if (parent != null) {
+                Path viaParent = parent.resolve(MARKER);
+                if (Files.isRegularFile(viaParent)) return viaParent;
+            }
+
+            var src = MaredDevMode.class.getProtectionDomain().getCodeSource();
+            if (src != null && src.getLocation() != null) {
+                Path loc = Path.of(src.getLocation().toURI());
+                Path dir = Files.isDirectory(loc) ? loc : loc.getParent();
+                if (dir != null) {
+                    Path viaJar = dir.resolve(MARKER);
+                    if (Files.isRegularFile(viaJar)) return viaJar;
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
+    /** Описание того, откуда взялось текущее значение. Для логов. */
+    public static String sourceDescription() {
+        String prop = System.getProperty(PROP);
+        if (prop != null && !prop.isBlank()) {
+            return "system property -D" + PROP + "=" + prop;
+        }
+        String env = System.getenv(ENV);
+        if (env != null && !env.isBlank()) {
+            return "environment " + ENV + "=" + env;
+        }
+        Path marker = locateMarker();
+        if (marker != null) {
+            return "marker file " + marker;
+        }
+        return "default";
+    }
+
+    /** Однократный лог статуса. Вызывается из конструктора мода. */
+    public static void logStatus() {
+        if (isEnabled()) {
+            Mared.LOGGER.info("[Mared] DEV MODE enabled (source: {})", sourceDescription());
+        } else {
+            Mared.LOGGER.debug("[Mared] DEV MODE disabled (source: {})", sourceDescription());
+        }
+    }
+
+    // ============================================================
+    //  Маркер «клиент запущен»
+    // ============================================================
+
+    /**
+     * Пишет config/mared/.dev-running с PID, временем старта и фазой.
+     * Шаг 11 (файловый watcher) и Шаг 12 (параллельные фазы) будут
+     * читать этот маркер.
+     */
+    public static void markRunning(String phase) {
+        if (!isEnabled()) return;
+        Path file = runningFile();
+        if (file == null) return;
+        try {
+            Files.createDirectories(file.getParent());
+            String content =
+                "pid=" + ProcessHandle.current().pid() + "\n" +
+                "startedAt=" + System.currentTimeMillis() + "\n" +
+                "phase=" + phase + "\n" +
+                "version=" + Mared.VERSION + "\n";
+            Files.writeString(file, content, StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (Exception e) {
+            Mared.LOGGER.debug("[Mared] cannot write dev marker: {}", e.toString());
+        }
+    }
+
+    /** Удаляет маркер. Вызывается при штатном завершении клиента. */
+    public static void clearRunning() {
+        if (!isEnabled()) return;
+        Path file = runningFile();
+        if (file == null) return;
+        try {
+            Files.deleteIfExists(file);
+        } catch (Exception ignored) {}
+    }
+
+    private static Path runningFile() {
+        try {
+            return FMLPaths.CONFIGDIR.get().resolve("mared").resolve(RUNNING);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+}
+
+===== src\main\java\com\fixmer\mared\MaredDevPlayerState.java =====
+package com.fixmer.mared;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.storage.LevelResource;
+
+import net.neoforged.fml.loading.FMLPaths;
+
+/**
+ * Шаг 5: сохранение и восстановление состояния игрока.
+ *
+ * Файл: config/mared/dev-player-state.dat (бинарный NBT).
+ *
+ * Восстановление пропускается, если мир или UUID игрока не совпадают.
+ * Позиция применяется через teleportTo(), чтобы клиент получил
+ * корректный пакет синхронизации и не завис на "Loading terrain".
+ */
+public final class MaredDevPlayerState {
+
+    private MaredDevPlayerState() {}
+
+    private static final int    VERSION        = 1;
+    private static final String FILE_NAME      = "dev-player-state.dat";
+    private static final long   MAX_FILE_BYTES = 1L * 1024 * 1024;
+
+    // ============================================================
+    //  Capture
+    // ============================================================
+
+    public static void capture(ServerPlayer player, MinecraftServer server) {
+        try {
+            Path file = filePath();
+            if (file == null) return;
+
+            String worldId = worldId(server);
+            if (worldId.isEmpty()) return;
+
+            CompoundTag root = new CompoundTag();
+            root.putInt("version", VERSION);
+            root.putString("worldId", worldId);
+            root.putString("playerUUID", player.getUUID().toString());
+            root.putString("dimension",
+                player.level().dimension().location().toString());
+            root.putLong("savedAt", System.currentTimeMillis());
+            root.put("player", player.saveWithoutId(new CompoundTag()));
+
+            Files.createDirectories(file.getParent());
+            Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
+            try (OutputStream os = Files.newOutputStream(tmp)) {
+                NbtIo.writeCompressed(root, os);
+            }
+            Files.move(tmp, file,
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE);
+        } catch (Throwable t) {
+            Mared.LOGGER.warn("[Mared] cannot capture player state", t);
+        }
+    }
+
+    // ============================================================
+    //  Restore
+    // ============================================================
+
+    public static void restore(ServerPlayer player, MinecraftServer server) {
+        try {
+            Path file = filePath();
+            if (file == null) {
+                Mared.LOGGER.info("[Mared] dev: state file path unavailable");
+                return;
+            }
+            if (!Files.isRegularFile(file)) {
+                Mared.LOGGER.info(
+                    "[Mared] dev: no saved state at {}, skipping restore", file);
+                return;
+            }
+
+            long size = Files.size(file);
+            if (size > MAX_FILE_BYTES) {
+                Mared.LOGGER.warn(
+                    "[Mared] dev: state file too large ({} bytes), skipping", size);
+                return;
+            }
+
+            CompoundTag root;
+            try (InputStream is = Files.newInputStream(file)) {
+                root = NbtIo.readCompressed(is, NbtAccounter.unlimitedHeap());
+            }
+
+            if (root.getInt("version") != VERSION) {
+                Mared.LOGGER.warn(
+                    "[Mared] dev: unsupported state version, skipping");
+                return;
+            }
+
+            String savedWorldId = root.getString("worldId");
+            String currentWorldId = worldId(server);
+            if (!savedWorldId.equals(currentWorldId)) {
+                Mared.LOGGER.info(
+                    "[Mared] dev: state for another world ('{}' vs '{}'), skipping",
+                    savedWorldId, currentWorldId);
+                return;
+            }
+
+            String savedUuid = root.getString("playerUUID");
+            if (!savedUuid.isEmpty() && !savedUuid.equals(player.getUUID().toString())) {
+                Mared.LOGGER.info(
+                    "[Mared] dev: state for another player ({}), skipping", savedUuid);
+                return;
+            }
+
+            String savedDimension = root.getString("dimension");
+            String currentDimension = player.level().dimension().location().toString();
+            boolean sameDimension = savedDimension.equals(currentDimension);
+
+            CompoundTag playerTag = root.getCompound("player").copy();
+
+            playerTag.remove("Pos");
+            playerTag.remove("Rotation");
+            playerTag.remove("Motion");
+            playerTag.remove("UUID");
+            playerTag.remove("Dimension");
+            playerTag.remove("WorldUUIDLeast");
+            playerTag.remove("WorldUUIDMost");
+
+            try {
+                player.load(playerTag);
+            } catch (Throwable t) {
+                Mared.LOGGER.warn("[Mared] dev: partial state restore failed", t);
+            }
+
+            if (sameDimension) {
+                ListTag pos = root.getCompound("player").getList("Pos", 6);
+                ListTag rot = root.getCompound("player").getList("Rotation", 5);
+                if (pos.size() == 3 && rot.size() == 2) {
+                    double x = pos.getDouble(0);
+                    double y = pos.getDouble(1);
+                    double z = pos.getDouble(2);
+                    float yaw = rot.getFloat(0);
+                    float pitch = rot.getFloat(1);
+                    player.teleportTo(player.serverLevel(), x, y, z, yaw, pitch);
+                    Mared.LOGGER.info(
+                        "[Mared] dev: state restored — pos=({}, {}, {}), rot=({}, {})",
+                        x, y, z, yaw, pitch);
+                } else {
+                    Mared.LOGGER.warn(
+                        "[Mared] dev: malformed Pos/Rotation, position not restored");
+                }
+            } else {
+                Mared.LOGGER.info(
+                    "[Mared] dev: state restored without position "
+                    + "(dimension changed: {} -> {})",
+                    savedDimension, currentDimension);
+            }
+        } catch (Throwable t) {
+            Mared.LOGGER.warn("[Mared] cannot restore player state", t);
+        }
+    }
+
+    // ============================================================
+    //  Clear
+    // ============================================================
+
+    public static void clear() {
+        Path file = filePath();
+        if (file == null) return;
+        try { Files.deleteIfExists(file); } catch (IOException ignored) {}
+    }
+
+    // ============================================================
+    //  Helpers
+    // ============================================================
+
+    private static String worldId(MinecraftServer server) {
+        try {
+            Path root = server.getWorldPath(LevelResource.ROOT);
+            Path name = root.getFileName();
+            return name == null ? "" : name.toString();
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    private static Path filePath() {
+        try {
+            return FMLPaths.CONFIGDIR.get().resolve("mared").resolve(FILE_NAME);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+}
+
+===== src\main\java\com\fixmer\mared\MaredDevPlayerStateTracker.java =====
+package com.fixmer.mared;
+
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
+
+import java.util.List;
+
+/**
+ * Шаг 5: триггеры сохранения/восстановления состояния игрока.
+ *
+ * Три места сохранения:
+ *   1. Раз в 40 тиков (2 секунды) — страховка от жёсткого kill.
+ *   2. PlayerLoggedOutEvent — штатный выход.
+ *   3. ServerStoppingEvent — штатная остановка сервера.
+ *
+ * Одно место восстановления:
+ *   PlayerLoggedInEvent, отложено на следующий тик через
+ *   server.execute(), чтобы ванильный спавн-пакет уже ушёл клиенту.
+ *
+ * Всё работает только в dev-режиме и только если мир/UUID совпадают.
+ */
+@EventBusSubscriber(modid = Mared.MOD_ID)
+public class MaredDevPlayerStateTracker {
+
+    private static final int SAVE_INTERVAL_TICKS = 40;
+
+    private static int tickCounter = 0;
+
+    // ============================================================
+    //  Periodic save
+    // ============================================================
+
+    @SubscribeEvent
+    public static void onServerTick(ServerTickEvent.Post event) {
+        if (!MaredDevMode.isEnabled()) return;
+
+        MinecraftServer server = event.getServer();
+        if (server == null) return;
+
+        if (++tickCounter < SAVE_INTERVAL_TICKS) return;
+        tickCounter = 0;
+
+        ServerPlayer player = firstPlayer(server);
+        if (player == null) return;
+
+        MaredDevPlayerState.capture(player, server);
+    }
+
+    // ============================================================
+    //  Restore on login
+    // ============================================================
+
+    @SubscribeEvent
+    public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!MaredDevMode.isEnabled()) return;
+        if (!(event.getEntity() instanceof ServerPlayer sp)) return;
+
+        MinecraftServer server = sp.getServer();
+        if (server == null) return;
+
+        Mared.LOGGER.info("[Mared] dev: scheduling player state restore for {}",
+            sp.getName().getString());
+
+        server.execute(() -> {
+            try {
+                if (!sp.isRemoved() && sp.isAlive()) {
+                    MaredDevPlayerState.restore(sp, server);
+                } else {
+                    Mared.LOGGER.info(
+                        "[Mared] dev: player removed before restore, skipping");
+                }
+            } catch (Throwable t) {
+                Mared.LOGGER.warn("[Mared] deferred player state restore failed", t);
+            }
+        });
+    }
+
+    // ============================================================
+    //  Capture on logout
+    // ============================================================
+
+    @SubscribeEvent
+    public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (!MaredDevMode.isEnabled()) return;
+        if (!(event.getEntity() instanceof ServerPlayer sp)) return;
+
+        MinecraftServer server = sp.getServer();
+        if (server == null) return;
+
+        Mared.LOGGER.info("[Mared] dev: PlayerLoggedOut, capturing state");
+        MaredDevPlayerState.capture(sp, server);
+    }
+
+    // ============================================================
+    //  Capture on server stop
+    // ============================================================
+
+    @SubscribeEvent
+    public static void onServerStopping(ServerStoppingEvent event) {
+        if (!MaredDevMode.isEnabled()) return;
+
+        MinecraftServer server = event.getServer();
+        if (server == null) return;
+
+        ServerPlayer player = firstPlayer(server);
+        if (player == null) return;
+
+        Mared.LOGGER.info("[Mared] dev: ServerStopping, capturing state");
+        MaredDevPlayerState.capture(player, server);
+    }
+
+    private static ServerPlayer firstPlayer(MinecraftServer server) {
+        try {
+            List<ServerPlayer> players = server.getPlayerList().getPlayers();
+            if (players.isEmpty()) return null;
+            return players.get(0);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+}
+
+===== src\main\java\com\fixmer\mared\MaredDevRestart.java =====
+package com.fixmer.mared;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.Locale;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+
+/**
+ * Сервис перезапуска Minecraft из игры.
+ *
+ * Работает ТОЛЬКО если клиент запущен супервизором (Шаг 1), который
+ * положил в окружение GENESIS_SUPERVISOR=1 и GENESIS_SUPERVISOR_PORT.
+ *
+ * Схема:
+ *   1. requestRestart() вызывается из горячей клавиши или команды.
+ *   2. Спавнится daemon-поток, который шлёт POST /restart на 127.0.0.1.
+ *   3. Если супервизор ответил — планируем System.exit(0) на главном
+ *      потоке через 400 мс.
+ *   4. Если супервизор не ответил — показываем сообщение в чат и
+ *      ничего не делаем.
+ *
+ * System.exit(0) запускает JVM shutdown hooks: Minecraft сохраняет
+ * level.dat, playerdata и логи штатно.
+ */
+public final class MaredDevRestart {
+
+    private MaredDevRestart() {}
+
+    private static final String ENV_FLAG = "GENESIS_SUPERVISOR";
+    private static final String ENV_PORT = "GENESIS_SUPERVISOR_PORT";
+    private static final int    DEFAULT_PORT = 27670;
+    private static final int    EXIT_DELAY_MS = 400;
+
+    private static volatile boolean restartInProgress = false;
+
+    /** Запущен ли клиент супервизором. */
+    public static boolean isUnderSupervisor() {
+        String v = System.getenv(ENV_FLAG);
+        return v != null && !v.isBlank() && !v.equalsIgnoreCase("0");
+    }
+
+    /** Порт HTTP-контроля супервизора. -1, если не под супервизором. */
+    public static int supervisorPort() {
+        if (!isUnderSupervisor()) return -1;
+        String raw = System.getenv(ENV_PORT);
+        if (raw == null || raw.isBlank()) return DEFAULT_PORT;
+        try {
+            int n = Integer.parseInt(raw.trim());
+            if (n < 1 || n > 65535) return DEFAULT_PORT;
+            return n;
+        } catch (NumberFormatException e) {
+            return DEFAULT_PORT;
+        }
+    }
+
+    /**
+     * Пользовательское действие «перезапустить клиент».
+     * Возвращает true, если запрос был принят (не означает, что супервизор
+     * уже подтвердил — подтверждение придёт асинхронно).
+     */
+    public static boolean requestRestart() {
+        if (!MaredDevMode.isEnabled()) {
+            message(MaredLang.get("mared.dev.restart.requires_dev"));
+            return false;
+        }
+        if (!isUnderSupervisor()) {
+            message(MaredLang.get("mared.dev.restart.no_supervisor"));
+            Mared.LOGGER.warn(
+                "[Mared] restart requested but GENESIS_SUPERVISOR is not set");
+            return false;
+        }
+        if (restartInProgress) {
+            message(MaredLang.get("mared.dev.restart.already"));
+            return false;
+        }
+        restartInProgress = true;
+
+        int port = supervisorPort();
+        message(MaredLang.format("mared.dev.restart.requesting", port));
+        Mared.LOGGER.info("[Mared] restart requested, supervisor port={}", port);
+
+        Thread t = new Thread(() -> performRestart(port), "mared-dev-restart");
+        t.setDaemon(true);
+        t.start();
+        return true;
+    }
+
+    private static void performRestart(int port) {
+        try {
+            HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(2))
+                .build();
+            HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create("http://127.0.0.1:" + port + "/restart"))
+                .timeout(Duration.ofSeconds(5))
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+
+            HttpResponse<String> resp = client.send(req,
+                HttpResponse.BodyHandlers.ofString());
+
+            if (resp.statusCode() / 100 != 2) {
+                fail(MaredLang.format("mared.dev.restart.http_error",
+                    resp.statusCode(), resp.body()));
+                return;
+            }
+
+            Mared.LOGGER.info("[Mared] supervisor accepted restart: {}",
+                resp.body());
+            scheduleExit();
+        } catch (Throwable t) {
+            fail(MaredLang.format("mared.dev.restart.connect_failed",
+                t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage()));
+        }
+    }
+
+    private static void scheduleExit() {
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> {
+            message(MaredLang.get("mared.dev.restart.bye"));
+            Thread t = new Thread(() -> {
+                try { Thread.sleep(EXIT_DELAY_MS); }
+                catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+                Mared.LOGGER.info("[Mared] exiting for supervisor restart");
+                System.exit(0);
+            }, "mared-dev-exit");
+            t.setDaemon(true);
+            t.start();
+        });
+    }
+
+    private static void fail(String reason) {
+        Mared.LOGGER.warn("[Mared] restart failed: {}", reason);
+        Minecraft mc = Minecraft.getInstance();
+        if (mc != null) {
+            mc.execute(() -> message(MaredLang.format(
+                "mared.dev.restart.failed", reason)));
+        }
+        restartInProgress = false;
+    }
+
+    private static void message(String text) {
+        try {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player != null) {
+                mc.player.displayClientMessage(Component.literal(text), false);
+            } else {
+                Mared.LOGGER.info("[Mared] {}", text);
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    /** Для логов и /mared dev status. */
+    public static String describe() {
+        if (!isUnderSupervisor()) return "no supervisor";
+        return String.format(Locale.ROOT, "supervisor port=%d", supervisorPort());
+    }
+}
+
+===== src\main\java\com\fixmer\mared\MaredDevRestartClient.java =====
+package com.fixmer.mared;
+
+import net.minecraft.client.Minecraft;
+
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+
+/**
+ * Клиентская часть Шага 14.
+ *
+ * На каждом клиентском тике смотрим, не нажата ли клавиша перезапуска
+ * (MaredDevKeybinds.RESTART). Если нажата и мы в dev-режиме и под
+ * супервизором — просим перезапуск и сбрасываем накопленный клик.
+ *
+ * Работает и на TitleScreen, и в мире — но в типичном сценарии
+ * (dev-режим + авто-загрузка мира) пользователь уже в мире.
+ */
+@EventBusSubscriber(modid = Mared.MOD_ID, value = Dist.CLIENT)
+public final class MaredDevRestartClient {
+
+    private MaredDevRestartClient() {}
+
+    @SubscribeEvent
+    public static void onClientTick(ClientTickEvent.Post event) {
+        if (!MaredDevMode.isEnabled()) return;
+        if (!MaredDevRestart.isUnderSupervisor()) return;
+
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.options == null) return;
+
+        // consumeClick() вернёт true один раз на нажатие и сбросит флаг.
+        while (MaredDevKeybinds.RESTART.consumeClick()) {
+            MaredDevRestart.requestRestart();
+        }
+    }
+}
+
+===== src\main\java\com\fixmer\mared\MaredDevWorldConfig.java =====
+package com.fixmer.mared;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Properties;
+
+import net.neoforged.fml.loading.FMLPaths;
+
+/**
+ * Шаг 4: конфигурация dev-автозагрузки мира.
+ *
+ * Файл: config/mared/dev-worlds.properties
+ *
+ * Формат (все ключи опциональны):
+ *
+ *   lastWorld=<id>       автоматически обновляется при заходе игрока в мир
+ *   defaultWorld=<id>    если не пусто, всегда грузится вместо lastWorld
+ *   updateLast=true      обновлять ли lastWorld при заходе (по умолчанию true)
+ *   autoLoad=true        вообще выполнять ли автозагрузку (по умолчанию true)
+ *
+ * Приоритет выбора мира при старте клиента в dev-режиме:
+ *   1. -Dmared.dev.world=<id>   (system property, задаётся супервизором или IDE)
+ *   2. GENESIS_DEV_WORLD=<id>   (переменная окружения)
+ *   3. defaultWorld, если не пуст
+ *   4. lastWorld, если не пуст
+ *   5. (нет автозагрузки — обычный TitleScreen)
+ *
+ * Если id указывает на несуществующий мир, автозагрузка отменяется и
+ * показывается TitleScreen — клиент не должен падать и не должен
+ * показывать ванильный экран «world not found».
+ */
+public final class MaredDevWorldConfig {
+
+    private MaredDevWorldConfig() {}
+
+    private static final String FILE_NAME   = "dev-worlds.properties";
+    private static final String PROP_WORLD  = "mared.dev.world";
+    private static final String ENV_WORLD   = "GENESIS_DEV_WORLD";
+    private static final int    MAX_ID      = 512;
+
+    // ============================================================
+    //  Загрузка файла
+    // ============================================================
+
+    private static Properties loadProperties() {
+        Properties props = new Properties();
+        Path file = configFile();
+        if (file == null || !Files.isRegularFile(file)) return props;
+        try (InputStream in = Files.newInputStream(file)) {
+            props.load(in);
+        } catch (IOException e) {
+            Mared.LOGGER.debug("[Mared] cannot read {}: {}", file, e.toString());
+        }
+        return props;
+    }
+
+    private static Path configFile() {
+        try {
+            return FMLPaths.CONFIGDIR.get().resolve("mared").resolve(FILE_NAME);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    // ============================================================
+    //  Флаги
+    // ============================================================
+
+    /** true если автозагрузка разрешена (по умолчанию да). */
+    public static boolean autoLoadEnabled() {
+        Properties p = loadProperties();
+        String v = p.getProperty("autoLoad", "true").trim();
+        return Boolean.parseBoolean(v);
+    }
+
+    /** true если при заходе игрока обновлять lastWorld (по умолчанию да). */
+    public static boolean updateLastEnabled() {
+        Properties p = loadProperties();
+        String v = p.getProperty("updateLast", "true").trim();
+        return Boolean.parseBoolean(v);
+    }
+
+    // ============================================================
+    //  Выбор мира
+    // ============================================================
+
+    /**
+     * Какой мир грузить при старте. null → не грузить, показать TitleScreen.
+     * Порядок приоритета см. в javadoc класса.
+     */
+    public static String worldToLoad() {
+        if (!autoLoadEnabled()) return null;
+
+        String sys = System.getProperty(PROP_WORLD);
+        if (sys != null && !sys.isBlank()) return clean(sys);
+
+        String env = System.getenv(ENV_WORLD);
+        if (env != null && !env.isBlank()) return clean(env);
+
+        Properties p = loadProperties();
+
+        String def = p.getProperty("defaultWorld", "").trim();
+        if (!def.isEmpty()) return clean(def);
+
+        String last = p.getProperty("lastWorld", "").trim();
+        if (!last.isEmpty()) return clean(last);
+
+        return null;
+    }
+
+    /** Источник выбранного мира — для логов. */
+    public static String worldSource() {
+        if (!autoLoadEnabled()) return "autoLoad=false";
+        String sys = System.getProperty(PROP_WORLD);
+        if (sys != null && !sys.isBlank()) return "system property -D" + PROP_WORLD;
+        String env = System.getenv(ENV_WORLD);
+        if (env != null && !env.isBlank()) return "environment " + ENV_WORLD;
+        Properties p = loadProperties();
+        if (!p.getProperty("defaultWorld", "").trim().isEmpty()) return "defaultWorld";
+        if (!p.getProperty("lastWorld", "").trim().isEmpty()) return "lastWorld";
+        return "none";
+    }
+
+    // ============================================================
+    //  Запись lastWorld
+    // ============================================================
+
+    /**
+     * Обновить lastWorld. Полная перезапись файла — атомарно,
+     * чтобы не словить полу-записанный конфиг при краше.
+     */
+    public static void recordLast(String levelId) {
+        if (levelId == null) return;
+        if (!updateLastEnabled()) return;
+        String cleaned = clean(levelId);
+        if (cleaned == null) return;
+
+        Path file = configFile();
+        if (file == null) return;
+
+        Properties p = loadProperties();
+        String current = p.getProperty("lastWorld", "").trim();
+        if (cleaned.equals(current)) return;
+
+        p.setProperty("lastWorld", cleaned);
+
+        try {
+            Files.createDirectories(file.getParent());
+            StringBuilder sb = new StringBuilder(128);
+            sb.append("# Managed by MaRed dev mode. Safe to edit by hand.\n");
+            sb.append("# Key order is stable so diffs are readable.\n");
+            writeIfPresent(sb, p, "autoLoad");
+            writeIfPresent(sb, p, "updateLast");
+            writeIfPresent(sb, p, "defaultWorld");
+            writeIfPresent(sb, p, "lastWorld");
+            Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
+            Files.writeString(tmp, sb.toString(), StandardCharsets.UTF_8);
+            try {
+                Files.move(tmp, file,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+                Files.move(tmp, file,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        } catch (IOException e) {
+            Mared.LOGGER.debug("[Mared] cannot record last world: {}", e.toString());
+        }
+    }
+
+    private static void writeIfPresent(StringBuilder sb, Properties p, String key) {
+        String v = p.getProperty(key);
+        if (v != null) sb.append(key).append('=').append(v).append('\n');
+    }
+
+    // ============================================================
+    //  Вспомогательное
+    // ============================================================
+
+    /**
+     * Проверяет, что id — валидное имя папки в saves/ и что такая папка есть.
+     * Не использует Minecraft API, чтобы не зависеть от клиента.
+     */
+    public static boolean worldExists(String levelId) {
+        if (levelId == null) return false;
+        Path saves = savesDir();
+        if (saves == null) return false;
+        Path candidate = saves.resolve(levelId);
+        return Files.isDirectory(candidate) && Files.isRegularFile(candidate.resolve("level.dat"));
+    }
+
+    private static Path savesDir() {
+        try {
+            return FMLPaths.GAMEDIR.get().resolve("saves");
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static String clean(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim();
+        // снимаем парные кавычки, которые иногда приходят из cmd
+        if (s.length() >= 2) {
+            char a = s.charAt(0), b = s.charAt(s.length() - 1);
+            if ((a == '"' && b == '"') || (a == '\'' && b == '\'')) {
+                s = s.substring(1, s.length() - 1).trim();
+            }
+        }
+        if (s.isEmpty()) return null;
+        if (s.length() > MAX_ID) return null;
+        // защита от выхода из saves/
+        if (s.indexOf('/') >= 0 || s.indexOf('\\') >= 0) return null;
+        if (s.equals(".") || s.equals("..")) return null;
+        if (s.toLowerCase(Locale.ROOT).contains("..")) return null;
+        return s;
     }
 }
 
@@ -58853,6 +59986,109 @@ public class MouseHandlerMixin {
         if (MaredKeyBlocker.isMouseMotionBlocked()) {
             ci.cancel();
         }
+    }
+}
+
+===== src\main\java\com\fixmer\mared\mixin\TitleScreenMixin.java =====
+package com.fixmer.mared.mixin;
+
+import com.fixmer.mared.Mared;
+import com.fixmer.mared.MaredDevMode;
+import com.fixmer.mared.MaredDevWorldConfig;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.TitleScreen;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Шаг 3+4: в dev-режиме TitleScreen пропускается, мир грузится сразу.
+ *
+ * На первом init:
+ *   1. Смотрим MaredDevWorldConfig.autoLoadEnabled().
+ *   2. Получаем id мира через worldToLoad() (приоритет: sysprop → env
+ *      → defaultWorld → lastWorld).
+ *   3. Проверяем, что мир реально существует в saves/.
+ *   4. Если всё ок — откладываем openWorld на следующий кадр.
+ *   5. Иначе оставляем TitleScreen.
+ *
+ * mared$scheduled защищает от повторного срабатывания на resize.
+ *
+ * Диагностический лог INFO на каждом шаге — по нему видно, что
+ * именно решает миксин.
+ */
+@Mixin(TitleScreen.class)
+public abstract class TitleScreenMixin {
+
+    @Unique
+    private static boolean mared$scheduled = false;
+
+    @Inject(method = "init", at = @At("HEAD"))
+    private void mared$skipInDevMode(CallbackInfo ci) {
+        if (!MaredDevMode.isEnabled()) return;
+        if (mared$scheduled) return;
+        mared$scheduled = true;
+
+        boolean autoLoad = MaredDevWorldConfig.autoLoadEnabled();
+        String source = MaredDevWorldConfig.worldSource();
+        Mared.LOGGER.info(
+            "[Mared] dev: TitleScreen.init — autoLoad={}, source={}",
+            autoLoad, source);
+
+        if (!autoLoad) {
+            Mared.LOGGER.info("[Mared] dev: autoLoad disabled, keeping title screen");
+            return;
+        }
+
+        String worldId = MaredDevWorldConfig.worldToLoad();
+        if (worldId == null) {
+            Mared.LOGGER.info(
+                "[Mared] dev: no world configured, keeping title screen. "
+                + "Загляни в config/mared/dev-worlds.properties или "
+                + "зайди в мир один раз, чтобы записался lastWorld.");
+            return;
+        }
+
+        boolean exists = MaredDevWorldConfig.worldExists(worldId);
+        Mared.LOGGER.info(
+            "[Mared] dev: candidate world '{}' (source={}), exists={}",
+            worldId, source, exists);
+
+        if (!exists) {
+            Mared.LOGGER.warn(
+                "[Mared] dev: world '{}' not found in saves/, keeping title screen",
+                worldId);
+            return;
+        }
+
+        Minecraft mc = Minecraft.getInstance();
+        mc.execute(() -> mared$openWorld(mc, worldId));
+    }
+
+    @Unique
+    private static void mared$openWorld(Minecraft mc, String worldId) {
+        Mared.LOGGER.info("[Mared] dev: opening world '{}'", worldId);
+        try {
+            mc.createWorldOpenFlows().openWorld(worldId, () -> {
+                Mared.LOGGER.warn(
+                    "[Mared] dev: openWorld callback fired (load failed?) for '{}'",
+                    worldId);
+                mared$fallback(mc);
+            });
+        } catch (Throwable t) {
+            Mared.LOGGER.error("[Mared] dev: openWorld threw", t);
+            mared$fallback(mc);
+        }
+    }
+
+    @Unique
+    private static void mared$fallback(Minecraft mc) {
+        try { mc.setScreen(new TitleScreen()); }
+        catch (Throwable t) { Mared.LOGGER.error("[Mared] cannot restore title screen", t); }
     }
 }
 
@@ -69742,7 +70978,17 @@ Multiplayer, LAN, загрузка кода с удалённого сервер
   "mared.scripts.artifact_kind.mod_embedded": "NeoForge mod · bundled libraries",
   "mared.scripts.artifact_kind.mod": "NeoForge mod",
   "mared.scripts.artifact_kind.embedded": "JAR · nested libraries",
-  "mared.scripts.dependencies_embed_range": "Compatible library versions, e.g. [1.2,2.0)"
+  "mared.scripts.dependencies_embed_range": "Compatible library versions, e.g. [1.2,2.0)",
+  "key.categories.mared": "Mared",
+  "key.mared.dev.restart": "Restart Client (Dev)",
+  "mared.dev.restart.requires_dev": "[Mared] Restart hotkey only works in dev mode.",
+  "mared.dev.restart.no_supervisor": "[Mared] Restart hotkey requires Genesis Supervisor. Start Minecraft via run-supervisor.cmd / run-supervisor.sh.",
+  "mared.dev.restart.already": "[Mared] Restart already in progress…",
+  "mared.dev.restart.requesting": "[Mared] Restart requested (supervisor port {0})…",
+  "mared.dev.restart.bye": "[Mared] Restarting, see you in a few seconds…",
+  "mared.dev.restart.failed": "[Mared] Restart failed: {0}",
+  "mared.dev.restart.http_error": "supervisor HTTP {0}: {1}",
+  "mared.dev.restart.connect_failed": "cannot reach supervisor: {0}"
 }
 
 ===== src\main\resources\assets\mared\lang\ru_ru.json =====
@@ -70540,7 +71786,17 @@ Multiplayer, LAN, загрузка кода с удалённого сервер
   "mared.scripts.artifact_kind.mod_embedded": "Мод NeoForge · встроенные библиотеки",
   "mared.scripts.artifact_kind.mod": "NeoForge mod",
   "mared.scripts.artifact_kind.embedded": "JAR · вложенные библиотеки",
-  "mared.scripts.dependencies_embed_range": "Совместимые версии библиотеки, например [1.2,2.0)"
+  "mared.scripts.dependencies_embed_range": "Совместимые версии библиотеки, например [1.2,2.0)",
+  "key.categories.mared": "Mared",
+  "key.mared.dev.restart": "Перезапустить клиент (Dev)",
+  "mared.dev.restart.requires_dev": "[Mared] Клавиша перезапуска работает только в dev-режиме.",
+  "mared.dev.restart.no_supervisor": "[Mared] Клавиша перезапуска требует Genesis Supervisor. Запускайте Minecraft через run-supervisor.cmd / run-supervisor.sh.",
+  "mared.dev.restart.already": "[Mared] Перезапуск уже выполняется…",
+  "mared.dev.restart.requesting": "[Mared] Запрошен перезапуск (порт супервизора {0})…",
+  "mared.dev.restart.bye": "[Mared] Перезапускаюсь, увидимся через пару секунд…",
+  "mared.dev.restart.failed": "[Mared] Не удалось перезапустить: {0}",
+  "mared.dev.restart.http_error": "HTTP супервизора {0}: {1}",
+  "mared.dev.restart.connect_failed": "не удаётся связаться с супервизором: {0}"
 }
 
 ===== src\main\resources\genesis\examples\follow.mr =====
@@ -70582,7 +71838,8 @@ func follow($target, $speed) {
   "package": "com.fixmer.mared.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "MouseHandlerMixin"
+    "MouseHandlerMixin",
+    "TitleScreenMixin"
   ],
   "mixins": [
     "GenesisMobGoals"

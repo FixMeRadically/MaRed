@@ -270,7 +270,7 @@ Save writes the working source. Export creates a separate archive. Java run comp
 ## Create the starter
 Choose NeoForge project creation in Project and provide a unique mod id: 2–48 lowercase letters/digits/underscores, starting with a letter. minecraft, neoforge, mared and javafml are reserved. The template includes build.gradle, settings.gradle, gradle.properties, metadata and ExampleMod.java.
 
-Included pins are NeoForge 21.1.235, userdev plugin 7.1.38 and Java toolchain 21; these describe this template rather than claiming latest versions. The starter version is 0.4.0. Creation needs configured tools and a valid Wrapper and does not itself run a build.
+New mods use the official NeoForge 1.21.1 ModDevGradle MDK snapshot 3bca8f1e0756c001e4b71f266c328d1568d29363, plugin 2.0.148, Gradle 9.2.1 and Java 21. NeoForge is pinned to the MaRed baseline 21.1.235. The initial mod version is 1.0.0. The original wrapper, examples, Config, client events, resources, datagen and publishing are included. Creation needs no external wrapper and executes no build. Building needs a full JDK 21 and network access for first-time dependency downloads.
 ## Edit the entrypoint
 Open src/main/java/genesis/generated/mod_<id>/ExampleMod.java. Change the constructor log message and save. Do not replace @Mod with an ordinary main: the loader has its own entry lifecycle. That log message appears when the built mod is loaded, not during compilation.
 ## Build and verify
@@ -283,13 +283,13 @@ Organize packages/modules and configure resources and tests in Gradle. The small
 ## Project dependency manager
 Run → Project dependencies, or Settings → Tools → Project dependencies, opens the wizard. Requires Groovy build.gradle. Use fixed Maven coordinates group:artifact:version[:classifier]. Add or remove HTTPS Maven repositories in the same manager. Gradle resolves dependencies on the next build.
 
-Libraries support compile/run, compile-only, or Jar-in-Jar embedding. Embedding supports Maven libraries without classifiers in NeoGradle projects. Build also invokes jarJar; install its output containing embedded libraries. A separate ordinary JAR may also exist in build/libs.
+Libraries support compile/run, compile-only, or Jar-in-Jar embedding. Embedding supports Maven libraries without classifiers in NeoGradle and ModDevGradle projects. NeoGradle build invokes jarJar; install that output containing embedded libraries. ModDevGradle embeds dependencies in the main JAR.
 
 For mod dependencies, enter mod ID, Maven coordinates, compatible version range, required/optional and client/server side. The manager updates neoforge.mods.toml. Required mods remain separate installed JARs. Optional dependencies are compile-only; your code must handle their absence.
 
-The libraries toggle connects local JARs to Gradle and NeoGradle runs, creates the folder and validates archives. Local JARs are not embedded. Maven dependencies use Gradle, not direct Run Java.
+The libraries toggle connects local JARs to Gradle and NeoGradle/ModDevGradle runs, creates the folder and validates archives. Local JARs are not embedded. Maven dependencies use Gradle, not direct Run Java.
 
-The manager stores genesis-dependencies.properties and genesis-dependencies.gradle and adds managed blocks to build.gradle and metadata. Export includes them. Save open build files first. Conflicts and manual changes to managed blocks are refused. Automatic mod metadata supports a single mod declaration; mod dependencies and embedding require NeoGradle.
+The manager stores genesis-dependencies.properties and genesis-dependencies.gradle and adds managed blocks to build.gradle and metadata. Export includes them. Save open build files first. Conflicts and manual changes to managed blocks are refused. Automatic mod metadata supports a single mod declaration; mod dependencies and embedding support NeoGradle and ModDevGradle.
 
 @@ errors|Support|Troubleshooting: cause and action|Check context, entry class, tools and outcome in that order.|faq error compiler missing conflict build failed
 ## Run disabled
@@ -438,6 +438,26 @@ Multiplayer/LAN, remote code downloads, network permissions and client synchroni
 ## Build integrity update 8.12.2
 Gradle outputs are captured per invocation, including cached archives and custom destinations. The report also snapshots runtime libraries for server JAR application. A help/test task does not automatically certify every old archive in build/libs. Delivery checks input identity; rebuild after changing sources or configuration. Managed dependency updates have a recovery journal and a project lock.
 
-Embed accepts a compatible range separately from the preferred Maven version. Library and local JAR modes are not automatic release embedding. Optional mod integration can be tested with genesis.optionalMods=true in gradle.properties; test with the property absent too. The manager supports literal Groovy NeoGradle declarations and a single literal mod ID; other Gradle projects may be built directly but require their own dependency DSL.
+Embed accepts a compatible range separately from the preferred Maven version. Library and local JAR modes are not automatic release embedding. Optional mod integration can be tested with genesis.optionalMods=true in gradle.properties; test with the property absent too. The manager supports explicit Groovy NeoGradle/ModDevGradle declarations and a single mod ID (including ${mod_id} from the official MDK gradle.properties); other Gradle projects may be built directly but require their own dependency DSL.
 
 Server bundles load verified nested libraries, use a scoped context classloader and prevalidate staged actions. Supported reversible actions are compensated; failures involving irreversible actions explicitly report PARTIAL_APPLY. The constructor is included in the elapsed activation check. Elapsed-time checks do not forcibly interrupt an infinite Java callback. Runtime Java is trusted code, and nativeServer bypasses staging. Dedicated/LAN live deployment and arbitrary @Mod activation remain separate capabilities; install an ordinary compatible JAR and restart the server. Fixed input/archive limits are reported rather than promising unlimited complexity.
+
+
+## Project creation and code editing
+
+New project offers a NeoForge mod, a server module, or an empty project. The NeoForge starter includes source, metadata and Gradle Wrapper 9.2.1. Its first-build action appears after the entry source opens; Ctrl+B also builds. The first build can download dependencies.
+
+The tree context menu provides New Java type: class, interface, enum or record. Enter a path relative to the selected Java package, such as helpers/Example; the package follows the path.
+
+In source text: Tab indents, Shift+Tab outdents, Ctrl+D duplicates a line/block, Alt+Up/Down moves it, Ctrl+/ toggles line comments for supported file extensions. Each operation uses one undo step. JSON commenting is disabled. F8/Shift+F8 navigate located errors and warnings from the last build.
+
+
+## Source syntax colours
+
+Syntax colours are enabled automatically by extension: Java, Python, Rust, C/C++, JavaScript, Groovy/Gradle, Kotlin, JSON/JSONC, TOML and properties. Dark and light themes use separate palettes. Keywords are blue, control flow purple, strings orange, comments green, numbers pale green, types teal, and calls/annotations yellow, with adjusted shades for light backgrounds.
+
+Multiline strings/comments, escapes, tab switching, theme changes, restored documents and undo/redo are supported. This is lexical highlighting: type/call colours use local heuristics without project dependency analysis. String interpolation and regex literals are not parsed separately. Unknown extensions remain plain.
+
+@@ split|Editor|Two files side by side|Independent editor groups and focus.|split windows panes focus
+Ctrl+\ toggles two panes, using the existing global split-editor setting. Right-click a file → Open on the right, or Alt+click a tab. Ctrl+1 and Ctrl+2 focus the left/right group; clicking its text also changes focus. Typing, saving and searching use the focused pane. Ctrl+Alt+S saves all open documents. Drag the divider to resize.
+Each pane retains its document history, selection, scrolling and syntax colors. Selecting an already visible file focuses its existing pane, so two widgets never share its mutable view. Below 240 GUI pixels the editor falls back to one pane, retaining the split preference. These are panes inside Minecraft, not separate desktop windows.

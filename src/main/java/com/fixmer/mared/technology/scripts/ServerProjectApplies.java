@@ -11,7 +11,8 @@ import java.util.function.Consumer;
 
 /** Client preparation and local transport. Closing an editor cancels preparation, not active world modules. */
 public final class ServerProjectApplies implements AutoCloseable {
-    public record Result(boolean success,String project,String detail) {}
+    public enum Operation { APPLY, STOP, ROLLBACK }
+    public record Result(boolean success,String project,String detail,Operation operation) {}
     private record Target(IntegratedServer server,UUID owner) {
         boolean current(){var mc=Minecraft.getInstance();return mc.getSingleplayerServer()==server&&mc.player!=null&&owner.equals(mc.player.getUUID())&&!server.isPublished();}
     }
@@ -22,6 +23,7 @@ public final class ServerProjectApplies implements AutoCloseable {
     private JavaSourceRunner.Cancellation token;
     private Target target;
     private String project="",diagnostics="";
+    private Operation operation=Operation.APPLY;
     private boolean closed;
     public ServerProjectApplies(SourceProjects storage){this.storage=storage;}
     private static Target capture(){var mc=Minecraft.getInstance();var server=mc.getSingleplayerServer();return server==null||mc.player==null||server.isPublished()?null:new Target(server,mc.player.getUUID());}
@@ -33,7 +35,7 @@ public final class ServerProjectApplies implements AutoCloseable {
     public static String drain(){Target target=capture();return target==null?"":LocalScriptServerBridge.drain(target.server);}
     public boolean start(String id,String entry,Map<String,SourceProjects.Recovery> drafts,BuildArtifacts.Artifact artifact){
         if(closed||busy())return false;Target captured=capture();if(captured==null)return false;
-        this.target=captured;this.project=id;this.diagnostics="";token=new JavaSourceRunner.Cancellation();var cancellation=token;var snapshot=Map.copyOf(drafts);
+        this.operation=Operation.APPLY;this.target=captured;this.project=id;this.diagnostics="";token=new JavaSourceRunner.Cancellation();var cancellation=token;var snapshot=Map.copyOf(drafts);
         preparation=worker.submit(()->{
             if(artifact==null){Map<String,String> sources;Map<String,byte[]> jars,resources;synchronized(storage){sources=storage.javaSources(id,snapshot);jars=storage.javaLibraries(id);resources=storage.javaResources(id);}return RuntimeModuleCompiler.compile(sources,jars,resources,entry,cancellation,storage.javaHome());}
             if(cancellation.cancelled())throw new java.io.IOException("Deployment cancelled");
@@ -43,7 +45,7 @@ public final class ServerProjectApplies implements AutoCloseable {
             return RuntimeModuleCompiler.fromJar(bytes,storage.buildRuntimeLibraries(id,artifact,cancellation::cancelled),entry,cancellation);
         });return true;
     }
-    public boolean manage(String id,boolean rollback){if(closed||busy())return false;var captured=capture();if(captured==null)return false;target=captured;project=id;token=new JavaSourceRunner.Cancellation();diagnostics="";deployment=LocalScriptServerBridge.manage(captured.server,captured.owner,id,rollback);return true;}
+    public boolean manage(String id,boolean rollback){if(closed||busy())return false;var captured=capture();if(captured==null)return false;operation=rollback?Operation.ROLLBACK:Operation.STOP;target=captured;project=id;token=new JavaSourceRunner.Cancellation();diagnostics="";deployment=LocalScriptServerBridge.manage(captured.server,captured.owner,id,rollback);return true;}
     public void cancel(){if(token!=null)token.cancel();if(deployment!=null)deployment.cancel(false);}
     public void poll(Consumer<Result> callback){
         if(target!=null&&!target.current())cancel();
@@ -51,15 +53,16 @@ public final class ServerProjectApplies implements AutoCloseable {
             Future<RuntimeModuleCompiler.Prepared> task=preparation;preparation=null;
             try {
                 var prepared=task.get();diagnostics=prepared.diagnostics();
-                if(closed||token.cancelled()||!target.current()){prepared.bundle().close();callback.accept(new Result(false,project,"CANCELLED / world changed"));return;}
+                if(closed||token.cancelled()||!target.current()){prepared.bundle().close();callback.accept(new Result(false,project,"CANCELLED / world changed",operation));return;}
                 var captured=target;deployment=LocalScriptServerBridge.apply(captured.server,captured.owner,()->!captured.server.isPublished(),project,prepared.bundle());
-            }catch(InterruptedException bad){Thread.currentThread().interrupt();callback.accept(new Result(false,project,"CANCELLED"));}
-            catch(ExecutionException bad){callback.accept(new Result(false,project,Objects.toString(bad.getCause().getMessage(),bad.getCause().toString())));}
+            }catch(InterruptedException bad){Thread.currentThread().interrupt();callback.accept(new Result(false,project,"CANCELLED",operation));}
+            catch(CancellationException bad){callback.accept(new Result(false,project,"CANCELLED",operation));}
+            catch(ExecutionException bad){callback.accept(new Result(false,project,Objects.toString(bad.getCause().getMessage(),bad.getCause().toString()),operation));}
         }
         if(deployment!=null&&deployment.isDone()){
             var task=deployment;deployment=null;
-            try{var result=task.join();callback.accept(new Result(result.success(),project,result.message()+" #"+result.generation()+"\n"+diagnostics));}
-            catch(CompletionException|CancellationException bad){callback.accept(new Result(false,project,bad.toString()));}
+            try{var result=task.join();boolean current=target!=null&&target.current();callback.accept(new Result(result.success()&&current,project,(current?result.message():"World changed; automatic restart cancelled")+" #"+result.generation()+"\n"+diagnostics,operation));}
+            catch(CompletionException|CancellationException bad){callback.accept(new Result(false,project,bad.toString(),operation));}
         }
     }
     @Override public void close(){if(closed)return;closed=true;cancel();

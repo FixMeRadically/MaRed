@@ -1,5 +1,9 @@
 # MaRed / Genesis 0.4.0
 
+Supervisor performance stage: [docs/PERFORMANCE_05_RU.md](docs/PERFORMANCE_05_RU.md). Includes mod-cycle-04; see the new guide for protocol 4, watch, timings and optional tuning.
+
+Native mod import/edit/build/apply/export cycle (singleplayer): [docs/MOD_CYCLE_04_RU.md](docs/MOD_CYCLE_04_RU.md). Includes supervisor stable-03 fixes.
+
 Development of 0.4.0 starts with Genesis stage 7.1. Release tracking: [docs/RELEASE_0_4_0_TRACKING_RU.md](docs/RELEASE_0_4_0_TRACKING_RU.md). Publication instructions will be prepared at the project owner's final request.
 
 
@@ -27,3 +31,10 @@ Additional Resources:
 ==========
 Community Documentation: https://docs.neoforged.net/  
 NeoForged Discord: https://discord.neoforged.net/
+
+
+## Supervisor / Dev Mode
+
+Режим разработки включается автоматически с перезапуском клиента после успешного «Применить на сервере». Перед рестартом сохраняются recovery-черновики редактора; возврат выполняется в тот же мир/сервер. Служебных кнопок на главном экране и F9 нет.
+
+Карта кода, runtime-файлы, ограничения integrated server и проверки: [docs/SUPERVISOR_STABLE_03_RU.md](docs/SUPERVISOR_STABLE_03_RU.md).

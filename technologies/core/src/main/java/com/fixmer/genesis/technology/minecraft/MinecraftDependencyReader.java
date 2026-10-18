@@ -15,9 +15,6 @@ import java.util.regex.Pattern;
 
 /** Collects declared mod / Maven dependencies from metadata and Gradle text. */
 public final class MinecraftDependencyReader {
-    private static final Pattern TOML_DEP = Pattern.compile(
-            "modId\\s*=\\s*\"([^\"]+)\"[\\s\\S]*?(?:type|mandatory)\\s*=\\s*\"?([^\"]+)\"?[\\s\\S]*?versionRange\\s*=\\s*\"([^\"]+)\"",
-            Pattern.CASE_INSENSITIVE);
     private static final Pattern FABRIC_DEP = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\"([^\"]+)\"");
 
     private MinecraftDependencyReader() {}
@@ -28,7 +25,11 @@ public final class MinecraftDependencyReader {
         Set<String> deps = new LinkedHashSet<>();
         Path root = structure.rootPath();
         switch (loader) {
-            case NEOFORGE -> readTomlDeps(root.resolve("src/main/resources/META-INF/neoforge.mods.toml"), deps);
+            case NEOFORGE -> {
+                Path file=root.resolve("src/main/resources/META-INF/neoforge.mods.toml");
+                if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS))file=root.resolve("src/main/templates/META-INF/neoforge.mods.toml");
+                readTomlDeps(file,deps);
+            }
             case FORGE -> readTomlDeps(root.resolve("src/main/resources/META-INF/mods.toml"), deps);
             case FABRIC -> readJsonDeps(root.resolve("src/main/resources/fabric.mod.json"), deps);
             case QUILT -> readJsonDeps(root.resolve("src/main/resources/quilt.mod.json"), deps);
@@ -43,6 +44,8 @@ public final class MinecraftDependencyReader {
         if (structure.hasGradle()) {
             MinecraftGradleAnalysis.GradleSnapshot gradle = MinecraftGradleAnalysis.analyze(root);
             deps.addAll(gradle.dependencies());
+            var resolved=new LinkedHashSet<String>();for(String dependency:deps)resolved.add(MinecraftMetadataReader.resolve(dependency,gradle.properties()));
+            deps.clear();deps.addAll(resolved);
         }
         if (meta != null && !meta.modId().isEmpty()) deps.removeIf(d -> d.toLowerCase(Locale.ROOT).contains("modid=" + meta.modId().toLowerCase(Locale.ROOT)));
         List<String> result = new ArrayList<>(deps);
@@ -52,14 +55,32 @@ public final class MinecraftDependencyReader {
 
     private static void readTomlDeps(Path file, Set<String> deps) throws IOException {
         if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) return;
-        String text = MinecraftGradleAnalysis.read(file);
-        Matcher m = TOML_DEP.matcher(text);
-        while (m.find() && deps.size() < 128) {
-            deps.add("mod:" + m.group(1) + ":" + m.group(3) + " (" + m.group(2) + ")");
+        String text=MinecraftGradleAnalysis.read(file),id="",range="",type="required",multiline="";boolean dependency=false;
+        for(String raw:text.split("\\R")){
+            if(!multiline.isEmpty()){if(raw.contains(multiline))multiline="";continue;}
+            String line=MinecraftMetadataReader.tomlLine(raw).strip();
+            int triple=line.indexOf("\"\"\"");String marker="\"\"\"";
+            if(triple<0){triple=line.indexOf("'''");marker="'''";}
+            if(triple>=0&&line.indexOf(marker,triple+3)<0){multiline=marker;continue;}
+            if(line.startsWith("[")){
+                if(dependency)addTomlDependency(deps,id,range,type);
+                dependency=line.startsWith("[[dependencies.")&&line.endsWith("]]");id="";range="";type="required";continue;
+            }
+            if(!dependency)continue;
+            int equals=line.indexOf('=');if(equals<0)continue;
+            String key=line.substring(0,equals).strip(),value=MinecraftMetadataReader.unquote(line.substring(equals+1));
+            switch(key){
+                case "modId" -> id=value;
+                case "versionRange" -> range=value;
+                case "type" -> type=value;
+                case "mandatory" -> type=value.equals("false")?"optional":"required";
+                default -> { }
+            }
         }
-        // Also accept simple adjacent declarations
-        Matcher simple = Pattern.compile("\\[\\[dependencies\\.[^]]+]]\\s*modId\\s*=\\s*\"([^\"]+)\"\\s*versionRange\\s*=\\s*\"([^\"]+)\"").matcher(text);
-        while (simple.find() && deps.size() < 128) deps.add("mod:" + simple.group(1) + ":" + simple.group(2));
+        if(dependency)addTomlDependency(deps,id,range,type);
+    }
+    private static void addTomlDependency(Set<String> deps,String id,String range,String type){
+        if(deps.size()<128&&!id.isEmpty())deps.add("mod:"+id+":"+range+" ("+type+")");
     }
 
     private static void readJsonDeps(Path file, Set<String> deps) throws IOException {

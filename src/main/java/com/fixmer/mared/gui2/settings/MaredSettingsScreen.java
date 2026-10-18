@@ -1,5 +1,7 @@
 package com.fixmer.mared.gui2.settings;
 
+import com.fixmer.mared.gui2.framework.screen.MaredScreen;
+
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -42,7 +44,7 @@ import net.minecraft.network.chat.Component;
  * 0.3.2 (audit #92):
  *   Вкладки берутся из SettingsPageRegistry (уже было).
  */
-public class MaredSettingsScreen extends Screen {
+public class MaredSettingsScreen extends MaredScreen {
 
     private static int BG(){return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgScreen;}
     private static int PANEL_BG(){return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgPanel;}
