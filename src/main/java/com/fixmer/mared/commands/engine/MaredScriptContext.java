@@ -14,6 +14,7 @@ import com.fixmer.mared.commands.storage.MaredGlobalStorage;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.player.Player;
 
 public class MaredScriptContext implements com.fixmer.genesis.technology.expression.ExpressionEnvironment {
 
@@ -51,6 +52,20 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
     public void setInvocationLimits(com.fixmer.genesis.technology.runtime.ExecutionLimits limits){invocationLimits=java.util.Objects.requireNonNull(limits);}
     private boolean persistent = false;
     private int callDepth = 0;
+    private java.util.function.Supplier<Map<String,Object>> playerDataProvider143;
+    /** Host-owned snapshot provider. It is invoked only for a client context without ServerPlayer. */
+    public void setPlayerDataProvider143(java.util.function.Supplier<Map<String,Object>> provider){playerDataProvider143=provider;}
+    public static Map<String,Object> playerSnapshot143(Player player,String mode,int count){
+        var context=new MaredScriptContext(null,null,s->{});
+        context.refreshPlayerDataImpl(java.util.Objects.requireNonNull(player),mode);
+        context.variables.put("player_count",(long)Math.max(0,count));
+        if(player.level()!=null){context.variables.put("difficulty",player.level().getDifficulty().getKey());context.variables.put("is_hardcore",player.level().getLevelData().isHardcore());}
+        return Map.copyOf(context.variables);
+    }
+    /** Private callback bindings inherit values/functions without overwriting the caller's v/i/acc. */
+    public MaredScriptContext forkEvaluation143(){
+        var copy=fork();copy.variables.putAll(variables);copy.callDepth=callDepth;return copy;
+    }
     private long lastRefreshTick = -1;
 
     public MaredScriptContext(ServerPlayer initiator, MinecraftServer server, Consumer<String> logger) {
@@ -79,7 +94,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
         copy.persistent = this.persistent;
         copy.executionScope = executionScope;
         copy.eventEntry = eventEntry;
-        copy.capabilityHost = capabilityHost;copy.invocationLimits=invocationLimits;
+        copy.capabilityHost = capabilityHost;copy.invocationLimits=invocationLimits;copy.playerDataProvider143=playerDataProvider143;
         return copy;
     }
 
@@ -90,7 +105,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
         copy.persistent = this.persistent;
         copy.executionScope = executionScope;
         copy.eventEntry = eventEntry;
-        copy.capabilityHost = capabilityHost;copy.invocationLimits=invocationLimits;
+        copy.capabilityHost = capabilityHost;copy.invocationLimits=invocationLimits;copy.playerDataProvider143=playerDataProvider143;
         return copy;
     }
 
@@ -101,7 +116,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
         copy.persistent = persistent;
         copy.executionScope = executionScope;
         copy.eventEntry = eventEntry;
-        copy.capabilityHost = capabilityHost;copy.invocationLimits=invocationLimits;
+        copy.capabilityHost = capabilityHost;copy.invocationLimits=invocationLimits;copy.playerDataProvider143=playerDataProvider143;
         return copy;
     }
 
@@ -181,7 +196,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
         return com.fixmer.mared.commands.expr.MaredBuiltins.call(name, args, this);
     }
     @Override public Object callMethod(Object receiver, String name, List<Object> args) {
-        return com.fixmer.mared.commands.expr.MaredMethods.call(receiver, name, args);
+        return com.fixmer.mared.commands.expr.MaredMethods.call(receiver, name, args, this);
     }
     public boolean hasFunction(String name) { return functions.containsKey(name); }
     public Func getFunction(String name) { return functions.get(name); }
@@ -208,8 +223,9 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
 
         callDepth++;
         Object result = null;
-        MaredScriptExecutor exec = new MaredScriptExecutor(this, fn.body, invocationLimits);
+        MaredScriptExecutor exec = null;
         try {
+            exec = new MaredScriptExecutor(this, fn.body, invocationLimits);
             MaredScriptExecutor.Frame top = exec.peekTopFrame();
             if (top != null) top.functionCall = true;
 
@@ -218,11 +234,13 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
             if (!exec.isFinished()) throw new IllegalStateException("Expression function cannot wait or exceed a tick budget: " + name);
             if (exec.hasReturnValue()) result = exec.getReturnValue();
         } finally {
-            exec.stopAll();
-            callDepth--;
-            for (Map.Entry<String, Object> e : backup.entrySet()) {
-                if (present.contains(e.getKey())) variables.put(e.getKey(), e.getValue());
-                else variables.remove(e.getKey());
+            try { if(exec!=null)exec.stopAll(); }
+            finally {
+                callDepth--;
+                for(var entry:backup.entrySet()){
+                    if(present.contains(entry.getKey()))variables.put(entry.getKey(),entry.getValue());
+                    else variables.remove(entry.getKey());
+                }
             }
         }
         return result;
@@ -235,6 +253,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
     public void refreshPlayerData() {
         ServerPlayer player = initiator;
         if (player == null) {
+            if(server==null&&playerDataProvider143!=null)refreshEventData(playerDataProvider143.get());
             setVariable("mared_version", Mared.VERSION);
             setVariable("mc_version", "1.21.1");
             return;
@@ -244,7 +263,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
         if (nowTick == lastRefreshTick && nowTick != 0) return;
         lastRefreshTick = nowTick;
 
-        refreshPlayerDataImpl(player);
+        refreshPlayerDataImpl(player,null);
     }
 
     public void forceRefreshPlayerData() {
@@ -252,7 +271,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
         refreshPlayerData();
     }
 
-    private void refreshPlayerDataImpl(ServerPlayer player) {
+    private void refreshPlayerDataImpl(Player player,String mode) {
         variables.put("player", player.getName().getString());
         variables.put("self", player.getName().getString());
         variables.put("uuid", player.getUUID().toString());
@@ -280,7 +299,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
 
         String gamemode;
         try {
-            gamemode = player.gameMode.getGameModeForPlayer().getName();
+            gamemode = mode!=null?mode:player instanceof ServerPlayer serverPlayer?serverPlayer.gameMode.getGameModeForPlayer().getName():"unknown";
         } catch (Throwable t) {
             gamemode = "unknown";
         }
@@ -333,7 +352,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
         variables.put("mc_version", "1.21.1");
     }
 
-    private void refreshInventory(ServerPlayer player) {
+    private void refreshInventory(Player player) {
         try {
             var main = player.getMainHandItem();
             if (!main.isEmpty()) {
@@ -373,7 +392,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
         }
     }
 
-    private void refreshEffects(ServerPlayer player) {
+    private void refreshEffects(Player player) {
         try {
             List<String> effects = new ArrayList<>(4);
             for (var effect : player.getActiveEffects()) {
@@ -394,7 +413,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
         }
     }
 
-    private void refreshWorld(ServerPlayer player) {
+    private void refreshWorld(Player player) {
         if (player.level() == null) {
             variables.put("time", 0L);
             variables.put("day_count", 0L);
@@ -477,10 +496,13 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
         while (i < n) {
             char c = input.charAt(i);
 
-            if (c == '\\' && i + 1 < n && input.charAt(i + 1) == '$') {
-                result.append('$');
-                i += 2;
-                continue;
+            if(c=='\\'&&i+1<n){
+                char next=input.charAt(i+1);
+                Character decoded=switch(next){
+                    case 'n' -> '\n'; case 't' -> '\t'; case 'r' -> '\r';
+                    case '\\','"','\'','$' -> next; default -> null;
+                };
+                if(decoded!=null){result.append(decoded);i+=2;continue;}
             }
 
             if (c == '$' && i + 1 < n && input.charAt(i + 1) == '{') {
@@ -558,7 +580,7 @@ public class MaredScriptContext implements com.fixmer.genesis.technology.express
             result.append(c);
             i++;
         }
-        return unescape(result.toString());
+        return result.toString();
     }
 
     private int findExpressionEnd(String s, int start, int n) {

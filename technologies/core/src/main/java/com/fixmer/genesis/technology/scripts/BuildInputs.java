@@ -46,7 +46,7 @@ public final class BuildInputs  {
                 if(cancel.getAsBoolean()||Thread.currentThread().isInterrupted())throw new IOException("Build input inspection cancelled");if(++entries[0]>50000)throw new IOException("Build input entry limit: 50000");
             }
             public FileVisitResult preVisitDirectory(Path p,BasicFileAttributes a)throws IOException {
-                stop();if(!p.equals(root)&&OUTPUTS.contains(p.getFileName().toString().toLowerCase(Locale.ROOT)))return FileVisitResult.SKIP_SUBTREE;if(Files.isSymbolicLink(p)||!p.toRealPath().startsWith(root.toRealPath()))throw new IOException("Linked build input: "+p);return FileVisitResult.CONTINUE;
+                stop();if(!p.equals(root)){String name=p.getFileName().toString().toLowerCase(Locale.ROOT);boolean source=false;for(Path part:root.relativize(p))if(part.toString().equals("src")||part.toString().equals("tests"))source=true;if(name.equals(".genesis")||OUTPUTS.contains(name)&&!(source&&(name.equals("build")||name.equals("out"))))return FileVisitResult.SKIP_SUBTREE;}if(Files.isSymbolicLink(p)||!p.toRealPath().startsWith(root.toRealPath()))throw new IOException("Linked build input: "+p);return FileVisitResult.CONTINUE;
             }
             public FileVisitResult visitFile(Path p,BasicFileAttributes a)throws IOException {
                 stop();if(p.getFileName().toString().equals(DependencyJournal.NAME))return FileVisitResult.CONTINUE;if(!a.isRegularFile()||a.isSymbolicLink())throw new IOException("Non-regular build input: "+p);if((bytes[0]+=a.size())>1024L*1024*1024)throw new IOException("Build input byte limit: 1 GiB");var hash=digest();long count=0;try(var in=Files.newInputStream(p,LinkOption.NOFOLLOW_LINKS)) {

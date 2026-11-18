@@ -114,7 +114,7 @@ public class CatalogIntegrationTest {
         assertEquals(List.of("custom"),tree.names());
         assertTrue(tree.describe("custom").parameters().getFirst().type().contains("unavailable"));
     }
-    @Test void shippedJarContainsNoObsoleteCommandJson() throws Exception {
-        try(var zip=new java.util.zip.ZipFile(System.getProperty("genesis.packagedMod"))){assertTrue(zip.stream().noneMatch(e->e.getName().startsWith("mared/commands/")&&e.getName().endsWith(".json")));}
+    @Test void shippedJarContainsNoObsoleteCommandEntries() throws Exception {
+        try(var zip=new java.util.zip.ZipFile(System.getProperty("genesis.packagedMod"))){assertTrue(zip.stream().noneMatch(e->e.getName().equals("mared/commands")||e.getName().startsWith("mared/commands/")));}
     }
 }

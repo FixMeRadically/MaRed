@@ -1,0 +1,102 @@
+{
+  "patch": 82,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "8cf356cbb58d6c75b1b088b5af10babdced5851987b704688d65bba76fc751ba",
+      "after": "d987c25437c2b0441a58952e1a64e6c7122273a13376e7f84d13dce6eb4a1692"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/AdmissionChecks82.java",
+      "existed": false,
+      "before": null,
+      "after": "172f424096fb29b190cf36aa925e60e0cc00cd520d49246b7ced53029366c54d"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "c8b92117d63dd334b4a7df88e46e72d166e90acf1d441a526aacc74a6a8f0d44",
+      "after": "037bc2c163f5d244ddaa82f6b06af1fb3eb5e8675eea19baee86d8274ba6084c"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Admission82.java",
+      "existed": false,
+      "before": null,
+      "after": "5c643ffdb842bce2664d2efd30d3354ccf45cc3cd2b5c07023e6b22e699108d6"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/BootstrapPublisher76.java",
+      "existed": true,
+      "before": "a1ac6fc5394c2538d7421fe79ae08321a6185b7c819e57fcca8a963a88504137",
+      "after": "b5cf5b40844463a349ff2688d9656fd5b42e00ab82f49e3317b9799d71f75037"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/CommitFence81.java",
+      "existed": true,
+      "before": "eb521900277cceb520ff6575c9088337f1dfc1f51f2d5f08b725f9f0b09f72b7",
+      "after": "8a8d8973094085e4f6dabc103b2b50a28f705f783c6b13f166787ba81da061ad"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ControlHttp73.java",
+      "existed": true,
+      "before": "1d0cf81f84874ab9324c7549694564cadb3ec23ee6cd39547347ac7231e516a5",
+      "after": "293d181d08650ecede9dd6b31e9622978be44f58fec89321e66201a191d71af0"
+    },
+    {
+      "path": "tools/dedicated_server75.py",
+      "existed": true,
+      "before": "66c51ec1dc448928b35efafeeb0acc323f55d2c3de4c844e584678eab63b8935",
+      "after": "f881fb3917f5385e982f3e791bc8c674c63af9cc1885c325bf1d4ee01a207490"
+    },
+    {
+      "path": "tools/first58/admission82.py",
+      "existed": false,
+      "before": null,
+      "after": "9eec58dd71effdfa101c81317ce5548d5317aa44a3bdef22a4758202e9573ddd"
+    },
+    {
+      "path": "tools/first58/admission_wire82.py",
+      "existed": false,
+      "before": null,
+      "after": "7f964f7c04bb1619e652db76275df93deb087806db63ced07a931a46ee7015ce"
+    },
+    {
+      "path": "tools/first58/bootstrap76.py",
+      "existed": true,
+      "before": "783e5fee4e807808fa5aa2bae27cfe84d86e1e7870fd0fca811f527053ddbaa4",
+      "after": "3274dd6bfada855c841671beb954b13eedfbbba89a17370dad31d3c0075e6ebb"
+    },
+    {
+      "path": "tools/first58/dedicated82.py",
+      "existed": false,
+      "before": null,
+      "after": "e0e41e1ec11166bf4aaafc4efeaf8fd467aa965c3311f86a4440a4eb6f7f0ccf"
+    },
+    {
+      "path": "tools/first58/https_control73.py",
+      "existed": true,
+      "before": "1572e380862e3a16ec2acfc7255dea82c6b16f802be2ca52337f164d30ddbb8d",
+      "after": "d70d2b874028939fba5af562ebe3b73f16b3e8c38de1e9f24420c8f1538e1471"
+    },
+    {
+      "path": "tools/first58/remote70.py",
+      "existed": true,
+      "before": "daa5827e8000d03aeb34bde96922ba00c694b384efbdec8a7c8306d83ec5d93b",
+      "after": "1a4ff8ac403579818fb7ce05ba74a2aef75284b5412b54acc03a2723e69107ef"
+    },
+    {
+      "path": "verification/server59/admission_https82.py",
+      "existed": false,
+      "before": null,
+      "after": "f1c30210139426cfc7b52a2e6a986a53ed95768d6742265c80e520d4f65a4335"
+    },
+    {
+      "path": "verification/server59/test_admission82.py",
+      "existed": false,
+      "before": null,
+      "after": "e6ddd05eb6490c66aa888815f2f2190afb8a3450ebbc4a4809a425864e1adf2c"
+    }
+  ]
+}

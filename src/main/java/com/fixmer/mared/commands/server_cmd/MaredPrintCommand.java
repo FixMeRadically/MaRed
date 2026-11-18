@@ -34,18 +34,9 @@ public class MaredPrintCommand extends MaredScriptCommand {
     @Override
     public boolean execute(MaredScriptContext ctx) {
         String raw = text == null ? "" : text.trim();
-        int n = raw.length();
-        if (n >= 2 && raw.charAt(0) == '"' && raw.charAt(n - 1) == '"') {
-            raw = raw.substring(1, n - 1);
-        }
-        raw = MaredDebugCommand.unescapeQuotes(raw);
-
-        if (looksLikeConcat(raw)) {
-            try { raw = MaredExpr.stringify(MaredExpr.eval(raw, ctx)); }
-            catch (Exception ignored) {}
-        } else {
-            raw = ctx.substitute(raw);
-        }
+        if(MaredExpr.isStringLiteral(raw))raw=ctx.substitute((String)MaredExpr.eval(raw,ctx));
+        else if(looksLikeConcat(raw))raw=MaredExpr.stringify(MaredExpr.eval(raw,ctx));
+        else raw=ctx.substitute(MaredDebugCommand.unescapeQuotes(raw));
         raw = raw.replace("\t", "    ");
 
         boolean chatMode = "self".equalsIgnoreCase(scope) || "all".equalsIgnoreCase(scope);

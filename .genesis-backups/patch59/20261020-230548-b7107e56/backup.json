@@ -1,0 +1,108 @@
+{
+  "patch": 59,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "7e3d07bd23714d54c36d8ee4efd3832af4de5dc1490d86db78a445f05249c6cf",
+      "after": "e66af296f40a53559bbd5a560c6d8d78771fabfd720c8bcb7ee8729cb2911ff6"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/settings/SettingsPageRegistry.java",
+      "existed": true,
+      "before": "cad68ddd2c5d28f6e261887880b04139f90b4439425be135b58294263e18f5d5",
+      "after": "6c53b1dc2284c824ff422ee58aea5deef0033217e915f5e5dd57cab6f9213e04"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/settings/tabs/MaredServerTab59.java",
+      "existed": false,
+      "before": null,
+      "after": "134f7878eb5994de8837443091f06c3372f6c9ba8b80ca4d12e56a60c3b3ebdd"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerSetupBundle59.java",
+      "existed": false,
+      "before": null,
+      "after": "6f8ca79b0457581a1960e16f3244fc41282ee41202d922500cbf8f0b64eb1aee"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerSetupLauncher59.java",
+      "existed": false,
+      "before": null,
+      "after": "b1b3d43f6081098bdfa5efd8ac9eb71286cc08c8224475d6ea6e76ec0c01dd77"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "4f79a54fc130d8b42e6c9300de16fe7ef4959e0f353ee1aabed766e9309b1a04",
+      "after": "a0cb728bf92f7d317e88a8213ce79cc15ccddd5f31f01a975ad61ad2ac0c7977"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "b40829ddc3b7bc19a8e99d8ed6074ef22c5f9ccd226577f64a61d8bdaeddeb80",
+      "after": "b8964a6dec8ad1e7d59b0dfaa457dc2a5f399dc50b2e2f0c47debe869c4cc861"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": false,
+      "before": null,
+      "after": "5a9df915cd7070bc74174603abf6cece5e9817fe49fe50f00ca560c3eeeb7af2"
+    },
+    {
+      "path": "tools/first58/capture.py",
+      "existed": true,
+      "before": "4085bc449238205ebc27e67d1be2181bceb37ba0e2b4553464683043e945e3eb",
+      "after": "3fbe325accf8969827bb852b2673c220a45a4a7ccabab739a34fe8a85eb69352"
+    },
+    {
+      "path": "tools/first58/controller.py",
+      "existed": true,
+      "before": "0c55069c717d685ef2745b041fcc74e6bafacb648ce0af17a34ec4688fccf146",
+      "after": "36831f3710ff6c57eb163dc5c85c5d38cc1fed9ff289b94bd07a2224ad227f1a"
+    },
+    {
+      "path": "tools/first58/runtime.py",
+      "existed": false,
+      "before": null,
+      "after": "bfc990e46bc85194d471ccd16410f79c05c9f15ae88e6678e7483e8824645f98"
+    },
+    {
+      "path": "tools/first58/setup.py",
+      "existed": true,
+      "before": "3cc1144416035a17e40a0d8eac68990b97347da9283958e7d9df5a795cd16316",
+      "after": "21351ac17b96569e8dd665ada28a4fc312c74aed9d9682c9ad9f097727927538"
+    },
+    {
+      "path": "tools/first58/wizard_model.py",
+      "existed": false,
+      "before": null,
+      "after": "7a1e57030638deec59a02d09d9d9a613d462dd78558af3d1d214fdb3fac7be30"
+    },
+    {
+      "path": "tools/server_setup.py",
+      "existed": false,
+      "before": null,
+      "after": "557c7350c92ec2132596c32ba617b155adb6ad2e1d3fc428dea6b23ef0519094"
+    },
+    {
+      "path": "verification/server59/BundleChecks59.java",
+      "existed": false,
+      "before": null,
+      "after": "e3f57acb51383c2374dd9fc5a9c72e493ba7b74473e66b40da0a775ddb277cf3"
+    },
+    {
+      "path": "verification/server59/test_portable_core.py",
+      "existed": false,
+      "before": null,
+      "after": "a41cb55dfc0f6611b3e083e1c498f2af4b523210e2e1b87ef89b0b4e73cd3614"
+    },
+    {
+      "path": "verification/server59/test_setup.py",
+      "existed": false,
+      "before": null,
+      "after": "c1f95e67189bcd0d6870d434965fb8d21a31ff32280f00dcd7d8f9eeb542d5f4"
+    }
+  ]
+}

@@ -56,12 +56,13 @@ public final class DevSessionResume {
         return boot.skipLocalWorld();
     }
     public static boolean isPendingReturn(){
-        if(!DevRestartService.isUnderSupervisor())return false;
+        if(!DevRestartService.isUnderSupervisor()||LocalRecovery91.blocksAutoOpen())return false;
         if(waitingRemote)return true;
         return !attempted&&skipLocalWorld()&&boot.target()!=null;
     }
     @SubscribeEvent public static void onTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
+        if(LocalRecovery91.blocksAutoOpen())return;
         if (!DevRestartService.isUnderSupervisor() || !skipLocalWorld()) return;
         if(waitingRemote && (mc.player!=null || mc.screen instanceof net.minecraft.client.gui.screens.DisconnectedScreen || mc.screen instanceof TitleScreen)) {
             waitingRemote=false;

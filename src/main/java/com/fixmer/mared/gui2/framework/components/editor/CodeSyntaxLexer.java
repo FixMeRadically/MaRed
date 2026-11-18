@@ -4,7 +4,7 @@ import java.util.*;
 
 /** Local lexical colouring only. No compiler, classpath, regex backtracking or filesystem access. */
 public final class CodeSyntaxLexer {
-    public enum Language { JAVA, PYTHON, RUST, CPP, JAVASCRIPT, GROOVY, KOTLIN, JSON, JSONC, TOML, PROPERTIES, PLAIN }
+    public enum Language { JAVA, PYTHON, RUST, CPP, JAVASCRIPT, GROOVY, KOTLIN, JSON, JSONC, TOML, PROPERTIES, PLAIN, GLSL }
     public enum Kind { KEYWORD, CONTROL, STRING, NUMBER, COMMENT, TYPE, FUNCTION, ANNOTATION, LITERAL, CONSTANT, IDENTIFIER, PROPERTY, OPERATOR }
     public enum Mode { NORMAL, COMMENT, STRING, QUOTED, PROPERTY_VALUE }
     public record Token(int start,int end,Kind kind) { }
@@ -17,6 +17,7 @@ public final class CodeSyntaxLexer {
     private static final Set<String> PYTHON=words("and as assert async await break class continue def del elif else except finally for from global if import in is lambda nonlocal not or pass raise return try while with yield match case type");
     private static final Set<String> RUST=words("as async await break const continue crate dyn else enum extern fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait type unsafe use where while abstract become box do final macro override priv typeof unsized virtual yield try union");
     private static final Set<String> CPP=words("alignas alignof and asm auto bitand bitor bool break case catch char char8_t char16_t char32_t class co_await co_return co_yield compl concept const consteval constexpr constinit const_cast continue decltype default delete do double dynamic_cast else enum explicit export extern float for friend goto if inline int long mutable namespace new noexcept not operator or private protected public register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct switch template this thread_local throw try typedef typeid typename union unsigned using virtual void volatile wchar_t while xor");
+    private static final Set<String> GLSL=words("attribute const uniform varying layout centroid flat smooth noperspective in out inout float double int void bool true false invariant discard return mat2 mat3 mat4 vec2 vec3 vec4 ivec2 ivec3 ivec4 bvec2 bvec3 bvec4 uint uvec2 uvec3 uvec4 sampler2D sampler3D samplerCube struct precision highp mediump lowp if else for while do break continue switch case default");
     private static final Set<String> JS=words("async await break case catch class const continue debugger default delete do else export extends finally for from function get if import in instanceof let new of return set static super switch this throw try typeof var void while with yield");
     private static final Set<String> GROOVY=words("as assert boolean break byte case catch char class const continue def default do double else enum extends final finally float for if implements import in instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws trait transient try var void volatile while");
     private static final Set<String> KOTLIN=words("abstract actual annotation as break by catch class companion const constructor continue crossinline data delegate do dynamic else enum expect external field file final finally for fun get if import in infix init inline inner interface internal is lateinit noinline object open operator out override package param private property protected public receiver reified return sealed set setparam super suspend tailrec this throw try typealias typeof val value var vararg when where while");
@@ -26,6 +27,7 @@ public final class CodeSyntaxLexer {
     private CodeSyntaxLexer() { }
     public static Language languageFor(String path){
         String value=path==null?"":path.toLowerCase(Locale.ROOT);
+        if(value.matches(".+\\.(glsl|vsh|fsh|gsh|csh|vert|frag)"))return Language.GLSL;
         if(value.endsWith(".java"))return Language.JAVA;
         if(value.endsWith(".py"))return Language.PYTHON;
         if(value.endsWith(".rs"))return Language.RUST;
@@ -34,12 +36,12 @@ public final class CodeSyntaxLexer {
         if(value.endsWith(".gradle")||value.endsWith(".groovy"))return Language.GROOVY;
         if(value.endsWith(".kt")||value.endsWith(".kts"))return Language.KOTLIN;
         if(value.endsWith(".jsonc"))return Language.JSONC;
-        if(value.endsWith(".json"))return Language.JSON;
+        if(value.endsWith(".json")||value.endsWith(".mcmeta")||value.endsWith(".bbmodel"))return Language.JSON;
         if(value.endsWith(".toml"))return Language.TOML;
         if(value.endsWith(".properties"))return Language.PROPERTIES;
         return Language.PLAIN;
     }
-    private static Set<String> keywords(Language language){return switch(language){case JAVA->JAVA;case PYTHON->PYTHON;case RUST->RUST;case CPP->CPP;case JAVASCRIPT->JS;case GROOVY->GROOVY;case KOTLIN->KOTLIN;default->Set.of();};}
+    private static Set<String> keywords(Language language){return switch(language){case GLSL->GLSL;case JAVA->JAVA;case PYTHON->PYTHON;case RUST->RUST;case CPP->CPP;case JAVASCRIPT->JS;case GROOVY->GROOVY;case KOTLIN->KOTLIN;default->Set.of();};}
     private static boolean json(Language language){return language==Language.JSON||language==Language.JSONC;}
     private static boolean hashComments(Language language){return language==Language.PYTHON||language==Language.TOML;}
     private static boolean slashComments(Language language){return !hashComments(language)&&language!=Language.JSON&&language!=Language.PROPERTIES&&language!=Language.PLAIN;}
@@ -90,7 +92,7 @@ public final class CodeSyntaxLexer {
             if(slashComments(language)&&text.startsWith("/*",i)){depth=1;mode=Mode.COMMENT;i+=2;
                 while(i<length){if(text.startsWith("*/",i)){depth--;i+=2;if(depth==0){mode=Mode.NORMAL;break;}}else if(language==Language.RUST&&text.startsWith("/*",i)){depth++;i+=2;}else i++;}
                 tokens.add(start,i,Kind.COMMENT);continue;}
-            if(language==Language.CPP&&c=='#'&&spaces(text,0)==i){i=spaces(text,i+1);int directive=i;i=identifierEnd(text,i);tokens.add(start,i,Kind.ANNOTATION);String name=text.substring(directive,i);int value=spaces(text,i);if((name.equals("include")||name.equals("include_next"))&&value<length&&text.charAt(value)=='<'){int end=text.indexOf('>',value+1);if(end>=0){tokens.add(value,end+1,Kind.STRING);i=end+1;}}continue;}
+            if((language==Language.CPP||language==Language.GLSL)&&c=='#'&&spaces(text,0)==i){i=spaces(text,i+1);int directive=i;i=identifierEnd(text,i);tokens.add(start,i,Kind.ANNOTATION);String name=text.substring(directive,i);int value=spaces(text,i);if((name.equals("include")||name.equals("include_next"))&&value<length&&text.charAt(value)=='<'){int end=text.indexOf('>',value+1);if(end>=0){tokens.add(value,end+1,Kind.STRING);i=end+1;}}continue;}
             if(language==Language.TOML&&c=='['&&spaces(text,0)==i){int end=text.indexOf(']',i+1);if(end>=0){i=end+1;if(i<length&&text.charAt(i)==']')i++;tokens.add(start,i,Kind.PROPERTY);continue;}}
             if(c=='@'&&!json(language)){i=identifierEnd(text,i+1);while(i<length&&text.charAt(i)=='.'&&identifierStart(text,i+1))i=identifierEnd(text,i+1);tokens.add(start,i,Kind.ANNOTATION);continue;}
             // Rust raw strings r##"..."##, including byte strings.

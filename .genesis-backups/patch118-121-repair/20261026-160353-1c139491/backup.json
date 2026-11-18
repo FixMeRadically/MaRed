@@ -1,0 +1,420 @@
+{
+  "patch": 121,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "b95bd15cdfda4e3b4c719218e92987775929670add2965bd7c0acf7ed228c103",
+      "after": "032f0b45b3483074968b48aa2d6d91abc524748778591a2a6789f119004bb7b7"
+    },
+    {
+      "path": "docs/CONNECTIONS_120_RU.md",
+      "existed": false,
+      "before": null,
+      "after": "145fac103b43a82469d3ffd6209264155299b51ac66bedf3f38e8198c98447d9"
+    },
+    {
+      "path": "docs/INTEGRATION_CATALOG_119.json",
+      "existed": false,
+      "before": null,
+      "after": "c65ec9856ddcc7181ad8122c5cc160c766f237b11f7c263397050c23f32f6474"
+    },
+    {
+      "path": "docs/INTEGRATION_CATALOG_120.json",
+      "existed": false,
+      "before": null,
+      "after": "14e7d9ca6cf00b012cba1a1a0674a1c848998cdb253431b8b5a4e602e3405ad6"
+    },
+    {
+      "path": "docs/REMOTE_RETURN_119_RU.md",
+      "existed": false,
+      "before": null,
+      "after": "74fe64acbd62f755be45cd4dcd341f0ffcde670135572c20be8ac17eec2a52bc"
+    },
+    {
+      "path": "docs/WORKSPACE_CONNECTION_PLAN_122.json",
+      "existed": false,
+      "before": null,
+      "after": "9436b302aa7cf788e9b364396bbe71db6011d090887060e78add788490b1a2b2"
+    },
+    {
+      "path": "docs/WORKSPACE_FOUNDATION_121_RU.md",
+      "existed": false,
+      "before": null,
+      "after": "cf0adda801d862be0fcd06dd6b5ae56782962cae41d1f5fdd16d6d5a7e62d592"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ModDeployment.java",
+      "existed": true,
+      "before": "ba1ae41f02849a1cf253c050e4f3ffef9289c9b1020e3b053777d3f709303eaf",
+      "after": "5d47ba67367ba563346d4b158adbbde18dba46046fa4d4a6cdb2b8ebd3210477"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ModSet99.java",
+      "existed": true,
+      "before": "b570000c61ff79ce789ac62c8ce668680a3704e52a6daae485f20a1f3e0602c8",
+      "after": "5f75855ad0e2e98f0d72fe6bdd03648eb2bf0dcfaa9085dc8fa4d952466a554c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/RemoteClient70.java",
+      "existed": true,
+      "before": "a716cb28be70b67f3277b581ed67bdebbdd2f76c4c50a7495463be368f2980cc",
+      "after": "fab22ac850bde3b78b125bfa14671456bf750471068fe7dc4cb0c9bf00a762cc"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/RemoteReturn119.java",
+      "existed": false,
+      "before": null,
+      "after": "d2a8933fdd8dd055212c4f06961e53a741168ee2baea07508bc7a5ee9a8baf65"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/RemoteReturn120.java",
+      "existed": false,
+      "before": null,
+      "after": "b23af596a8f0d63f8f9757ec57a530960f581d591e58543f44160f68dfec55e4"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/FolderUpdateScreen118.java",
+      "existed": true,
+      "before": "e3f166b5819414f6118ff005c4888bbf11f542aae6a943ebb1cb714dccfa19e6",
+      "after": "fe8d198d30eca29ec07d6ea72e9401b85a6ca8924e36d79113e1a691331e5898"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ManagedRemote71.java",
+      "existed": true,
+      "before": "38259e4bda18bce279a238f8a20cdb5486fbfb02f85bb48e0f81b2f3fb26e0d4",
+      "after": "25c14d5f10b4c4f9e66f8fbcad875b0ca826d6b1a8e8a32ab5cc4fae6e079778"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RemoteApplyService70.java",
+      "existed": true,
+      "before": "f287a5146143c4d99c042dd8fce12dfb8e93413ee68c1c7015ae56fb11b69b0f",
+      "after": "324b09fab0b94e2167e9d494c2d61c8fc2033dc26aee9e8aa6463233c3429c2e"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "0ff8fefbba78f41859f388458b6047c4d1a7cfa0e671e9039815b75e01d5e129",
+      "after": "3e23e1aaf58f5cd62142811ba543bb442c5784883cdf590a49dc731e915e6f56"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "85ddf80c496dd9df2d45e8c4ad7b7c224db1b8fe00abe0afc82dd9982c806002",
+      "after": "4c9438107d90c405972227a8b3475aa431fb1608bed3f25f40fe98034e4c4c52"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/ApprovalFixture120.java",
+      "existed": false,
+      "before": null,
+      "after": "bb29ea3184c9cb06c5f010c27ca05e7aa7f125c7d6bee0bd4e247ccb9365cfe5"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/DeploymentChecks98.java",
+      "existed": true,
+      "before": "3aca14e3e18c14d0f7e1e7805f8352c2f4c0674c3b2020afce169494371fc892",
+      "after": "ce5b9c5bb2f64d9fcf85edca485d45ed7345ecfdbff6d4388b9fd3d00796bbb4"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/RecoveryChecks91.java",
+      "existed": true,
+      "before": "136883c47560e488d1eb1ab8b910df379942e11b4fe460ffc93663d760216c78",
+      "after": "b52f2f76eee49097d38d4388e1965620acaeccb6457377a47d60618166db8670"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/technology/server/remote/ConnectionsChecks120.java",
+      "existed": false,
+      "before": null,
+      "after": "ec980711dadea092510ac21eac20f962cde4118e8c7c5414928c120d34a3632e"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/technology/server/remote/FolderChecks118.java",
+      "existed": true,
+      "before": "d15d89648b8b20adc8a5c9fd83d5aca10a93014245acc1f393b35cf5e774cf37",
+      "after": "fefeb83172a44a5c7f23d1accbf2cd321aa9ea27d5134ed8b479de6e3ef81c7d"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/technology/server/remote/RemoteReturnChecks119.java",
+      "existed": false,
+      "before": null,
+      "after": "2de0fd01cbe2f78f2409c0bc6256d64773ca5291cdf89da4e3fb542740cd77cc"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/technology/workspace/collaboration121/WorkspaceChecks121.java",
+      "existed": false,
+      "before": null,
+      "after": "775b63951e9d66ee800126ce3ce6f8f5117b22eb4d9dcb07be6ff5e916b5f268"
+    },
+    {
+      "path": "technologies/core/foundation117.json",
+      "existed": true,
+      "before": "440a1a85b8c75b6320c0ff99ff46bb6139d42c6da1e9771b8da814cc96e85e72",
+      "after": "307aadc6c910679ebf44cbca4627a65c22cb1ab9f87ab1674842345dd99d04ee"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Approval120.java",
+      "existed": false,
+      "before": null,
+      "after": "10984ec90e7af5c60638cf09e5aacd8e84d0ba8ed530ec5975bba379f82f5bfc"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/BootstrapPublisher76.java",
+      "existed": true,
+      "before": "8fac360d8888e020c5a55e64cf54daf940f77febfeba7469b66751b3182b6562",
+      "after": "62e2d4e2df2eb6eeceef314cc48825e985ce07c5ad3b4e4277325e839e6f2fba"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/CommitFence81.java",
+      "existed": true,
+      "before": "cf49a148a7f0c390f38d742d8000947ec18af16e980be5ad74faf5d27b6dcbb5",
+      "after": "80d96d8123d1401111fbea7950356a9a296a073fb753ee436e709ecc780f6bf6"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Publication79.java",
+      "existed": true,
+      "before": "a15d04b967f314ef711c2137957c551e493abab39b2a8689bc7d54d2ac6b0a65",
+      "after": "e5687f7a09130bba09d12d273e1e6b68eff370d8fbf558c54d619cc36611988d"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Publication83.java",
+      "existed": true,
+      "before": "e63e8880cd745595ae4a6cce90610eb4b26375d4f54674199ff79ab8c24423b5",
+      "after": "82e8b0e10f74919ec5b2aa3026874046d5c8bf37551c35fd48c848e551a4be35"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteRepeat71.java",
+      "existed": true,
+      "before": "43d3f0479a9120c9789ca711dd2f9c08b187d97a6766f80518f2aefa6359e14c",
+      "after": "cd8d0820d25dc3ff7a30bc765f9548919766d46ae59c1e1251f06d2d0fe0f721"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteSession70.java",
+      "existed": true,
+      "before": "51601bd1a181b822e441bbe28eeeb62c9df781cc9f0411cf454976f356bd346e",
+      "after": "41f219eabc879c1cf5c70e37329170a3b8fd6c225b63afd3d54de4a93611d4c7"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Renewal85.java",
+      "existed": true,
+      "before": "7ea8053e876d212fc135c201cdf06c6736a7432c023dac46385c5e560e6da382",
+      "after": "32035b4c53c266af0180064fff335d880b0b768173f7523d387a4a5480d02777"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ReturnAdmission120.java",
+      "existed": false,
+      "before": null,
+      "after": "5eea809a574c97753bef554742b2e6577eb361932c092cc6bc6b4c6f3ab1763e"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/collaboration121/CollaborativeDocument121.java",
+      "existed": false,
+      "before": null,
+      "after": "b87106572a5101a1dd7bbc5ba01122d6b7924de30244bcf6345d7fc461dab218"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/collaboration121/WorkspaceEngine121.java",
+      "existed": false,
+      "before": null,
+      "after": "e7314f6b59bd41d4961a47b5fa6e1bf34e5454e08f665d4e3e56eba43464dfe5"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/collaboration121/WorkspaceJournal121.java",
+      "existed": false,
+      "before": null,
+      "after": "1a8947ebc724461aa99a9f58b688f34ee81e44db158193e61a52a76c69a7d79e"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/collaboration121/WorkspacePolicy121.java",
+      "existed": false,
+      "before": null,
+      "after": "39df5b7e3b4eae45fcee3b7532df275a2995ea4548845d838b411f3c54b45c86"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/collaboration121/WorkspacePresence121.java",
+      "existed": false,
+      "before": null,
+      "after": "c67fe9342bccba88ece4832e8ea15cebdf52ae6a238df27c54706d7a45dd9c02"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/collaboration121/WorkspaceRelease121.java",
+      "existed": false,
+      "before": null,
+      "after": "58b6efc55181bd4936efc0e1b41d4246006dd6f3961399c22e8b98d9aeec92ad"
+    },
+    {
+      "path": "tools/first58/approval120.py",
+      "existed": false,
+      "before": null,
+      "after": "efbe17a2a619607a0f55f21a6c1c079a6c8e5fe1036742a8566460988911750f"
+    },
+    {
+      "path": "tools/first58/changes104.py",
+      "existed": true,
+      "before": "0537fdb6b9b6084165adbb01c77bd01aa78ebe4e484ca8b8dd8300aea1a63463",
+      "after": "cf76c4300480c2ebd40b1c7d71008e5060ff1e767f66a063880dd3083be1d693"
+    },
+    {
+      "path": "tools/first58/control73.py",
+      "existed": true,
+      "before": "ca3b562164adeb5503a8bfccb6385eea8b0d248d5458a596b20620efd14f2af5",
+      "after": "8cf0ebae83836c1752819f0c5ae3e38f95e5d5e6c2113c518f6c356d0b30dfaf"
+    },
+    {
+      "path": "tools/first58/folder118.py",
+      "existed": true,
+      "before": "3dc135163b4a98152558760d66977e6f53f735bd6ae3b96b393c54a16d1135e2",
+      "after": "0ba72a04edd078a86ac5b740cfe811d9ce745cbc3c85f30f8cdd32703b75b5c6"
+    },
+    {
+      "path": "tools/first58/folder120.py",
+      "existed": false,
+      "before": null,
+      "after": "84b4ca2bb9ea4162077ee879a81e282c99d4b907cf3d6d229e71e9b246c18aef"
+    },
+    {
+      "path": "tools/first58/https_control73.py",
+      "existed": true,
+      "before": "d70d2b874028939fba5af562ebe3b73f16b3e8c38de1e9f24420c8f1538e1471",
+      "after": "ac39d547a7e6e5bd36b0d9203e13b081a2b8cf9e8976b046bce2cb0d40a7ec4a"
+    },
+    {
+      "path": "tools/first58/inplace104.py",
+      "existed": true,
+      "before": "39176df89c6f1b0be38e36637964243a54005607f64987550f76949bede60848",
+      "after": "50fb62067dff290a6ee32453173eab7a744445d607e162c82cc2f7e464ffc456"
+    },
+    {
+      "path": "tools/first58/install70.py",
+      "existed": true,
+      "before": "6f7ab29f05c2459ee2a3f6d12b1a7ddfd37ce575fb78cde8ca5bb375f8537a35",
+      "after": "cbdd2c70a4fc2b54a5e8e1327ef4dae8c0cc54544c5d84ac44d82c764a88e461"
+    },
+    {
+      "path": "tools/first58/publication85.py",
+      "existed": true,
+      "before": "7218c912d9b0776ab72ad7a180223d705c44c62753dc178514e982688e0885c3",
+      "after": "77ba5d1e927b37aaeea2f4c49a0ffc6dc77e248cf9339f94216ac83e224b030d"
+    },
+    {
+      "path": "tools/first58/remote70.py",
+      "existed": true,
+      "before": "3f0db33ff68b4f16e4d917fed88e42599df0a342715084c05357da2b67a1c658",
+      "after": "562d8b655e6838b66bdbc747f599b2dcc7363dcd67743068d8903ee91c3b4e3e"
+    },
+    {
+      "path": "tools/first58/repeat71.py",
+      "existed": true,
+      "before": "ca74c277d12795bdd31c20cf22c92eb0fd112c9ef3415888c8d7fa4747d63e88",
+      "after": "5ce072208eae1064e882254fa72ef9ac8c657ad9e65249694886d46c4af00ec2"
+    },
+    {
+      "path": "tools/first58/return119.py",
+      "existed": false,
+      "before": null,
+      "after": "793c9025c9e04d2e941f74b3f3fed61b2a0a272d530200648949cbee9d56ed88"
+    },
+    {
+      "path": "tools/first58/return120.py",
+      "existed": false,
+      "before": null,
+      "after": "e781a6e9eabada4367c723f838370a0e1a4d6ec3e595925f412cc7db8d638536"
+    },
+    {
+      "path": "tools/first58/ui.py",
+      "existed": true,
+      "before": "7bc4ab934f405cbb542d268106cd4e0e6465a4a96979a9c614aab5f89a721378",
+      "after": "3aa941381c2aba02463b373c016ef5f0f02cf61e9338c44440b175351aacd9b3"
+    },
+    {
+      "path": "tools/first58/update115.py",
+      "existed": true,
+      "before": "b7ae99f3910db1244781aabdfb0cb2f5d9c2e0f993c2f04b14634b46a5dcfa5a",
+      "after": "fdf9c7d0267561f2458adbd62756b34d2711f82312f32d369c9b571ea7850a2b"
+    },
+    {
+      "path": "tools/first58/windows_job.py",
+      "existed": true,
+      "before": "1e134c7e89b481d4815597bd12792300e7a389d1a9f557e786c30f17561c02a1",
+      "after": "b7019d038b84f112f7c4382e7fcac5af47919a6af620f95f39127583cef347aa"
+    },
+    {
+      "path": "tools/integration_audit116.py",
+      "existed": true,
+      "before": "2de6d34a242a4a7fb487aa5478503f9dea94f88f2b3158a91e7d9378b1d99815",
+      "after": "f91821cf1ee914c4fbbad849730d39b989eb2b924be43ca90a86551870b3d159"
+    },
+    {
+      "path": "verification/server59/RecoveryGateChecks91.java",
+      "existed": true,
+      "before": "7a3e3565cf610f9d161a68933edd58cad21fea7bec79068169182f8fed5ff092",
+      "after": "64f080e65b1ec9197e6dbd8708002b650b4dcd7f65f840824b3150ec888c204e"
+    },
+    {
+      "path": "verification/server59/RecoveryProcessFixture92.java",
+      "existed": true,
+      "before": "e1bd8ce2084bd08b9e18e9257d76e7b26c697a6f2268887b81b8e3440440a19c",
+      "after": "c46c0cdc48d0dce8f8c3d68171ac6e22acfde27fb5aac2e4ddc93e246a1f96b8"
+    },
+    {
+      "path": "verification/server59/approval_fixture120.py",
+      "existed": false,
+      "before": null,
+      "after": "1e7fcfd496edc8a5305d15b5e84bb1b63126ae0cf4ef1710dddd9bd9136a6a89"
+    },
+    {
+      "path": "verification/server59/connections_process120.py",
+      "existed": false,
+      "before": null,
+      "after": "448299fe566029f493cd07afc9b8653a2c664d1e7114be89af2533050c9ec35b"
+    },
+    {
+      "path": "verification/server59/folder_process118.py",
+      "existed": true,
+      "before": "73612103e67d9243b413a7211876093d02a440872443297feabec90b578b4aa7",
+      "after": "3a6342a67785c2c6fde5a2008998fa6eddfb247c0a4b735330ec60590577740f"
+    },
+    {
+      "path": "verification/server59/return_process119.py",
+      "existed": false,
+      "before": null,
+      "after": "51cb05691894fb344102dac9e903eb694b4e7b3e362a67f0f7060a3a923e659f"
+    },
+    {
+      "path": "verification/server59/test_connections120.py",
+      "existed": false,
+      "before": null,
+      "after": "89615ff554df71059eb5696ec970d68691fc77ed0bb9e5a5177ab30995fdfa8e"
+    },
+    {
+      "path": "verification/server59/test_inplace104.py",
+      "existed": true,
+      "before": "16687b6682824762754e48d90a44a8464d233db5ffe52b155cb58008da1e118a",
+      "after": "622c530573cd4c036c98dcc6e1b58d4fe40199bfb6feebc689c129c66aae615c"
+    },
+    {
+      "path": "verification/server59/test_remote_install70.py",
+      "existed": true,
+      "before": "9a8bcd1f7fde69c73508cc948a32072bb2afa99d570a4dc927135c5d6f9a21ae",
+      "after": "ca08317f9b1c678222f73f00e61023bc38ec5c9a6589d768c2d6575553a2c9e0"
+    },
+    {
+      "path": "verification/server59/test_return119.py",
+      "existed": false,
+      "before": null,
+      "after": "4bfd4bd8f91b9b28db491e43e9fddcd083452b2d1115d2a8699c5cc73339ad22"
+    },
+    {
+      "path": "verification/server59/test_server_ui105.py",
+      "existed": true,
+      "before": "7a91ca6385d05cf3b0dd94dbce0e1c7f1b38e19f568fd95641b2adeefca21b4b",
+      "after": "b21c6f809f8a6039f3246c60b7cb2439d4cbbb2b17da7c2e04f7328b7e4d3c5f"
+    },
+    {
+      "path": "verification/server59/test_update115.py",
+      "existed": true,
+      "before": "21bfce909b2c42161b5de846c32ebd43fc25fc99a2cf80d2aff72e8aab537134",
+      "after": "a94777354f33904da5e08f0457967f6b6e8537d2a946501b25a2a4e118e8317e"
+    }
+  ]
+}

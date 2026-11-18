@@ -187,32 +187,19 @@ public class ExpressionEngine {
     //  stringify / truthy
     // ============================================================
 
-    public static String stringify(Object v) {
-        if (v == null) return "";
-        if (v instanceof String s) return s;
-        if (v instanceof Long l) return l.toString();
-        if (v instanceof Integer i) return i.toString();
-        if (v instanceof Double d) return String.valueOf(d);
-        if (v instanceof Float f) return String.valueOf(f);
-        if (v instanceof Boolean b) return b ? "true" : "false";
-        if (v instanceof List<?> list) {
-            int n = list.size();
-            if (n == 0) return "[]";
-            StringBuilder sb = new StringBuilder(n * 8 + 2);
-            sb.append('[');
-            for (int i = 0; i < n; i++) {
-                if (i > 0) sb.append(", ");
-                Object item = list.get(i);
-                if (item instanceof String) {
-                    sb.append('"').append(item).append('"');
-                } else {
-                    sb.append(stringify(item));
-                }
-            }
-            sb.append(']');
-            return sb.toString();
-        }
-        return v.toString();
+    private static boolean integral(Object value){return value instanceof Long||value instanceof Integer||value instanceof Short||value instanceof Byte;}
+    public static boolean isStringLiteral(String text){
+        if(text==null||text.length()<2)return false;char q=text.charAt(0);if(q!='"'&&q!='\'')return false;
+        for(int i=1;i<text.length();i++){char c=text.charAt(i);if(c=='\\'){i++;continue;}if(c==q)return i==text.length()-1;}return false;
+    }
+    public static String stringify(Object value){var out=new StringBuilder();appendValue(value,out,new java.util.IdentityHashMap<>(),0);return out.toString();}
+    private static void appendValue(Object value,StringBuilder out,java.util.IdentityHashMap<Object,Boolean> active,int depth){
+        if(depth>128)throw new IllegalArgumentException("Value nesting limit");
+        if(value instanceof List<?> list){
+            ValueLimits140.listSize(list.size());if(active.put(list,Boolean.TRUE)!=null)throw new IllegalArgumentException("Cyclic list cannot be printed");
+            try{out.append('[');for(int i=0;i<list.size();i++){if(i>0)out.append(", ");Object item=list.get(i);if(item instanceof String)out.append('"');appendValue(item,out,active,depth+1);if(item instanceof String)out.append('"');ValueLimits140.textSize(out.length());}out.append(']');}finally{active.remove(list);}
+        }else if(value!=null){String text=value.toString();ValueLimits140.textSize((long)out.length()+text.length());out.append(text);}
+        ValueLimits140.textSize(out.length());
     }
 
     public static boolean truthy(Object v) {
@@ -264,7 +251,7 @@ public class ExpressionEngine {
                     out.add(new Token(TokType.FLOAT, text, 0, d));
                 } else {
                     long l;
-                    try { l = Long.parseLong(text); } catch (Exception e) { l = 0; }
+                    try { l = Long.parseLong(text); } catch (NumberFormatException e) { if(text.equals("9223372036854775808"))l=Long.MIN_VALUE;else throw new IllegalArgumentException("Integer literal out of range: "+text,e); }
                     out.add(new Token(TokType.INT, text, l, 0));
                 }
                 continue;
@@ -460,8 +447,9 @@ public class ExpressionEngine {
                     || t == TokType.LTE || t == TokType.GTE) {
                     pos++;
                     Object right = parseAdd();
-                    double ln = toNumber(left);
-                    double rn = toNumber(right);
+                    boolean integers=integral(left)&&integral(right);
+                    double ln = integers?Long.compare(((Number)left).longValue(),((Number)right).longValue()):toNumber(left);
+                    double rn = integers?0:toNumber(right);
                     left = switch (t) {
                         case LT  -> ln <  rn;
                         case GT  -> ln >  rn;
@@ -516,6 +504,7 @@ public class ExpressionEngine {
             TokType t = tokens[pos].type;
             if (t == TokType.MINUS) {
                 pos++;
+                if(tokens[pos].type==TokType.INT&&tokens[pos].text.equals("9223372036854775808")){pos++;return Long.MIN_VALUE;}
                 Object v = parseUnary();
                 if (v instanceof Long l) return -l;
                 return -toNumber(v);
@@ -535,7 +524,7 @@ public class ExpressionEngine {
                     pos++;
                     Object idx = parseExpression();
                     expect(TokType.RBRACKET);
-                    value = indexValue(value, idx);
+                    value = evaluating ? indexValue(value, idx) : null;
                 } else if (t == TokType.LPAREN) {
                     pos++;
                     List<Object> args = parseArgs();
@@ -582,7 +571,7 @@ public class ExpressionEngine {
         Object parsePrimary() {
             Token t = next();
             switch (t.type) {
-                case INT:    return t.intVal;
+                case INT: if(t.text.equals("9223372036854775808"))throw new IllegalArgumentException("Integer literal out of range: "+t.text);return t.intVal;
                 case FLOAT:  return t.floatVal;
                 case STRING: return t.text;
 
@@ -657,13 +646,13 @@ public class ExpressionEngine {
     private static Object indexValue(Object container, Object idx) {
         if (container == null) return null;
         if (container instanceof List<?> list) {
-            int i = (int) toLong(idx);
+            int i = Math.toIntExact(toLong(idx));
             if (i < 0) i = list.size() + i;
             if (i < 0 || i >= list.size()) return null;
             return list.get(i);
         }
         if (container instanceof String s) {
-            int i = (int) toLong(idx);
+            int i = Math.toIntExact(toLong(idx));
             if (i < 0) i = s.length() + i;
             if (i < 0 || i >= s.length()) return "";
             return String.valueOf(s.charAt(i));
@@ -673,19 +662,20 @@ public class ExpressionEngine {
 
     public static Object addValues(Object a, Object b) {
         if (a instanceof List<?> la && b instanceof List<?> lb) {
+            ValueLimits140.listSize((long)la.size()+lb.size());
             List<Object> merged = new ArrayList<>(la.size() + lb.size());
             merged.addAll(la);
             merged.addAll(lb);
             return merged;
         }
         if (a instanceof String || b instanceof String) {
-            return stringify(a) + stringify(b);
+            String left=stringify(a),right=stringify(b);ValueLimits140.textSize((long)left.length()+right.length());return left+right;
         }
         if (a == null) return b;
         if (b == null) return a;
         if (a instanceof Long la && b instanceof Long lb) return la + lb;
         if (a instanceof Number na && b instanceof Number nb) {
-            if (a instanceof Double || b instanceof Double) {
+            if (a instanceof Double || b instanceof Double || a instanceof Float || b instanceof Float) {
                 return na.doubleValue() + nb.doubleValue();
             }
             return na.longValue() + nb.longValue();
@@ -696,7 +686,7 @@ public class ExpressionEngine {
     public static Object subValues(Object a, Object b) {
         if (a instanceof Long la && b instanceof Long lb) return la - lb;
         if (a instanceof Number na && b instanceof Number nb) {
-            if (a instanceof Double || b instanceof Double) {
+            if (a instanceof Double || b instanceof Double || a instanceof Float || b instanceof Float) {
                 return na.doubleValue() - nb.doubleValue();
             }
             return na.longValue() - nb.longValue();
@@ -707,7 +697,7 @@ public class ExpressionEngine {
     public static Object mulValues(Object a, Object b) {
         if (a instanceof Long la && b instanceof Long lb) return la * lb;
         if (a instanceof Number na && b instanceof Number nb) {
-            if (a instanceof Double || b instanceof Double) {
+            if (a instanceof Double || b instanceof Double || a instanceof Float || b instanceof Float) {
                 return na.doubleValue() * nb.doubleValue();
             }
             return na.longValue() * nb.longValue();
@@ -720,7 +710,7 @@ public class ExpressionEngine {
             return lb == 0 ? 0L : la / lb;
         }
         if (a instanceof Number na && b instanceof Number nb) {
-            if (a instanceof Double || b instanceof Double) {
+            if (a instanceof Double || b instanceof Double || a instanceof Float || b instanceof Float) {
                 double d = nb.doubleValue();
                 return d == 0 ? 0.0 : na.doubleValue() / d;
             }
@@ -736,7 +726,7 @@ public class ExpressionEngine {
             return lb == 0 ? 0L : la % lb;
         }
         if (a instanceof Number na && b instanceof Number nb) {
-            if (a instanceof Double || b instanceof Double) {
+            if (a instanceof Double || b instanceof Double || a instanceof Float || b instanceof Float) {
                 double d = nb.doubleValue();
                 return d == 0 ? 0.0 : na.doubleValue() % d;
             }

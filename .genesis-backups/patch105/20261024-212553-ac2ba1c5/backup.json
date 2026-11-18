@@ -1,0 +1,138 @@
+{
+  "patch": 105,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "39024d675a4e1c20dcd25a560ec4d1cb45adbc164d267d42f7bbac8ff5679393",
+      "after": "69b810fbbab0122c445249a216fcedd139e52fa2e6a75c004eb96cdbf54c38f7"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/ServerAdmin75.java",
+      "existed": true,
+      "before": "d991bcda61d08342971fdb8405fc14929ea02d9fc172eec8f4696f1699b8d5b1",
+      "after": "d90636f4394ddee2491c8e3e3b66d3bc70b2af567ea7692a5a764d21570c3bd8"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/DedicatedPanelService75.java",
+      "existed": true,
+      "before": "ccbe313d3a4b3d98ce41bef90bbf02644bde6a8a25f4b420af16cfa4693ad13e",
+      "after": "316ae6417a8bbfdc909c62a599186f3995051768c526fa9c55e15bb7b8836a56"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InPlaceAdvanced104.java",
+      "existed": true,
+      "before": "711f4ca59fb9bd29ecb7694eedf9666b6d05128aa33f7c5b8ef33fd2e6ec22d3",
+      "after": "fd390f10fa2db30a4c5c0c6a53811c969fb02d1fa9f09effaca4cdad859eaf31"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InPlaceServerScreen104.java",
+      "existed": true,
+      "before": "4dd9cb6ddd3d6dd607e266f79cc66f91c18fbc67890cf71d4d613a9d97ba8220",
+      "after": "ce27dab13a2a8deede86f1e3e4e3c1055e193fd062578d100a002e5e63908df3"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InPlaceServerService104.java",
+      "existed": true,
+      "before": "19f76d766cb931069c5541821fbabdd6fa0d0006010168e8d80af76aa81347cb",
+      "after": "7ee8f6909903d92447fe3fadfa78163bc4599f696a8bf1e0fa7c515d43b97a2e"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "a46bbe7fdc191bbf1e89970e3ab6e83e9e65e3fdc7222b3edfc363064c045f91",
+      "after": "5bb1ac98b5fe3904437c633269ab1e80da91f98f7727df241004f4f03c16d173"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "8621c877caf0116629f39e4c8b448ffbabe6f022a0223993c7581084db089f91",
+      "after": "20a8b6150c2625aaf86d0b8079702034b480f8ae8a27c015a49343af77782cf7"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "b36e72c2f48520a313ccd0b2d95e99bf9e26404cf5d29de253ce7572695d060e",
+      "after": "71c53a272003432c73a7fb1546db7d318d1ae173fe709c5ff960930347a869cd"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerUiChecks105.java",
+      "existed": false,
+      "before": null,
+      "after": "8744ff2d28897c3190aa98bf9439379cf98f464d7851650d0ba5f29c1d276d9c"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerApp104.java",
+      "existed": true,
+      "before": "3ba043aafc61e7ca2815ad0af7419b7becf4a7ab740d928ab8931e823b222afc",
+      "after": "5c4dad442ada2e22a8ee2fdc31219c71a9c05a5fcbdaf0fa4597505635e13c7a"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerArtifact105.java",
+      "existed": false,
+      "before": null,
+      "after": "d124d75532b68cd3059a7331d43bc685e13353eab84e06f3279873bbc43c0ea7"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerDiagnostics105.java",
+      "existed": false,
+      "before": null,
+      "after": "b3475ec3ac0201680b2e0b4be6879792f031aed7deaa3292c1a879254b28a0b0"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerHost105.java",
+      "existed": false,
+      "before": null,
+      "after": "5b3240a87002111baed73a66bc4c1600a9e0c7007408dcb755a9b09e98569beb"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerLauncher104.java",
+      "existed": true,
+      "before": "36c39915acb423db6930387f1174214c0d45d961bab0d5ee5ab873b3c3127cfb",
+      "after": "4f80ea2e8eb204ff2ce437e771b8712a1373c9124d331282867b7867395910ad"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerLocal105.java",
+      "existed": false,
+      "before": null,
+      "after": "b4862904408875e5ed88d9937bcf4d9793fb615b5ef12e01538c400e330ac4e2"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerReplies105.java",
+      "existed": false,
+      "before": null,
+      "after": "46132778800cad2d08e1a76efde12f0b80c9c7638b6f77831f06d9e2d8ca2160"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerView105.java",
+      "existed": false,
+      "before": null,
+      "after": "2d291c5c6c6c1b8031525669aa8106061fc4836fac27ac06c7fd76b6f9859688"
+    },
+    {
+      "path": "tools/first58/changes104.py",
+      "existed": true,
+      "before": "69b84e0727f1323afea693516b965c885251fd4a588acaca9ba4b19a3f6d8781",
+      "after": "0537fdb6b9b6084165adbb01c77bd01aa78ebe4e484ca8b8dd8300aea1a63463"
+    },
+    {
+      "path": "tools/first58/inplace104.py",
+      "existed": true,
+      "before": "080d65ea782b713deabbd09d1c3b3859b6a7547ed8be214c3f787d24b77ce984",
+      "after": "69f415626e56d708705886c0adffc07ee2488674f4ec938b8bb11c9fbf6127c6"
+    },
+    {
+      "path": "tools/server104.py",
+      "existed": true,
+      "before": "d3d8ea2f638b30e9510e0cdf32a265aedce93235277b769182329af3c754a96c",
+      "after": "bbd46576945db15fa777a71620ffdbf63b7fcffad5ecc3c7c76a7c7006e272fc"
+    },
+    {
+      "path": "verification/server59/test_server_ui105.py",
+      "existed": false,
+      "before": null,
+      "after": "7a91ca6385d05cf3b0dd94dbce0e1c7f1b38e19f568fd95641b2adeefca21b4b"
+    }
+  ]
+}

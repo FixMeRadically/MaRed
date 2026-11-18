@@ -81,14 +81,14 @@ public class MaredList extends MaredPanel implements NarratableComponent {
     @Override
     public void mouseMoved(double mouseX, double mouseY) {
         if (!bounds.contains(mouseX, mouseY)) { hoveredIndex = -1; return; }
-        int idx = (int) ((mouseY - bounds.y() - PAD_TOP) / ROW_H);
+        int idx = (int)Math.floor((mouseY-bounds.y()-PAD_TOP)/ROW_H);
         hoveredIndex = (idx < 0 || idx >= items.size()) ? -1 : idx;
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!bounds.contains(mouseX, mouseY)) return false;
-        int idx = (int) ((mouseY - bounds.y() - PAD_TOP) / ROW_H);
+        int idx = (int)Math.floor((mouseY-bounds.y()-PAD_TOP)/ROW_H);
         if (idx < 0 || idx >= items.size()) return false;
         select(idx);
         return true;

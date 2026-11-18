@@ -1,0 +1,96 @@
+{
+  "patch": 96,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "db03c9372d30e771b6b964e0ff8af150feb7513d658c7e139deb578e41e580de",
+      "after": "c77b944b7637783a9d9d00dc9998696e9b6ec5c3bd1b9e356849ab4ed0ce580c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/GameSession.java",
+      "existed": true,
+      "before": "c2d85f12a470007b02f80cd379af90db047cb8edd050f0e552ec69b8624ebc3c",
+      "after": "c58c10c8ae51bda6e47cf31ab90d4fcdc421e328800b52ad81f9886a0966dc2a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/GameSessionClient.java",
+      "existed": true,
+      "before": "7b882d11138df26823bc1607307dcd1d32a5346b4a1153899e7591f6c93ef350",
+      "after": "cd3564e0fcb1f5eba2a227fa28a193951f889b5a8510883e726a868dec8c4bf9"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/Handoff96.java",
+      "existed": false,
+      "before": null,
+      "after": "3affb4b893fef8d79fa7bf0791c169833f8ec3453cb0559214e41b06db17d870"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RestartAttempt95.java",
+      "existed": true,
+      "before": "a4afb86003b1dc46e31c21311116b60a389fab273c9976036b9412045fe1b9f3",
+      "after": "5a8a86e0a81d0feffbc24db884877105d6e3c87519dff9389e3d94812efdd98e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/Supervisor.java",
+      "existed": true,
+      "before": "a1368fb09e1d9064dd48e7055597d8488dd733327f5d48663379229de2a04e45",
+      "after": "b761a8aa4a3673ebd8bb42af24921bd3eb8a21c7d0953dfbcb2144b6f78734d4"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/README.md",
+      "existed": true,
+      "before": "b50155b9b1fe49800ff6624097e6b7e98ea046744e3da9111e9ea2b3db86bcba",
+      "after": "59963a6e7facfc440d18c90a93e2d39b514fc0fb8e55b5d5fb92be303410f15a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevActivationService.java",
+      "existed": true,
+      "before": "009f35fb5087ed3d00ef6abb6f3dcc7597db8c4ab934d387d852989c119cea63",
+      "after": "9ec31561b638fa2703c5e31208cc30784889e0299136e14b6f0753fee8260528"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevIntegratedRestart90.java",
+      "existed": true,
+      "before": "0937783851f223b251affc9a8c7869c44c58ca431008ace615d7c93240ef4987",
+      "after": "31f877f5cf5cfaf026d85a0d29e5114d3690783850111aa60a82c3507aafa8bd"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/IntegratedWorld90.java",
+      "existed": true,
+      "before": "836742addf4cb1ca24e725d7eb57c54a85af2c6201e57b17df7797f6ae182047",
+      "after": "e639e639ba579f0363fce3c0ca27889a759750bc0c1d14fd8eec3cb61c937bda"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/HandoffChecks96.java",
+      "existed": false,
+      "before": null,
+      "after": "f6f12a99c9d23b266515ccfb7316fc99e33d0f0ae878a43ff667bb7a352ec8c8"
+    },
+    {
+      "path": "tools/handoff_last96.py",
+      "existed": false,
+      "before": null,
+      "after": "18fadafeeb47a3526660fcde0181f68f5cdc2572e499d5fb81645af6069588f0"
+    },
+    {
+      "path": "verification/server59/HandoffProcessFixture96.java",
+      "existed": false,
+      "before": null,
+      "after": "5777f34aa93caff104cc40981dd87d598175599159fd845247e8d8f814318b1e"
+    },
+    {
+      "path": "verification/server59/handoff_process96.py",
+      "existed": false,
+      "before": null,
+      "after": "229c032665f7ddd6d40abc4f12b60b86874faf97ea354793b1ea1ee3601ac7a6"
+    },
+    {
+      "path": "verification/server59/test_handoff96.py",
+      "existed": false,
+      "before": null,
+      "after": "6b5a99c661b30219082d94fb8db4d357fbcaa955c70cafebcbf92f052821fba3"
+    }
+  ]
+}

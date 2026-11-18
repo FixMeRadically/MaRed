@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,8 +15,12 @@ import java.util.TreeMap;
 final class SupervisorConfig {
 
     private Path gameDir;
+    private String configSha94;
+    String configSha94(){return configSha94;}
     Path gameDir() { return gameDir; }
     private int startupTimeoutMs,sessionLeaseMs;
+    private int trialStartupTimeout101=120000;
+    int trialStartupTimeout101(){return trialStartupTimeout101;}
     int startupTimeoutMs(){return startupTimeoutMs;}
     int sessionLeaseMs(){return sessionLeaseMs;}
     private boolean restartUi;
@@ -80,10 +85,11 @@ final class SupervisorConfig {
             throw new IOException("SupervisorConfig file does not exist: " + propsPath);
         }
 
-        Properties props = new Properties();
-        try (Reader in = Files.newBufferedReader(propsPath, StandardCharsets.UTF_8)) {
-            props.load(in);
-        }
+        RuntimeFiles.safe(propsPath);
+        byte[] configBytes94;
+        try(var input=Files.newInputStream(propsPath,LinkOption.NOFOLLOW_LINKS)){configBytes94=input.readNBytes(65537);}
+        if(configBytes94.length>65536)throw new IOException("Supervisor config exceeds 64KiB");
+        Properties props=RecoveryConnection92.parse(StandardCharsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(configBytes94)).toString());
 
         Path baseDir = propsPath.getParent() != null
                 ? propsPath.getParent()
@@ -114,9 +120,11 @@ final class SupervisorConfig {
 
         SupervisorConfig result = new SupervisorConfig(propsPath, workDir, command, port,
             graceful, restart, delay, logFile);
+        result.configSha94=ColdOwner94.sha(configBytes94);
         result.gameDir = resolve(baseDir, props.getProperty("gameDir", workDir.toString()));
         if (!Files.isDirectory(result.gameDir)) throw new IOException("gameDir is not a directory");
         result.startupTimeoutMs=parseInt(props,"session.startupTimeoutMs",900_000,500,3_600_000);
+        result.trialStartupTimeout101=parseInt(props,"trial.startupTimeoutMs",120000,1000,900000);
         result.sessionLeaseMs=parseInt(props,"session.leaseTimeoutMs",120_000,2000,600_000);
         result.restartUi=Boolean.parseBoolean(props.getProperty("restartUi.enabled","true"));
         result.reducedMotion=Boolean.parseBoolean(props.getProperty("restartUi.reducedMotion","false"));
@@ -126,13 +134,18 @@ final class SupervisorConfig {
         result.warmCacheBytes=(long)parseInt(props,"warmCache.maxMiB",128,1,1024)*1024*1024;
         result.cdsMode=props.getProperty("cds.mode","default").trim();
         if(!java.util.Set.of("off","default","dynamic").contains(result.cdsMode))throw new IOException("cds.mode must be off, default or dynamic");
-        result.token = props.getProperty("controlToken", "").trim();
+        result.token = controlToken(props);
         result.instanceId = props.getProperty("instanceId", "manual").trim();
-        if (result.token.length() < 32) throw new IOException("controlToken must contain at least 32 characters");
         return result;
     }
 
-    private static Path resolve(Path baseDir, String value) {
+    static String controlToken(Properties props)throws IOException {
+        String token=props.getProperty("controlToken", "").trim();
+        if(token.length()<32||token.length()>512||token.chars().anyMatch(c->c<33||c>126))
+            throw new IOException("controlToken must contain 32..512 printable ASCII characters without spaces");
+        return token;
+    }
+    static Path resolve(Path baseDir, String value) {
         Path p = Path.of(stripQuotes(value));
         return (p.isAbsolute() ? p : baseDir.resolve(p)).normalize();
     }
@@ -227,7 +240,7 @@ final class SupervisorConfig {
         return out;
     }
 
-    private static int parseInt(Properties p, String key, int def, int min, int max)
+    static int parseInt(Properties p, String key, int def, int min, int max)
             throws IOException {
         String v = p.getProperty(key);
         if (v == null || v.isBlank()) return def;

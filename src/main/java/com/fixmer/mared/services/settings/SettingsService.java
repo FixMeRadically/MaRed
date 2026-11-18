@@ -58,6 +58,7 @@ public final class SettingsService {
         if (path == null || !Files.exists(path)) return;
 
         try {
+            if(Files.size(path)>1024*1024)throw new IOException("Settings file exceeds 1 MiB");
             String json = Files.readString(path, StandardCharsets.UTF_8);
             JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
 
@@ -268,19 +269,7 @@ public final class SettingsService {
         }
     }
 
-    private static void writeAtomic(Path target, String content) throws IOException {
-        Path parent = target.getParent();
-        if (parent != null && !Files.exists(parent)) {
-            Files.createDirectories(parent);
-        }
-        Path tmp = target.resolveSibling(target.getFileName() + ".tmp");
-        Files.writeString(tmp, content, StandardCharsets.UTF_8);
-        try {
-            Files.move(tmp, target,
-                StandardCopyOption.REPLACE_EXISTING,
-                StandardCopyOption.ATOMIC_MOVE);
-        } catch (IOException e) {
-            Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
-        }
+    private static void writeAtomic(Path target,String content)throws IOException{
+        com.fixmer.genesis.technology.storage.AtomicSettings111.write(target,content);
     }
 }

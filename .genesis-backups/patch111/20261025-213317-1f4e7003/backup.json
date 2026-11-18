@@ -1,0 +1,108 @@
+{
+  "patch": 111,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "ef91273b51fd6e256014a00c14c812dd001b55417dad308ffb829c4d4af00af8",
+      "after": "b4ad3c40dd50a7d7a4ca83abdb1ff08fddc8532ebdff075a75eb6755884cd15b"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/framework/components/editor/Edit.java",
+      "existed": true,
+      "before": "def541a7343e114b35c55eb90642bd344c2dd6ed11fb01e3d5fa61ef5a956777",
+      "after": "51c452f75f35303b7b3f0c097adff46c854ee0287b05d6c36651b0dfc6e611ec"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/framework/components/editor/EditorController.java",
+      "existed": true,
+      "before": "7ab84409098f8fbf4823a663295e0daaef6166cd2d979014eeb62e7fe67d56f4",
+      "after": "fca71c842940a3270ae01442bf16ad8a357c280759007e62b011fea79c85251c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/framework/components/editor/EditorDocument.java",
+      "existed": true,
+      "before": "97d04c7e441a87d88b92b95d084c3b4feec4f9f5c546fc4c1684c3d7780775c9",
+      "after": "3ede1e975962f6f551796b0d365e6f7c1caa15980f37576a11b76525ce196c5a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/studio/action/EditorAction.java",
+      "existed": true,
+      "before": "aedbc66e8c7a25ebc4c82216414598b4bd103ce00fd284b882b0d77bb9c8de4d",
+      "after": "406e3caa78b1537ae9bad5d248c011b4c5b700940ccc5642b87cd64ac07f6a53"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/studio/action/EditorActionRegistry.java",
+      "existed": true,
+      "before": "0a1006509f845ed1b8110d883e5de4cf46efe91cd659b5a493a090336256da40",
+      "after": "abc00a2c4cb5380e80b5883765ef990c072dec596c21783162cb4fa41129ca90"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/studio/action/Shortcut.java",
+      "existed": true,
+      "before": "41fdb2d02be0f6751624fca9c035e8fdeedbdf0842a2ecd3f421e64a99b8f6cd",
+      "after": "5e4c983a6d0aeaa55dfedfad358d91b62f3a72a6a322485bbd339899a3870fbe"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/studio/action/StudioActions.java",
+      "existed": true,
+      "before": "850324f78aaa4810b3a20425ba358aad30fb11463ba3df82b5037a333f5364c1",
+      "after": "be6d1a32659fea21a5cb56c64981d6687cc1af543f3f1549dc943ee2948c17f0"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/services/settings/SettingsService.java",
+      "existed": true,
+      "before": "696fbacdd57cdf0b344cee02cec59441cb3735ae127bd2c0bba2ca6d7bc1ee6f",
+      "after": "a162bc88859d23f02ec82ee661f80b49deae86e85a53bcc2f75b14da81c480b0"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/services/threading/AsyncTaskScheduler.java",
+      "existed": true,
+      "before": "3dbcdfcd657b4b10fc9b99637ba47455ae4477b5b53eaa27965085140f415d67",
+      "after": "60db95b4cce8b2c31fc04fdd96d08720c26184460ba49fa0fe0c10b0848f41cd"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/services/threading/TaskHandle.java",
+      "existed": true,
+      "before": "f3626fbe2dddb881e6f054d102997ee39f24241769dbc3c4284f45b2d5886f1d",
+      "after": "66a4b03a3501e9e81464213dbc0a456697e0ad1a52a71759cac17b02c3ccfb7a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/editor/EditorWorkbench.java",
+      "existed": true,
+      "before": "8b7eb1921d2f24490caa43a0512575b90c983e50034f1046b8659d36fd5fee2f",
+      "after": "8220e859272eee6b0be4f3b6fba1118ea42c05245aeef750d0eeb782cd9605fa"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/scripts/ScriptSearchOverlay.java",
+      "existed": true,
+      "before": "20d5effbb49894c280eff687d003c5d55a14edd365be61510cdb3d4e474220af",
+      "after": "4be6c333384b6614e4af2a8868988a088ff6a671145dd933a811ea757d4ef603"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/AuditCoreChecks111.java",
+      "existed": false,
+      "before": null,
+      "after": "e40af15854e92a7d02fac73b8aea89af6ecf1bdd0f1d8fc396abe220f2048c74"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/AuditEditorChecks111.java",
+      "existed": false,
+      "before": null,
+      "after": "288bdadbb6c03f86986589ca45df58d0f9440516a44a6b1813ac587712718653"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/concurrent/ManagedTaskQueue111.java",
+      "existed": false,
+      "before": null,
+      "after": "feca161d49e183777582bc1a7664cc5b19f1ec95d7bb75ec18132b5133db5131"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/storage/AtomicSettings111.java",
+      "existed": false,
+      "before": null,
+      "after": "c51d0e77c0a448546183e85bed59c25e8d74061232bbd50b45ff45a8c10cb3c4"
+    }
+  ]
+}

@@ -1,0 +1,174 @@
+{
+  "patch": 69,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "042568c04ad4e01abc900233976a41f030fb8d875f4042019b251318dd88554e",
+      "after": "fa3de789f230ba1cfef77e5e9fd753c8e52903b8640c76b050b72dd762e7f527"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/RemoteClient70.java",
+      "existed": true,
+      "before": "185e44b7c786f5e9391972d894bff15199274ddf97c179f698130f739ac800b5",
+      "after": "41cba5648c93cc870837b2c4e8960e7cd5235dcad430c31c73f5c684c99b89ef"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/RemoteConsentServer72.java",
+      "existed": true,
+      "before": "68b213e6c46402954493a1950fed17e54f820c45aed5785a2b4fdff82a242cde",
+      "after": "48f368a82aded86ae1f878645aa7f9b449faf5d734edd5e7208ee85aa9d674a0"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/RemoteControlPayloads73.java",
+      "existed": false,
+      "before": null,
+      "after": "102a2b73048bd04ca37931bae1a8c09d16517d0a335050deafc166e8ccb6b69a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/RemoteControlServer73.java",
+      "existed": false,
+      "before": null,
+      "after": "99d5fd2ff9a7dfc3d3c68eb35fd8da53c63fa7610528d11be77e041e8e53580a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/client/RemoteConsentClient72.java",
+      "existed": true,
+      "before": "1a369efc52c84337d3be3e0047c644a06c3567674da4ee9d9778cc9c7602fd13",
+      "after": "3b3b44fcb0b0e6e9acc258643621004257ffa6edcae9e46e70a59b42c908dc29"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/client/RemoteFlow73.java",
+      "existed": false,
+      "before": null,
+      "after": "e8112f9cf221aacf65ff1b231b59fe4b18cedb6f115483194be55e4a8b4b8d89"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ManagedRemote71.java",
+      "existed": true,
+      "before": "47eed80d8bc58f1756e6a8b74e68d85ea8a8e21ea3780fa6219be71c5ea28124",
+      "after": "b6b10b5d8f9aaa23d2aaa5c7381dbb8bde75db71a5970f33d9c6dfb532cbc274"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RemoteApplyService70.java",
+      "existed": true,
+      "before": "028dfe7d9bfa9b6c76f70f946d44ca4bbe8517c570182b426929bc99553bb337",
+      "after": "336ff5adc7edbf9c982c72302f76bc2f6ed8f25add74e663488dbf4424030532"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "5ddb0dfabef9b1b4bd7a3e55a504a4a6e3e3014620c1d5db34cb7db8d2d0e3f2",
+      "after": "4d046e4e72b0bf989cacb1b3bd677a98a9842bfbdfceb9f437ba50ac1082b20f"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "3c3a99ac14b39628f0ff274506c0dbdf7fe19b49972f9d851149f3e74d485b41",
+      "after": "bed18bb62eca1ca39a2c7e725b7dc43eb0883807c0c2dbe399c540b20993a458"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/RemoteControlChecks73.java",
+      "existed": false,
+      "before": null,
+      "after": "c501e2dc47849c3697e15df16dc6d94e9282670c7d4af5271e7b255c5cc5730a"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "aaa9222d9190a25009a1b988d772b617fea9ccaa63b8be38202b7c3fac66e8f2",
+      "after": "7b5abbc9d3f8e37c8c557383c566a5d8a94f2ea0b789f524b4044f1a01dcd448"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ControlHttp73.java",
+      "existed": false,
+      "before": null,
+      "after": "1d0cf81f84874ab9324c7549694564cadb3ec23ee6cd39547347ac7231e516a5"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ControlRoom73.java",
+      "existed": false,
+      "before": null,
+      "after": "c3c60ccb7a2d10bfb09766e2742c1a80886b7f8c5aa1781292386d28ab787f6d"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ControlSetup73.java",
+      "existed": false,
+      "before": null,
+      "after": "52d7575865f9e50db99ce81d1021934c6a1379193ea3cfaaa66a11e28b2f1d6c"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ControlWire73.java",
+      "existed": false,
+      "before": null,
+      "after": "528f0b810ab9e48c8713fdc35fab0ca6f92de7164266e77b0ff9eb73e93bfb91"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteConsent72.java",
+      "existed": true,
+      "before": "ea14b652f93e770e0294f114f5a87445fde94e0b8431a4fe9e477c7665547e3d",
+      "after": "2c2f6e315db74c0532f1f5fe6b85d0e062413a750bdc7c231b2148c724f13472"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteRepeat71.java",
+      "existed": true,
+      "before": "6c06870d0656c58fc1adfffbb5590afa3ddc4fe3beac1b113f3f05378f449131",
+      "after": "d081268b1f16ac861aa0df80f45150933283fc61e5f30a1d449b0b92f37d9b9d"
+    },
+    {
+      "path": "tools/control_setup73.py",
+      "existed": false,
+      "before": null,
+      "after": "ace9be0115c1a681b41c09692a2099457e53526c14e9d72a971015b46f730d75"
+    },
+    {
+      "path": "tools/first58/control73.py",
+      "existed": false,
+      "before": null,
+      "after": "5f34cda0d47ea303219f53e2136c5cd35111d7bcd18f7bd3816699a405049acf"
+    },
+    {
+      "path": "tools/first58/https_control73.py",
+      "existed": false,
+      "before": null,
+      "after": "1572e380862e3a16ec2acfc7255dea82c6b16f802be2ca52337f164d30ddbb8d"
+    },
+    {
+      "path": "tools/first58/remote70.py",
+      "existed": true,
+      "before": "14809fab51e6218c8ac10f33c6f04127fcd55a3c85edd61418177ae5a6be61c7",
+      "after": "7820c80446dda296bdd6681d9d5b8de365f1df47f48734e78e08311c7ff31ead"
+    },
+    {
+      "path": "tools/first58/repeat71.py",
+      "existed": true,
+      "before": "5c322c6c46baea523d9aa8d9587400fa85dcb224385089edb413ecf3300bf897",
+      "after": "8216b9e418795771b5125d9d74721aea7f60241f87c1e40687bb286b47c052f8"
+    },
+    {
+      "path": "tools/remote_update.py",
+      "existed": true,
+      "before": "e4b7259ec5272591892ea968bac57644a56d9f4578bd74269248f0dc690cbdbf",
+      "after": "55cbb91e3e650780e377b81e68d9dd799ea6b8f94d34d1e1f58ddf57e4f852bd"
+    },
+    {
+      "path": "verification/server59/remote_control_checks73.py",
+      "existed": false,
+      "before": null,
+      "after": "c77a91cf6006ac69930fcdd4629ec4f1e1e1a5d2b0bb0a46c6a2988ac5d0fb37"
+    },
+    {
+      "path": "verification/server59/remote_https_checks69.py",
+      "existed": true,
+      "before": "7f4af5412a790547d866461b4515aae0512a0a14ae137dd4a13029fd174d5d01",
+      "after": "69313093b45e6f510450fc6b4761e3730db01aa535e9f438c318d6976b3035b8"
+    },
+    {
+      "path": "verification/server59/test_remote_control73.py",
+      "existed": false,
+      "before": null,
+      "after": "a4fe202d386c1030495c3141eadb62358eb518cb6bf7e66d74aca25812be808b"
+    }
+  ]
+}

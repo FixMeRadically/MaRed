@@ -27,7 +27,7 @@ public final class EditorActionRegistry {
 
         Shortcut newSc = action.parsedShortcut();
         if (newSc != null) {
-            EditorAction conflict = findActionByShortcut(newSc, action.id());
+            EditorAction conflict = findActionByShortcut(newSc, action);
             if (conflict != null) {
                 Mared.LOGGER.warn(
                     "[action] shortcut conflict: '{}' uses '{}' which is "
@@ -113,10 +113,10 @@ public final class EditorActionRegistry {
     //  Conflicts
     // ============================================================
 
-    private EditorAction findActionByShortcut(Shortcut sc, String exceptId) {
+    private EditorAction findActionByShortcut(Shortcut sc, EditorAction registering) {
         if (sc == null) return null;
         for (EditorAction a : actions.values()) {
-            if (a.id().equals(exceptId)) continue;
+            if (a.id().equals(registering.id()) || !a.overlaps(registering)) continue;
             Shortcut other = a.parsedShortcut();
             if (other == null) continue;
             if (other.keyCode == sc.keyCode
@@ -136,6 +136,7 @@ public final class EditorActionRegistry {
             Shortcut scI = list.get(i).parsedShortcut();
             if (scI == null) continue;
             for (int j = i + 1; j < n; j++) {
+                if (!list.get(i).overlaps(list.get(j))) continue;
                 Shortcut scJ = list.get(j).parsedShortcut();
                 if (scJ == null) continue;
                 if (scI.keyCode == scJ.keyCode

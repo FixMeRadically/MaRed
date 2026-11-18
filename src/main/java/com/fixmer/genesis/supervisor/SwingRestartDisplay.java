@@ -43,11 +43,24 @@ final class SwingRestartDisplay implements RestartPresentation.Display {
         GraphicsConfiguration target=selectMonitor(surface);
         Rectangle bounds=surface==null||surface.fullscreen()?target.getBounds():windowBounds(surface,target);
         window.setBounds(bounds);
-        int w=surface==null?Math.max(320,bounds.width/3):surface.guiWidth(),h=surface==null?Math.max(180,bounds.height/3):surface.guiHeight();
-        raster=new BufferedImage(w,h,BufferedImage.TYPE_INT_RGB);font=PixelText.load(game);
+        Dimension rasterSize=rasterSize(surface,bounds);
+        raster=new BufferedImage(rasterSize.width,rasterSize.height,BufferedImage.TYPE_INT_RGB);font=PixelText.load(game);
         try{window.setAlwaysOnTop(true);}catch(RuntimeException ignored) { }
         window.setVisible(true);cover.show(surface);lastPulse=0;pulse();timer.start();
     });}
+    /** Bound the backing bitmap to 16 MiB; ordinary GUI sizes retain their exact dimensions. */
+    static Dimension rasterSize(RestartSurface surface,Rectangle bounds){
+        int width=surface==null?Math.max(320,bounds.width/3):surface.guiWidth();
+        int height=surface==null?Math.max(180,bounds.height/3):surface.guiHeight();
+        final int maxPixels=4*1024*1024;
+        long pixels=(long)width*height;
+        if(pixels>maxPixels){
+            double scale=Math.sqrt(maxPixels/(double)pixels);
+            width=Math.max(1,(int)Math.floor(width*scale));height=Math.max(1,(int)Math.floor(height*scale));
+            height=Math.min(height,Math.max(1,maxPixels/width));
+        }
+        return new Dimension(width,height);
+    }
     static GraphicsConfiguration selectMonitor(RestartSurface surface){
         GraphicsConfiguration best=GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
         if(surface==null)return best;long area=-1;

@@ -1,0 +1,339 @@
+{
+  "schema": 119,
+  "scope": "CONNECTED_PATHS_WITH_SCOPED_FIXTURE_EVIDENCE",
+  "all_existing_integration_complete": false,
+  "new_features_paused": true,
+  "items": [
+    {
+      "id": "script_editor",
+      "state": "connected_unverified",
+      "entry": "Script: вкладки/панели/подсветка/поиск",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/scripts/ScriptProjectEditor.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "project_import_neoforge_sdk",
+      "state": "connected_unverified",
+      "entry": "Script: создать/импортировать",
+      "evidence": [
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/scripts/NeoForgeProjectTemplate.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "gradle_build_diagnostics",
+      "state": "connected_unverified",
+      "entry": "Script: сборка/задачи/диагностика",
+      "evidence": [
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/scripts/GradleBuildRunner.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "local_java_world_modules",
+      "state": "connected_unverified",
+      "entry": "Script: применить локальный модуль",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/server/LocalScriptServerBridge.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "singleplayer_full_mod_sets99",
+      "state": "connected_unverified",
+      "entry": "Script: весь набор/удалить управляемый мод",
+      "evidence": [
+        "src/main/java/com/fixmer/genesis/supervisor/ModSet99.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "script_primary_dedicated",
+      "state": "connected_unverified",
+      "entry": "Script: Собрать для сервера…",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/server/setup/ServerUpdateScreen115.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "server_folder104",
+      "state": "user_confirmed_limited",
+      "entry": "Сервер: папка/запустить/перезапустить",
+      "evidence": [
+        "tools/first58/inplace104.py"
+      ],
+      "note": "Ранее пользователь подтвердил этот ограниченный цикл; новые изменения116 ещё требуют приёмки."
+    },
+    {
+      "id": "headless_boot106",
+      "state": "connected_unverified",
+      "entry": "Обычный запуск подготовленного сервера",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/server/firstlaunch/ServerAuto106.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "return108_110",
+      "state": "user_confirmed_limited",
+      "entry": "Перезапуск → Genesis cover → reconnect",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/server/setup/ServerReturnClient108.java"
+      ],
+      "note": "Ранее пользователь подтвердил этот ограниченный цикл; новые изменения116 ещё требуют приёмки."
+    },
+    {
+      "id": "local_jar_rollback101",
+      "state": "user_confirmed_limited",
+      "entry": "Локальный supervisor: ранний откат",
+      "evidence": [
+        "src/main/java/com/fixmer/genesis/supervisor/Supervisor.java"
+      ],
+      "note": "Ранее пользователь подтвердил этот ограниченный цикл; новые изменения116 ещё требуют приёмки."
+    },
+    {
+      "id": "server115_rollback",
+      "state": "connected_unverified",
+      "entry": "Серверный apply: save/stop/trial/rollback",
+      "evidence": [
+        "tools/first58/update115.py",
+        "tools/first58/changes104.py"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "server_mode_routing",
+      "state": "connected_unverified",
+      "entry": "Кнопка Сервер → подходящая панель",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/server/setup/ServerRouteScreen116.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "client_bootstrap_updates",
+      "state": "connected_unverified",
+      "entry": "Продвинутые инструменты → обновление клиента",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/server/setup/BootstrapScreen76.java",
+        "src/main/java/com/fixmer/mared/technology/server/setup/BootstrapHooks76.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "tls_signed_publication",
+      "state": "connected_folder118_unverified_in_game",
+      "entry": "Инструменты → публикация/HTTPS",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/server/setup/PublicationScreen79.java",
+        "src/main/java/com/fixmer/mared/technology/server/setup/HttpsScreen78.java",
+        "tools/first58/folder118.py",
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/FolderRuntime118.java"
+      ],
+      "note": "Connected to Owner104 through FolderRollout118 and authenticated runtime channels. Crypto/archives/control/changes tested with explicit native/game fixtures; real game acceptance pending."
+    },
+    {
+      "id": "script_signed_release84",
+      "state": "connected_folder118_unverified_in_game",
+      "entry": "Script: подписанный выпуск",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/server/setup/ScriptPublicationService84.java",
+        "tools/first58/folder118.py",
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/FolderRuntime118.java"
+      ],
+      "note": "Connected to Owner104 through FolderRollout118 and authenticated runtime channels. Crypto/archives/control/changes tested with explicit native/game fixtures; real game acceptance pending."
+    },
+    {
+      "id": "consent_delivery_25_admission",
+      "state": "connected_folder118_unverified_in_game",
+      "entry": "Поколения75: STAGE/OFFER/COMMIT/участники",
+      "evidence": [
+        "tools/first58/dedicated75.py",
+        "src/main/java/com/fixmer/mared/technology/server/remote/RemoteControlServer73.java",
+        "tools/first58/folder118.py",
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/FolderRuntime118.java"
+      ],
+      "note": "Connected to Owner104 through FolderRollout118 and authenticated runtime channels. Crypto/archives/control/changes tested with explicit native/game fixtures; real game acceptance pending."
+    },
+    {
+      "id": "publication_expiry_recovery",
+      "state": "partial",
+      "entry": "Инструменты → сроки/восстановление",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/server/setup/PublicationHealthScreen80.java",
+        "src/main/java/com/fixmer/mared/technology/server/setup/RecoveryScreen77.java"
+      ],
+      "note": "Folder owner uses bootstrap freshness and explicit pair-bound cold recovery. Automatic renewal85 scheduling remains on generation owner; no claim of a folder scheduling adapter."
+    },
+    {
+      "id": "permissions_maop113",
+      "state": "connected_unverified",
+      "entry": "maop/madeop; инструменты → мои права",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/permissions/MaopServer113.java",
+        "tools/first58/maop113.py"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "shared_workspace112",
+      "state": "connected_unverified",
+      "entry": "Прямой значок Workspace",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/workspace/WorkspaceServer112.java",
+        "src/main/java/com/fixmer/mared/technology/workspace/WorkspaceScreen112.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "restart_history97",
+      "state": "connected_unverified",
+      "entry": "Инструменты → история клиента",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/dev/client/RestartHistoryScreen97.java"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "startup_cache_profile_compat",
+      "state": "connected_unverified",
+      "entry": "Supervisor и startup CLI",
+      "evidence": [
+        "tools/restart_last.py",
+        "tools/startup_profile.py",
+        "tools/startup_compat.py"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "cold_recovery_approval",
+      "state": "partial",
+      "entry": "Локальные recovery wrappers/guards",
+      "evidence": [
+        "src/main/java/com/fixmer/genesis/supervisor/ColdOwner94.java"
+      ],
+      "note": "Background native builds now require immutable reviewed-set confirmation. Server115 and signed publication retain artifact-bound checks. Universal low-level CLI approval and remote client automatic rollback still require completion."
+    },
+    {
+      "id": "replaced_legacy_ui",
+      "state": "retired",
+      "entry": "Панели66/103 заменены104",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/technology/server/setup/ServerPanelScreen66.java",
+        "src/main/java/com/fixmer/mared/technology/server/setup/SimpleServerScreen103.java"
+      ],
+      "note": "Не включать параллельно заменённую модель/пустой экран ради формальной ссылки."
+    },
+    {
+      "id": "placeholder_models",
+      "state": "retired",
+      "entry": "Старые EmptyWorkspace и future retry",
+      "evidence": [
+        "src/main/java/com/fixmer/mared/gui2/workspace/WorkspaceBootstrap.java",
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/server/waiting/ReconnectPlan.java"
+      ],
+      "note": "Не включать параллельно заменённую модель/пустой экран ради формальной ссылки."
+    },
+    {
+      "id": "early_update_kernel35",
+      "state": "retired_from_production",
+      "entry": "UpdateStateCli: demo/status",
+      "evidence": [
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/server/update/UpdateMachine.java",
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/server/update/UpdateJournal.java"
+      ],
+      "note": "Historical model/CLI retained as a diagnostic contract. Owner104 + signed ControlRoom73 + Changes104 are authoritative; never run competing world owners."
+    },
+    {
+      "id": "signed_packages37",
+      "state": "connected_unverified",
+      "entry": "Общие пакеты и install guards",
+      "evidence": [
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/server/packages/PackageArchive.java",
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/server/packages/ProfileCoordinator.java",
+        "tools/first58/install70.py"
+      ],
+      "note": "Код и вход связаны; наличие исходников не доказывает Minecraft/Windows работу."
+    },
+    {
+      "id": "native_process_36_57",
+      "state": "diagnostic_only",
+      "entry": "Старые native/LIVE CLI и стенды",
+      "evidence": [
+        "tools/server_supervisor.py",
+        "tools/server_lifecycle_evidence.py",
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/server/process/ServerProcessGuardian.java"
+      ],
+      "note": "Сохранённые native/waiting контракты и отдельные стенды. Не разрешение на adoption произвольного PID."
+    },
+    {
+      "id": "early_players_waiting",
+      "state": "diagnostic_only",
+      "entry": "Waiting/cohort специальный bridge",
+      "evidence": [
+        "tools/server_waiting.py",
+        "technologies/core/src/main/java/com/fixmer/genesis/technology/server/players/PlayerUpdateMachine.java",
+        "src/main/java/com/fixmer/mared/technology/server/consent/GenesisConsentServer.java"
+      ],
+      "note": "Сохранённые native/waiting контракты и отдельные стенды. Не разрешение на adoption произвольного PID."
+    },
+    {
+      "id": "isolated_pilot58_67",
+      "state": "isolated_stand",
+      "entry": "Первый изолированный пилот",
+      "evidence": [
+        "tools/first_launch.py",
+        "src/main/java/com/fixmer/mared/technology/server/setup/ManagedApplyPanel67.java"
+      ],
+      "note": "Отдельный тестовый сценарий, не простой запуск104 в исходной папке."
+    },
+    {
+      "id": "remote_pre_world_return119",
+      "state": "connected_fixture_verified",
+      "entry": "Remote updater failure/cancel -> old-code menu -> failure101 viewer",
+      "evidence": [
+        "tools/first58/return119.py",
+        "tools/first58/remote70.py",
+        "src/main/java/com/fixmer/mared/technology/server/firstlaunch/RemoteReturn119.java",
+        "verification/server59/return_process119.py"
+      ],
+      "note": "Actual copied profile and child-JVM/HMAC verified. Source/Job and rendered menu are fixtures. No Minecraft or Windows runtime proof."
+    }
+  ],
+  "blocking_connections": [
+    {
+      "id": "B01",
+      "name": "Folder paired rollout acceptance and client return",
+      "remaining": [
+        "Real Windows/Minecraft network acceptance",
+        "Automatic renewal85 scheduler adapter for folder owner",
+        "Signed compatible-server admission after automatic menu-only client return; network silence alone cannot authorize downgrade"
+      ]
+    },
+    {
+      "id": "B02",
+      "name": "Universal approval audit",
+      "remaining": [
+        "Low-level deployment/CLI entry points must share a mandatory persisted approval contract; existing UI and publication paths have scoped immutable review checks"
+      ]
+    },
+    {
+      "id": "B03",
+      "name": "Historical contracts",
+      "state": "explicitly_retired_or_diagnostic",
+      "note": "Legacy UpdateMachine35, player/waiting and native CLI stands are not competing production owners."
+    },
+    {
+      "id": "B04",
+      "name": "Real acceptance",
+      "remaining": [
+        "Windows/JDK21 Gradle build",
+        "Two devices and at least three actual clients",
+        "offline/cancel/revocation/crash/focus/network interruption"
+      ]
+    }
+  ]
+}

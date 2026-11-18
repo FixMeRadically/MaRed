@@ -20,7 +20,8 @@ public class MaredSetCommand extends MaredScriptCommand {
             ctx.setVariable(name, v);
         } catch (Exception e) {
             // fallback: старое поведение — подстановка + запись строки
-            ctx.setVariable(name, ctx.substitute(valueExpr));
+            if(valueExpr.matches("[\\p{L}\\p{N}_ -]+"))ctx.setVariable(name,ctx.substitute(valueExpr));
+            else throw new IllegalArgumentException("set expression failed: "+valueExpr,e);
         }
         return true;
     }

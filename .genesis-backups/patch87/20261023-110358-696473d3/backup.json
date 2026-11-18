@@ -1,0 +1,108 @@
+{
+  "patch": 87,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/BootstrapScreen76.java",
+      "existed": true,
+      "before": "74061dfc3aa1988d21466dc617d04f69275b6c05874f16fcbb8206858b638469",
+      "after": "e5ada8ae62300e1d56ffddfae61922b8b250c98b0470165e77c543016ddfbabc"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/BootstrapService76.java",
+      "existed": true,
+      "before": "045c612c2de6a47dd112fb0c342b51e753b8bb2ea5fceb0708fc7df49db2d9dc",
+      "after": "fdc10067f80f3f80bc22be32270a982a4c062bf5298ed698210a8c81e4fecf33"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InstallPreflight87.java",
+      "existed": false,
+      "before": null,
+      "after": "84ac82927f3510b70bc884d0b1f29b659091ef91041860ba8b4458a52fff718b"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ManagedRemote71.java",
+      "existed": true,
+      "before": "b6b10b5d8f9aaa23d2aaa5c7381dbb8bde75db71a5970f33d9c6dfb532cbc274",
+      "after": "076ba983d334b2a430e46903bf92d882bf83a47bd55a8bd4f4a1874b527ffbf9"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RemoteInstallScreen70.java",
+      "existed": true,
+      "before": "d368eeb9073dbb233b7323d6d89e06d62347b2655f7cb6ddf1799989a2b71e60",
+      "after": "c073c2cb2fddf6eedd4b53e8d59a46017a8ee2710efd7f013398c187abd7654d"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "a6613b8b2b466015c13cfe5df0aa095dff75ce2ae65c3c465cb29209b1bf2630",
+      "after": "9b8cbac43a3ee651daee6212983d6f9c84eebb596cd18ea389567edcec7b4746"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "86c106907c44a6f1f4613db5d5b3c1c746697b82191738bd5950891bbd208858",
+      "after": "1328ae5fd55d55867f82cad87298de3827231d6be39d5d2e55d1f64c72ec935f"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "d1af8457fc7aaadb047b44a598e5aba25d311236e4cf42785a358b8beef04054",
+      "after": "6936e351d5446dc09470595a29472fe70e38e121e4de4bac0adb2414c313cd3d"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteRepeat71.java",
+      "existed": true,
+      "before": "d081268b1f16ac861aa0df80f45150933283fc61e5f30a1d449b0b92f37d9b9d",
+      "after": "bca31c19c47f829bc6cb831804ecfb87fe30af3155cb3f270d8746849bebee14"
+    },
+    {
+      "path": "tools/first58/desktop66.py",
+      "existed": true,
+      "before": "10e9c928274e2bac75726cc05b0df4c0d33486dd59398793dad542e0405da9d4",
+      "after": "11f3a15b79eea3c7164f0fdff7cf0698df59594ef678ea353c010a4cbddbe012"
+    },
+    {
+      "path": "tools/first58/preflight87.py",
+      "existed": false,
+      "before": null,
+      "after": "eb4e1bb44b024a1b2f6bbb450eaf1315ba15f8ab41d5c15abc26b4f2ea480374"
+    },
+    {
+      "path": "tools/first58/remote70.py",
+      "existed": true,
+      "before": "2ad7f29b41d80890abb245ceb1e20f4823b246e82dabf3e07eb7700553c276ff",
+      "after": "eeb6b186f7116260cebe977aba25e8abc90a7a199f4ab33764fd7626066d950d"
+    },
+    {
+      "path": "tools/first58/repeat71.py",
+      "existed": true,
+      "before": "eaf9dc0b8648a7b5fbd9f067de12cf1a4f079a51bda0ecc456d1d1ff82fbc264",
+      "after": "d0f0cd4574d9a5be3362631cc8e5184c9fa6755c69a2be8ef0f3b685a4bcb64b"
+    },
+    {
+      "path": "verification/server59/BootstrapPreparationChecks87.java",
+      "existed": false,
+      "before": null,
+      "after": "2205bdb3c6551ba86b919b375c92d1ae9fce9748ddd9fd8dde9c6c4a04e18505"
+    },
+    {
+      "path": "verification/server59/remote_file_checks70.py",
+      "existed": true,
+      "before": "3513625c994eaf2277061853291db209f39d47f17fc5eda1f369c7a50e8bdc19",
+      "after": "96eb5898f26eb64c626d9c0160af9b5a65e0ddc4f600d348efc963776f03c146"
+    },
+    {
+      "path": "verification/server59/remote_repeat_checks71.py",
+      "existed": true,
+      "before": "a3f7f0fe47d9e160f2320554414a1c45de4adbbc4500356a9c44bf41e21492ac",
+      "after": "467d333fa4fab5a36b6f18db138f64cfeb86b8b06a0c85101ff3df514c183d3e"
+    },
+    {
+      "path": "verification/server59/test_preflight87.py",
+      "existed": false,
+      "before": null,
+      "after": "24d27c8056a674b5d453e6f700b8d1ff28dc6684b1c665a8e9aa091043a22c01"
+    }
+  ]
+}

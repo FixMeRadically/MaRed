@@ -94,18 +94,19 @@ public class MaredForInCommand extends MaredScriptCommand {
                 if (hadVar) {
                     c.setVariable(var, oldVar);
                 } else {
-                    c.setVariable(var, null);
+                    c.removeVariable(var);
                 }
             }
 
+            @Override public void onDiscard(MaredScriptContext c){restoreVar(c);}
             @Override
             public String describe() {
                 return "for $" + var + " in $" + arrayName;
             }
         };
 
-        ctx.setVariable(var, elements[0]);
         exec.pushLoopBody(body, owner);
+        ctx.setVariable(var, elements[0]);
     }
 
     private static Object[] toObjectArray(Object raw) {

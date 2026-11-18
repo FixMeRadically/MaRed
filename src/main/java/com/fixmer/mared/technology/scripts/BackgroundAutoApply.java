@@ -194,6 +194,7 @@ public final class BackgroundAutoApply {
             if(error!=null){
                 Throwable cause=error;while(cause.getCause()!=null)cause=cause.getCause();
                 if(cause instanceof DraftsPresent){status("DRAFTS",tr("background.drafts"));runActive=false;control(s->s.pause(true).note(tr("background.drafts")));}
+                else if(cause instanceof java.util.concurrent.CancellationException){runActive=false;status("PAUSED",tr("review98.cancelled"));persistResult("CANCELLED",tr("review98.cancelled"));}
                 else if(cause instanceof ChangedInputs){runActive=false;WATCH.seed(Path.of(root),settings.hash());status("WATCHING",tr("background.inputs_changed"));}
                 else if(cause instanceof DeclinedClaim declined){settings=declined.state;runActive=false;status("WATCHING","");WATCH.reset();watchSeeded=false;}
                 else fail(message(error));
@@ -220,11 +221,30 @@ public final class BackgroundAutoApply {
         SourceProjects storage=runStorage;String id=runProject,hash=runHash;Path work=directory;
         Map<String,String> versions=NativeModWorkflow.loadedVersions();
         ioBusy=true;status("STAGING",id);
+        var request118=new NativeModWorkflow.Request99(Map.of(id,jars.get(0)),Set.of());
         CompletableFuture.supplyAsync(()->{
+            try{
+                if(!hash.equals(ProjectChangeWatcher.capture(work,stop::get)))throw new ChangedInputs();
+                return NativeModWorkflow.reviewSet99(storage,request118,versions,stop::get);
+            }catch(Exception failed){throw new CompletionException(failed);}
+        },IO).thenCompose(review118->{
+            var approval118=new CompletableFuture<com.fixmer.genesis.supervisor.ModSet99.Review>();
+            Minecraft.getInstance().execute(()->{
+                if(closed||acceptedEpoch!=epoch||stop.get()||!expectedTarget.current()||!EDITORS.isEmpty()){
+                    approval118.completeExceptionally(new java.util.concurrent.CancellationException("Approval expired"));return;
+                }
+                var mc118=Minecraft.getInstance();var previous118=mc118.screen;
+                mc118.setScreen(new net.minecraft.client.gui.screens.ConfirmScreen(yes118->{
+                    mc118.setScreen(previous118);
+                    if(yes118&&acceptedEpoch==epoch&&!stop.get())approval118.complete(review118);
+                    else approval118.completeExceptionally(new java.util.concurrent.CancellationException("Approval declined"));
+                },Component.translatable("mared.folder118.approval_title"),Component.translatable("mared.folder118.approval_body",id)));
+            });return approval118;
+        }).thenApplyAsync(review118->{
             String token=null;
             try {
                 if(!hash.equals(ProjectChangeWatcher.capture(work,stop::get)))throw new ChangedInputs();
-                token=NativeModWorkflow.stage(storage,id,jars.get(0),versions,stop::get);
+                token=NativeModWorkflow.stageSet99(storage,request118,versions,stop::get,review118);
                 if(stop.get()){NativeModWorkflow.cancel(token);throw new IOException("Background staging cancelled");}
                 return token;
             }catch(Exception e){NativeModWorkflow.cancel(token);throw new CompletionException(e);}
@@ -238,7 +258,9 @@ public final class BackgroundAutoApply {
             }
             if(error!=null){
                 Throwable cause=error;while(cause.getCause()!=null)cause=cause.getCause();
-                if(cause instanceof ChangedInputs){runActive=false;status("WATCHING",tr("background.inputs_changed"));persistResult("STALE",tr("background.inputs_changed"));}
+                if(cause instanceof java.util.concurrent.CancellationException){runActive=false;status("PAUSED",tr("review98.cancelled"));persistResult("CANCELLED",tr("review98.cancelled"));}
+                else if(cause instanceof ChangedInputs){runActive=false;status("WATCHING",tr("background.inputs_changed"));persistResult("STALE",tr("background.inputs_changed"));}
+                else if("SET99_NO_CHANGES".equals(cause.getMessage())){runActive=false;status("WATCHING",tr("set99.error.unchanged"));persistResult("BASELINE",tr("set99.error.unchanged"));}
                 else fail(message(error));return;
             }
             staged=token;status("CHECKPOINT",id);

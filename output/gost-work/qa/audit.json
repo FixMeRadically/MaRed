@@ -1,0 +1,42 @@
+[
+  {
+    "file": "00_Памятка_WPS.docx",
+    "source_sha256": "a57632129b190c9f36a70c6a1650734d1213fd530c4bd866b6511c3f9260c1c6",
+    "output_sha256": "0fbfd5154f34011bd67a01aaa1832f2ba5b2c9645910f6e8f0be8a55bd9a3722"
+  },
+  {
+    "file": "01_Отчёт.docx",
+    "source_sha256": "8f3707e5755171ea45118614ac7b1ffb3ef36313cac034084d3ac467d7cb1bbe",
+    "output_sha256": "26572ed5484890f772c956231ab679e24f2c29c8fa8925d55915ae2f5b690b11"
+  },
+  {
+    "file": "01_План_квартиры.docx",
+    "source_sha256": "2b18228f0cb9097d08253ad1ee4dcdda8ccc577018892f133ec37dce322be660",
+    "output_sha256": "701575bc69964a246e87cdb25f11adb5d6db3a3453d083f055eb775be2997727"
+  },
+  {
+    "file": "02_Отчёт.docx",
+    "source_sha256": "faaa8759dc46fbd422c00ef19053728b7116925e1e1e7de75efc98dafae0c781",
+    "output_sha256": "4839d7a0d89e947ace8dc4e1921df63590abbc3f3ae0cea6631a90b307c778c6"
+  },
+  {
+    "file": "02_Семейное_дерево.docx",
+    "source_sha256": "4fa5a7f0d225fa2560d8efae6a5586c0045a31b8ba64b2f54d91d068fd5726f2",
+    "output_sha256": "00366db72d679f77a1bdb0a7b2f437cb68567f9988a7f611b7c67ac739276cea"
+  },
+  {
+    "file": "03_Реферат.docx",
+    "source_sha256": "eb8f2864891db7ed488eee1f125f90d642e2fb0de42089bf31b26f54243fd205",
+    "output_sha256": "a70867975d5d5c2e3e03e3f91c63a25407bb6ca0f4abc066f832133bbfc19454"
+  },
+  {
+    "file": "04_Отчёт.docx",
+    "source_sha256": "4bc36f4b20528d7c3dec04813818c9563a2befbe3f7b84f94c27c118f5c5e6ae",
+    "output_sha256": "ad5d69ec43b1bb2f60227d9b3af595c92a4c5d9e20cb58693286397045af6d54"
+  },
+  {
+    "file": "05_Отчёт.docx",
+    "source_sha256": "1b39d3e5f3db840e7f2ac6e92f0eb23c2b171034376e35d3f0dde66f5bdacc01",
+    "output_sha256": "c91b9e4d5eeb928f962dfeed82e3f583f46311d5ab5e3aaa22efaef477e10fbc"
+  }
+]

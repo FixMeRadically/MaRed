@@ -1,0 +1,156 @@
+{
+  "patch": 104,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "1f7acba0d1e3e76572f3a8dafd353b6eddd317d82e981414257b31bf20b2ffcc",
+      "after": "39024d675a4e1c20dcd25a560ec4d1cb45adbc164d267d42f7bbac8ff5679393"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/InPlaceWorld104.java",
+      "existed": false,
+      "before": null,
+      "after": "e06a8cbced366fd3682e2d2f3424934eb445fbba347d7ffbd615547551c5f596"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/ServerAdmin75.java",
+      "existed": true,
+      "before": "7796b82cb9847e361204620b89c1c5365e970c1321b864ced3c2577669856f09",
+      "after": "d991bcda61d08342971fdb8405fc14929ea02d9fc172eec8f4696f1699b8d5b1"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InPlaceAdvanced104.java",
+      "existed": false,
+      "before": null,
+      "after": "711f4ca59fb9bd29ecb7694eedf9666b6d05128aa33f7c5b8ef33fd2e6ec22d3"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InPlaceServerScreen104.java",
+      "existed": false,
+      "before": null,
+      "after": "4dd9cb6ddd3d6dd607e266f79cc66f91c18fbc67890cf71d4d613a9d97ba8220"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InPlaceServerService104.java",
+      "existed": false,
+      "before": null,
+      "after": "19f76d766cb931069c5541821fbabdd6fa0d0006010168e8d80af76aa81347cb"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerSetupLauncher59.java",
+      "existed": true,
+      "before": "f18611cfc2856259fca53347451174b732ad559c320d933676e007d26cc42c4d",
+      "after": "87cd6f367235cd9738906dc2f2b541e6e436412e718175829f8c9c38c3521818"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "08fb1409dc0692030f1abb5b8511c357bbd88b60755e13d0fe219033f58c7330",
+      "after": "a46bbe7fdc191bbf1e89970e3ab6e83e9e65e3fdc7222b3edfc363064c045f91"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "c84b9794e3a1b0e58a2bb3483b48f099c6086d02eaea202dd4499d35df5a336b",
+      "after": "8621c877caf0116629f39e4c8b448ffbabe6f022a0223993c7581084db089f91"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/InPlaceChecks104.java",
+      "existed": false,
+      "before": null,
+      "after": "adbca1e01caec370bb881a99943eb4f09fb5203a62b2c93c9f86d65ebc74331f"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/IndependentProbe104.java",
+      "existed": false,
+      "before": null,
+      "after": "98edb6e322344df12a3f394e6d57dfc1decba296984718e47fbc98812f94cadb"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "38b46170018d03b7be2b2e5d3d70c2ee55e1f2010fdb60698b07280826b4770d",
+      "after": "b36e72c2f48520a313ccd0b2d95e99bf9e26404cf5d29de253ce7572695d060e"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/DedicatedAdmin75.java",
+      "existed": true,
+      "before": "3600d6dd898dbf1861d2cc9fe479eee6c2d6b1cef6569d73de36c97c64960e64",
+      "after": "5440aee50038a634c9e68a6e60e7ee244dddcb42d0b87d505c000e18985a1913"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/DedicatedSession74.java",
+      "existed": true,
+      "before": "b25711eee3e2889460ed22f2c51acb4754578ce4dc3c3855f317ec83c44ccfec",
+      "after": "2e5a213c27fe268e7a26e77c63f6cc54aaac81a95ae9681f1b9f9b40f404746a"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerApp104.java",
+      "existed": false,
+      "before": null,
+      "after": "3ba043aafc61e7ca2815ad0af7419b7becf4a7ab740d928ab8931e823b222afc"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerGate104.java",
+      "existed": false,
+      "before": null,
+      "after": "a06f32cbc8828713996b0515169ee806fd7a67f765a245ca0447538c37f52790"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerLauncher104.java",
+      "existed": false,
+      "before": null,
+      "after": "36c39915acb423db6930387f1174214c0d45d961bab0d5ee5ab873b3c3127cfb"
+    },
+    {
+      "path": "tools/first58/changes104.py",
+      "existed": false,
+      "before": null,
+      "after": "69b84e0727f1323afea693516b965c885251fd4a588acaca9ba4b19a3f6d8781"
+    },
+    {
+      "path": "tools/first58/dedicated103.py",
+      "existed": true,
+      "before": "1a0c912394068b1c1accac4f8c3203bd0ef86aab48432af553bb4d5f978c06b8",
+      "after": "f4553941cd90a09f5ca544cde3207fffc2143d05b4cee3aeb1a7165371c6a2ae"
+    },
+    {
+      "path": "tools/first58/independent104.py",
+      "existed": false,
+      "before": null,
+      "after": "fb9525356b87e2264f326f0da0478182982f374eb51d9733a0e5d51e8adf5c08"
+    },
+    {
+      "path": "tools/first58/inplace104.py",
+      "existed": false,
+      "before": null,
+      "after": "080d65ea782b713deabbd09d1c3b3859b6a7547ed8be214c3f787d24b77ce984"
+    },
+    {
+      "path": "tools/server104.py",
+      "existed": false,
+      "before": null,
+      "after": "d3d8ea2f638b30e9510e0cdf32a265aedce93235277b769182329af3c754a96c"
+    },
+    {
+      "path": "verification/server59/independent_process104.py",
+      "existed": false,
+      "before": null,
+      "after": "d0c753c0ce13d202a57f8a69dece62d6b71492281779e58b30ec3e63fd39929f"
+    },
+    {
+      "path": "verification/server59/test_dedicated103.py",
+      "existed": true,
+      "before": "5e7d5306ff2c5312b948f87fab845f7d1a64d011bb94fec317c796dd265083df",
+      "after": "e50c4e60394ef6b82ddba6ba1514c25c6007f4ddf13506abaccfda6665ea668b"
+    },
+    {
+      "path": "verification/server59/test_inplace104.py",
+      "existed": false,
+      "before": null,
+      "after": "16687b6682824762754e48d90a44a8464d233db5ffe52b155cb58008da1e118a"
+    }
+  ]
+}

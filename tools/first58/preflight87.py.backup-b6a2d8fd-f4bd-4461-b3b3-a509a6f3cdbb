@@ -1,0 +1,109 @@
+"""Read-only client-copy admission. Numbers are estimates, never install/stop authority."""
+from pathlib import Path
+import errno,os,shutil,stat,tempfile,time
+from .common import safe
+
+EXCLUDED={'saves','logs','crash-reports','screenshots','backups','__pycache__','.genesis-dev62','first58-temp'}
+SKIP_FILES={'session.lock','first58.marker','controller.lock','client-session61.json'}
+MAX_FILES=200000;MAX_NODES=400000;MAX_BYTES=20*1024**3;MAX_DEPTH=32
+ALLOCATION=65536;MARGIN=512*1024**2
+METRICS={'schema','stage','files','profileBytes','profileAllocated','directories','payloadBytes','archiveBytes','devBytes','requiredBytes','availableBytes','checkedAt','code'}
+STAGES={'SCANNING','CHECKED','REFUSED'}
+CODES={'','PREFLIGHT87_DISK_SPACE','PREFLIGHT87_WRITE_ACCESS','PREFLIGHT87_READ_ACCESS','PREFLIGHT87_LINKED_PATH','PREFLIGHT87_PROFILE_LIMIT','PREFLIGHT87_SPECIAL_FILE','PREFLIGHT87_INPUT','PREFLIGHT87_IO'}
+
+class PreparationError(ValueError):
+ def __init__(self,code,report):super().__init__(code);self.report=dict(report)
+
+def check(cancel):
+ if cancel():raise InterruptedError('REMOTE70_CANCELLED')
+
+def path(p):
+ try:return safe(p)
+ except ValueError:raise ValueError('PREFLIGHT87_LINKED_PATH') from None
+
+def walk(source,cancel=lambda:False,excluded=()):
+ """The copier and admission scan use this SAME inclusion/budget policy."""
+ source=path(source)
+ if not source.is_dir():raise ValueError('PREFLIGHT87_INPUT')
+ files=total=nodes=0
+ def onerror(error):raise error # os.walk's default would silently omit unreadable directories.
+ for folder,dirs,names in os.walk(source,followlinks=False,onerror=onerror):
+  check(cancel);nodes+=1+len(dirs)+len(names)
+  if nodes>MAX_NODES:raise ValueError('PREFLIGHT87_PROFILE_LIMIT')
+  directory=path(folder);relative=directory.relative_to(source)
+  if len(relative.parts)>MAX_DEPTH:raise ValueError('PREFLIGHT87_PROFILE_LIMIT')
+  dirs[:]=[n for n in dirs if n not in EXCLUDED and (relative.parts or n not in excluded)]
+  for name in dirs:
+   check(cancel);p=path(directory/name)
+   if not stat.S_ISDIR(p.stat().st_mode):raise ValueError('PREFLIGHT87_SPECIAL_FILE')
+  yield relative,None,None
+  for name in names:
+   check(cancel)
+   if name in SKIP_FILES:continue
+   p=path(directory/name);observed=p.stat()
+   if not stat.S_ISREG(observed.st_mode):raise ValueError('PREFLIGHT87_SPECIAL_FILE')
+   files+=1;total+=observed.st_size
+   if files>MAX_FILES or total>MAX_BYTES:raise ValueError('PREFLIGHT87_PROFILE_LIMIT')
+   yield relative/name,p,observed
+
+def error_code(error,write=False):
+ if isinstance(error,PreparationError):return error.args[0]
+ if isinstance(error,ValueError) and len(error.args)==1 and error.args[0] in CODES:return error.args[0]
+ if isinstance(error,OSError):
+  if error.errno in {errno.ENOSPC,getattr(errno,'EDQUOT',-1)} or getattr(error,'winerror',None) in {39,112}:return 'PREFLIGHT87_DISK_SPACE'
+  if isinstance(error,PermissionError) or error.errno in {errno.EACCES,errno.EPERM} or getattr(error,'winerror',None) in {5,32,33}:return 'PREFLIGHT87_WRITE_ACCESS' if write else 'PREFLIGHT87_READ_ACCESS'
+ return 'PREFLIGHT87_IO'
+
+def public_report(data):
+ if not isinstance(data,dict) or set(data)!=METRICS or data['schema']!=87 or data['stage'] not in STAGES or data['code'] not in CODES:return None
+ if any(type(data[k]) is not int or not 0<=data[k]<=2**53-1 for k in METRICS-{'stage','code'}):return None
+ return dict(data)
+
+def assess(source,destination,info,approved,archive,dev=None,cancel=lambda:False,progress=lambda value:None):
+ report=dict(schema=87,stage='SCANNING',files=0,profileBytes=0,profileAllocated=0,directories=0,payloadBytes=0,archiveBytes=0,devBytes=0,requiredBytes=0,availableBytes=0,checkedAt=int(time.time()*1000),code='');last=0;writing=False
+ def emit(force=False):
+  nonlocal last
+  now=time.monotonic()
+  if force or now-last>=.25:progress(dict(report));last=now
+ try:
+  check(cancel);source=path(source);destination=path(destination)
+  if not destination.is_dir() or source==destination or source in destination.parents or destination in source.parents:raise ValueError('PREFLIGHT87_INPUT')
+  if type(info) is not dict or type(approved) is not dict or type(info.get('files')) is not list:raise ValueError('PREFLIGHT87_INPUT')
+  emit(True)
+  for relative,p,observed in walk(source,cancel,{'mods.before70','remote70-temp'}):
+   if p is None:report['directories']+=1;report['profileAllocated']+=ALLOCATION
+   else:
+    # Probe the actual file, not an os.access hint. Windows sharing violations fail before STOP.
+    with p.open('rb') as stream:
+     stream.read(1)
+     if observed.st_size:stream.seek(observed.st_size-1);stream.read(1)
+    report['files']+=1;report['profileBytes']+=observed.st_size;report['profileAllocated']+=max(ALLOCATION,((observed.st_size+ALLOCATION-1)//ALLOCATION)*ALLOCATION)
+   emit()
+  seen=set()
+  for item in info['files']:
+   if type(item) is not dict or type(item.get('bytes')) is not int or not 1<=item['bytes']<=64*1024**2 or item.get('path') in seen:raise ValueError('PREFLIGHT87_INPUT')
+   seen.add(item['path']);report['payloadBytes']+=item['bytes']+ALLOCATION
+  if len(seen)>256 or report['payloadBytes']>256*1024**2+256*ALLOCATION:raise ValueError('PREFLIGHT87_INPUT')
+  # Bootstrap JAR omitted from payload is preserved in the NEW mods tree as well.
+  for name in approved['bootstrap']:
+   if 'mods/'+name not in seen:report['payloadBytes']+=path(source/'mods'/name).stat().st_size+ALLOCATION
+  archive=path(archive);report['archiveBytes']=archive.stat().st_size
+  if not archive.is_file() or not 1<=report['archiveBytes']<=300*1024**2:raise ValueError('PREFLIGHT87_INPUT')
+  if dev:
+   frozen=path(dev)
+   if frozen==destination or frozen in destination.parents:raise ValueError('PREFLIGHT87_INPUT')
+   for relative,p,observed in walk(frozen,cancel):
+    report['devBytes']+=ALLOCATION if p is None else max(ALLOCATION,((observed.st_size+ALLOCATION-1)//ALLOCATION)*ALLOCATION)
+  report['requiredBytes']=report['profileAllocated']+report['payloadBytes']+report['devBytes']+2*report['archiveBytes']+MARGIN
+  report['availableBytes']=shutil.disk_usage(destination).free;check(cancel)
+  if report['availableBytes']<report['requiredBytes']:raise ValueError('PREFLIGHT87_DISK_SPACE')
+  writing=True;name=None
+  try:
+   fd,name=tempfile.mkstemp(prefix='.write-probe87-',dir=destination)
+   with os.fdopen(fd,'wb') as stream:stream.write(b'Genesis87 write probe\n');stream.flush();os.fsync(stream.fileno())
+  finally:
+   if name is not None:Path(name).unlink(missing_ok=True)
+  check(cancel);report['stage']='CHECKED';report['checkedAt']=int(time.time()*1000);emit(True);return dict(report)
+ except InterruptedError:raise
+ except (OSError,ValueError,KeyError,TypeError) as error:
+  report.update(stage='REFUSED',code=error_code(error,writing),checkedAt=int(time.time()*1000));emit(True);raise PreparationError(report['code'],report) from None

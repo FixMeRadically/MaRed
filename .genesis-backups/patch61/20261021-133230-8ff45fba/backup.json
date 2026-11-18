@@ -1,0 +1,30 @@
+{
+  "patch": 61,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerSetupLauncher59.java",
+      "existed": true,
+      "before": "7e4bfbc07bc35ecba35e0d17240daaa4877ce7ba0c895993999ed8e33bfce9dd",
+      "after": "87a264a0d64cd35b9a78ce8e9e74d0de596d6098aecce5d213ecaaab3d3acb02"
+    },
+    {
+      "path": "tools/first58/session61.py",
+      "existed": false,
+      "before": null,
+      "after": "712566606f4ae892287fe254b01c430a1f747fa5330546526f7cbec9738ee39d"
+    },
+    {
+      "path": "tools/server_setup.py",
+      "existed": true,
+      "before": "e0df40f168b0abf38c94f4bf021025d85deb1f6bf8c5b89ed94ba02f5bdd34f3",
+      "after": "1e1a023cc5d8fd86cf4d4f35b5a615a1de0c3a03cab300974780b178dcc0e65c"
+    },
+    {
+      "path": "verification/server59/test_session61.py",
+      "existed": false,
+      "before": null,
+      "after": "e9214406fff9b7f2378eee7cdff3a78b34b7285aba381feaefb4c9daa5474fc1"
+    }
+  ]
+}

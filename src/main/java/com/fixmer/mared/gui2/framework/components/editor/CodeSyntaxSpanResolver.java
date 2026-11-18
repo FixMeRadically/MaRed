@@ -1,5 +1,6 @@
 package com.fixmer.mared.gui2.framework.components.editor;
 
+import com.fixmer.genesis.technology.editor.CodeSyntaxLexer;
 import java.util.*;
 
 /** Per-document state checkpoints and bounded visible-line cache; all work stays on the render thread. */

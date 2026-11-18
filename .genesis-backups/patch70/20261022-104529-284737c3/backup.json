@@ -1,0 +1,156 @@
+{
+  "patch": 69,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "8d7d4d627a91def98049852e606209597bbad0162a4282fe6d1240016a77ac33",
+      "after": "a5699f67390668412b334e5e5d46ce4ae2c31283e80ca8dea2239dd29bd24de7"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevActivationService.java",
+      "existed": true,
+      "before": "a76b649491b7f055e2cf6a55562286962ba55e27832ce0e7ec5c865b5cd9f374",
+      "after": "2659fc32836836766cd6233063373d1dc252c595c54ed6523fba4a3d171fd7f8"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/mixin/RestartWindowMixin.java",
+      "existed": true,
+      "before": "598d0aa7742515f4cb1dc898c91e6d20da98f4fd78aada7046f7bea7765797d9",
+      "after": "fd4e5f1f75ca68d176c1efa76d09e2bad9150350817cccf97b2f1f19f47fd741"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/RemoteClient70.java",
+      "existed": false,
+      "before": null,
+      "after": "185e44b7c786f5e9391972d894bff15199274ddf97c179f698130f739ac800b5"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RemoteApplyService70.java",
+      "existed": false,
+      "before": null,
+      "after": "57cbf45def62339f3b82c19f800866ea71db8d31dad512049347abe00d1a805b"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RemoteInstallScreen70.java",
+      "existed": false,
+      "before": null,
+      "after": "bdb12847128fe60b8e2736d5ea362de5cc42e9a3df5831379b84f589f7f3f2b3"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RemoteScreen69.java",
+      "existed": true,
+      "before": "2588a472c8fd23331348dbf129a7824f88de903bc4d43cc349a87212a406552c",
+      "after": "7609340b2e3009b98ac0bafb2d4fc7d91a72c12d9cbe5f89d378013e2ecf5dfc"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerPanelService66.java",
+      "existed": true,
+      "before": "c2f327c1d087b951850843de649c343cdf09fe195c62e5d76eebad68d9ac9a21",
+      "after": "a347375790c8c1a8628c76405385636a78c98a74fe1176c23d344a7016491004"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "5bd04be5cb1a531c37d9c89cdf4424a13657112ab945ef0429ab83dbe4990159",
+      "after": "d76f462f3044991135460dbd93465b1eecc98009d3b3380d7e40129f18827434"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "8fc9b5dbbd590adc213358e25d22ccd87adc62858ec3c4b6ce7f169c42c99273",
+      "after": "d8a4f38e3516c619b5ea44d7826d071ffdbcdcc63af44974c7968ca366cabaaa"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "08bc13d24fb94a2758386ad0a659576d77b03ac842ed340cc973145fb96223cd",
+      "after": "a5a8dd0817fab43921ecc2aa6dda49adc4ae1a840c1c2ba07441a196ac90672d"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteClient69.java",
+      "existed": true,
+      "before": "941c6aaa6ec998f29cd5a0c96e3ffba159ef8b228c2d990ab3fb167294fce9c9",
+      "after": "59a7edf9f5e503a9aa7667d476b2c77bd1bb84d19ac3eebc8eeb73603fe48ce2"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteInstallCli70.java",
+      "existed": false,
+      "before": null,
+      "after": "b3c290d2212965978058f0ea8b8e270125a6ebc58ba5e8986084cc487cda6c3c"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemotePublisher69.java",
+      "existed": true,
+      "before": "4068c1ba8e18827593628c3b468933010c23548a3dcd043c487015f3f931f411",
+      "after": "2ac72b783648c3aeb19f7f1e342223d701a6ab83efc4396fc5afae16c99c4082"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteSession70.java",
+      "existed": false,
+      "before": null,
+      "after": "b5b8cfdc36c672a929ad8b57d2b34e25cc6c961b6c4889fc853853b163dd3faf"
+    },
+    {
+      "path": "tools/first58/install70.py",
+      "existed": false,
+      "before": null,
+      "after": "6f7ab29f05c2459ee2a3f6d12b1a7ddfd37ce575fb78cde8ca5bb375f8537a35"
+    },
+    {
+      "path": "tools/first58/native70.py",
+      "existed": false,
+      "before": null,
+      "after": "166a9052197be5f9584e2ab45011418345d36e0f679dc631e96f19fd5b9b0b71"
+    },
+    {
+      "path": "tools/first58/remote70.py",
+      "existed": false,
+      "before": null,
+      "after": "566773793456a615d348a923032829a1c738edcf51f9fddce606563340f2faf4"
+    },
+    {
+      "path": "tools/first58/ui.py",
+      "existed": true,
+      "before": "49299339b8533b5b03e646ccbb4fac23c3b6d7f4df73c24ca7d0baa4709bc2d7",
+      "after": "7bc4ab934f405cbb542d268106cd4e0e6465a4a96979a9c614aab5f89a721378"
+    },
+    {
+      "path": "tools/remote_client70.py",
+      "existed": false,
+      "before": null,
+      "after": "2374dd738f7c6825f8dd9d58ce85f7a1d9ff8d3489da40efd9fca589871ab2f3"
+    },
+    {
+      "path": "verification/server59/RemoteChecks69.java",
+      "existed": true,
+      "before": "879b9b75113d9f44023a6161478cfe1b0b0569732db715b967f5a2b9c68e4b05",
+      "after": "854dbf42f755704f445c751f5fcd68dc303e2ea1bb156c148b5af9011a38b236"
+    },
+    {
+      "path": "verification/server59/RemoteSessionChecks70.java",
+      "existed": false,
+      "before": null,
+      "after": "3f95bf556b3b87930a3d934b3397a30a8503d0f3de6098f3f66c9878193db589"
+    },
+    {
+      "path": "verification/server59/remote_file_checks70.py",
+      "existed": false,
+      "before": null,
+      "after": "3513625c994eaf2277061853291db209f39d47f17fc5eda1f369c7a50e8bdc19"
+    },
+    {
+      "path": "verification/server59/remote_https_checks69.py",
+      "existed": true,
+      "before": "192e877c2cba1520fa97848e9bd319bc5d4556f39063b1da6b24c68291dc4801",
+      "after": "66b4f2e67f38284ea2ee74d000ab1915d988d61d1a532ca7a529f6cd11972667"
+    },
+    {
+      "path": "verification/server59/test_remote_install70.py",
+      "existed": false,
+      "before": null,
+      "after": "9a8bcd1f7fde69c73508cc948a32072bb2afa99d570a4dc927135c5d6f9a21ae"
+    }
+  ]
+}

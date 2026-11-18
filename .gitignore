@@ -19,3 +19,10 @@ run/
 !gradlew.bat
 !gradle/wrapper/gradle-wrapper.properties
 bin/
+
+# Disposable Minecraft acceptance profiles (sources/harnesses remain tracked).
+/verification/client128/
+/verification/client129/
+/verification/server128-gui/
+
+/MaRed.zip

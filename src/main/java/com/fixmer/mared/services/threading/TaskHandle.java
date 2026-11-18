@@ -21,14 +21,14 @@ public final class TaskHandle {
 
     /** Попробовать отменить. @return true, если отмена принята. */
     public boolean cancel() {
-        if (cancelled.compareAndSet(false, true)) {
+        if (!future.isDone() && cancelled.compareAndSet(false, true)) {
             return future.cancel(true);
         }
         return false;
     }
 
     public boolean isCancelled() {
-        return cancelled.get();
+        return future.isCancelled();
     }
 
     public boolean isDone() {

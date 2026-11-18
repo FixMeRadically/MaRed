@@ -30,10 +30,11 @@ public final class TextRepository {
         checkRoot();
         Path target = root.resolve(document ? name + ".txt" : name).normalize();
         if (!target.startsWith(root)) throw new IOException("Path escapes repository");
-        Path current = root;
+        Path current = root,realRoot=root.toRealPath();
         for (Path part : root.relativize(target)) {
             current = current.resolve(part);
             if (Files.isSymbolicLink(current)) throw new IOException("Repository path contains a symlink: " + name);
+            if(Files.exists(current,LinkOption.NOFOLLOW_LINKS)&&!current.toRealPath().startsWith(realRoot))throw new IOException("Repository junction escapes root: "+name);
             if (!current.equals(target) && !Files.isDirectory(current, LinkOption.NOFOLLOW_LINKS)
                 && (!allowMissingParents || Files.exists(current, LinkOption.NOFOLLOW_LINKS)))
                 throw new IOException("Parent folder does not exist: " + name);
@@ -46,7 +47,7 @@ public final class TextRepository {
     }
     public synchronized void createDirectory(String name) throws IOException {
         if (name == null || name.isEmpty()) throw new IOException("Cannot create repository root");
-        Files.createDirectory(checked(name, false));
+        Path target=checked(name,false);if(caseAlias(target,new HashMap<>()))throw new IOException("Case alias: "+name);Files.createDirectory(target);
     }
     /** Lists one folder without following links. Empty folders are included. */
     public synchronized List<Entry> entries(String folder) throws IOException {
@@ -78,6 +79,7 @@ public final class TextRepository {
         }
     }
     private static byte[] encode(String text) throws IOException {
+        if(text.length()>MAX_BYTES)throw new IOException("File exceeds 4 MiB limit");
         var encoded=StandardCharsets.UTF_8.newEncoder().encode(java.nio.CharBuffer.wrap(text));
         if(encoded.remaining()>MAX_BYTES)throw new IOException("File exceeds 4 MiB limit");
         byte[] data=new byte[encoded.remaining()];encoded.get(data);return data;
@@ -94,7 +96,7 @@ public final class TextRepository {
     public synchronized boolean exists(String name) throws IOException { return Files.isRegularFile(file(name), LinkOption.NOFOLLOW_LINKS); }
     /** Recursive identifiers for runtime lookup; no symlinks are traversed. */
     public synchronized List<String> list() throws IOException {
-        checkRoot();
+        checkRoot();Path realRoot=root.toRealPath();
         List<String> names = new ArrayList<>();
         Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
             private int visited;
@@ -103,7 +105,7 @@ public final class TextRepository {
             }
             private String relative(Path path) { return root.relativize(path).toString().replace('\\', '/'); }
             @Override public FileVisitResult preVisitDirectory(Path path, java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
-                count();
+                count();if(!path.toRealPath().startsWith(realRoot))throw new IOException("Repository junction escapes root");
                 return path.equals(root) || validName(relative(path)) ? FileVisitResult.CONTINUE : FileVisitResult.SKIP_SUBTREE;
             }
             @Override public FileVisitResult visitFile(Path path, java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
@@ -155,7 +157,7 @@ public final class TextRepository {
         } finally { Files.deleteIfExists(tmp); }
     }
     public synchronized boolean create(String name, String text) throws IOException {
-        Path target = file(name);byte[] data=encode(text);
+        Path target = file(name);if(caseAlias(target,new HashMap<>()))throw new IOException("Case alias: "+name);byte[] data=encode(text);
         if(data.length>MAX_BYTES)throw new IOException("File exceeds 4 MiB limit");
         try (var stream=Files.newOutputStream(target, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) { stream.write(data); }
         bump(name);return true;
@@ -165,6 +167,10 @@ public final class TextRepository {
     public synchronized List<String> previewBatch(Map<String,String> documents, Set<String> directories) throws IOException {
         var conflicts = new ArrayList<String>();
         var siblings = new HashMap<Path,Set<String>>();
+        // Include proposed ancestors as well as existing siblings; preview must match commit.
+        var proposed = new HashMap<String,String>();var proposedFiles = new HashSet<String>();
+        for (String folder : directories) registerBatchPath(folder, false, proposed, proposedFiles, conflicts);
+        for (String name : documents.keySet()) registerBatchPath(name + ".txt", true, proposed, proposedFiles, conflicts);
         for (String folder : directories) {
             Path dest = checked(folder, false, true);
             if (Files.exists(dest, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(dest, LinkOption.NOFOLLOW_LINKS)
@@ -178,6 +184,14 @@ public final class TextRepository {
         return List.copyOf(conflicts);
     }
 
+    private static void registerBatchPath(String path,boolean document,Map<String,String> proposed,Set<String> files,List<String> conflicts) {
+        for(String current=path;!current.isEmpty();current=RepositoryPath.parent(current)) {
+            String key=current.toLowerCase(Locale.ROOT);boolean file=document&&current.equals(path);
+            String old=proposed.putIfAbsent(key,current);
+            if(old!=null&&(!old.equals(current)||files.contains(key)!=file))conflicts.add(path);
+            if(file)files.add(key);
+        }
+    }
     private boolean caseAlias(Path target, Map<Path,Set<String>> cache) throws IOException {
         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return false;
         Path parent=target.getParent();
@@ -218,7 +232,7 @@ public final class TextRepository {
         }
     }
     public synchronized boolean rename(String from,String to) throws IOException {
-        Files.move(file(from),file(to));bump(from);bump(to);return true;
+        Path source=file(from),target=file(to);if(caseAlias(target,new HashMap<>()))throw new IOException("Case alias: "+to);Files.move(source,target);bump(from);bump(to);return true;
     }
 }
 

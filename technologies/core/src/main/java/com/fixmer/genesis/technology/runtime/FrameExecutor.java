@@ -273,6 +273,11 @@ public class FrameExecutor {
         try {
             if (stopRequested && !finished) stopAll();
             tickInternal();
+        } catch(RuntimeException error) {
+            // Metadata/tracing callbacks are part of execution too. Preserve the first failure.
+            if(failure==null)failure=error;
+            else if(failure!=error)failure.addSuppressed(error);
+            stopAll();
         } finally { publishSnapshot(); }
     }
 
@@ -339,6 +344,9 @@ public class FrameExecutor {
             try {
                 cmd.execute(this);
             } catch (Exception e) {
+                if(e instanceof java.util.concurrent.CancellationException&&(stopRequested||scope!=null&&scope.cancelled())){
+                    stopAll();return;
+                }
                 failure = e;
                 trace("error",e);
                 stopAll();
@@ -347,7 +355,7 @@ public class FrameExecutor {
 
             if (finished || yielded) return;
 
-            int delay = cmd.getDelayTicks();
+            int delay;try{delay=cmd.getDelayTicks();}catch(Exception error){failure=error;trace("error",error);stopAll();return;}
             if (delay > 0) {
                 f.waitTicks = delay;
                 trace("pause",delay);

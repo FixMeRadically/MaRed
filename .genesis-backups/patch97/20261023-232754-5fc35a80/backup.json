@@ -1,0 +1,108 @@
+{
+  "patch": 97,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "c77b944b7637783a9d9d00dc9998696e9b6ec5c3bd1b9e356849ab4ed0ce580c",
+      "after": "7ec4607515a6ebe6900e5e3e58bca8bb0b21a58c72c1697deb9288f7ce347a9a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/Handoff96.java",
+      "existed": true,
+      "before": "3affb4b893fef8d79fa7bf0791c169833f8ec3453cb0559214e41b06db17d870",
+      "after": "85ecaffaf331662e32bee520fc811da831802ce0ccf4fd989a56c5244bdf9f53"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/HistoryLoad97.java",
+      "existed": false,
+      "before": null,
+      "after": "241e22854b3973dbce5cb94d37e7609e95db07e472e10178d51cb2582b1e435f"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/HistoryPresentation97.java",
+      "existed": false,
+      "before": null,
+      "after": "a15de4f610bb9f45785373a1665ad90330ba8597de05a2e7c40b59a5ee2a0ee8"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RestartHistory97.java",
+      "existed": false,
+      "before": null,
+      "after": "e662ce788440b4104138defab8785aae92e4a6169886c3ff0c5f692222c1d991"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RestartMetrics.java",
+      "existed": true,
+      "before": "f15d51b0f71745821d3e9dc3e640dc47cadbe25286a66737037060f6edf42cfc",
+      "after": "6f1426c376abf293295fe597e7a86c70bc84cf5ed723936b05ec9f821b9c390c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/Supervisor.java",
+      "existed": true,
+      "before": "b761a8aa4a3673ebd8bb42af24921bd3eb8a21c7d0953dfbcb2144b6f78734d4",
+      "after": "8a8b96641ad012e0b04a9355b20a56d59d76757d30504c89048009aee20d522e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/README.md",
+      "existed": true,
+      "before": "59963a6e7facfc440d18c90a93e2d39b514fc0fb8e55b5d5fb92be303410f15a",
+      "after": "a9b7b405f1252a10f95a47016e64b75c4585ea8a8ea9dfc88ab0c6f5b40c2142"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevCommands.java",
+      "existed": true,
+      "before": "8b00be5ab8182ce5c705a62c518a5c81aef7c72e58f1fb8af4d02a42eb010721",
+      "after": "653d038647332bb3e48d5c62e308b800ba87c15d3bfb32b86f58b5d4e0d53335"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/RestartHistoryScreen97.java",
+      "existed": false,
+      "before": null,
+      "after": "3ecaf927f1efcb7733c23bb277c58cb71a20b3dfa18cf705234cac81d6aaca55"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerPanelScreen66.java",
+      "existed": true,
+      "before": "614419796bb5b5be3bf62a8c562453940623ed2ea8a7c9709c9c1c3ca16836e6",
+      "after": "1ddad7a6e867a5c1caa44f89216916c7e360af91ad6de8bb0868abdf66521b28"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "e864a55fa4d01b162131f0b52b9d0f1b33459e007f8c561128b5e76f122ac21e",
+      "after": "50fc0cc8de1ff3eeb5a2dff9c6a9ff5b6d84cd87b8ede09b1c0a4b15349646d2"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "ee585b5d4c6c49362bff277ba103f3d184aeb01be53491b33906d5dd0f7f621e",
+      "after": "72059c5e98d64817443b74b48cfc35fbedcca462bc7fc7f4482add0abadb51cf"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/HistoryChecks97.java",
+      "existed": false,
+      "before": null,
+      "after": "20d6145de8c87c7446695ab7d22145e6e8759b00a7bf97548346585551b1610b"
+    },
+    {
+      "path": "verification/server59/HistoryProcessFixture97.java",
+      "existed": false,
+      "before": null,
+      "after": "7902567e73024c49ba6a1d362a2b97bcc98a4e9326b14975be0e0ea27dd956b7"
+    },
+    {
+      "path": "verification/server59/history_process97.py",
+      "existed": false,
+      "before": null,
+      "after": "4abe066645d43bae090035c13386ae364a66a0c7c415734c3dcfa51e372a5d7b"
+    },
+    {
+      "path": "verification/server59/test_history_resources97.py",
+      "existed": false,
+      "before": null,
+      "after": "fc3c7ac6ef119276dee12fd3db3cc7e01782a50516dc7d565f447ce2aa3d9889"
+    }
+  ]
+}

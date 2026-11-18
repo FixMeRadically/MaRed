@@ -11,6 +11,8 @@ public record CommandFilePlan(boolean persistent, List<Part> parts) {
     public static CommandFilePlan parse(String text) {
         if (text == null || text.length() > 1_048_576)
             throw new IllegalArgumentException("File is unavailable or exceeds 1 MiB");
+        if(text.startsWith("\uFEFF"))text=text.substring(1);
+        text=text.replace("\r\n","\n").replace('\r','\n');
         String[] lines = text.split("\n", -1);
         boolean persistent = lines.length > 0 && lines[0].strip().equals("#persistent");
         var parts = new ArrayList<Part>();
@@ -19,9 +21,9 @@ public record CommandFilePlan(boolean persistent, List<Part> parts) {
         char quote = 0;
         boolean escaped = false;
         for (int i = persistent ? 1 : 0; i < lines.length; i++) {
-            String raw = lines[i].replace("\r", ""), trimmed = raw.strip();
+            String raw = lines[i], trimmed = raw.strip();
             if (block == null) {
-                if (trimmed.isEmpty() || trimmed.startsWith("//")) continue;
+                if (trimmed.isEmpty() || trimmed.startsWith("//") || trimmed.startsWith("#")) continue;
                 if (!trimmed.startsWith("{")) {
                     if (trimmed.startsWith("}")) throw new IllegalArgumentException("Line " + (i+1) + ": unexpected }");
                     parts.add(new Part(i+1, false, trimmed.startsWith("/") ? trimmed.substring(1) : trimmed));

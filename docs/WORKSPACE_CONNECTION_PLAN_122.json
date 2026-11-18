@@ -1,0 +1,21 @@
+{
+  "schema": 122,
+  "status": "LIVE_ADAPTERS_IMPLEMENTED_TARGET_RUNTIME_UNVERIFIED",
+  "implemented": [
+    "current ServerPlayer identity including offline UUID",
+    "durable counter ranges and per-file epochs",
+    "bounded payload channel, serialized IO, retries of exact CRDT edits",
+    "sidebar entry, tabs/split editing, color cursors and selection, current-file presence",
+    "scoped local draft/operation cache",
+    "explicit owner migration112 with source freeze and partial-copy retry",
+    "project roles and folder/build restrictions; history, rename, confirmed deletion",
+    "selected immutable release approval and inventory-checked server export"
+  ],
+  "remaining": [
+    "Actual Gradle execution from approved snapshot, BuildSnapshot84 provenance, paired publication and deployment approval120",
+    "Full local NeoForge project upload and binary asset UI",
+    "Per-capability UI, persistent custom RGB and attribution panel",
+    "Coordinated tombstone compaction and explicit journal archival",
+    "Windows/JDK21 Gradle and Minecraft multi-client/network-interruption acceptance"
+  ]
+}

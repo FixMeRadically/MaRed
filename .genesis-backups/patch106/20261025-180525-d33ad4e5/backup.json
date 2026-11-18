@@ -1,0 +1,168 @@
+{
+  "patch": 106,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "69b810fbbab0122c445249a216fcedd139e52fa2e6a75c004eb96cdbf54c38f7",
+      "after": "3a73b59b3b25557e9a940a4159a5af7d62c59c46111c1a20ce838c9e29dbb4c2"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/mixin/DedicatedBootstrapMixin106.java",
+      "existed": false,
+      "before": null,
+      "after": "f619084ef6695aeae4c3b52540d592b8986bfa5dce8648523c06243e6874873f"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/DedicatedConsole106.java",
+      "existed": false,
+      "before": null,
+      "after": "2ab0b8c9d5b5d46ee0407a57c5ac90f354aa24af8691f0fa5e8ebad9bd15e4ed"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/ServerAuto106.java",
+      "existed": false,
+      "before": null,
+      "after": "ca807aeed37cdae622366fd76e64b55e8614ad078471e0ef20bc70e7d5ed4450"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/ServerAutoManaged106.java",
+      "existed": false,
+      "before": null,
+      "after": "8cd10e729134b931e91719f30bda29c4a2395abfcf6f4018708db363c1abadc7"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "5bb1ac98b5fe3904437c633269ab1e80da91f98f7727df241004f4f03c16d173",
+      "after": "eb9d58370210262c8609a79cf0a49d3ffab9c593c54736fbcda496d859e4774a"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "20a8b6150c2625aaf86d0b8079702034b480f8ae8a27c015a49343af77782cf7",
+      "after": "c97c3ca4b2b4ee48cf6947cd90d34bc8ab405c24118c82ca5c444133b62c20eb"
+    },
+    {
+      "path": "src/main/resources/mared.mixins.json",
+      "existed": true,
+      "before": "44fe611085c882e0437e9c0a97497f3323630a74701b364128043187f3172752",
+      "after": "45fdceeb25bf16f5505e1937bc8931966dee23bd7e97e8bad120ff1aed801ee8"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/BootstrapPass106.java",
+      "existed": false,
+      "before": null,
+      "after": "3974ce2f0045d302850c5cf73c6bb544aa8d6ec843687a0cee753fb9e59c1a61"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/BootstrapSourceProbe106.java",
+      "existed": false,
+      "before": null,
+      "after": "097c7549f365fbed7b2e2b68dbfab5f08f328987272792276e3ae0679d38a819"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerAutoChecks106.java",
+      "existed": false,
+      "before": null,
+      "after": "1b890af3fd6733b7c4a7256694d97f183d8f2b9b908aeb6789cd8cb68d2ce541"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "71c53a272003432c73a7fb1546db7d318d1ae173fe709c5ff960930347a869cd",
+      "after": "dd73e1998df63cb260a7cee75e857db9a28ebbc1600f877f2cb1af1f96d216ff"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/bootstrap/agent106/Entry.java",
+      "existed": false,
+      "before": null,
+      "after": "2eab1c90aec0a5e1152900661d12f891f89f64b43a3aa2e8c46648cdfecb8e79"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerAgent106.java",
+      "existed": false,
+      "before": null,
+      "after": "844fe3a1ea9e39f2a9211fbbb9cf3fb07ed8f45dc85eeef72276ffdc6a306460"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerApp104.java",
+      "existed": true,
+      "before": "5c4dad442ada2e22a8ee2fdc31219c71a9c05a5fcbdaf0fa4597505635e13c7a",
+      "after": "7ea6c0103c54448a47f7a09267b9e47327ca1d2911abe0b14823b08e049b101b"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerBoot106.java",
+      "existed": false,
+      "before": null,
+      "after": "8f6bd6b8884749fd1bf6d5dafe2e8dcdf27ea70a535a0e5535303e728e804cf7"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerBootstrap106.java",
+      "existed": false,
+      "before": null,
+      "after": "996301ace3b5e099cfac0dead0133e2e307ccebff015370b93b1670874456b52"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerConsole106.java",
+      "existed": false,
+      "before": null,
+      "after": "d7ee07570eba3c98f7351cc01ab7e6b427070e31f4dac5c142a5e744ad286e07"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerDiagnostics105.java",
+      "existed": true,
+      "before": "b3475ec3ac0201680b2e0b4be6879792f031aed7deaa3292c1a879254b28a0b0",
+      "after": "d8441643a181a0397452aba842174ff57d173c91307e49ef08ca028c8fb07424"
+    },
+    {
+      "path": "tools/first58/agent106.py",
+      "existed": false,
+      "before": null,
+      "after": "ea2f9a5b81d181ea8d1bd54465f52df14cf03d9c1b76dd5129eac3a9797698ca"
+    },
+    {
+      "path": "tools/first58/auto106.py",
+      "existed": false,
+      "before": null,
+      "after": "fb4e50198c17c2f91a2d2bf295d02234107e30c6c83c8eacfb646d885ce8100a"
+    },
+    {
+      "path": "tools/first58/dedicated74.py",
+      "existed": true,
+      "before": "c7d6a10be5e39e0e46cf406ab80d46f6f21ee3977a0e47079d5b76daa5272047",
+      "after": "3c5b242da6c12aaeb9dd837953de8eb7e3a0daeef228dbac313081b072c29b80"
+    },
+    {
+      "path": "tools/first58/inplace104.py",
+      "existed": true,
+      "before": "69f415626e56d708705886c0adffc07ee2488674f4ec938b8bb11c9fbf6127c6",
+      "after": "95f8978fc2048ff99356dc100ce09dddcb0e82f088bac8a51b33ac7c109ec279"
+    },
+    {
+      "path": "tools/first58/source106.py",
+      "existed": false,
+      "before": null,
+      "after": "415214134854c1ee475124fc105b09154037276a35cfa10597faaef701941e04"
+    },
+    {
+      "path": "tools/server104.py",
+      "existed": true,
+      "before": "bbd46576945db15fa777a71620ffdbf63b7fcffad5ecc3c7c76a7c7006e272fc",
+      "after": "cc4e36176fde047c31c816e403dfa906a9f33813d7ac74c4575afe0decf93681"
+    },
+    {
+      "path": "verification/server59/source_native106.py",
+      "existed": false,
+      "before": null,
+      "after": "7583e90c54ea3146367af08b31e1bc2af5b29d073de9db62190f749f216947f8"
+    },
+    {
+      "path": "verification/server59/test_auto106.py",
+      "existed": false,
+      "before": null,
+      "after": "b45eda4db636a8e4fa768b39a034c36835df808ea2e92455a82cf56f000f9f21"
+    }
+  ]
+}

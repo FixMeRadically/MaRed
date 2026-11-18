@@ -8,6 +8,7 @@ public final class RunJournal {
     public record Entry(long sequence, long timeMillis, String message) {}
     private final ArrayDeque<Entry> entries = new ArrayDeque<>();
     private long sequence;
+    private long cleared;
     private long revision;
     public synchronized void add(String message) {
         String value = message == null ? "" : message;
@@ -18,6 +19,6 @@ public final class RunJournal {
     }
     public synchronized List<Entry> snapshot() { return List.copyOf(entries); }
     public synchronized long revision() { return revision; }
-    public synchronized void clear() { entries.clear(); revision++; }
-    public synchronized long dropped() { return sequence - entries.size(); }
+    public synchronized void clear() { entries.clear();cleared=sequence; revision++; }
+    public synchronized long dropped() { return sequence-cleared-entries.size(); }
 }

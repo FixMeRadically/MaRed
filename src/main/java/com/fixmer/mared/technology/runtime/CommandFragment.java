@@ -7,6 +7,7 @@ public final class CommandFragment {
         String[] lines=source.split("\n",-1);
         if(first<0||last<first||last>=lines.length||startColumn<0||startColumn>lines[first].length()||endColumn<0||endColumn>lines[last].length())
             throw new IllegalArgumentException("mared.fragment.range");
+        if(last>first&&endColumn==0){last--;endColumn=lines[last].length();}
         if(!lines[first].substring(0,startColumn).isBlank()||!lines[last].substring(endColumn).isBlank())
             throw new IllegalArgumentException("mared.fragment.partial");
         var plan=CommandFilePlan.parse(source);

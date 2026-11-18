@@ -1,0 +1,142 @@
+"""Owner-local automatic Script publication. Reuse signed pair/consent/install; never bypass participant decisions."""
+from pathlib import Path
+import json,os,re,shutil,time,uuid
+from . import dedicated74 as base,publication79,publication83,publication84,https78
+from .common import safe,sha,json_write
+from .bridge67 import read,write
+
+LIMIT=512*1024*1024
+
+def copy_mods(source,target):
+ source=safe(source);target=safe(target)
+ if not source.is_dir() or source==target or source in target.parents or target in source.parents:raise ValueError('AUTO156_MODS_SCOPE')
+ target.mkdir(parents=True,exist_ok=False);total=0;names=set();receipts={}
+ for p in sorted(source.iterdir()):
+  if p.suffix.lower()!='.jar':continue
+  if p.is_symlink() or not p.is_file() or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]{0,119}\.jar',p.name) or p.name.lower() in names:raise ValueError('AUTO156_MOD_NAME')
+  names.add(p.name.lower());total+=p.stat().st_size
+  if len(names)>256 or total>LIMIT:raise ValueError('AUTO156_MOD_LIMIT')
+  before=sha(p,64*1024*1024);shutil.copyfile(p,target/p.name)
+  if sha(p,64*1024*1024)!=before or sha(target/p.name,64*1024*1024)!=before:raise ValueError('AUTO156_INPUT_CHANGED')
+  receipts[p.name]=before
+ if not receipts:raise ValueError('AUTO156_EMPTY_MOD_SET')
+ after={p.name:sha(p,64*1024*1024) for p in source.iterdir() if p.suffix.lower()=='.jar'}
+ if after!=receipts:raise ValueError('AUTO156_INPUT_CHANGED')
+ return receipts
+
+def label():return 'auto-'+time.strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:10]
+def job_path(root,job):
+ if str(uuid.UUID(job))!=job:raise ValueError('AUTO156_JOB')
+ return root/'automatic156'/job
+
+def store(root,key,job,data):
+ path=job_path(root,job);path.mkdir(parents=True,exist_ok=True);write(path/'receipt156',key,{k:str(v) for k,v in data.items()});json_write(path/'status.json',data)
+ return data
+
+def load(root,key,job):return read(job_path(root,job)/'receipt156',key)
+def view(root,key):
+ p=root/'view75'
+ return read(p,key) if p.is_file() else {}
+def wait_command(root,key,request,timeout=90):
+ deadline=time.monotonic()+timeout
+ while time.monotonic()<deadline:
+  state=view(root,key)
+  if state.get('lastRequest')==request or state.get('request')==request:
+   result=state.get('requestResult',state.get('result',''))
+   if result in {'REJECTED','FAILED','DENIED'}:raise ValueError('AUTO156_COMMAND_REJECTED')
+  yield state
+  time.sleep(.4)
+ raise ValueError('AUTO156_COMMAND_TIMEOUT')
+
+def prepare(project,root,snapshot,clientmods,job,game='',endpoint='',side='BOTH'):
+ root=safe(root);s,key=base.settings(root);publication79.available(root,key);path=job_path(root,job)
+ if side not in {'CLIENT','SERVER','BOTH'}:raise ValueError('SCRIPT84_SIDE_REQUIRED')
+ if (path/'receipt156').exists():
+  prior=load(root,key,job)
+  if prior.get('run')!=s['run'] or prior.get('snapshot')!=str(safe(snapshot)) or prior.get('side','BOTH')!=side:raise ValueError('AUTO156_JOB_CHANGED')
+  return prior
+ # Existing signed publication is the source of unchanged files. Initial import alone copies current mods.
+ try:seed,_=publication79.baseline(root,key,None,project)
+ except ValueError as error:
+  if str(error)!='PUBLICATION79_BASELINE_REQUIRED':raise
+  seed=None
+ if seed is None:
+  _,_,tls=https78.load(root)
+  endpoint=(tls or {}).get('endpoint') or endpoint
+  if not endpoint:raise ValueError('AUTO156_DISTRIBUTION_SETUP_REQUIRED')
+  if not game:
+   from urllib.parse import urlsplit
+   host=urlsplit(endpoint).hostname
+   if not host:raise ValueError('AUTO156_DISTRIBUTION_SETUP_REQUIRED')
+   game=(('['+host+']') if ':' in host else host)+':'+str(s['port'])
+  if game.rsplit(':',1)[-1]!=str(s['port']):raise ValueError('AUTO156_GAME_PORT')
+  if s['auth']=='false':
+   from urllib.parse import urlsplit
+   if game.rsplit(':',1)[0] not in {'localhost','127.0.0.1','[::1]'} or urlsplit(endpoint).hostname not in {'localhost','127.0.0.1','::1'}:raise ValueError('AUTO156_OFFLINE_CLIENT_ROLLOUT_UNAVAILABLE')
+  path.mkdir(parents=True,exist_ok=False)
+  copy_mods(clientmods,path/'client');copy_mods(Path(s['profile'])/'mods',path/'server')
+  initial=label();preview=publication83.first(project,root,path/'client',path/'server',initial,86400,game,endpoint)
+  first=publication83.first(project,root,path/'client',path/'server',initial,86400,game,endpoint,preview['ticket'])
+  seed=safe(Path(first['path'])/'public')
+  shutil.rmtree(path/'client');shutil.rmtree(path/'server')
+ name=label();prepared=publication84.run(project,root,'script-prepare',snapshot,side=side,fallback=seed)
+ preview=publication84.run(project,root,'script-preview',Path(prepared['draft']),label=name,ttl=86400,fallback=seed)
+ created=publication84.run(project,root,'script-author',Path(prepared['draft']),label=name,ttl=86400,ticket=preview['ticket'],fallback=seed)
+ return store(root,key,job,dict(schema='156',run=s['run'],job=job,label=created['authored'],side=side,snapshot=str(safe(snapshot)),baseline=str(seed.parent),generation=view(root,key).get('generation',''),phase='READY',release=created.get('release',''),created=str(int(time.time()*1000))))
+
+def launch(project,root,job,timeout=180,cert='',private_key='',bind='127.0.0.1'):
+ from .inplace104 import lease
+ root=safe(root);folder=job_path(root,job)
+ if not (folder/'receipt156').is_file():raise ValueError('AUTO156_JOB_MISSING')
+ with lease(folder/'operation156.lock'):
+  return launch_locked(project,root,job,timeout,cert,private_key,bind)
+
+def launch_locked(project,root,job,timeout=180,cert='',private_key='',bind='127.0.0.1'):
+ from .dedicated75 import submit
+ root=safe(root);s,key=base.settings(root);data=load(root,key,job)
+ if data.get('schema')!='156' or data.get('run')!=s['run'] or data.get('job')!=job:raise ValueError('AUTO156_STALE_JOB')
+ if data['phase'] in {'COMMIT_QUEUED','COMMITTED'}:return data
+ if data['phase'] not in {'READY','WAITING'}:raise ValueError('AUTO156_REVIEW_INTERRUPTED_JOB')
+ resume=data['phase']=='WAITING'
+ _,_,tls=https78.load(root)
+ if not tls:
+  if not cert or not private_key:raise ValueError('AUTO156_DISTRIBUTION_SETUP_REQUIRED')
+  https78.save(project,root,root/'releases'/data['label']/'public',Path(cert),Path(private_key),bind)
+ deadline=time.monotonic()+15
+ while https78.status(root).get('state')!='RUNNING_TLS':
+  if time.monotonic()>=deadline:raise ValueError('AUTO156_DISTRIBUTION_SETUP_REQUIRED')
+  time.sleep(.5)
+ # First baseline is created automatically but remains a real signed controller selection.
+ if not (root/'publication75').is_file():
+  baseline=Path(data['baseline']);request=submit(root,'PUBLISH_BASELINE',baseline.name)
+  for state in wait_command(root,key,request,timeout):
+   if (root/'publication75').is_file() and read(root/'publication75',key).get('label')==baseline.name:break
+ data['phase']='OFFERING';store(root,key,job,data)
+ try:
+  request=None if resume else submit(root,'STAGE',data['label']);deadline=time.monotonic()+timeout
+  while time.monotonic()<deadline:
+   current=view(root,key);control=json.loads(current.get('control','{}'));phase=control.get('phase','')
+   if current.get('failureCode'):raise ValueError('AUTO156_CONTROLLER_'+str(current['failureCode']))
+   if phase=='PREPARING' and control.get('release')==data.get('release'):
+    accepted=int(control.get('accepted',0));prepared=int(control.get('prepared',0));pending=int(control.get('pending',0))
+    if accepted>0 and pending==0 and prepared==accepted:
+     # Record before enqueue: interruption must not silently replay the commit.
+     data['phase']='COMMIT_PENDING';store(root,key,job,data)
+     data['request']=submit(root,'COMMIT',data['label']);data['phase']='COMMIT_QUEUED';return store(root,key,job,data)
+   if phase in {'CANCELLED','CLOSED'} and control.get('label')==data['label']:raise ValueError('AUTO156_ROUND_CANCELLED')
+   time.sleep(.5)
+  raise ValueError('AUTO156_WAITING_FOR_CONSENT')
+ except Exception:
+  # Never auto-cancel a committed update. Record uncertainty for an explicit next operator action.
+  if data['phase']=='OFFERING':data['phase']='WAITING';store(root,key,job,data)
+  raise
+
+
+def failure(root,job,error):
+ # Diagnostics are not authority: never overwrite the signed phase around an uncertain commit.
+ try:
+  root=safe(root);_,key=base.settings(root);folder=job_path(root,job);folder.mkdir(parents=True,exist_ok=True)
+  prior=load(root,key,job) if (folder/'receipt156').exists() else {}
+  code=str(error);code=code if re.fullmatch('[A-Z][A-Z0-9_]{1,120}',code) else 'AUTO156_OPERATION_FAILED'
+  json_write(folder/'error.json',dict(job=job,phase=prior.get('phase','PREPARING'),code=code,at=int(time.time()*1000)))
+ except Exception:pass

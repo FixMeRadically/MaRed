@@ -1,6 +1,7 @@
 package com.fixmer.mared.technology.editor;
 
 import com.fixmer.mared.commands.runner.MaredFileRunner;
+import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.technology.runtime.FileRun;
 import com.fixmer.mared.services.logging.LogEntry;
 import com.fixmer.mared.services.logging.LogSettings;
@@ -37,12 +38,12 @@ public final class EditorRuns {
     public String status() {
         if (current == null) return "";
         var s = current.snapshot();
-        return s.state().name() + " · " + s.steps() + " steps · " + s.elapsedMillis()/1000 + "s · " + s.backgroundResources() + " resources";
+        return MaredLang.get("mared.run.state."+s.state().name()) + " · " + MaredLang.format("mared.run.metrics",s.steps(),s.elapsedMillis()/1000,s.backgroundResources());
     }
     public String logCaption() {
-        if (allLogs || selected < 0) return "All logs";
+        if (allLogs || selected < 0) return MaredLang.get("mared.run.all_logs");
         var s=history.get(selected).snapshot();
-        return "Run " + (selected+1) + " / " + history.size() + " · " + s.title() + " · " + s.state();
+        return MaredLang.format("mared.run.caption",selected+1,history.size(),s.title(),MaredLang.get("mared.run.state."+s.state().name()));
     }
     public void toggleAllLogs() { allLogs=!allLogs; if(selected<0)allLogs=true; displayedRevision=-1; }
     public void previous() { if(!history.isEmpty()){selected=Math.floorMod(selected-1,history.size());allLogs=false;displayedRevision=-1;} }

@@ -98,7 +98,7 @@ public final class StartupProfileReport {
         return null;
     }
     private static double ms(long nanos){return Math.round(nanos/1000.0)/1000.0;}
-    private static String quote(String value){return SupervisorHttpServer.quote(value.length()>300?value.substring(0,297)+"...":value);}
+    private static String quote(String value){return SupervisorHttpServer.quote(value.length()>300?DiagnosticText.prefix(value,297)+"...":value);}
     private static void map(StringBuilder json,Map<String,Long> values,int limit,boolean millis){
         json.append('{');boolean comma=false;
         for(var entry:values.entrySet().stream().sorted(Map.Entry.<String,Long>comparingByValue().reversed().thenComparing(Map.Entry.comparingByKey())).limit(limit).toList()){

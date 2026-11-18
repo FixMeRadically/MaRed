@@ -21,22 +21,35 @@ public final class DevActivationService {
     private DevActivationService() { }
     public static boolean isActivating() { return ACTIVATING.get(); }
 
-    public static java.util.concurrent.CompletableFuture<Boolean> activate() {
+    public static java.util.concurrent.CompletableFuture<Boolean> activate() { return activate(()->true); }
+    public static java.util.concurrent.CompletableFuture<Boolean> activate(java.util.function.BooleanSupplier current) {
+        synchronized(com.fixmer.mared.technology.server.setup.RemoteApplyService70.class) {
         var result = new java.util.concurrent.CompletableFuture<Boolean>();
+        if(System.getenv("GENESIS_REMOTE70_ROOT")!=null||System.getenv("GENESIS_FIRST58_ROOT")!=null||com.fixmer.mared.technology.server.setup.RemoteApplyService70.busy()||com.fixmer.mared.technology.server.setup.ServerPanelService66.busy()){
+            status(com.fixmer.mared.MaredLang.get("mared.remote70.owner_blocked"));
+            return java.util.concurrent.CompletableFuture.completedFuture(false);
+        }
         if (DevRestartService.isUnderSupervisor() || !ACTIVATING.compareAndSet(false,true)) return java.util.concurrent.CompletableFuture.completedFuture(false);
         final com.fixmer.mared.dev.storage.DevResumeStore.Target target;
         try { target = DevSessionResume.captureCurrent(); }
         catch (RuntimeException e) { status(e.getMessage()); ACTIVATING.set(false); return java.util.concurrent.CompletableFuture.completedFuture(false); }
         DevRestartOverlay.show("mared.dev.restart.animation.requesting");
-        Thread task = new Thread(() -> perform(target, result), "mared-dev-activation");
+        long generation=DevIntegratedRestart90.generation95();
+        java.util.function.BooleanSupplier guard=()->generation==DevIntegratedRestart90.generation95()&&current.getAsBoolean();
+        Thread task = new Thread(() -> perform(target, result,guard), "mared-dev-activation");
         task.setDaemon(true); task.start();
         return result;
+        }
     }
     private static void status(String value) { lastStatus = value; Mared.LOGGER.info("[Mared dev] {}",value); }
-    private static void perform(com.fixmer.mared.dev.storage.DevResumeStore.Target target, java.util.concurrent.CompletableFuture<Boolean> result) {
+    private static void perform(com.fixmer.mared.dev.storage.DevResumeStore.Target target, java.util.concurrent.CompletableFuture<Boolean> result,java.util.function.BooleanSupplier current) {
+        DevIntegratedRestart90.Receipt local90=null;
         Process process = null;
         String ticket = null;
         try {
+            LocalRecovery91.activationCheck(target);
+            if(target!=null&&target.localWorld())status(com.fixmer.mared.MaredLang.get("mared.integrated90.saving"));
+            local90=DevIntegratedRestart90.prepare(target,current);
             status("Preparing supervisor...");
             int port = DevClientConfig.controlPort();
             com.fixmer.mared.dev.DevPaths.migrateLegacy();
@@ -84,18 +97,21 @@ public final class DevActivationService {
                 }
                 replace(temp,bootstrap);
             } finally { Files.deleteIfExists(temp); }
-            String javaExecutable = Path.of(System.getProperty("java.home"),"bin",isWindows()?"java.exe":"java").toString();
+            String javaExecutable = Path.of(System.getProperty("java.home"),"bin",isWindows()?"javaw.exe":"java").toString();
             ticket = DevSessionResume.prepare(target);
+            String handoff96=com.fixmer.genesis.supervisor.Handoff96.prepare(propertiesFile,FMLPaths.GAMEDIR.get(),instance,token,local90.gate().id(),local90.epoch(),ticket);
             ProcessBuilder builder = new ProcessBuilder(javaExecutable,"-Dgenesis.supervisor.quiet=true","--add-modules=jdk.httpserver","-cp",bootstrap.toString(),
-                "com.fixmer.genesis.supervisor.Supervisor","--config="+propertiesFile,"--handoff-pid="+ProcessHandle.current().pid());
+                "com.fixmer.genesis.supervisor.Supervisor","--config="+propertiesFile,"--handoff-pid="+ProcessHandle.current().pid(),"--handoff96="+handoff96);
             builder.directory(Path.of("").toAbsolutePath().toFile());
             builder.redirectErrorStream(true);
             builder.redirectOutput(ProcessBuilder.Redirect.appendTo(com.fixmer.mared.dev.DevPaths.logs().resolve("bootstrap.log").toFile()));
+            if(!local90.gate().active(System.nanoTime()))throw new java.util.concurrent.CancellationException("Activation cancelled");
             process = builder.start();
             process.getOutputStream().close(); // EOF must not terminate the controller.
             status("Waiting for supervisor confirmation...");
             long deadline = System.nanoTime()+Duration.ofSeconds(12).toNanos();
             while (System.nanoTime()<deadline) {
+                if(!local90.gate().active(System.nanoTime()))throw new java.util.concurrent.CancellationException("Activation cancelled");
                 if (!process.isAlive()) throw new IOException("Supervisor exited ("+process.exitValue()+"). See config/mared/dev/logs/bootstrap.log.");
                 try {
                     Properties identity=com.fixmer.genesis.supervisor.SupervisorRecovery.identity(port,token);
@@ -104,9 +120,11 @@ public final class DevActivationService {
                     if(Long.parseLong(identity.getProperty("supervisorPid"))==process.pid()
                         && Long.parseLong(identity.getProperty("handoffPid"))==ProcessHandle.current().pid()
                         && "WAITING_FOR_PARENT".equals(identity.getProperty("state"))) {
+                        if(!"96".equals(identity.getProperty("handoffProtocol96"))||!handoff96.equals(identity.getProperty("handoff96")))throw new IllegalStateException("Supervisor does not support the current save-confirmed handoff");
+                        DevRestartService.clientStep(local90,false);
                         if(!com.fixmer.genesis.supervisor.SupervisorRecovery.post(port,token,"/handoff/commit",instance,ProcessHandle.current().pid()))throw new IllegalStateException("Supervisor rejected restart handoff");
                         status("Supervisor committed. Closing Minecraft normally...");
-                        stopOnClient();
+                        stopOnClient(local90);
                         result.complete(true);return;
                     }
                 } catch(IOException e){ /* listener may still be starting */ }
@@ -115,13 +133,15 @@ public final class DevActivationService {
             throw new IOException("Supervisor confirmation timed out; this game remains open. See config/mared/dev/logs/bootstrap.log.");
             }
         } catch (Exception e) {
+            if(local90!=null&&!DevIntegratedRestart90.cancel(local90)){result.complete(true);return;}
             DevSessionResume.cancel(ticket);
             if (process != null && process.isAlive()) {
                 process.destroy();
                 try {if(!process.waitFor(3,java.util.concurrent.TimeUnit.SECONDS)){process.destroyForcibly();process.waitFor(2,java.util.concurrent.TimeUnit.SECONDS);}}
                 catch(InterruptedException interrupted){process.destroyForcibly();Thread.currentThread().interrupt();}
             }
-            status("Activation failed: "+e.getMessage());
+            String cancelled=com.fixmer.mared.MaredLang.get("mared.restart95.cancelled");
+            status(cancelled.equals(lastStatus)?cancelled:"Activation failed: "+e.getMessage());
             Mared.LOGGER.error("[Mared dev] Activation failed",e);
             if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             DevRestartOverlay.clear();
@@ -129,22 +149,8 @@ public final class DevActivationService {
         }
     }
     /** A task still queued after timeout must not close the game later without a supervisor. */
-    static void stopOnClient()throws Exception{
-        var permission=new AtomicBoolean(true);
-        var stopped=new java.util.concurrent.CompletableFuture<Void>();
-        Minecraft.getInstance().execute(()->{
-            try{
-                DevWorldProfile.restore();
-                if(!permission.compareAndSet(true,false)){stopped.completeExceptionally(new java.util.concurrent.CancellationException("Handoff cancelled before client exit"));return;}
-                Minecraft.getInstance().stop();stopped.complete(null);
-            }catch(Throwable error){stopped.completeExceptionally(error);}
-        });
-        try{stopped.get(5,java.util.concurrent.TimeUnit.SECONDS);}
-        catch(java.util.concurrent.TimeoutException timeout){
-            if(permission.compareAndSet(true,false))throw timeout;
-            // Minecraft.stop() has already begun; do not tear down its committed replacement.
-            stopped.get();
-        }
+    static void stopOnClient(DevIntegratedRestart90.Receipt local90)throws Exception{
+        DevRestartService.clientStep(local90,true);
     }
     private static void replace(Path source, Path target) throws IOException {
         try { Files.move(source,target,StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE); }
@@ -175,6 +181,7 @@ public final class DevActivationService {
         // Override any inherited -Dmared.dev=false. Keep actual arguments intact, including @argfiles.
         result.add("-Dmared.dev=true");
         for (String arg : arguments) {
+            if (com.fixmer.genesis.supervisor.ProfileLaunch93.transientArgument(arg)) continue;
             if (arg.startsWith("-agentlib:jdwp=") || arg.startsWith("-Xrunjdwp:") || arg.startsWith("-Dmared.dev=")) continue;
             if (arg.startsWith("@") && !Files.isRegularFile(Path.of(arg.substring(1))))
                 throw new IOException("Launch argument file no longer exists; configure command.N manually.");

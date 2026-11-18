@@ -1,0 +1,108 @@
+{
+  "patch": 84,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "194986118e51b33e054fcd003bfd3d275110f7aacf397418584c6b46303ec3ab",
+      "after": "5bf4e2457bd366c52b41d32a189acb6d99891d15d83dfa944d81046db4174873"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/scripts/ScriptProjectEditor.java",
+      "existed": true,
+      "before": "c2144916e30fab4b33193e0ea7a351f96569b11b93e0f45c1181da7773cc188b",
+      "after": "54fb243a856dd809be3679475f9ac0b4742d69955718cc0af54e7b46e2518fe8"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ScriptPublicationScreen84.java",
+      "existed": false,
+      "before": null,
+      "after": "549ea8d2f8e28fe57fe3d37a34378b89d2cf2419f42f5bf57ce92cfa2ef5557b"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ScriptPublicationService84.java",
+      "existed": false,
+      "before": null,
+      "after": "d97932e098d48fcf3173ca42df1701a73f6e3ec17be0f96844a0bcb6c328b0bd"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "2cdfa3c1d30f9823aab06591f6a1f7e8bcf2541fc8b5ad0266b34266861a5750",
+      "after": "63ef7d2e60f1fefd4ecadfa0c824b4b126908f97fde135c557335c71777dc67d"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "d3a735371190df3b0e9aaf32c7691de89341cefcc59de1db082f8b7639304d00",
+      "after": "4a53190f2288eae13099ce7b25571f830e397a8b5aa954b1135fc424d7f80ad0"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ScriptPublicationChecks84.java",
+      "existed": false,
+      "before": null,
+      "after": "31be46d938ca3dee868283c2d589db79ac05a3a8171566ffa6f6ef2e6b2728ab"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "f2b84c4856a5dee3c0f685a9fdfd3dd725608d73849a82f2b6cedc3bd83ec41d",
+      "after": "17e90319303b639a1dc8af56ef692c32e0f8cca1cafd59a4112a343720d0af70"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/scripts/BuildSnapshot84.java",
+      "existed": false,
+      "before": null,
+      "after": "a29995b6852420a627176c9ac5abfcc51024daf5b38590b32c717db7705905c8"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Publication79.java",
+      "existed": true,
+      "before": "e9767ecb20b5867105b30db1617345861c18a5422590eaf8ee6998e893ab043c",
+      "after": "a15d04b967f314ef711c2137957c551e493abab39b2a8689bc7d54d2ac6b0a65"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ScriptRelease84.java",
+      "existed": false,
+      "before": null,
+      "after": "bc6218b71d5dbc9d35be7bec313863c1fa1a62ed386a2fe9d2fe5228409f1662"
+    },
+    {
+      "path": "tools/dedicated_server75.py",
+      "existed": true,
+      "before": "cc74c40589170469666479595bcdeb70317d09ea1f601c42f2d206621c75fed6",
+      "after": "8f64969d99ccb06615c81d0f99e0b5ef4096b99476e4f537ab92e192e968fb88"
+    },
+    {
+      "path": "tools/first58/publication83.py",
+      "existed": true,
+      "before": "ed02ef32392401ddedb73c477d3377f4a8984906ce43ba6545e98af2fe37d593",
+      "after": "be3fdbd4147c1dec73436bd1a916abca349f189ad5f29d7da15ce41693b791d7"
+    },
+    {
+      "path": "tools/first58/publication84.py",
+      "existed": false,
+      "before": null,
+      "after": "cb9f2725cd6f1802ae649630f2f79f290053cbf3db5a9077530c616800c0b7c6"
+    },
+    {
+      "path": "verification/server59/ScriptBuildFixture84.java",
+      "existed": false,
+      "before": null,
+      "after": "b6c0c916f6bcffcb4bbbaf230a35729b161e070534ff12eba1b98480ef9ef9d4"
+    },
+    {
+      "path": "verification/server59/publication_files84.py",
+      "existed": false,
+      "before": null,
+      "after": "d7626354a5d7c979c2c5d8ce71064b02aa399ae1bd6f1613e63694dbef9fa4d5"
+    },
+    {
+      "path": "verification/server59/test_publication84.py",
+      "existed": false,
+      "before": null,
+      "after": "b792b91d7d953b5138b139979adc0d406b3f8a74d5e6a5b737403b56fd5efe73"
+    }
+  ]
+}

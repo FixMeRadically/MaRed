@@ -41,7 +41,6 @@ import net.minecraft.client.gui.GuiGraphics;
 public final class CommandPaletteOverlay implements Overlay {
 
     private static final int PANEL_W_MAX  = 620;
-    private static final int PANEL_W_MIN  = 360;
     private static final int INPUT_H      = 20;
     private static final int ITEM_H       = 16;
     private static final int FOOTER_H     = 14;
@@ -167,18 +166,19 @@ public final class CommandPaletteOverlay implements Overlay {
         if (q.isEmpty()) {
             filtered.addAll(allEntries);
         } else {
-            // Оценка: 0..n — позиция совпадения.
-            // Меньше = лучше. Titле важнее id.
+            String[] words = q.split("\\s+");
             final List<ScoredEntry> scored = new ArrayList<>(16);
             for (Entry e : allEntries) {
-                int t = e.searchTitleLower.indexOf(q);
-                int i = e.searchIdLower.indexOf(q);
-                if (t < 0 && i < 0) continue;
-                int score;
-                if (t >= 0 && i >= 0) score = Math.min(t, i + 100);
-                else if (t >= 0)       score = t;
-                else                    score = i + 100;
-                scored.add(new ScoredEntry(e, score));
+                int titlePosition = e.searchTitleLower.indexOf(q);
+                if (titlePosition >= 0) {
+                    scored.add(new ScoredEntry(e, titlePosition));
+                    continue;
+                }
+                String searchable = e.searchTitleLower + " " + e.searchIdLower
+                    + " " + e.displayShortcut.toLowerCase(Locale.ROOT);
+                if (java.util.Arrays.stream(words).allMatch(searchable::contains)) {
+                    scored.add(new ScoredEntry(e, 1000));
+                }
             }
             scored.sort((a, b) -> Integer.compare(a.score, b.score));
             for (ScoredEntry s : scored) filtered.add(s.entry);
@@ -203,8 +203,7 @@ public final class CommandPaletteOverlay implements Overlay {
     public void render(GuiGraphics g, Font font,
                        int screenW, int screenH,
                        int mouseX, int mouseY) {
-        int desiredW = Math.min(PANEL_W_MAX, Math.max(PANEL_W_MIN,
-            screenW - 80));
+        int desiredW = Math.max(1, Math.min(PANEL_W_MAX, screenW - 24));
         int maxH = (int) (screenH * 0.7f);
 
         visibleItems = Math.min(MAX_VISIBLE,
@@ -241,15 +240,18 @@ public final class CommandPaletteOverlay implements Overlay {
 
         int promptW = font.width(prompt);
         String q = query.toString();
-        Render.textNoShadow(g, font, q, inputX + 6 + promptW,
-            inputY + 6, TEXT());
-
-        // Курсор
-        long now = System.currentTimeMillis();
-        if ((now / 500) % 2 == 0) {
-            int cx = inputX + 6 + promptW + font.width(q.substring(0, cursor));
-            Render.rect(g, cx, inputY + 4, cx + 1,
-                inputY + INPUT_H - 4, TEXT());
+        int textX = inputX + 6 + promptW;
+        int cursorX = font.width(q.substring(0, cursor));
+        int offset = Math.max(0, cursorX - Math.max(0, inputW - 13 - promptW));
+        g.enableScissor(textX, inputY, inputX + inputW - 5, inputY + INPUT_H);
+        try {
+            Render.textNoShadow(g, font, q, textX - offset, inputY + 6, TEXT());
+            if ((System.currentTimeMillis() / 500) % 2 == 0) {
+                int cx = textX + cursorX - offset;
+                Render.rect(g, cx, inputY + 4, cx + 1, inputY + INPUT_H - 4, TEXT());
+            }
+        } finally {
+            g.disableScissor();
         }
 
         // List
@@ -270,7 +272,8 @@ public final class CommandPaletteOverlay implements Overlay {
         Render.textNoShadow(g, font, status, panelX + PAD, footY + 4,
             TEXT_FAINT());
 
-        String hint = MaredLang.get("mared.palette.hint");
+        String hint = TextUtils.ellipsize(font, MaredLang.get("mared.palette.hint"),
+            Math.max(0, panelW - PAD * 2 - font.width(status) - 8));
         int hw = font.width(hint);
         Render.textNoShadow(g, font, hint,
             panelX + panelW - PAD - hw, footY + 4, TEXT_FAINT());
@@ -296,7 +299,6 @@ public final class CommandPaletteOverlay implements Overlay {
 
             boolean hover = mouseX >= itemX && mouseX < itemX + itemW
                 && mouseY >= y && mouseY < y + ITEM_H;
-            if (hover) highlightedIndex = idx;
 
             boolean isHighlighted = (idx == highlightedIndex);
 
@@ -495,7 +497,9 @@ public final class CommandPaletteOverlay implements Overlay {
             && my >= inputY && my < inputY + INPUT_H) {
             // Позиционируем курсор по x
             Font font = Minecraft.getInstance().font;
-            int relX = (int) mx - (inputX + 6 + font.width("> "));
+            int promptWidth = font.width("> ");
+            int offset = Math.max(0, font.width(query.substring(0, cursor)) - Math.max(0, inputW - 13 - promptWidth));
+            int relX = (int) mx - (inputX + 6 + promptWidth) + offset;
             String q = query.toString();
             int best = q.length();
             for (int i = 0; i <= q.length(); i++) {
@@ -509,7 +513,8 @@ public final class CommandPaletteOverlay implements Overlay {
         }
 
         // Клик по item
-        if (my >= listY && my < listY + listH) {
+        if (mx >= panelX + PAD && mx < panelX + panelW - PAD
+            && my >= listY && my < listY + listH) {
             int row = (int) ((my - listY) / ITEM_H);
             int idx = scrollOffset + row;
             if (idx >= 0 && idx < filtered.size()) {
@@ -526,9 +531,10 @@ public final class CommandPaletteOverlay implements Overlay {
     public boolean mouseScrolled(double mx, double my,
                                  double scrollX, double scrollY) {
         if (filtered.size() <= visibleItems) return true;
-        if (scrollY < 0) scrollOffset++;
-        else if (scrollY > 0) scrollOffset--;
-        clampScroll();
+        if (scrollY == 0) return true;
+        int step = scrollY < 0 ? 1 : -1;
+        scrollOffset = Math.clamp(scrollOffset + step, 0, filtered.size() - visibleItems);
+        highlightedIndex = Math.clamp(highlightedIndex, scrollOffset, scrollOffset + visibleItems - 1);
         return true;
     }
 }

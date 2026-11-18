@@ -1,0 +1,42 @@
+{
+  "patch": 63,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "tools/first58/controller.py",
+      "existed": true,
+      "before": "bb87d466f42c1e8c52fff4d5aecf213532407915edebeddec958b236a653ef22",
+      "after": "93f82fb39b56e9800371aed5bbf0614e32b657d9a8cc931e9765862b36434bab"
+    },
+    {
+      "path": "tools/first58/ui.py",
+      "existed": true,
+      "before": "840bd351478c23ea71d8ad8b2762d75fe0d55da8a5e01d716107866a7e874470",
+      "after": "99fbfb4742cd090d42849c9a63dadd551744501c8a16ccb252a26f54d314c36d"
+    },
+    {
+      "path": "tools/first58/launch62.py",
+      "existed": true,
+      "before": "441a52d2fb631e8595bdebcc8d7ee0e4ef850d7afb16b55f8a02382bf5c613d3",
+      "after": "d817d6ba365689bcb33d9d99e42de833cbc61ac277200ba050ba954dfc47e53f"
+    },
+    {
+      "path": "tools/first58/diagnostics63.py",
+      "existed": false,
+      "before": null,
+      "after": "3e10f840c56953c6370ed9a02811a3bd32234a7f853696205e68945026995a2c"
+    },
+    {
+      "path": "verification/server59/test_diagnostics63.py",
+      "existed": false,
+      "before": null,
+      "after": "b1d3feb8377c2f891c2bd77130de3f1a3ee350411259acae6b564ede830d332f"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "906bc0e15d680abf589971f908999f07cbe13b9cee212932c5ab735303bb8a99",
+      "after": "a61bafc369241e5b8cd95db7fb39fec31411ea22e4e9b299325dda731a9d7144"
+    }
+  ]
+}

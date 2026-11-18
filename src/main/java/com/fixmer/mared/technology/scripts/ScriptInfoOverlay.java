@@ -17,7 +17,19 @@ public final class ScriptInfoOverlay implements Overlay {
     private List<String> lines=List.of();
     private Font cachedFont;
     private int cachedWidth=-1,scroll,maxScroll,x,y,w,h,copyX,closeX,buttonY,buttonW;
-    private boolean closeRequested;
+    private boolean closeRequested,finished98;
+    private String continueLabel;
+    private Runnable continuation;
+    private Runnable dismissal;
+    private String cancelLabel98;
+    public ScriptInfoOverlay cancelWith98(String label,Runnable action){cancelLabel98=Objects.requireNonNull(label);dismissal=Objects.requireNonNull(action);return this;}
+    public ScriptInfoOverlay continueWith(String label,Runnable action){continueLabel=Objects.requireNonNull(label);continuation=Objects.requireNonNull(action);return this;}
+    private void finish(boolean proceed){
+        if(finished98)return;finished98=true;closeRequested=true;
+        Runnable action=proceed?continuation:dismissal;continuation=null;dismissal=null;
+        if(action!=null)action.run();
+    }
+
     public ScriptInfoOverlay(String title,String body,int accent){this.title=Objects.requireNonNull(title);this.body=Objects.requireNonNull(body);this.accent=accent;}
     @Override public OverlayLayer layer(){return OverlayLayer.MODAL;}
     @Override public boolean isInputBarrier(){return true;}
@@ -43,15 +55,15 @@ public final class ScriptInfoOverlay implements Overlay {
         try{for(int i=scroll;i<Math.min(lines.size(),scroll+visible);i++)g.drawString(font,lines.get(i),x+padding,contentY+(i-scroll)*12,style.text(),false);}finally{g.disableScissor();}
         if(maxScroll>0&&contentBottom>contentY){int track=contentBottom-contentY,thumb=Math.max(4,track*visible/lines.size()),top=contentY+(track-thumb)*scroll/maxScroll;g.fill(x+w-padding-3,top,x+w-padding-1,top+thumb,style.muted());}
         buttonW=Math.max(1,(w-padding*2-6)/2);copyX=x+padding;closeX=copyX+buttonW+6;buttonY=y+h-24;
-        style.button(g,font,copyX,buttonY,buttonW,18,MaredLang.get("mared.scripts.report_copy"),hit(mouseX,mouseY,copyX),false,false);
-        style.button(g,font,closeX,buttonY,buttonW,18,MaredLang.get("mared.scripts.report_close"),hit(mouseX,mouseY,closeX),true,false);
+        style.button(g,font,copyX,buttonY,buttonW,18,(cancelLabel98==null?MaredLang.get("mared.scripts.report_copy"):cancelLabel98),hit(mouseX,mouseY,copyX),false,false);
+        style.button(g,font,closeX,buttonY,buttonW,18,(continueLabel==null?MaredLang.get("mared.scripts.report_close"):continueLabel),hit(mouseX,mouseY,closeX),true,false);
     }
     private boolean hit(double mx,double my,int bx){return mx>=bx&&mx<bx+buttonW&&my>=buttonY&&my<buttonY+18;}
     private void copy(){Minecraft.getInstance().keyboardHandler.setClipboard(body);}
-    @Override public boolean mouseClicked(double mx,double my,int button){if(button==0){if(hit(mx,my,copyX))copy();else if(hit(mx,my,closeX))closeRequested=true;}return true;}
+    @Override public boolean mouseClicked(double mx,double my,int button){if(button==0){if(hit(mx,my,copyX)){if(cancelLabel98==null)copy();else finish(false);}else if(hit(mx,my,closeX))finish(true);}return true;}
     @Override public boolean mouseScrolled(double mx,double my,double dx,double dy){scroll=Math.max(0,Math.min(maxScroll,scroll+(dy<0?3:dy>0?-3:0)));return true;}
     @Override public boolean keyPressed(int key,int scan,int modifiers){
-        if(key==256||key==257||key==335)closeRequested=true;
+        if(key==256||key==257||key==335)finish(key!=256);
         else if(key==67&&(modifiers&2)!=0)copy();
         else if(key==264||key==267)scroll=Math.min(maxScroll,scroll+(key==267?12:1));
         else if(key==265||key==266)scroll=Math.max(0,scroll-(key==266?12:1));

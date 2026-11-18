@@ -1,0 +1,108 @@
+{
+  "patch": 110,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "5765d46646a0f9b9106e1691fb3057540b071c12cf4148321c2c3dcb3ef2c776",
+      "after": "ef91273b51fd6e256014a00c14c812dd001b55417dad308ffb829c4d4af00af8"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevRestartOverlay.java",
+      "existed": true,
+      "before": "430bb5c3502d855d13e75d689d040d6fb26293652382dc5be750e17202096475",
+      "after": "1afb72f6bf38e09fcd8aeb7476c6d371519f5a98e13f1c21f9c0b17066d0579a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/GenesisRestartPainter110.java",
+      "existed": false,
+      "before": null,
+      "after": "dbfe9b47b0e2bc07927756b7084d08e41d5c72e1270cf94a12319e795f315278"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/framework/components/overlay/MaredCompactButton.java",
+      "existed": true,
+      "before": "392df768ff7b369f4df31f904c491565fef6b6d9f6b60bf9701b97feb81547fa",
+      "after": "04f3ee36553a956fd58f15c33f9eaae891099905936a50999ee1b17a505b08f0"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/mixin/MouseHandlerMixin.java",
+      "existed": true,
+      "before": "ca6008590f9a16c26d390a728536b567bfbe7d2a3e020f59bda8ecf2c1486c36",
+      "after": "caa754e0e6373adc1d6335c1061675383ca4c94999d1f073532008bd9ea9b74a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/mixin/RestartKeyboardMixin.java",
+      "existed": true,
+      "before": "53a61071975261c4f05d535f2fe5868e4acd2f82dfcfd0bc51d534d2b7da7cee",
+      "after": "f929df1f0247871cedd02560e6440f42d02437638b0f11bfba2011e71e7669a5"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/mixin/RestartWindowMixin.java",
+      "existed": true,
+      "before": "fd4e5f1f75ca68d176c1efa76d09e2bad9150350817cccf97b2f1f19f47fd741",
+      "after": "48682851ba14e43f7e888805c1518c68329ece1fe83eceb356a890587198e705"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/mixin/ServerReturnScreenMixin110.java",
+      "existed": false,
+      "before": null,
+      "after": "8f163ddeb34010a30d15928d41d9826aa8240e99e59efb969b8d5bdfc59be0ef"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerReturnClient108.java",
+      "existed": true,
+      "before": "0fbcc822c8a1a3493cbfea3c3b05aa53f8468420a552e2bdb5f18d17a76df35f",
+      "after": "4d444f89a72caace57e084fa54cdc71eab534f85ab19ca36fe8a91f6f3794641"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "24e7bf3747f799d1dd9f8868271d85f498ee95d0d00b1c4863ea97f3590e5666",
+      "after": "23e5f7e7ae0d65820726ac38b8fe0090747e8263802b460d50ea3e424be9ffe1"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "76621185376c6eadc11871a735215eb9110881fac9d6172cbc58c29b0d968bd0",
+      "after": "d9c4b732737d70e6ae4ab1acef05fd32851b0d277a3c4b82bf6216a3250dba0b"
+    },
+    {
+      "path": "src/main/resources/mared.mixins.json",
+      "existed": true,
+      "before": "45fdceeb25bf16f5505e1937bc8931966dee23bd7e97e8bad120ff1aed801ee8",
+      "after": "9945ee7c79fa1311764d515544424ffc06e0c12bff229a9d02baaa57db827702"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerCoreGeometryChecks110.java",
+      "existed": false,
+      "before": null,
+      "after": "9c23b4cd495f76765ab8e7d768164886b0269121c9d426fb2b3918b971487d62"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerReturnChecks110.java",
+      "existed": false,
+      "before": null,
+      "after": "8b7a22ea3957a1df81b283712cac47bcfa04f444610507e8b6c9e6e3202a3742"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RestartReturn108.java",
+      "existed": true,
+      "before": "4b8484ed0df9b3eff3ea73edf52f77e7d54ef45045411059940faab644b50858",
+      "after": "34065cdcb31fd40986f54ed00aec07d63e9fef5f38f739f18d750e7f444dce61"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ReturnLayout110.java",
+      "existed": false,
+      "before": null,
+      "after": "4b2f8854f786be6aec755198deae50b4597b67e2b51accc23cb75bdb41236fec"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ReturnPresentation110.java",
+      "existed": false,
+      "before": null,
+      "after": "fae0c575f04ea0193c510eb32dee612cc85680e38c5a799270361058481a9add"
+    }
+  ]
+}

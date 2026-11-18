@@ -1,0 +1,8 @@
+package com.fixmer.genesis.technology.workspace.live122;
+import com.fixmer.genesis.technology.server.firstlaunch.FirstLaunchFiles;import com.fixmer.genesis.technology.workspace.collaboration121.*;import java.io.*;import java.nio.file.*;import java.nio.charset.StandardCharsets;import java.util.*;
+public final class WorkspaceCache122 {
+ private final Path root;public WorkspaceCache122(Path root){this.root=root;}
+ private Path file(UUID actor,String store,UUID project,String path)throws IOException{if(!store.matches("[a-f0-9]{64}"))throw new IOException("STORE");WorkspacePolicy121.path(path);return FirstLaunchFiles.safe(root.resolve(actor.toString()).resolve(store).resolve(project.toString()).resolve(WorkspaceRelease121.sha(path.getBytes(StandardCharsets.UTF_8))+".draft122"));}
+ public void save(UUID actor,String store,UUID project,String path,Map<String,String> value)throws IOException{Path p=file(actor,store,project,path);var out=new TreeMap<>(value);out.put("path",path);out.put("actor",actor.toString());out.put("store",store);out.put("project",project.toString());byte[] bytes=WorkspaceCodec122.encode(out,4*1024*1024);Files.createDirectories(p.getParent());FirstLaunchFiles.privateMode(p.getParent());FirstLaunchFiles.write(p,bytes,true);}
+ public Map<String,String> load(UUID actor,String store,UUID project,String path)throws IOException{Path p=file(actor,store,project,path);if(!Files.exists(p))return null;var d=new TreeMap<>(WorkspaceCodec122.decode(FirstLaunchFiles.read(p,4*1024*1024),4*1024*1024));for(var e:Map.of("path",path,"actor",actor.toString(),"store",store,"project",project.toString()).entrySet())if(!e.getValue().equals(d.remove(e.getKey())))throw new IOException("CACHE_SCOPE");return Map.copyOf(d);}
+}

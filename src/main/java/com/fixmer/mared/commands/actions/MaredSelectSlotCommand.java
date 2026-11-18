@@ -17,7 +17,7 @@ public class MaredSelectSlotCommand extends MaredScriptCommand {
 
     @Override
     public boolean execute(MaredScriptContext ctx) {
-        int slot = (int) MaredExpr.toLong(MaredExpr.eval(slotExpr, ctx));
+        int slot = Math.toIntExact(MaredExpr.toLong(MaredExpr.eval(slotExpr, ctx)));
         MaredActionRegistry.selectSlot(ctx.executionScope(), slot);
         ctx.log("[action] select_slot " + slot);
         return true;

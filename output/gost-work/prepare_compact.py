@@ -1,0 +1,12 @@
+from pathlib import Path
+p=Path('output/gost-work/format_works.py')
+s=p.read_text(encoding='utf8')
+s=s.replace("OUT=B/'готовые_работы'", "OUT=B/'исправленные_работы'")
+s=s.replace("space_before(ps[13],31)","ps[12].text='Проверила: доцент кафедры ИСТ\\nЧерных Татьяна Александровна'\n    fmt(ps[12],WD_ALIGN_PARAGRAPH.RIGHT,0)\n    space_before(ps[13],16)")
+s=s.replace("        toc(d,headings[0]);num=0;question=False;q=0", "        # Compact reports do not need a separate contents page.\n        if src.name.startswith('03'):toc(d,headings[0])\n        # Remove inherited page breaks and keep rules from the former spaced version.\n        for p in d.paragraphs:\n            if p in headings or p._p.getprevious() is not None:\n                p.paragraph_format.page_break_before=False\n                p.paragraph_format.keep_with_next=False\n        for br in d._element.xpath('.//w:br[@w:type=\"page\"]'):\n            br.getparent().remove(br)\n        if src.name.startswith('03'):\n            next(p for p in d.paragraphs if p.text=='Содержание').paragraph_format.page_break_before=True\n        headings[0].paragraph_format.page_break_before=True\n        num=0;question=False;q=0")
+s=s.replace("p.paragraph_format.page_break_before=False;space_before(p,5)","p.paragraph_format.page_break_before=False")
+s=s.replace("                p.paragraph_format.page_break_before=True", "                p.paragraph_format.page_break_before=(p is headings[0])")
+s=s.replace("            nxt=p._p.getnext()\n            if nxt is not None:\n                n=OxmlElement('w:p');pr=el('pPr');pr.append(el('spacing',before=0,after=0,line=567,lineRule='exact'));n.append(pr);p._p.addnext(n)","            p.paragraph_format.space_before=Pt(8 if p.style.name=='Heading 1' else 5)\n            p.paragraph_format.space_after=Pt(4 if p.style.name=='Heading 1' else 2)")
+s=s.replace("        for shape in d.inline_shapes:", "        # Remove empty body spacer paragraphs, including inherited image-page breaks.\n        body=False\n        for p in list(d.paragraphs):\n            if p._p is headings[0]._p:body=True\n            if body and not p.text.strip() and not p._p.xpath('.//w:drawing|.//w:pict|.//w:object|.//w:sectPr'):\n                p._p.getparent().remove(p._p)\n        for shape in d.inline_shapes:")
+s=s.replace("(B/'qa/audit.json')", "(B/'qa/audit-compact.json')")
+Path('output/gost-work/format_compact.py').write_text(s,encoding='utf8')

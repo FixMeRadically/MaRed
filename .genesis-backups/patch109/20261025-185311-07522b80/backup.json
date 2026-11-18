@@ -1,0 +1,30 @@
+{
+  "patch": 109,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "db8b86218a486fe58789ecbc305bd7475d8fed0f5b4884ffb37a562446463fad",
+      "after": "5765d46646a0f9b9106e1691fb3057540b071c12cf4148321c2c3dcb3ef2c776"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerReturnClient108.java",
+      "existed": true,
+      "before": "c3bfb4982da552ca9588e532c066d3c13118546503ed145b3612892a442743fb",
+      "after": "0fbcc822c8a1a3493cbfea3c3b05aa53f8468420a552e2bdb5f18d17a76df35f"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerTargetChecks109.java",
+      "existed": false,
+      "before": null,
+      "after": "668a63fcb7b3900e731489dc8ed9c37ff0e489c67f4a8a3f3fa57aa3f1832999"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerLocalTarget109.java",
+      "existed": false,
+      "before": null,
+      "after": "b61422646d173126d350d9e51d85d8c6ec444732551c83799e4686112a7baef6"
+    }
+  ]
+}

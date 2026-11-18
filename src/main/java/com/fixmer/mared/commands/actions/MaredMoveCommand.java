@@ -16,8 +16,8 @@ public class MaredMoveCommand extends MaredScriptCommand {
     private final String mode;
 
     public MaredMoveCommand(String direction, String mode) {
-        this.direction = direction.toLowerCase();
-        this.mode = mode == null ? "on" : mode.toLowerCase();
+        this.direction = direction.toLowerCase(java.util.Locale.ROOT);
+        this.mode = mode == null ? "on" : mode.toLowerCase(java.util.Locale.ROOT);
     }
 
     private Action mapDirection() {
@@ -39,6 +39,7 @@ public class MaredMoveCommand extends MaredScriptCommand {
             ctx.log("[error] move: unknown direction: " + direction);
             return true;
         }
+        if(!java.util.Set.of("on","off","toggle","stop","release").contains(mode))throw new IllegalArgumentException("Unknown move mode: "+mode);
         switch (mode) {
             case "off", "stop", "release" -> {
                 MaredActionRegistry.release(ctx.executionScope(), a);

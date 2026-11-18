@@ -15,6 +15,9 @@ import java.util.List;
 public final class NodeRegistry {
 
     private NodeRegistry() {}
+    private static java.util.Map<String,Integer> palette152=java.util.Map.of();
+    public static void palette152(java.util.Map<String,Integer> colors){palette152=java.util.Map.copyOf(colors);}
+    public static int color152(GenesisNodeData.NodeType type,int fallback){var rgb=palette152.get(type.name().toLowerCase(java.util.Locale.ROOT));return rgb==null?fallback:0xff000000|rgb;}
 
     private static final float CORE_RADIUS = 60f;
 
@@ -44,40 +47,22 @@ public final class NodeRegistry {
 
     private static final float PI3 = (float)Math.PI / 3f;
 
-    private static final Spec[] SPECS = new Spec[]{
-        // Tools вЂ” РјР°Р»РµРЅСЊРєРёР№, Р±Р»РёР·РєРѕ, Р±С‹СЃС‚СЂРѕ
-        new Spec(GenesisNodeData.NodeType.TOOLS,
-                 230f,  0.082f, 0.0f * PI3,
-                 0.15f,  0.00f, 22f, 0.55f, 0xFFFFFF55, Shape3D.TETRA),
-
-        // Logic вЂ” РЅР°РєР»РѕРЅРЅР°СЏ РїР»РѕСЃРєРѕСЃС‚СЊ
-        new Spec(GenesisNodeData.NodeType.LOGIC,
-                 300f,  0.056f, 1.0f * PI3,
-                 0.08f,  0.10f, 34f, 0.70f, 0xFFAA55FF, Shape3D.OCTA),
-
-        // Content вЂ” РїР»РѕСЃРєР°СЏ
-        new Spec(GenesisNodeData.NodeType.CONTENT,
-                 380f,  0.041f, 2.0f * PI3,
-                 0.05f,  0.00f, 32f, 0.65f, 0xFF55FFAA, Shape3D.CUBE),
-
-        // World вЂ” РїСЂРёРїРѕРґРЅСЏС‚Р°СЏ
-        new Spec(GenesisNodeData.NodeType.WORLD,
-                 470f,  0.032f, 3.0f * PI3,
-                 0.18f,  0.00f, 34f, 0.55f, 0xFF55AAFF, Shape3D.BIPYRAMID),
-
-        // Scenarios вЂ” С€РёСЂРѕРєР°СЏ РЅР°РєР»РѕРЅРЅР°СЏ
-        new Spec(GenesisNodeData.NodeType.SCENARIOS,
-                 560f,  0.026f, 4.0f * PI3,
-                 0.10f, -0.12f, 30f, 0.60f, 0xFFFF5577, Shape3D.PYRAMID),
-
-        // Resources вЂ” СЃР°РјР°СЏ РґР°Р»СЊРЅСЏСЏ
-        new Spec(GenesisNodeData.NodeType.RESOURCES,
-                 650f,  0.021f, 5.0f * PI3,
-                 0.12f,  0.00f, 28f, 0.50f, 0xFFFFAA55, Shape3D.HEXPRISM),
-    };
+    private static final Spec[] SPECS = buildSpecs();
+    private static Spec[] buildSpecs(){
+        var directions=com.fixmer.genesis.technology.creation.CreationCatalog145.Direction.values();
+        Shape3D[] shapes={Shape3D.OCTA,Shape3D.CUBE,Shape3D.BIPYRAMID,Shape3D.TETRA,Shape3D.PYRAMID,Shape3D.HEXPRISM,Shape3D.CUBE};
+        Spec[] specs=new Spec[directions.length];
+        for(int i=0;i<directions.length;i++){
+            float radius=230f+i*65f;
+            specs[i]=new Spec(GenesisNodeData.NodeType.valueOf(directions[i].name()),radius,
+                .082f*(float)Math.pow(230f/radius,1.5),i*(float)(Math.PI*2/directions.length),
+                .06f+(i%3)*.04f,i%2==0?.06f:-.06f,26f+(i%3)*3, .60f,directions[i].color,shapes[i]);
+        }
+        return specs;
+    }
 
     public static List<GenesisNodeData> buildAll() {
-        List<GenesisNodeData> nodes = new ArrayList<>(7);
+        List<GenesisNodeData> nodes = new ArrayList<>(SPECS.length+1);
         nodes.add(new GenesisNodeData(
             GenesisNodeData.NodeType.CORE,
             0f, 0f, 0f, 0f, 0f,

@@ -382,6 +382,51 @@ public final class EditorView {
     //  Render — span-based
     // ============================================================
 
+    public int[] positionPixel148(int line,int column,int x,int y,int w,EditorDocument doc,Font font){
+        if(line<0||line>=doc.lineCount())return null;ensureVisualRowStarts(w,doc,font);LineWrap wrap=getWrapFor(line,w,doc,font);if(wrap==null)return null;
+        for(int n=wrap.physical.size()-1;n>=0;n--){int from=wrap.charStart[n];String part=wrap.physical.get(n);if(column>=from&&column<=from+part.length())return new int[]{x+PADDING+LINE_NUM_WIDTH+visualWidth(font,part.substring(0,column-from)),y+PADDING+(visualRowStarts[line]+n-scrollLine)*LINE_HEIGHT};}return null;
+    }
+
+    /** Peer offsets are code points, while editor columns are UTF-16. */
+    public void renderPeer122(GuiGraphics g,Font font,int x,int y,int w,int h,EditorDocument doc,int anchor,int selection,int rgb,String label){
+        renderPeer122(g,font,x,y,w,h,doc,anchor,selection,rgb,label,(px,py)->new int[]{px,py});
+    }
+
+    public void renderPeer122(GuiGraphics g,Font font,int x,int y,int w,int h,EditorDocument doc,
+                              int anchor,int selection,int rgb,String label,java.util.function.BiFunction<Integer,Integer,int[]> motion){
+        int[] caret=doc.codePointPosition(anchor);
+        int[] low=doc.codePointPosition(Math.min(anchor,selection));
+        int[] high=doc.codePointPosition(Math.max(anchor,selection));
+        ensureVisualRowStarts(w,doc,font);
+        int visibleEnd=Math.min(cachedTotalVisualRows,scrollLine+visibleVisualRows(h));
+        int first=Math.max(low[0],findLogicalLineByVisualRow(scrollLine,w,doc,font));
+        int last=Math.min(high[0],findLogicalLineByVisualRow(Math.max(0,visibleEnd-1),w,doc,font));
+        int left=x+PADDING+LINE_NUM_WIDTH;
+        g.enableScissor(x+1,y+1,x+w-1,y+h-1);
+        try{
+            for(int line=first;anchor!=selection&&line<=last;line++){
+                LineWrap wrap=getWrapFor(line,w,doc,font);
+                if(wrap==null)continue;
+                for(int i=Math.max(0,scrollLine-visualRowStarts[line]);i<wrap.physical.size()&&visualRowStarts[line]+i<visibleEnd;i++){
+                    String part=wrap.physical.get(i);
+                    int start=wrap.charStart[i];
+                    int from=line==low[0]?Math.max(0,low[1]-start):0;
+                    int to=line==high[0]?Math.min(part.length(),high[1]-start):part.length();
+                    if(to<=from)continue;
+                    int top=y+PADDING+(visualRowStarts[line]+i-scrollLine)*LINE_HEIGHT;
+                    g.fill(left+visualWidth(font,part.substring(0,from)),top,left+visualWidth(font,part.substring(0,to)),top+LINE_HEIGHT,0x40000000|(rgb&0xffffff));
+                }
+            }
+            int[] pixel=positionPixel148(caret[0],caret[1],x,y,w,doc,font);
+            if(pixel!=null&&pixel[1]>=y+PADDING&&pixel[1]<y+PADDING+visibleVisualRows(h)*LINE_HEIGHT){
+                int[] smoothed=motion.apply(pixel[0],pixel[1]);
+                int ink=0xff000000|(rgb&0xffffff);
+                g.fill(smoothed[0],smoothed[1],smoothed[0]+2,smoothed[1]+LINE_HEIGHT,ink);
+                g.drawString(font,label,smoothed[0]+3,smoothed[1]-1,ink,false);
+            }
+        }finally{g.disableScissor();}
+    }
+
     public void render(GuiGraphics g, Font font,
                        int x, int y, int w, int h,
                        EditorDocument doc,

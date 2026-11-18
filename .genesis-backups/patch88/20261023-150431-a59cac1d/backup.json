@@ -1,0 +1,126 @@
+{
+  "patch": 88,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "7580f5920f8a16cc7ffb1c14b0110b43958a31db21e3dfeab17093fd54c75734",
+      "after": "1a5a9a660babfaa7fceb04d211253d998eb7a57a76cf1a3d84917921545d20c4"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/ServerAccessPayloads88.java",
+      "existed": false,
+      "before": null,
+      "after": "083b90b55976314f394b68c7e5d4172b1efd8d6df2df49e4e7300f0faef839dc"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/ServerAdmin75.java",
+      "existed": true,
+      "before": "ce2240c613a2c850d9222ee83cb3cb16001b82926a2ebc1ae1bb9f48fabd622c",
+      "after": "1c1b76783292b548d69d5a687dac6f3f260b21ed8e7fa18ec7b3ea89c0364267"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/DedicatedPanelScreen75.java",
+      "existed": true,
+      "before": "a3dafee965a25a596bdc6108e7a33b6425d19c8513d6dbe2dcad249f327e34c6",
+      "after": "39e83fba381494d6926967450bfdf8d0a7e338d931ca529530f62669f6dbfea4"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/DedicatedPanelService75.java",
+      "existed": true,
+      "before": "36fb0d064415d82cc47188aefa6da7d1da3192d97d1a8e9eb63630b96f93c296",
+      "after": "b3d40e9b42d5b3951ac63941d74665c959e2f34cc4ee20223b797a7103d242ca"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerAccessScreen88.java",
+      "existed": false,
+      "before": null,
+      "after": "a6475982cf5613bf2d0f0e08d9160c8c2706da6c7a4930ae61bd03655e273ded"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerAccessService88.java",
+      "existed": false,
+      "before": null,
+      "after": "81a1a9edcbca18a7d9bfd26296c024dabb1c08163e732c6b0ddd37722948ca46"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "9b8cbac43a3ee651daee6212983d6f9c84eebb596cd18ea389567edcec7b4746",
+      "after": "f3c4f573b34033d369156b5895104e954930ae54192300c5ab158970d942914e"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "1328ae5fd55d55867f82cad87298de3827231d6be39d5d2e55d1f64c72ec935f",
+      "after": "12b95362c6c4aed4a37012ebf17442437e3f5f7277ce3f53a50729a89566d7c2"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerAccessChecks88.java",
+      "existed": false,
+      "before": null,
+      "after": "13536f1d0edf5653242fc0fccdee0eb053c78439fd70ba1afd7fcad48e4b048a"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "6936e351d5446dc09470595a29472fe70e38e121e4de4bac0adb2414c313cd3d",
+      "after": "e250dec9d5c6e8b81d64b1fbf91346adefe5c093cb8cad216111a0494827bf0d"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/DedicatedAdmin75.java",
+      "existed": true,
+      "before": "f11f85395e54744a49e5b17f6afefe6fb89c5a905d96a7ab9d285b42cb4a8fe6",
+      "after": "99e8c2f290baca25712d5906a5a8784f126e5d526b39af6feacd57ca56d223bf"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerAccess88.java",
+      "existed": false,
+      "before": null,
+      "after": "ea4905dc1402ab3f59a60ad1fc4256093ed5f6ad9379b2df0d79a4a50c0cbf44"
+    },
+    {
+      "path": "tools/dedicated_server75.py",
+      "existed": true,
+      "before": "d8d26c0ee5eaab32af4d048f7a95718e95a8687306e0818561c642dddeccf19d",
+      "after": "90aac9c95d78c8702f68d65b76d5ba10fa4d1ff1be90a03cc6774ff146f60278"
+    },
+    {
+      "path": "tools/first58/access88.py",
+      "existed": false,
+      "before": null,
+      "after": "6a28596d5e93111037179676462ac1a13a922fd4dabb89ea23a4976eef2d9527"
+    },
+    {
+      "path": "tools/first58/dedicated75.py",
+      "existed": true,
+      "before": "e22fe0c17d00d035f6599d742815560e124ea351e4913a6e36349e20912892bc",
+      "after": "e859b486f452ac9c63f5eb84d957cb733edf1034e94f5541cd70cc1f94811531"
+    },
+    {
+      "path": "tools/first58/dedicated88.py",
+      "existed": false,
+      "before": null,
+      "after": "f159d9ee42c6aae1fa1a094f83c36647a38b7d188cf9a18ff03642fc7595cb71"
+    },
+    {
+      "path": "verification/server59/AccessProbe88.java",
+      "existed": false,
+      "before": null,
+      "after": "e5f0e3711e0210ed706d01a8c65ed853c284e8c9a567bfc0c0ada53aa336e3c9"
+    },
+    {
+      "path": "verification/server59/access_interop88.py",
+      "existed": false,
+      "before": null,
+      "after": "001c55ddcc59e82bf557dbcb66f4bc5bfc6bbeeb35607518e52fa31a9f3c2cdd"
+    },
+    {
+      "path": "verification/server59/test_access88.py",
+      "existed": false,
+      "before": null,
+      "after": "6b3feefb67b8e92c794540eee30dc9c9cea3c671230a036d008360891cc8324c"
+    }
+  ]
+}

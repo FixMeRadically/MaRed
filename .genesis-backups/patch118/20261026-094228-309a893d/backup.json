@@ -1,0 +1,228 @@
+{
+  "patch": 118,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "009b0440aa1e2181d59032aa4deccfd4ff229f47341eebe27ddb37287dff63c9",
+      "after": "b95bd15cdfda4e3b4c719218e92987775929670add2965bd7c0acf7ed228c103"
+    },
+    {
+      "path": "docs/INTEGRATION_CATALOG_118.json",
+      "existed": false,
+      "before": null,
+      "after": "e7a3f25fa07fe8a9aa6fa6201ffb5881c8d51de750282d38b5e15c99b803dca7"
+    },
+    {
+      "path": "docs/SERVER_INTEGRATION_118.md",
+      "existed": false,
+      "before": null,
+      "after": "ff2db854fa9512560b425da2f6c8d22622e7b0126675ff793b23b4d3c11c5e5a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/minecraft/NativeModWorkflow.java",
+      "existed": true,
+      "before": "b64c54d55f278cc7d6510095efbdc8d27db4ec66adceb8cb5305a33455540bca",
+      "after": "bc60da7fbc51fa07c1de012244e73a093166c947028d0f65f7367dfdc3f6fe9b"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/scripts/BackgroundAutoApply.java",
+      "existed": true,
+      "before": "d8f64ed91679c8540134e35fb213c1b180b2c11d756dfdbb4933bf240aaca65a",
+      "after": "fde889375fe17edb170c78b6cff990f6af31b68a594de881a54527bdcb1d96b9"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/DedicatedServer74.java",
+      "existed": true,
+      "before": "22d6329b120a838a56526afda9c48d3f1d49c1fc34a47bba6dbc6b775ce8dcef",
+      "after": "88eca0ba22d28fc9e19d8bb4ddb63f164f1838dc12fde6835b2d79b895841616"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/RemoteConsentServer72.java",
+      "existed": true,
+      "before": "442b0a12211f2850068dac7245c173100cb5a0b3b546bcb0e6706b5436f4847a",
+      "after": "d3b4114d70ee474fc7e0abab7094009d4430e980336197b616eceaac47df2b0c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/FolderUpdateScreen118.java",
+      "existed": false,
+      "before": null,
+      "after": "e3f166b5819414f6118ff005c4888bbf11f542aae6a943ebb1cb714dccfa19e6"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InPlaceAdvanced104.java",
+      "existed": true,
+      "before": "0174cd737074ebef89208f052c38bbd4e0dc0862e6a8b31e5b1f9409037e02ba",
+      "after": "26500982bba974744b7fa842302bcd9abfc9e6d5426a56320924fe0bd1095785"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ScriptPublicationScreen84.java",
+      "existed": true,
+      "before": "d35d19b72b22da5f9ac7f671992ecd7b97a3e8e946d1c6dde5604dddb8dfc42c",
+      "after": "2b1c8336c65629237194c1af7ad7426bf92b2a9b1528861f9b21c14b547df777"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerToolsScreen116.java",
+      "existed": true,
+      "before": "7dd58a5617e14df7e6303153ddbf1139d898cbc8d266a79f01bca8fc317e6318",
+      "after": "7d8ddc84d4185a96c515799656edcb32b3f7b5b9f869335d3c3314e4bcfbc0ae"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerUpdateScreen115.java",
+      "existed": true,
+      "before": "edd6e75a982150ec10e8d07116c0c2938c5836de7d7cff8650418f9c69980c0a",
+      "after": "bcd140e92e10b754d16e1c332cf0bb170b1845602f8f28f5a07165082082daf2"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "726e9968d7f66e38cf792fe381e176edf4d66e376340714cf30be410ccf6ef3d",
+      "after": "0ff8fefbba78f41859f388458b6047c4d1a7cfa0e671e9039815b75e01d5e129"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "cbee27781bd39f85940a864874688b9b694af0ca6dbbc9a2736dd78f8a6522b5",
+      "after": "85ddf80c496dd9df2d45e8c4ad7b7c224db1b8fe00abe0afc82dd9982c806002"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/technology/server/remote/FolderChecks118.java",
+      "existed": false,
+      "before": null,
+      "after": "d15d89648b8b20adc8a5c9fd83d5aca10a93014245acc1f393b35cf5e774cf37"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/BootstrapChecks76.java",
+      "existed": true,
+      "before": "e03a11d9c6c1e7c8e2de5b4eebf82d03168632897789aa8e0cfe3dc530c1b435",
+      "after": "c6a11ef6594309451ae9f09862543ac550cd568e245b252d357402c896c2ebbe"
+    },
+    {
+      "path": "technologies/core/build.gradle",
+      "existed": true,
+      "before": "9de737719e9d287cfc5c97368ca7dc15ed94a892a8a192e83de51b4a8e68afba",
+      "after": "c0ebb84f1d7e94f7106e0ef881cfb1b1c069b2510feb709af9d5d979c3eb88d6"
+    },
+    {
+      "path": "technologies/core/foundation117.json",
+      "existed": true,
+      "before": "fe2463a9b74907f1bcdfc51173dcda6076554e6cc94ab627d995ccadbd36870c",
+      "after": "440a1a85b8c75b6320c0ff99ff46bb6139d42c6da1e9771b8da814cc96e85e72"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Admission82.java",
+      "existed": true,
+      "before": "5c643ffdb842bce2664d2efd30d3354ccf45cc3cd2b5c07023e6b22e699108d6",
+      "after": "91601df0455bd73c6cf63a01c3d6baa1b9d12bcb86914046e0337519bcde4c37"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Bootstrap76.java",
+      "existed": true,
+      "before": "41479ac60a1589eee8ffe5dafbe5bbf3637c61e2232c58066a140fe2a6470cd7",
+      "after": "22acacaf487f611cf31219316a96175ba259a246d6bba4f861ab1b1782792490"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/BootstrapPublisher76.java",
+      "existed": true,
+      "before": "b5cf5b40844463a349ff2688d9656fd5b42e00ab82f49e3317b9799d71f75037",
+      "after": "8fac360d8888e020c5a55e64cf54daf940f77febfeba7469b66751b3182b6562"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/CommitFence81.java",
+      "existed": true,
+      "before": "8a8d8973094085e4f6dabc103b2b50a28f705f783c6b13f166787ba81da061ad",
+      "after": "cf49a148a7f0c390f38d742d8000947ec18af16e980be5ad74faf5d27b6dcbb5"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/DedicatedAdmin75.java",
+      "existed": true,
+      "before": "5440aee50038a634c9e68a6e60e7ee244dddcb42d0b87d505c000e18985a1913",
+      "after": "1d1867b8ca347296e7c6c01ed788efc4f3ab2c1698ea8c4c93e24def698e3ea1"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/DedicatedSession74.java",
+      "existed": true,
+      "before": "2e5a213c27fe268e7a26e77c63f6cc54aaac81a95ae9681f1b9f9b40f404746a",
+      "after": "598c4bb598874c88e26d6c6cc93cacdbed4772125643c377071e70aed920f072"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/FolderRuntime118.java",
+      "existed": false,
+      "before": null,
+      "after": "c200081285c74e6f6cda5fdc8ea0ee634109b48c93ab5a5411374796cea0f1ad"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/PublicationHealth80.java",
+      "existed": true,
+      "before": "3bf38da77a92ba7eaa2665c50c786d5c7e11698ade2a85ccdc34a9936be24b56",
+      "after": "45c914dcde80a39e73ae336654c22e4551030caee1245b41ca6f25ae0fa4d51b"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerDiagnostics105.java",
+      "existed": true,
+      "before": "bdba87639750536c7c1e11e874da3c240d13ead50403751a04d9d1572a51d555",
+      "after": "89b22d334a044846fbd33581200ee7ac46c09f68cb8a0d90fc0354b8d3830fe4"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerNavigation116.java",
+      "existed": true,
+      "before": "f7186f25bb20c9b02fd8a03e48cbf2f87ea3891d8f7882e0847315d5e2e72b39",
+      "after": "a3b510932fd2de2e172e82dcce90f6974a201dacc57945150412914e40394223"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerUpdate115.java",
+      "existed": true,
+      "before": "c964f61a126cc86f62cc3c47802ea51f98c5b21e30f84a14158fc9cc51097fef",
+      "after": "b5384844d7f7bd07e3b6f328dfd4c3ff2293e6d7191eba29634b0d68504cde2b"
+    },
+    {
+      "path": "tools/dedicated_server75.py",
+      "existed": true,
+      "before": "2269510fd16ea8164ccf12bb461d2eb308127ab0016fb097aedd49b8edf83ff9",
+      "after": "f611cbff8abccbc60e9efbdc5f380dee87df50abaa5da8fad26196de5aa1291d"
+    },
+    {
+      "path": "tools/first58/dedicated74.py",
+      "existed": true,
+      "before": "3c5b242da6c12aaeb9dd837953de8eb7e3a0daeef228dbac313081b072c29b80",
+      "after": "dafbbef73e0920e1b79c4ef693cd3b407d0f823866b7a206aa89a4c952682507"
+    },
+    {
+      "path": "tools/first58/folder118.py",
+      "existed": false,
+      "before": null,
+      "after": "3dc135163b4a98152558760d66977e6f53f735bd6ae3b96b393c54a16d1135e2"
+    },
+    {
+      "path": "tools/first58/inplace104.py",
+      "existed": true,
+      "before": "9abaa175c44b6b6480f4f9137f27c37665d96ab63e775bf5cbd2efd28a01d3c2",
+      "after": "39176df89c6f1b0be38e36637964243a54005607f64987550f76949bede60848"
+    },
+    {
+      "path": "tools/first58/publication83.py",
+      "existed": true,
+      "before": "ba9ff5dc98aba6b1d7eef44a849601485dd2db823f354d32e45e7ff099970250",
+      "after": "e06bfe6452859302cd42f24efd8f1b834cd719cca062ffca0f07875cd1b2ed13"
+    },
+    {
+      "path": "tools/integration_audit116.py",
+      "existed": true,
+      "before": "44fa7d5f0637e2202da5ccb2b1ecb213b2ed6452389a93027efcde88a983ddcd",
+      "after": "2de6d34a242a4a7fb487aa5478503f9dea94f88f2b3158a91e7d9378b1d99815"
+    },
+    {
+      "path": "tools/server104.py",
+      "existed": true,
+      "before": "cc4e36176fde047c31c816e403dfa906a9f33813d7ac74c4575afe0decf93681",
+      "after": "aeca6f7fc284f4b94de69f5403046841b625ef07e14eb5f42d075c3a8806f563"
+    },
+    {
+      "path": "verification/server59/folder_process118.py",
+      "existed": false,
+      "before": null,
+      "after": "73612103e67d9243b413a7211876093d02a440872443297feabec90b578b4aa7"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import java.util.Locale;
 public final class ProjectPath {
  private static final Set<String> DOTFILES=Set.of(".gitignore",".gitattributes",".editorconfig",".gitkeep",".github");
  private ProjectPath() {}
+ public static String child(String parent,String name){String path=parent.isEmpty()?name:parent+"/"+name;if(!valid(path))throw new IllegalArgumentException("Invalid project path");return path;}
  public static boolean valid(String path){
   if(path==null||path.isEmpty()||path.length()>256)return false;
   String[] parts=path.split("/",-1);if(parts.length>16)return false;

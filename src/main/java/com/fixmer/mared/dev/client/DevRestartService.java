@@ -5,11 +5,6 @@ import com.fixmer.mared.MaredLang;
 import com.fixmer.mared.dev.DevMode;
 import com.fixmer.mared.dev.storage.DevResumeStore;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.Locale;
 
 import net.minecraft.client.Minecraft;
@@ -59,85 +54,81 @@ public final class DevRestartService {
         return !future.isDone() || future.getNow(false);
     }
 
-    public static synchronized java.util.concurrent.CompletableFuture<Boolean> restartAsync() {
-        var result = new java.util.concurrent.CompletableFuture<Boolean>();
-        if (!DevMode.isEnabled()) {
-            message(MaredLang.get("mared.dev.restart.requires_dev"));
-            return java.util.concurrent.CompletableFuture.completedFuture(false);
-        }
-        if (!isUnderSupervisor()) {
-            message(MaredLang.get("mared.dev.restart.no_supervisor"));
-            Mared.LOGGER.warn(
-                "[Mared] restart requested but GENESIS_SUPERVISOR is not set");
-            return java.util.concurrent.CompletableFuture.completedFuture(false);
-        }
-        if (supervisorPort() < 1) { message("Invalid supervisor port in environment; restart declined."); return java.util.concurrent.CompletableFuture.completedFuture(false); }
-        if (restartInProgress) {
-            message(MaredLang.get("mared.dev.restart.already"));
-            return java.util.concurrent.CompletableFuture.completedFuture(false);
-        }
-        final com.fixmer.mared.dev.storage.DevResumeStore.Target target;
-        try { target = DevSessionResume.captureCurrent(); }
-        catch (RuntimeException e) { message(e.getMessage()); DevActivationService.lastStatus = e.getMessage(); return java.util.concurrent.CompletableFuture.completedFuture(false); }
-        restartInProgress = true;
-        DevRestartOverlay.show("mared.dev.restart.animation.requesting");
-        DevActivationService.lastStatus = MaredLang.get("mared.dev.menu.requesting");
+    public static java.util.concurrent.CompletableFuture<Boolean> restartAsync() { return restartAsync(()->true); }
 
-        int port = supervisorPort();
-        message(MaredLang.format("mared.dev.restart.requesting", port));
-        Mared.LOGGER.info("[Mared] restart requested, supervisor port={}", port);
-
-        Thread t = new Thread(() -> performRestart(port, target, result), "mared-dev-restart");
-        t.setDaemon(true);
-        t.start();
-        return result;
+    public static synchronized java.util.concurrent.CompletableFuture<Boolean> restartAsync(java.util.function.BooleanSupplier current) {
+        if(!DevMode.isEnabled()){message(MaredLang.get("mared.dev.restart.requires_dev"));return java.util.concurrent.CompletableFuture.completedFuture(false);}
+        if(!isUnderSupervisor()){message(MaredLang.get("mared.dev.restart.no_supervisor"));return java.util.concurrent.CompletableFuture.completedFuture(false);}
+        if(restartInProgress){message(MaredLang.get("mared.dev.restart.already"));return java.util.concurrent.CompletableFuture.completedFuture(false);}
+        if(supervisorPort()<1){message("Invalid supervisor port; restart declined.");return java.util.concurrent.CompletableFuture.completedFuture(false);}
+        if (!"95".equals(System.getenv("GENESIS_RESTART_PROTOCOL95"))) {
+            message(MaredLang.get("mared.restart95.owner_old"));
+            return java.util.concurrent.CompletableFuture.completedFuture(false);
+        }
+        final DevResumeStore.Target target;
+        try { target=DevSessionResume.captureCurrent(); }
+        catch(RuntimeException e){message(e.getMessage());return java.util.concurrent.CompletableFuture.completedFuture(false);}
+        long generation=DevIntegratedRestart90.generation95();
+        java.util.function.BooleanSupplier guard=()->generation==DevIntegratedRestart90.generation95()&&current.getAsBoolean();
+        var result=new java.util.concurrent.CompletableFuture<Boolean>();
+        restartInProgress=true;
+        DevActivationService.lastStatus=MaredLang.get("mared.integrated90.saving");
+        DevRestartOverlay.show("mared.integrated90.saving");
+        Thread worker=new Thread(()->performRestart(supervisorPort(),target,guard,result),"mared-dev-restart95");
+        worker.setDaemon(true);worker.start();return result;
     }
 
-    private static void performRestart(int port, com.fixmer.mared.dev.storage.DevResumeStore.Target target, java.util.concurrent.CompletableFuture<Boolean> result) {
-        String ticket = null;
+    private static void performRestart(int port,DevResumeStore.Target target,java.util.function.BooleanSupplier current,java.util.concurrent.CompletableFuture<Boolean> result) {
+        String ticket=null;
+        DevIntegratedRestart90.Receipt receipt=null;
+        com.fixmer.genesis.supervisor.RestartConnection95 connection=null;
         try {
-            ticket = DevSessionResume.prepare(target);
-            HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(2))
-                .build();
-            HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create("http://127.0.0.1:" + port + "/restart?cooperative=true"))
-                .header("X-Genesis-Token", System.getenv("GENESIS_SUPERVISOR_TOKEN"))
-                .header("X-Genesis-Launch", System.getenv("GENESIS_LAUNCH_ID"))
-                .timeout(Duration.ofSeconds(5))
-                .POST(HttpRequest.BodyPublishers.noBody())
-                .build();
-
-            HttpResponse<String> resp = client.send(req,
-                HttpResponse.BodyHandlers.ofString());
-
-            if (resp.statusCode() != 202 || !resp.body().contains("\"ok\":true")) {
-                DevSessionResume.cancel(ticket);
-                fail(MaredLang.format("mared.dev.restart.http_error",
-                    resp.statusCode(), resp.body()));
-                result.complete(false); return;
-            }
-
-            Mared.LOGGER.info("[Mared] supervisor accepted restart: {}",
-                resp.body());
-            scheduleExit(result);
-        } catch (Exception t) {
+            LocalRecovery91.activationCheck(target);
+            receipt=DevIntegratedRestart90.prepare(target,current);
+            ticket=DevSessionResume.prepare(target);
+            connection=new com.fixmer.genesis.supervisor.RestartConnection95(port,System.getenv("GENESIS_SUPERVISOR_TOKEN"),
+                System.getenv("GENESIS_SUPERVISOR_INSTANCE95"),System.getenv("GENESIS_LAUNCH_ID"),receipt.gate().id(),
+                (receipt.epoch().isEmpty()?"-":receipt.epoch())+"."+ticket);
+            var prepared=connection.prepare();
+            if(!"PREPARED".equals(prepared.getProperty("state")))throw new IllegalStateException("Restart preparation refused");
+            String grant=prepared.getProperty("grant");
+            clientStep(receipt,false);
+            if(!receipt.gate().active(System.nanoTime()))throw new java.util.concurrent.CancellationException("Restart cancelled");
+            var committed=connection.commit(grant);
+            if(!"COMMITTED".equals(committed.getProperty("state")))throw new IllegalStateException("Restart commit refused");
+            clientStep(receipt,true);
+            result.complete(true);
+        } catch(Exception error) {
+            // The shutdown file may have won while the authenticated HTTP response was lost.
+            if(receipt!=null&&!DevIntegratedRestart90.cancel(receipt)){result.complete(true);return;}
             DevSessionResume.cancel(ticket);
-            fail(MaredLang.format("mared.dev.restart.connect_failed",
-                t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage()));
+            if(connection!=null)try{connection.cancel();}catch(Exception ignored){}
+            String cancelled=MaredLang.get("mared.restart95.cancelled");
+            fail(cancelled.equals(DevActivationService.lastStatus)?cancelled:MaredLang.format("mared.dev.restart.connect_failed",error.getMessage()==null?error.getClass().getSimpleName():error.getMessage()));
             result.complete(false);
         }
     }
 
-    private static void scheduleExit(java.util.concurrent.CompletableFuture<Boolean> result) {
-        Minecraft mc = Minecraft.getInstance();
-        mc.execute(() -> {
-            message(MaredLang.get("mared.dev.restart.bye"));
-            Mared.LOGGER.info("[Mared] normal shutdown for supervisor restart");
-            DevWorldProfile.restore();
-            mc.stop();
-            result.complete(true);
+    static void clientStep(DevIntegratedRestart90.Receipt receipt,boolean exit)throws Exception {
+        var done=new java.util.concurrent.CompletableFuture<Void>();
+        Minecraft.getInstance().execute(()->{
+            try {
+                if(receipt.gate().exiting()){done.complete(null);return;}
+                if(exit){if(!DevIntegratedRestart90.exit95(receipt))throw new java.util.concurrent.CancellationException();}else DevIntegratedRestart90.authorize95(receipt);
+                done.complete(null);
+            }catch(Throwable e){done.completeExceptionally(e);}
         });
+        try{done.get(5,java.util.concurrent.TimeUnit.SECONDS);}
+        catch(java.util.concurrent.TimeoutException timeout){
+            if(DevIntegratedRestart90.cancel(receipt))throw timeout;
+            // Exit was claimed atomically; never revoke its replacement after that point.
+        }
+    }
+
+    public static boolean cancelBeforeExit95(){
+        if(!DevIntegratedRestart90.cancelPending95())return false;
+        DevActivationService.lastStatus=MaredLang.get("mared.restart95.cancelled");
+        DevRestartOverlay.clear();return true;
     }
 
     private static void fail(String reason) {

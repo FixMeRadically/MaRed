@@ -32,8 +32,8 @@ public class MaredForCommand extends MaredScriptCommand {
     public void execute(MaredScriptContext ctx, MaredScriptExecutor exec) {
         int from, to;
         try {
-            from = (int) MaredExpr.toLong(MaredExpr.eval(fromExpr, ctx));
-            to   = (int) MaredExpr.toLong(MaredExpr.eval(toExpr, ctx));
+            from = Math.toIntExact(MaredExpr.toLong(MaredExpr.eval(fromExpr, ctx)));
+            to   = Math.toIntExact(MaredExpr.toLong(MaredExpr.eval(toExpr, ctx)));
         } catch (Exception e) {
             ctx.log(MaredLang.format("mared.log.eval.error",
                 fromExpr + " to " + toExpr, e.getMessage()));
@@ -65,6 +65,7 @@ public class MaredForCommand extends MaredScriptCommand {
                 if (bodyFrame.continueRequested) {
                     bodyFrame.continueRequested = false;
                 }
+                if(current==endValue){restoreVar(c);return false;}
                 iteration++;
                 if (iteration >= MAX_ITER) {
                     c.log(MaredLang.format("mared.log.mared.for_limit", MAX_ITER));
@@ -88,16 +89,17 @@ public class MaredForCommand extends MaredScriptCommand {
                 if (hadVar) {
                     c.setVariable(var, oldVar);
                 } else {
-                    c.setVariable(var, null);
+                    c.removeVariable(var);
                 }
             }
 
+            @Override public void onDiscard(MaredScriptContext c){restoreVar(c);}
             @Override
             public String describe() { return "for $" + var + " = " + fromExpr + " to " + toExpr; }
         };
 
-        ctx.setVariable(var, startValue);
         exec.pushLoopBody(body, owner);
+        ctx.setVariable(var, startValue);
     }
 
     @Override public int getDelayTicks() { return 0; }

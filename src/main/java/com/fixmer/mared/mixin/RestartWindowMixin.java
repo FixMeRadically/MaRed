@@ -19,5 +19,5 @@ public abstract class RestartWindowMixin {
     @Inject(method="updateDisplay",at=@At("HEAD"),require=0)
     private void genesis$coverBeforeSwap(CallbackInfo ci){DevRestartWindow.beforeFrame((Window)(Object)this);}
     @Inject(method="updateDisplay",at=@At("RETURN"),require=0)
-    private void genesis$presentAfterSwap(CallbackInfo ci){DevRestartWindow.afterFrame((Window)(Object)this);}
+    private void genesis$presentAfterSwap(CallbackInfo ci){DevRestartWindow.afterFrame((Window)(Object)this);com.fixmer.mared.technology.server.setup.ServerReturnClient108.afterFrame();com.fixmer.mared.technology.server.firstlaunch.FirstLaunchClient58.afterFrame();com.fixmer.mared.technology.server.firstlaunch.RemoteClient70.afterFrame();}
 }

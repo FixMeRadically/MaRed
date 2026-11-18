@@ -7,10 +7,15 @@ import net.neoforged.fml.loading.FMLPaths;
 
 /** One load per Studio session; atomic writes on exit, never from the render loop. */
 public final class WorkbenchPreferences {
-    public int version=2,selectedTab=0;
+    public int version=2,selectedTab=0,sourceTab133=1;
+    public String creationDirection145="";
+    public java.util.Map<String,String> creationSections145=new java.util.HashMap<>();
+    public String commandsSplitFile133="",scriptsSplitFile133="";
     public boolean scriptsAutoReveal=true,scriptsJavaSnippet=true,scriptsKeepLogs=true,scriptsAutoOpenLogs=true;
     public int scriptsLogCapacity=1024;
     public java.util.Set<String> scriptsHiddenLevels=new java.util.HashSet<>(),scriptsHiddenCategories=new java.util.HashSet<>();
+    public int railWidth152=138;
+    public java.util.Map<String,Integer> directionColors152=new java.util.HashMap<>(),surfaceColors152=new java.util.HashMap<>();
     public double filesRatio=.18,helpRatio=.29,logsRatio=.24;
     public boolean filesOpen=true,helpOpen=false,logsOpen=false,background=true,animation=true,depth=true;
     public boolean helpDocked=false;
@@ -18,6 +23,7 @@ public final class WorkbenchPreferences {
     /** Explicit copy keeps Scripts settings independent of Commands and tab selection. */
     public WorkbenchPreferences settingsDraft(){var copy=new WorkbenchPreferences();copy.applySettings(this);return copy;}
     public void applySettings(WorkbenchPreferences p){
+        railWidth152=p.railWidth152;directionColors152=new java.util.HashMap<>(p.directionColors152);surfaceColors152=new java.util.HashMap<>(p.surfaceColors152);
         scriptsAutoReveal=p.scriptsAutoReveal;scriptsJavaSnippet=p.scriptsJavaSnippet;scriptsKeepLogs=p.scriptsKeepLogs;scriptsAutoOpenLogs=p.scriptsAutoOpenLogs;
         scriptsLogCapacity=p.scriptsLogCapacity;scriptsHiddenLevels=new java.util.HashSet<>(p.scriptsHiddenLevels);scriptsHiddenCategories=new java.util.HashSet<>(p.scriptsHiddenCategories);
         filesRatio=p.filesRatio;helpRatio=p.helpRatio;logsRatio=p.logsRatio;filesOpen=p.filesOpen;helpOpen=p.helpOpen;logsOpen=p.logsOpen;
@@ -40,12 +46,18 @@ public final class WorkbenchPreferences {
             if(p.scriptsHiddenCategories==null)p.scriptsHiddenCategories=new java.util.HashSet<>();
             p.scriptsHiddenLevels.removeIf(v->v==null||!java.util.Set.of("TRACE","DEBUG","INFO","WARN","ERROR").contains(v));
             p.scriptsHiddenCategories.removeIf(v->v==null||!java.util.Set.of("editor","java","gradle","server","tools").contains(v));
-            p.selectedTab=Math.max(0,Math.min(7,p.selectedTab));p.filesRatio=ratio(p.filesRatio,.18);p.helpRatio=ratio(p.helpRatio,.29);p.logsRatio=ratio(p.logsRatio,.24);return p;
+            p.railWidth152=Math.max(34,Math.min(300,p.railWidth152));
+            if(p.directionColors152==null)p.directionColors152=new java.util.HashMap<>();if(p.surfaceColors152==null)p.surfaceColors152=new java.util.HashMap<>();
+            p.directionColors152.entrySet().removeIf(e->e.getKey()==null||e.getValue()==null||e.getValue()<0||e.getValue()>0xffffff);p.surfaceColors152.entrySet().removeIf(e->e.getKey()==null||e.getValue()==null||e.getValue()<0||e.getValue()>0xffffff);
+            if(p.creationSections145==null)p.creationSections145=new java.util.HashMap<>();
+            if(p.creationDirection145==null)p.creationDirection145="";
+            p.sourceTab133=Math.max(0,Math.min(1,p.sourceTab133));p.selectedTab=Math.max(0,Math.min(7,p.selectedTab));p.filesRatio=ratio(p.filesRatio,.18);p.helpRatio=ratio(p.helpRatio,.29);p.logsRatio=ratio(p.logsRatio,.24);com.fixmer.mared.gui2.genesis.node.NodeRegistry.palette152(p.directionColors152);return p;
         }catch(Exception e){Mared.LOGGER.warn("[editor] Cannot load workbench settings; using defaults",e);return new WorkbenchPreferences();}
     }
     private static double position(double value,double fallback){return Double.isFinite(value)?Math.max(0,Math.min(1,value)):fallback;}
     private static double ratio(double value,double fallback){return Double.isFinite(value)?Math.max(.08,Math.min(.6,value)):fallback;}
     public void save(){
+        com.fixmer.mared.gui2.genesis.node.NodeRegistry.palette152(directionColors152);
         Path path=path(),tmp=null;
         try{
             Files.createDirectories(path.getParent());tmp=Files.createTempFile(path.getParent(),"workbench-",".tmp");

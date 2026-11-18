@@ -1,0 +1,32 @@
+package com.fixmer.genesis.technology.server.remote;
+import com.fixmer.genesis.technology.server.firstlaunch.*;
+import java.io.*;import java.nio.channels.*;import java.nio.file.*;import java.util.*;
+/** Private local queue, not a remote filesystem API. Network caller permissions belong to ServerPlayer handler. */
+public final class DedicatedAdmin75 {
+ public final Path root;public final UUID run;private final byte[] key;
+ private DedicatedAdmin75(Path root,UUID run,byte[] key){this.root=root;this.run=run;this.key=key;}
+ public static DedicatedAdmin75 open(Path root)throws Exception{
+  root=FirstLaunchFiles.safe(root);byte[] key=FirstLaunchFiles.read(root.resolve("owner74.key"),32);if(key.length!=32)throw new IOException("DEDICATED75_KEY");var marker=LocalApply67.verify(key,FirstLaunchFiles.read(root.resolve("owner75"),16384));if(!marker.keySet().equals(Set.of("schema","run"))||!marker.get("schema").equals("75"))throw new IOException("DEDICATED75_MARKER");return new DedicatedAdmin75(root,UUID.fromString(marker.get("run")),key);
+ }
+ public static boolean mayAdminister(boolean permission4,boolean online){return permission4&&online;}
+ public Map<String,String> view()throws Exception{
+  var d=LocalApply67.verify(key,FirstLaunchFiles.read(root.resolve("view75"),32768));if(!d.keySet().equals(Set.of("schema","run","generation","phase","updated","ready","control","delta","history","failureCode","failureStage","reason","busy"))||!d.get("schema").equals("75")||!d.get("run").equals(run.toString())||!d.get("generation").matches(isInPlace104()?"0|[1-9][0-9]{0,8}":"0|[1-9][0-9]?")||!isInPlace104()&&Integer.parseInt(d.get("generation"))>32||!d.get("updated").matches("[1-9][0-9]{11,15}")||!Set.of("true","false").contains(d.get("ready"))||!Set.of("true","false").contains(d.get("busy")))throw new IOException("DEDICATED75_VIEW");return d;
+ }
+ public boolean isInPlace104()throws Exception{Path marker=root.resolve("owner104");if(!Files.exists(marker,LinkOption.NOFOLLOW_LINKS))return false;var d=LocalApply67.verify(key,FirstLaunchFiles.read(marker,16384));return d.keySet().equals(Set.of("schema","run","profile"))&&d.get("schema").equals("104")&&d.get("run").equals(run.toString())&&FirstLaunchFiles.safe(Path.of(d.get("profile"))).resolve(".genesis/server104").equals(root);}
+ public boolean supportsRestart103()throws Exception{return Files.isRegularFile(root.resolve("owner103"),LinkOption.NOFOLLOW_LINKS)&&LocalApply67.verify(key,FirstLaunchFiles.read(root.resolve("owner103"),16384)).equals(Map.of("schema","103","run",run.toString()));}
+ public void submit(UUID request,String action,String label)throws Exception{submit0(request,action,label,null,null);}
+ void submitRemote88(UUID request,String action,String label,String generation,String permit)throws Exception{submit0(request,action,label,generation,permit);}
+ private void submit0(UUID request,String action,String label,String generation,String permit)throws Exception{
+  if(request.equals(new UUID(0,0))||!Set.of("RESTART","CONTINUE_WAIT","STAGE","OFFER","STATUS","COMMIT","CANCEL","CLOSE","LOCAL_TEST_ON","LOCAL_TEST_OFF","SHUTDOWN").contains(action)||!label.matches("[A-Za-z0-9_-]{1,40}"))throw new IOException("DEDICATED75_ACTION");
+  if(isInPlace104()&&!Set.of("RESTART","SHUTDOWN").contains(action)&&!FolderRuntime118.supported(root))throw new IOException("SERVER104_UPDATE_COORDINATOR_REQUIRED");
+  if(action.equals("CONTINUE_WAIT")&&!LocalApply67.verify(key,FirstLaunchFiles.read(root.resolve("owner81"),16384)).equals(Map.of("schema","81","run",run.toString())))throw new IOException("DEDICATED75_ACTION");
+  if(action.equals("RESTART")&&!supportsRestart103())throw new IOException("SERVER103_NEW_OWNER_REQUIRED");
+  var state=view();long age=System.currentTimeMillis()-Long.parseLong(state.get("updated"));if(age< -30000||(age>10000&&!action.equals("SHUTDOWN"))||(state.get("busy").equals("true")&&!action.equals("SHUTDOWN")&&!(action.equals("CONTINUE_WAIT")&&Set.of("WAITING_ALL_INSTALLED","WAITING_THRESHOLD","ACTIVE_UPDATED").contains(state.get("phase"))))||Set.of("FAILED","STOPPED_SAVED","STOP_NOT_CONFIRMED").contains(state.get("phase")))throw new IOException("DEDICATED75_OWNER_UNAVAILABLE");
+  var d=new TreeMap<>(Map.of("schema","75","run",run.toString(),"generation",state.get("generation"),"request",request.toString(),"action",action,"label",label));if(permit!=null){if(!state.get("generation").equals(generation))throw new IOException("ACCESS88_GENERATION");d.put("permit88",permit);}Path lock=root.resolve("submit75.lock");
+  try(var channel=FileChannel.open(lock,StandardOpenOption.CREATE,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){FirstLaunchFiles.privateMode(lock);try(var held=channel.tryLock(0,1,false)){if(held==null)throw new IOException("DEDICATED75_BUSY");Path p=root.resolve("request74");if(Files.exists(p)){
+   var previous=LocalApply67.verify(key,FirstLaunchFiles.read(p,16384));if(previous.get("request").equals(request.toString())){if(!previous.equals(d))throw new IOException("DEDICATED75_NONCE_CONFLICT");return;}
+   var ack=Files.exists(root.resolve("request74.ack"))?LocalApply67.verify(key,FirstLaunchFiles.read(root.resolve("request74.ack"),16384)):Map.<String,String>of();if(!requestOf(previous).equals(ack.get("request"))||!run.toString().equals(ack.get("run")))throw new IOException("DEDICATED75_REQUEST_PENDING");
+  }FirstLaunchFiles.write(p,LocalApply67.sign(key,d),true);}}
+ }
+ private String requestOf(Map<String,String> previous)throws IOException{if(!run.toString().equals(previous.get("run")))throw new IOException("DEDICATED75_BINDING");return previous.get("request");}
+}

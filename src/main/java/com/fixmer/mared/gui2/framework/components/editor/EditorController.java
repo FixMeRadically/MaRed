@@ -189,7 +189,7 @@ public final class EditorController {
     }
 
     private void pasteFromClipboard() {
-        String clip = host.clipboardGet();
+        String clip = EditorDocument.normalizeLineEndings(host.clipboardGet());
         if (clip == null || clip.isEmpty()) return;
 
         if (document.hasSelection()) {
@@ -297,12 +297,12 @@ public final class EditorController {
         }
 
         if (cc > 0) {
-            int startCol = cc - 1;
+            int startCol = document.line(cl).offsetByCodePoints(cc,-1);
             String removed = document.line(cl).substring(startCol, cc);
             Edit e = new Edit(
                 cl, startCol, removed, "",
                 cl, cc,
-                cl, cc - 1
+                cl, startCol
             );
             history.recordCoalescible(e);
             document.deleteBeforeCursor();
@@ -348,7 +348,7 @@ public final class EditorController {
         int lineLen = document.lineLength(cl);
 
         if (cc < lineLen) {
-            String removed = document.line(cl).substring(cc, cc + 1);
+            String line=document.line(cl);String removed = line.substring(cc,line.offsetByCodePoints(cc,1));
             Edit e = new Edit(
                 cl, cc, removed, "",
                 cl, cc,
@@ -471,8 +471,6 @@ public final class EditorController {
     // ============================================================
 
     public void onMouseClicked(double mx, double my) {
-        if (!host.editable()) return;
-
         int x = host.x();
         int y = host.y();
         int w = host.w();
@@ -501,7 +499,7 @@ public final class EditorController {
             view.dragScrollbar(my, w, h, document, font());
             return true;
         }
-        if (!host.editable() || !selecting) return false;
+        if (!selecting) return false;
 
         int x = host.x();
         int y = host.y();

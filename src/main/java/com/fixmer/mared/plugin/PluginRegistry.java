@@ -56,15 +56,14 @@ public final class PluginRegistry {
     }
 
     public static void unloadAll() {
-        for (MaredPlugin p : loaded) {
-            try {
-                p.onUnload();
-            } catch (Throwable t) {
-                Mared.LOGGER.warn(
-                    "[plugin:{}] onUnload failed", p.id(), t);
+        var retiring=List.copyOf(loaded);
+        loaded.clear();pendingActions.clear();
+        try {
+            for(MaredPlugin plugin:retiring){
+                try{plugin.onUnload();}
+                catch(Throwable error){Mared.LOGGER.warn("[plugin:{}] onUnload failed",plugin.getClass().getName(),error);}
             }
-        }
-        loaded.clear();
+        } finally {loaded.clear();pendingActions.clear();}
     }
 
     // ============================================================

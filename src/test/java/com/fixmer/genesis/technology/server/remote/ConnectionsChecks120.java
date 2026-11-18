@@ -1,0 +1,26 @@
+package com.fixmer.genesis.technology.server.remote;
+import com.fixmer.genesis.technology.server.firstlaunch.*;import java.nio.file.*;import java.nio.charset.StandardCharsets;import java.util.*;import java.util.zip.*;
+/** Real cryptography/archives/channel; loaded paths and rendered game frames remain fixtures. */
+public final class ConnectionsChecks120 {
+ static int checks;static void ok(boolean x){checks++;if(!x)throw new AssertionError("connections120 "+checks);}
+ interface Op{void run()throws Exception;}static void rejects(Op op)throws Exception{checks++;try{op.run();}catch(Exception expected){return;}throw new AssertionError("accepted invalid proof");}
+ public static void main(String[] a)throws Exception{
+  Path base=Path.of(a[1]),root=base.resolve("server/.genesis/server104"),id=root.resolve("publisher73");
+  if(a[0].equals("approval")){Approval120.verify(base,a[2],a[3],a[4]);return;}
+  if(a[0].equals("client")){
+   var s=RemoteSession70.open(System.getenv());List<Path> loaded;try(var files=Files.list(Path.of("mods"))){loaded=files.toList();}s.verifyRuntime(loaded,"1.21.1","21.1.264");ok(s.command().get("phase").equals("RETURN_JOIN"));ok(s.returnJoinAllowed120());s.status("WORLD_FRAME_READY",1,UUID.randomUUID());System.out.println("Return120 runtime paths/RETURN_JOIN gate passed; frame is a fixture");return;
+  }
+  if(a[0].equals("return")){
+   byte[] packet=ReturnAdmission120.publish(root,System.currentTimeMillis());var c=ReturnAdmission120.context(root,System.currentTimeMillis());var member=c.captured().members().stream().filter(m->m.counted).findFirst().orElseThrow();var cfg=c.captured().config(member,UUID.randomUUID());byte[] pub=Files.readAllBytes(id.resolve("public.der"));var d=ControlWire73.verify(RemoteOffer69.publicKey(pub),packet);long now=System.currentTimeMillis();
+   ok(ReturnAdmission120.verify(packet,pub,cfg,d.get("inventory"),"1.21.1","21.1.264",now).equals(d));rejects(()->ReturnAdmission120.verify(packet,pub,cfg,"0".repeat(64),"1.21.1","21.1.264",now));rejects(()->ReturnAdmission120.verify(packet,pub,cfg,d.get("inventory"),"1.21.1","21.1.264",now+9000));var changed=new HashMap<>(cfg);changed.put("account",UUID.randomUUID().toString());rejects(()->ReturnAdmission120.verify(packet,pub,changed,d.get("inventory"),"1.21.1","21.1.264",now));byte[] broken=packet.clone();broken[10]^=1;rejects(()->ReturnAdmission120.verify(broken,pub,cfg,d.get("inventory"),"1.21.1","21.1.264",now));
+   Path owner=base.resolve("return-client120"),profile=owner.resolve("generations/client-1");Files.createDirectories(profile.resolve("mods"));var offer=c.source().offer();try(var z=new ZipFile(root.resolve("releases/"+c.intent().get("label")+"/public/client-"+offer.archiveSha()+".zip").toFile())){for(var e:c.source().archive().manifest().files()){var entry=z.getEntry("files/"+e.path());try(var in=z.getInputStream(entry)){Files.copy(in,profile.resolve(e.path()));}}}
+   Files.copy(base.resolve("server/mods/mared.jar"),profile.resolve("mods/mared.jar"));byte[] key=new byte[32];new java.security.SecureRandom().nextBytes(key);Files.write(owner.resolve("channel.key"),key);byte[] raw=ControlWire73.encode(cfg);Files.write(owner.resolve("return120.cfg"),raw);Files.write(owner.resolve("return120.public"),pub);Files.write(owner.resolve("return120.grant"),packet);
+   String digest=FirstLaunchFiles.sha((FirstLaunchFiles.sha(raw)+FirstLaunchFiles.sha(pub)).getBytes(StandardCharsets.US_ASCII)),run=UUID.randomUUID().toString();var session=Map.of("run",run,"account",member.account.toString(),"game",offer.game(),"inventory",FirstLaunchFiles.inventory(profile),"minecraft","1.21.1","neoforge","21.1.264","devHash","none","return119","MENU_ONLY","return120",digest);FirstLaunchFiles.write(owner.resolve("session70"),LocalApply67.sign(key,session),false);FirstLaunchFiles.write(profile.resolve("remote70.marker"),LocalApply67.sign(key,session),false);
+   FirstLaunchFiles.write(owner.resolve("client.command"),LocalApply67.sign(key,Map.of("run",run,"account",member.account.toString(),"inventory",session.get("inventory"),"phase","RETURN_JOIN","sequence","1","request",UUID.randomUUID().toString())),false);
+   Path java=Path.of(System.getProperty("java.home"),"bin",System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("windows")?"java.exe":"java");var b=new ProcessBuilder(java.toString(),"-cp",System.getProperty("java.class.path"),ConnectionsChecks120.class.getName(),"client",base.toString()).directory(profile.toFile()).redirectErrorStream(true);b.environment().put("GENESIS_REMOTE70_ROOT",owner.toString());b.environment().put("GENESIS_REMOTE70_RUN",run);var child=b.start();var output=new String(child.getInputStream().readAllBytes(),StandardCharsets.UTF_8);ok(child.waitFor()==0);System.out.print(output);
+   var expired=new HashMap<>(d);expired.put("issued",Long.toString(now-10000));expired.put("expires",Long.toString(now-2000));Files.write(owner.resolve("return120.grant"),ControlWire73.sign(DedicatedRelease74.privateKey(id),expired));var refused=b.start();refused.getInputStream().readAllBytes();ok(refused.waitFor()!=0);
+   System.out.println("Return120 actual rollback proof/channel/tamper/account/expiry checks passed: "+checks);return;
+  }
+  throw new IllegalArgumentException(a[0]);
+ }
+}

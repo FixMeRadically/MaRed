@@ -1,0 +1,15 @@
+// Isolated visual acceptance: the agent opens screens and captures real rendered frames.
+gradle.beforeProject { p ->
+    if (p.path == ':') p.afterEvaluate {
+        p.runs.named('client') {
+            workingDirectory p.layout.projectDirectory.dir('verification/client129')
+            jvmArguments.add('-javaagent:' + p.file('build/ui129/acceptance.jar').absolutePath + '=' + p.file('build/ui129/evidence').absolutePath)
+            systemProperty 'mared.dev', 'false'
+            def args129 = new ArrayList(arguments.get())
+            def user129 = args129.indexOf('--username')
+            if (user129 >= 0) args129[user129 + 1] = 'GenesisUI129'
+            args129.addAll(['--width', '1280', '--height', '800'])
+            arguments.set(args129)
+        }
+    }
+}

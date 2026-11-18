@@ -30,15 +30,8 @@ public class MaredReturnCommand extends MaredScriptCommand {
             try {
                 String trimmed = expression.trim();
                 // F5 FIX: строковый литерал — substitute
-                if (trimmed.length() >= 2
-                    && trimmed.startsWith("\"")
-                    && trimmed.endsWith("\"")) {
-                    String inner = trimmed.substring(1, trimmed.length() - 1);
-                    inner = MaredDebugCommand.unescapeQuotes(inner);
-                    value = ctx.substitute(inner);
-                } else {
-                    value = MaredExpr.eval(expression, ctx);
-                }
+                value=MaredExpr.eval(trimmed,ctx);
+                if(MaredExpr.isStringLiteral(trimmed))value=ctx.substitute((String)value);
             } catch (Exception e) {
                 ctx.log(MaredLang.format("mared.log.eval.error", expression, e.getMessage()));
                 throw new IllegalStateException("Return expression failed: " + expression, e);

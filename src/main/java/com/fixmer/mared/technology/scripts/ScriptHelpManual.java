@@ -17,9 +17,11 @@ public final class ScriptHelpManual {
     public List<Article> articles(){return articles;}
     public Article article(String id){return articles.stream().filter(a->a.id.equals(id)).findFirst().orElse(articles.get(0));}
     public List<Article> search(String query){String q=Objects.requireNonNullElse(query,"").strip().toLowerCase(Locale.ROOT);String[] words=q.split("\\s+");return articles.stream().filter(a->{String text=(a.title+" "+a.group+" "+a.summary+" "+a.keywords+" "+a.copyText()).toLowerCase(Locale.ROOT);for(String word:words)if(!text.contains(word))return false;return true;}).toList();}
-    public static ScriptHelpManual load(String language){
+    public static ScriptHelpManual load(String language){return load133(language,"scripts");}
+    public static ScriptHelpManual loadCommands133(String language){return load133(language,"commands");}
+    private static ScriptHelpManual load133(String language,String mode){
         String name=language!=null&&language.startsWith("ru")?"ru":"en";
-        try(var in=ScriptHelpManual.class.getResourceAsStream("/assets/mared/help/scripts_"+name+".md")){
+        try(var in=ScriptHelpManual.class.getResourceAsStream("/assets/mared/help/"+mode+"_"+name+".md")){
             if(in==null)throw new IOException("Bundled Help resource missing");byte[] data=in.readNBytes(256*1024+1);if(data.length>256*1024)throw new IOException("Help size limit");return parse(new String(data,StandardCharsets.UTF_8));
         }catch(IOException|RuntimeException bad){return new ScriptHelpManual(List.of(new Article("unavailable","Help","Help unavailable",bad.toString(),"",List.of(new Block(Kind.TEXT,"Bundled documentation could not be loaded. Reinstall the complete MaRed JAR.","")))));}
     }

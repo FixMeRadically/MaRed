@@ -25,6 +25,8 @@ public final class EditorDocument {
     private int selEndLine = -1, selEndCol = -1;
 
     private int contentVersion = 0;
+    private String cachedValue;
+    private int[] codePointStarts;
     private int desiredColumn = -1;
     private final int[] changedLines = new int[128];
 
@@ -37,7 +39,7 @@ public final class EditorDocument {
     // ============================================================
 
     public int contentVersion() { return contentVersion; }
-    private void touch(int firstLine) { contentVersion++;changedLines[contentVersion&127]=Math.max(0,firstLine);desiredColumn=-1; }
+    private void touch(int firstLine) { cachedValue=null;codePointStarts=null;contentVersion++;changedLines[contentVersion&127]=Math.max(0,firstLine);desiredColumn=-1; }
     /** Non-consuming edit journal: each view can invalidate from its own observed revision. */
     public int changedLineSince(int version) {
         long distance=(long)contentVersion-version;
@@ -78,6 +80,7 @@ public final class EditorDocument {
     }
 
     public String getValue() {
+        if (cachedValue != null) return cachedValue;
         int n = lines.size();
         if (n == 0) return "";
         int totalLen = n - 1;
@@ -87,7 +90,36 @@ public final class EditorDocument {
             if (i > 0) sb.append('\n');
             sb.append(lines.get(i));
         }
-        return sb.toString();
+        return cachedValue = sb.toString();
+    }
+
+    private int[] codePointStarts() {
+        if (codePointStarts == null) {
+            codePointStarts = new int[lines.size() + 1];
+            for (int i = 0; i < lines.size(); i++) {
+                var line = lines.get(i);
+                codePointStarts[i + 1] = codePointStarts[i] + line.codePointCount(0, line.length())
+                    + (i + 1 < lines.size() ? 1 : 0);
+            }
+        }
+        return codePointStarts;
+    }
+
+    public int codePointOffset(int line, int column) {
+        var text = lines.get(line);
+        int end = Math.clamp(column, 0, text.length());
+        if (end > 0 && end < text.length() && Character.isHighSurrogate(text.charAt(end - 1))
+            && Character.isLowSurrogate(text.charAt(end))) end--;
+        return codePointStarts()[line] + text.codePointCount(0, end);
+    }
+
+    public int[] codePointPosition(int offset) {
+        int[] starts = codePointStarts();
+        if (lines.isEmpty()) return new int[]{0, 0};
+        int clamped = Math.clamp(offset, 0, starts[lines.size()]);
+        int row = java.util.Arrays.binarySearch(starts, 0, lines.size(), clamped);
+        if (row < 0) row = -row - 2;
+        return new int[]{row, Character.offsetByCodePoints(lines.get(row), 0, clamped - starts[row])};
     }
 
     public String getSelectedText() {
@@ -114,10 +146,14 @@ public final class EditorDocument {
     //  Cursor / Selection
     // ============================================================
 
+    private int boundary(int line,int column){
+        var text=lines.get(line);int c=clamp(column,0,text.length());
+        return c>0&&c<text.length()&&Character.isHighSurrogate(text.charAt(c-1))&&Character.isLowSurrogate(text.charAt(c))?c-1:c;
+    }
     public void setCursor(int line, int col) {
         desiredColumn=-1;
         cursorLine = clamp(line, 0, lines.size() - 1);
-        cursorCol  = clamp(col, 0, lines.get(cursorLine).length());
+        cursorCol  = boundary(cursorLine,col);
     }
 
     public void clearSelection() {
@@ -127,14 +163,14 @@ public final class EditorDocument {
 
     public void startSelection(int line, int col) {
         int l = clamp(line, 0, lines.size() - 1);
-        int c = clamp(col, 0, lines.get(l).length());
+        int c = boundary(l,col);
         selStartLine = l; selStartCol = c;
         selEndLine = l; selEndCol = c;
     }
 
     public void extendSelection(int line, int col) {
         int l = clamp(line, 0, lines.size() - 1);
-        int c = clamp(col, 0, lines.get(l).length());
+        int c = boundary(l,col);
         selEndLine = l; selEndCol = c;
     }
 
@@ -149,9 +185,12 @@ public final class EditorDocument {
     //  Value
     // ============================================================
 
+    /** The document stores LF; CRLF and legacy CR input retain their line boundaries. */
+    public static String normalizeLineEndings(String text){return text==null?"":text.replace("\r\n","\n").replace('\r','\n');}
+
     public void setValue(String text) {
         if (text == null) text = "";
-        text = text.replace("\r", "");
+        text = normalizeLineEndings(text);
 
         lines.clear();
         String[] parts = text.split("\n", -1);
@@ -230,7 +269,7 @@ public final class EditorDocument {
     private void insertStringInternal(String s) {
         if (s == null || s.isEmpty()) return;
 
-        String[] parts = s.replace("\r", "").split("\n", -1);
+        String[] parts = normalizeLineEndings(s).split("\n", -1);
         StringBuilder cur = lines.get(cursorLine);
 
         if (parts.length == 1) {
@@ -276,8 +315,8 @@ public final class EditorDocument {
 
     public void deleteBeforeCursor() {
         if (cursorCol > 0) {
-            lines.get(cursorLine).deleteCharAt(cursorCol - 1);
-            cursorCol--;
+            var line=lines.get(cursorLine);int start=Character.offsetByCodePoints(line,cursorCol,-1);line.delete(start,cursorCol);
+            cursorCol=start;
             touch(cursorLine);
         }
     }
@@ -286,15 +325,15 @@ public final class EditorDocument {
         if (n <= 0) return;
         int actual = Math.min(n, cursorCol);
         if (actual <= 0) return;
-        lines.get(cursorLine).delete(cursorCol - actual, cursorCol);
-        cursorCol -= actual;
+        int start=boundary(cursorLine,cursorCol-actual);lines.get(cursorLine).delete(start,cursorCol);
+        cursorCol=start;
         touch(cursorLine);
     }
 
     public void deleteAfterCursor() {
         StringBuilder cur = lines.get(cursorLine);
         if (cursorCol < cur.length()) {
-            cur.deleteCharAt(cursorCol);
+            cur.delete(cursorCol,Character.offsetByCodePoints(cur,cursorCol,1));
             touch(cursorLine);
         }
     }
@@ -415,38 +454,13 @@ public final class EditorDocument {
         if(right)while(wordKind(neighbor(true))==0)step(true);
     }
 
-    public void moveLeft() {
-        if (hasSelection()) { clearSelection(); return; }
-        if (cursorCol > 0) cursorCol--;
-        else if (cursorLine > 0) {
-            cursorLine--;
-            cursorCol = lines.get(cursorLine).length();
-        }
-    }
+    public void moveLeft() { navigate(263,false,false); }
 
-    public void moveRight() {
-        if (hasSelection()) { clearSelection(); return; }
-        StringBuilder line = lines.get(cursorLine);
-        if (cursorCol < line.length()) cursorCol++;
-        else if (cursorLine < lines.size() - 1) {
-            cursorLine++;
-            cursorCol = 0;
-        }
-    }
+    public void moveRight() { navigate(262,false,false); }
 
-    public void moveUp() {
-        if (cursorLine > 0) {
-            cursorLine--;
-            cursorCol = Math.min(cursorCol, lines.get(cursorLine).length());
-        }
-    }
+    public void moveUp() { navigate(265,false,false); }
 
-    public void moveDown() {
-        if (cursorLine < lines.size() - 1) {
-            cursorLine++;
-            cursorCol = Math.min(cursorCol, lines.get(cursorLine).length());
-        }
-    }
+    public void moveDown() { navigate(264,false,false); }
 
     public void moveHome() { cursorCol = 0; }
     public void moveEnd()  { cursorCol = lines.get(cursorLine).length(); }

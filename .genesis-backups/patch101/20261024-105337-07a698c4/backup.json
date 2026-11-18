@@ -1,0 +1,132 @@
+{
+  "patch": 101,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "79ea45b1a585ed64f5dc8e5ca5ada018065d8a7ac1e01f512c29e87e98511d18",
+      "after": "6fc6db1d18e70c56c67f06548e7eb1e787d28ea20a5957218d677efcbc4b60a8"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/FailureReport101.java",
+      "existed": false,
+      "before": null,
+      "after": "fa2233f7d81c2242a80395975db105ac36a1f954921c3e5b81afa9c269248756"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/GameSession.java",
+      "existed": true,
+      "before": "c58c10c8ae51bda6e47cf31ab90d4fcdc421e328800b52ad81f9886a0966dc2a",
+      "after": "caf7ec0b3449bf56a69772f87f2fde42852c8f0bbde2361212e938154ff239f2"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/GameSessionClient.java",
+      "existed": true,
+      "before": "cd3564e0fcb1f5eba2a227fa28a193951f889b5a8510883e726a868dec8c4bf9",
+      "after": "fc6b9a4b7e0426d1016426b10b0f74ce981a84e68a74cda41d8ef6a8dfcd8af6"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ManagedChildProcess.java",
+      "existed": true,
+      "before": "c9f2a92199c91b39a4dd2eece936ed3ec67708bce16b4cd96e9d06c2b8a251c0",
+      "after": "e4848ffcf0bbbc6d7ae4a4de4f752754813b5d4f6a1e60c90a04c2a77d8dfbff"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ModDeployment.java",
+      "existed": true,
+      "before": "9c72b7869985af14f4b436ed47dd2a67be78b711ef9d5d99f2bc3e78d7a70c9f",
+      "after": "ba1ae41f02849a1cf253c050e4f3ffef9289c9b1020e3b053777d3f709303eaf"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ModSet99.java",
+      "existed": true,
+      "before": "60bfa8af351d9c9b532bbaf52d40a89a062f5139bcdcfe0f0eb86cf3c799fc8e",
+      "after": "b570000c61ff79ce789ac62c8ce668680a3704e52a6daae485f20a1f3e0602c8"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RuntimeFiles.java",
+      "existed": true,
+      "before": "3280d2ebc5c34c1bfcefd6f22e97d608857c7cda0edbfa65c92571adb4e40506",
+      "after": "c2afb369d63f0397c8314c49b18c04a9842dfaa37d52a6c0600d4ef2290282f1"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/StartupAbort101.java",
+      "existed": false,
+      "before": null,
+      "after": "36095a2fcdca1cb9c4178b12840c32b720b5c23a58ce54c4850704e95ce53364"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/StartupErrorProbe101.java",
+      "existed": false,
+      "before": null,
+      "after": "c28d06b509585cc5fd78eb208d6457af3bc4abfede1a3f4d7702c18b30a32e31"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/Supervisor.java",
+      "existed": true,
+      "before": "9193e4e01e35fd6ff6c87ae3526a586c5aa4fb2cb583cca08fcb3835bcf0df92",
+      "after": "4cdd81e9bfd7434154439f7b7046b0457f1784f6933741863aeee9eeb5d8252f"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/SupervisorConfig.java",
+      "existed": true,
+      "before": "c5958f399ca745a7afad9b76b4cf8684f168def0eab28e0020a4547a2c03287a",
+      "after": "f86d02d9e1e91bdd9338f01ea0ae0b781a0b2c493cbf90d47ad7568dd3ae7239"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/ClientFailure101.java",
+      "existed": false,
+      "before": null,
+      "after": "c8c50196a6190eed8046efa37164f6181f0df96824c8c1a2bf9642c881fb1c1d"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevRestartWindow.java",
+      "existed": true,
+      "before": "3f5bd02410ddf6adaae071160f193e3fae047e88e5f8d453c219a87d9bb37d98",
+      "after": "371cafeb7f6624b4d59573b1d2e7e52be8f7a4ba40d26689dacbd5162bac4083"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/FailureScreen101.java",
+      "existed": false,
+      "before": null,
+      "after": "133b688e63108d9d2fa030f69d340abc297ba75ef9ae43283fc4fcb3b6c30226"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/scripts/ScriptProjectEditor.java",
+      "existed": true,
+      "before": "2ad44e711160674f304589e66f1a8d361581fff41a7162dff32d4ed8c531cedc",
+      "after": "aae60ba190e5dee22a162c52073e91540f036c4c4913efd87e8854bd64233934"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "2d514d40749c4c739f11bb84777f92a8a31db85037cc2068c5f550959a9c9d20",
+      "after": "141f0d6de9c8f43c1bb09ed8e1fff793bda7147cfe968e5af9e584540917d31a"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "289f23ea18b3c52e94b062b176b9b0a3b02447fa61e4b8545f960f8e624d095c",
+      "after": "0822991253f1016c7ee2a97e0bfe441877ad77304975a53c8175475b0e835db9"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/FailureChecks101.java",
+      "existed": false,
+      "before": null,
+      "after": "dcdc408ae0ee64630345b0df352d9b254516d81d37cb6d57212a8685e0a53fef"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/FailureProcessFixture101.java",
+      "existed": false,
+      "before": null,
+      "after": "94bc2f94ec694d3e2ae7b4f2fb534ae0cece506e9e808852d77699afa6bc6980"
+    },
+    {
+      "path": "verification/server59/failure_process101.py",
+      "existed": false,
+      "before": null,
+      "after": "606584c830c8ed3d65c63ca54bbe07e1469242955c0529eca024f17dce863bc6"
+    }
+  ]
+}

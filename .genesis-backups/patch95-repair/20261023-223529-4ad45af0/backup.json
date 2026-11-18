@@ -1,0 +1,258 @@
+{
+  "patch": "95-repair",
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "946907c5587e761159caa34f5d29f46d0c5f7a761193abe1d6f8cdaa45381ff1",
+      "after": "db03c9372d30e771b6b964e0ff8af150feb7513d658c7e139deb578e41e580de"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/admission/AdmissionReceipt94.java",
+      "existed": false,
+      "before": null,
+      "after": "675d83d85a6df554904b793de81a31beff3d434f9b39cc7894aaac76b0afb272"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/admission/ProfileAgent93.java",
+      "existed": true,
+      "before": "44eb1229189fe699366a5854131d2e44ac3defdc7fc5359575f812bebb7f53b3",
+      "after": "7c7a2f2258b1a9fcb0f4d8fafa1ef511d6d8c746eda7f6199ee22e22c61ad72f"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ColdOwner94.java",
+      "existed": false,
+      "before": null,
+      "after": "d2848c8368bf5a3fb7b361aeb263fd73e3ed75e65707bfde2eb5c9aa18627096"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/GameSession.java",
+      "existed": true,
+      "before": "36bae8d90ec27a70284f870ce4e4eb14a94ba39124fab5b922c1ea01e0cd60e7",
+      "after": "c2d85f12a470007b02f80cd379af90db047cb8edd050f0e552ec69b8624ebc3c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ManagedChildProcess.java",
+      "existed": true,
+      "before": "e28d1eceb827233b1f315a85cc2d022b05969c16bf635b791762ac6a37ffde3d",
+      "after": "c9f2a92199c91b39a4dd2eece936ed3ec67708bce16b4cd96e9d06c2b8a251c0"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ModDeployment.java",
+      "existed": true,
+      "before": "f60b911db3ff9c561b03b7fedfe40c8c6cb6c709636638d3d2c661710b41741a",
+      "after": "b58fb2b3b91856502ce6b64aad5b49ae6d294d15e709dec40700b39774202d59"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/OwnerLease94.java",
+      "existed": false,
+      "before": null,
+      "after": "5bd857cb7995025969b07d34f9cb77c21f485082bfe87423c1e3456065f39448"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RecoveryBootstrap92.java",
+      "existed": true,
+      "before": "d380041bea81b2ab96f8e240e16a73c989872169d483a7e9486169095938f8e5",
+      "after": "40d52832d947792d4e21b5f9fda403eb7230892d240956b64db161275ed3d242"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RecoveryControl92.java",
+      "existed": true,
+      "before": "f1598dc217254bda07a13936bc824c97eea47de4710bc159fc2a63ca97080edb",
+      "after": "96441d9a1a39bf4e08abab47faa640874e5b104250308cddfc71838d12c62332"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RestartAttempt95.java",
+      "existed": false,
+      "before": null,
+      "after": "a4afb86003b1dc46e31c21311116b60a389fab273c9976036b9412045fe1b9f3"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RestartConnection95.java",
+      "existed": false,
+      "before": null,
+      "after": "1cc6f95033d392dbfd95c30df8a0aa5862b6c6a0852aae45e221796ca54e1e4e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RestartPermit95.java",
+      "existed": false,
+      "before": null,
+      "after": "22767efaf36f099b7e4ded4699b3d7f3fa64c9046bbd149beecb6c25538025e4"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RuntimeFiles.java",
+      "existed": true,
+      "before": "6a9fc0617ed83dfd1d8448b27181a51de85c9a478576d4c4e6b932659e4658ee",
+      "after": "3280d2ebc5c34c1bfcefd6f22e97d608857c7cda0edbfa65c92571adb4e40506"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/Supervisor.java",
+      "existed": true,
+      "before": "08acf41ec1d1d8a5127c99dadbfcf4bc78090169c2b0bf73e0981af88171229a",
+      "after": "a1368fb09e1d9064dd48e7055597d8488dd733327f5d48663379229de2a04e45"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/SupervisorConfig.java",
+      "existed": true,
+      "before": "8ccdf3ecd603413905c56c1a557189a4b5c118d3115f2e43ce512c0e6c75db0d",
+      "after": "c5958f399ca745a7afad9b76b4cf8684f168def0eab28e0020a4547a2c03287a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/SupervisorHttpServer.java",
+      "existed": true,
+      "before": "7f2f1db223b214dc0fd5b5006579467325650dacdcd346bce403f5114ddc9572",
+      "after": "27182b77d8b1579e5709ce707a41b65279272c150b6684e072e96323bee77968"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/SupervisorRecovery.java",
+      "existed": true,
+      "before": "9c1dd28ab6a85cdc6d16350637893454204944dbd3570054bfc0f137f1b02794",
+      "after": "7fa53c6de34e2659adac136587e8c921aff2bdfb7c26b58c9162614767abc4b6"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/README.md",
+      "existed": true,
+      "before": "dab0f9a215e649f298671f8c3f6db260300e34e5448376363ac0eaf150a9617c",
+      "after": "b50155b9b1fe49800ff6624097e6b7e98ea046744e3da9111e9ea2b3db86bcba"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevActivationService.java",
+      "existed": true,
+      "before": "b595527c1c3372819b5a95e8d7319bacf9864b945c6ebd8ab87e1d822e5806a2",
+      "after": "009f35fb5087ed3d00ef6abb6f3dcc7597db8c4ab934d387d852989c119cea63"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevAutoRestart.java",
+      "existed": true,
+      "before": "ee4972d590898591f96f07fe17a742b549c4eb4cb2e9859bcdbee6e493e1812b",
+      "after": "5c5e3fee6e71116238a621924edfc09c3a2ed500d023b28cc2c1e2151340425b"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevIntegratedRestart90.java",
+      "existed": true,
+      "before": "fd0748a1dbcd0f3259bc19cbde75191efbc556921c158314693c4a568330d6d6",
+      "after": "0937783851f223b251affc9a8c7869c44c58ca431008ace615d7c93240ef4987"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevRestartOverlay.java",
+      "existed": true,
+      "before": "ed97c443f8470f759ec3b5bffaf5be8c245af02119af57db8e238d2893dec4a9",
+      "after": "430bb5c3502d855d13e75d689d040d6fb26293652382dc5be750e17202096475"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevRestartService.java",
+      "existed": true,
+      "before": "960c0c03b7c4c09a4ac47173c07e9811b37d55e13b0f27a95b4e750919629750",
+      "after": "60e74b14049c415e202376fbae6b0a39f88e025481bc1fa2f8e5b4016a51d5ed"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevShutdownSignal.java",
+      "existed": true,
+      "before": "2398771792ac03cd4ce627beb8200b2b7de3e00fe90f8b701b0afa602c817589",
+      "after": "421215d6c71b55dff24392a6ed63ddc73cc50d5036d456a95cd64830e674a0d8"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/world/DevPlayerStateTracker.java",
+      "existed": true,
+      "before": "d5ef8cd2762a49817e15cced454e29557ec6ea8ce7a7fe59321e72f767235bf7",
+      "after": "0f066ce67fdfbc50b097118381e8fb3dbf5dd8d99464596f39c6ca83bd454d38"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/mixin/RestartKeyboardMixin.java",
+      "existed": true,
+      "before": "08a1525e1ba18eec9e6376448755bdefd5e37ee5dc4fbf0826bab87cc2d29081",
+      "after": "53a61071975261c4f05d535f2fe5868e4acd2f82dfcfd0bc51d534d2b7da7cee"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/IntegratedWorld90.java",
+      "existed": true,
+      "before": "8f68ef97a046b377ce73a37a2820d9fc5e6faf0936038d02341fae7234af1e1d",
+      "after": "836742addf4cb1ca24e725d7eb57c54a85af2c6201e57b17df7797f6ae182047"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "5c50b7de5e8716f8cd6640f5a010e7098cfbaed9ca7f8b26f101aa1b2b6bfe68",
+      "after": "e864a55fa4d01b162131f0b52b9d0f1b33459e007f8c561128b5e76f122ac21e"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "cf5ec37dce380fa4e8c33bdf66c6219232f7479741afeb02381767fe1785c3f0",
+      "after": "ee585b5d4c6c49362bff277ba103f3d184aeb01be53491b33906d5dd0f7f621e"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/ColdChecks94.java",
+      "existed": false,
+      "before": null,
+      "after": "c6163927c4668b74708ba8ad753335b2eb0c7899fbd175caba11bd8085e909b2"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/RestartChecks95.java",
+      "existed": false,
+      "before": null,
+      "after": "12aa5fb1998a246443dfc3a77450084d8e1e1b417265769529cbfbcdc5925708"
+    },
+    {
+      "path": "tools/recover_after_owner94.py",
+      "existed": false,
+      "before": null,
+      "after": "110c0636db62b1b427d0426c91dd1107a97018959eba65cd0415b8d5e6359cf0"
+    },
+    {
+      "path": "tools/recover_local92.py",
+      "existed": true,
+      "before": "50009a5349b1c144d058ec662080074f9d5bc6b029c427452aa23cdd17cbfdbb",
+      "after": "5da9ad30200d864341ea7a6082ae1f3659daf92b7825832dbd08b7d4c11f230e"
+    },
+    {
+      "path": "tools/restart_flow95.py",
+      "existed": false,
+      "before": null,
+      "after": "a8b2d5a62970794db1f3bb4f279db7b2f7c8f8215a24f5353fb19b67cb438483"
+    },
+    {
+      "path": "verification/server59/ColdProcessFixture94.java",
+      "existed": false,
+      "before": null,
+      "after": "57c3276c748d70ec3fb40d3c929659c9e7cf2a365f85fc2a21bd60eea4f10584"
+    },
+    {
+      "path": "verification/server59/RestartProcessFixture95.java",
+      "existed": false,
+      "before": null,
+      "after": "f75a6e78d97309e38ec110f510552ade592b028791cc1097cfda2a53ce2dacd4"
+    },
+    {
+      "path": "verification/server59/cold_process94.py",
+      "existed": false,
+      "before": null,
+      "after": "ed5296baf23d0be86f2327314901eb8ffa4c3d23be0ff8cb5d923e4486cecd21"
+    },
+    {
+      "path": "verification/server59/restart_adapter95.py",
+      "existed": false,
+      "before": null,
+      "after": "f4766598cc011dad928a3379b2f5381bee347ca9be6cb475a5a714443a06a820"
+    },
+    {
+      "path": "verification/server59/restart_process95.py",
+      "existed": false,
+      "before": null,
+      "after": "4872ee047557574394ed1e112bf0842ef99afdbffef0c45fb383239dced579df"
+    },
+    {
+      "path": "verification/server59/test_cold_wrapper94.py",
+      "existed": false,
+      "before": null,
+      "after": "43f0bafb3c3818337274fdc806c0b47087a01e797d34b17707202804a0450452"
+    },
+    {
+      "path": "verification/server59/test_restart_flow95.py",
+      "existed": false,
+      "before": null,
+      "after": "113db5b91f389f68df3425385a82ce44d877dc35cd8d26473c155f98245f8b30"
+    }
+  ]
+}

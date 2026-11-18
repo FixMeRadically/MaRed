@@ -1,0 +1,30 @@
+{
+  "patch": 60,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerSetupLauncher59.java",
+      "existed": true,
+      "before": "b1b3d43f6081098bdfa5efd8ac9eb71286cc08c8224475d6ea6e76ec0c01dd77",
+      "after": "7e4bfbc07bc35ecba35e0d17240daaa4877ce7ba0c895993999ed8e33bfce9dd"
+    },
+    {
+      "path": "tools/first58/capture.py",
+      "existed": true,
+      "before": "3fbe325accf8969827bb852b2673c220a45a4a7ccabab739a34fe8a85eb69352",
+      "after": "4a62650c711e9636e8eb642d67df3d5859cc986df17fa18e8e172a5e31f246ea"
+    },
+    {
+      "path": "tools/server_setup.py",
+      "existed": true,
+      "before": "557c7350c92ec2132596c32ba617b155adb6ad2e1d3fc428dea6b23ef0519094",
+      "after": "e0df40f168b0abf38c94f4bf021025d85deb1f6bf8c5b89ed94ba02f5bdd34f3"
+    },
+    {
+      "path": "verification/server59/test_profile_capture60.py",
+      "existed": false,
+      "before": null,
+      "after": "85a6a82ab531c59aff174cd59ece9bbfc50b0d3b53e607c726a41721c0cf719f"
+    }
+  ]
+}

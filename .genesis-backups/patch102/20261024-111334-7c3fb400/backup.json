@@ -1,0 +1,24 @@
+{
+  "patch": 102,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "6fc6db1d18e70c56c67f06548e7eb1e787d28ea20a5957218d677efcbc4b60a8",
+      "after": "9dd1b51cc921d0a56e28a3af507b5fb52809f6966f6a24feef6c544d4b1ce7c6"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/FailureProcessFixture101.java",
+      "existed": true,
+      "before": "94bc2f94ec694d3e2ae7b4f2fb534ae0cece506e9e808852d77699afa6bc6980",
+      "after": "4dcb54344c37e1f3f98e5c1a8762c1cfed50cfec3567582692f7d292c9228f5a"
+    },
+    {
+      "path": "verification/server59/failure_process101.py",
+      "existed": true,
+      "before": "606584c830c8ed3d65c63ca54bbe07e1469242955c0529eca024f17dce863bc6",
+      "after": "d802952ebd4ddc205c2d0d64446118c2543c6be41f55ea7e0ce1d2895875cf6b"
+    }
+  ]
+}

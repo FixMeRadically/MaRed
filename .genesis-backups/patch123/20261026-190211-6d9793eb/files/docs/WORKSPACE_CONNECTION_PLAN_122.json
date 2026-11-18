@@ -1,0 +1,14 @@
+{
+ "schema":121,
+ "status":"BACKEND_ONLY_NOT_REGISTERED",
+ "next_patch":122,
+ "connections":[
+  {"id":"identity","work":"Map authenticated server player to account, trusted project path and replica; enforce one writer per account until durable replica counters exist; project rights remain independent from OP/Maop."},
+  {"id":"migration","work":"Import existing112 snapshot under lock, preserve original and dirty local buffers, write durable migration receipt; never silently replace existing journal."},
+  {"id":"transport","work":"Bounded codecs, subscribe/unsubscribe, initial snapshot, dependency-aware resend, per-session sequence and rate limits, revocation, disconnect cleanup; no client-controlled filesystem paths."},
+  {"id":"editor","work":"Sidebar Workspace entry, collaborative tabs/split panes, Unicode-to-UTF16 mapping, stable selection anchors, remote cursors/colors and open-file presence, dirty pending queue and resync."},
+  {"id":"review","work":"File flags against approved baseline, text/binary diff, explicit deletion confirmation, history/restore, member and panel restrictions, stale-review errors without losing drafts."},
+  {"id":"build","work":"Export only approved immutable input to isolated build staging; recheck roles/hash before build and publication84/99; pass through persisted deployment approval120. Drafts never leak through ordinary filesystem build."},
+  {"id":"acceptance","work":"Real two-device/three-account tests: simultaneous edits, retry/duplicate, disconnect/restart, revoked access, stale approval, crash/torn record, binary asset conflict and failed mod rollback. JDK21/Windows/Minecraft acceptance required."}
+ ]
+}

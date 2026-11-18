@@ -71,7 +71,7 @@ public final class StudioActions {
 
         registry.register(new EditorAction(
             FILE_NEW, "mared.action.file.new.title", "Ctrl+N",
-            ctx -> ctx.commandsActive(), StudioActions::openNewFileDialog));
+            ctx -> ctx.commandsActive(), StudioActions::openNewFileDialog).inScope(com.fixmer.mared.gui2.studio.action.EditorAction.Scope.COMMANDS));
 
         registry.register(new EditorAction(FOLDER_NEW, "mared.action.folder.new.title", "",
             ctx -> ctx.commandsActive(), ctx -> {
@@ -89,7 +89,7 @@ public final class StudioActions {
             FILE_SAVE, "mared.action.file.save.title", "Ctrl+S",
             ctx -> ctx.commandsActive(),
             ctx -> ctx.controller().bus().publish(
-                new StudioEvents.SaveRequestedEvent())));
+                new StudioEvents.SaveRequestedEvent())).inScope(com.fixmer.mared.gui2.studio.action.EditorAction.Scope.COMMANDS));
 
         registry.register(new EditorAction(FILE_SAVE_AS, "mared.action.file.save_as.title", "Ctrl+Shift+S",
             ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty(), ctx -> ctx.workspace().requestSaveAs()));
@@ -125,9 +125,9 @@ public final class StudioActions {
 
         registry.register(new EditorAction(
             FILE_RUN, "mared.action.file.run.title", "Ctrl+R",
-            ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty() && ctx.runs().canStart(), StudioActions::runFile));
+            ctx -> ctx.commandsActive() && ctx.workspace() != null && !ctx.workspace().host().isEmpty() && ctx.runs().canStart(), StudioActions::runFile).inScope(com.fixmer.mared.gui2.studio.action.EditorAction.Scope.COMMANDS));
         registry.register(new EditorAction(FILE_STOP, "mared.action.file.stop.title", "Ctrl+Shift+R",
-            ctx -> ctx.commandsActive() && ctx.runs().canStop(), ctx -> ctx.runs().stop()));
+            ctx -> ctx.commandsActive() && ctx.runs().canStop(), ctx -> ctx.runs().stop()).inScope(com.fixmer.mared.gui2.studio.action.EditorAction.Scope.COMMANDS));
 
         registry.register(new EditorAction(
             FILE_RELOAD_PERSISTENT,

@@ -20,12 +20,13 @@ public final class ScriptSearchOverlay implements Overlay {
     public record Mode(String label, boolean enabled, Consumer<String> select) {}
     private List<Mode> modes=List.of();
     private int modeIndex,modeY;
-    public ScriptSearchOverlay modes(int current,List<Mode> values){modeIndex=current;modes=List.copyOf(values);return this;}
+    public ScriptSearchOverlay modes(int current,List<Mode> values){modes=List.copyOf(values);modeIndex=modes.isEmpty()?0:Math.max(0,Math.min(current,modes.size()-1));return this;}
     private final SearchJob job;
     private final String title;
     private final int accent;
     private final Consumer<ScriptSearch.Hit> selected;
-    private final ExecutorService worker=Executors.newSingleThreadExecutor(r->{var t=new Thread(r,"Genesis Scripts search");t.setDaemon(true);return t;});
+    private final ThreadPoolExecutor worker=new ThreadPoolExecutor(1,1,0,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<>(1),r->{var t=new Thread(r,"Genesis Scripts search");t.setDaemon(true);return t;});
+    private java.util.concurrent.atomic.AtomicBoolean cancellation=new java.util.concurrent.atomic.AtomicBoolean();
     private final EditBox query;
     private Future<ScriptSearch.Result> pending;
     private List<ScriptSearch.Hit> rows=List.of();
@@ -46,19 +47,21 @@ public final class ScriptSearchOverlay implements Overlay {
         this.title=title;this.job=job;this.browse=browse;this.accent=accent;this.selected=selected;
         query=new EditBox(Minecraft.getInstance().font,0,0,80,18,Component.literal(tr("search_query")));
         query.setMaxLength(ScriptSearch.MAX_QUERY);query.setBordered(false);query.setHint(Component.literal(tr("search_query")));
-        query.setResponder(value->{dirty=true;due=System.nanoTime()+120_000_000L;rows=List.of();index=scroll=0;limited=false;message="";if(pending!=null){pending.cancel(true);pending=null;}});
+        query.setResponder(value->{dirty=true;due=System.nanoTime()+120_000_000L;rows=List.of();index=scroll=0;limited=false;message="";cancellation.set(true);if(pending!=null){pending.cancel(true);worker.remove((Runnable)pending);pending=null;}});
         query.setValue(initial);query.setFocused(true);
     }
     private static String tr(String key){return MaredLang.get("mared.scripts."+key);}
     @Override public OverlayLayer layer(){return OverlayLayer.MODAL;}
     @Override public boolean isInputBarrier(){return true;}
     @Override public boolean consumeCloseRequest(){boolean value=closeRequested;closeRequested=false;return value;}
-    @Override public void onClose(){if(closed)return;closed=true;if(pending!=null)pending.cancel(true);worker.shutdownNow();}
+    @Override public void onClose(){if(closed)return;closed=true;cancellation.set(true);if(pending!=null)pending.cancel(true);worker.shutdownNow();}
     private void poll() {
         if(closed)return;
         if(dirty&&System.nanoTime()>=due) {
             dirty=false;String value=query.getValue();pendingQuery=value;
-            pending=worker.submit(()->job.run(value,()->closed));
+            cancellation=new java.util.concurrent.atomic.AtomicBoolean();var stop=cancellation;
+            try{worker.purge();pending=worker.submit(()->job.run(value,()->closed||stop.get()||Thread.currentThread().isInterrupted()));}
+            catch(RejectedExecutionException busy){if(!closed){dirty=true;due=System.nanoTime()+120_000_000L;}}
         }
         if(pending!=null&&pending.isDone()) {
             var task=pending;pending=null;
@@ -119,7 +122,7 @@ public final class ScriptSearchOverlay implements Overlay {
         poll();
         if((modifiers&2)!=0&&!modes.isEmpty()){
             int target=key==80?0:key==70?((modifiers&1)!=0?2:1):key==71?3:key==79?4:-1;
-            if(target>=0){var mode=modes.get(target);if(mode.enabled()){closeRequested=true;mode.select().accept(query.getValue());}return true;}
+            if(target>=0&&target<modes.size()){var mode=modes.get(target);if(mode.enabled()){closeRequested=true;mode.select().accept(query.getValue());}return true;}
         }
         if(key==256)closeRequested=true;else if(key==257||key==335)accept();
         else if((modifiers&3)==0&&(key==264||key==265||key==266||key==267)){index+=(key==264?1:key==265?-1:key==267?visible:-visible);reveal();}

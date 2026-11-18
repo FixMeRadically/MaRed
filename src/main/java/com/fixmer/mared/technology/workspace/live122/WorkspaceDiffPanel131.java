@@ -1,0 +1,14 @@
+package com.fixmer.mared.technology.workspace.live122;
+import com.fixmer.genesis.technology.workspace.live122.WorkspaceDiff126;
+import net.minecraft.client.gui.GuiGraphics;import net.minecraft.client.gui.Font;
+import java.util.*;
+/** Unified diff with independent line gutters and full-width addition/deletion backgrounds. */
+final class WorkspaceDiffPanel131 {
+    private Map<String,String> data=Map.of();private WorkspaceDiff126.Result diff=WorkspaceDiff126.compare("","");int scroll,horizontal;boolean changesOnly;
+    private static int tint(int color){int base=com.fixmer.mared.technology.editor.GenesisEditorVisuals.panel();int r=((base>>16&255)*4+(color>>16&255))/5,g=((base>>8&255)*4+(color>>8&255))/5,b=((base&255)*4+(color&255))/5;return 0xFF000000|r<<16|g<<8|b;}
+    void set(Map<String,String> d){data=Map.copyOf(d);diff=WorkspaceDiff126.compare(d.getOrDefault("beforeText",""),d.getOrDefault("afterText",""));scroll=horizontal=0;}
+    void render(GuiGraphics g,Font font,int x,int y,int w,int h){g.fill(x,y,x+w,y+h,com.fixmer.mared.technology.editor.GenesisEditorVisuals.panel());g.drawString(font,font.plainSubstrByWidth(data.getOrDefault("path",WorkspaceScreen122.tr("choose_change131").getString()),Math.max(1,w-16)),x+8,y+7,com.fixmer.mared.technology.editor.GenesisEditorVisuals.text(),false);if("false".equals(data.get("text126"))){g.drawString(font,WorkspaceScreen122.tr("binary_diff131"),x+8,y+32,com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(),false);return;}var lines=diff.lines().stream().filter(l->!changesOnly||l.kind()!=' ').toList();int rows=Math.max(1,(h-34)/13);scroll=Math.min(Math.max(0,scroll),Math.max(0,lines.size()-rows));g.enableScissor(x,y+28,x+w,y+h);
+        for(int n=0;n<rows&&scroll+n<lines.size();n++){var l=lines.get(scroll+n);int yy=y+29+n*13;int bg=l.kind()=='+'?tint(com.fixmer.mared.technology.editor.GenesisEditorVisuals.success()):l.kind()=='-'?tint(com.fixmer.mared.technology.editor.GenesisEditorVisuals.danger()):com.fixmer.mared.technology.editor.GenesisEditorVisuals.panel(),color=com.fixmer.mared.technology.editor.GenesisEditorVisuals.text();g.fill(x,yy,x+w,yy+13,bg);g.drawString(font,l.before()==0?"":Integer.toString(l.before()),x+4,yy+2,com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(),false);g.drawString(font,l.after()==0?"":Integer.toString(l.after()),x+42,yy+2,com.fixmer.mared.technology.editor.GenesisEditorVisuals.dim(),false);g.drawString(font,Character.toString(l.kind()),x+80,yy+2,color,false);String text=l.text();int count=text.codePointCount(0,text.length()),start=text.offsetByCodePoints(0,Math.min(horizontal,count));g.drawString(font,text.substring(start),x+94,yy+2,color,false);}g.disableScissor();
+        if(diff.truncated())g.drawString(font,WorkspaceScreen122.tr("diff_truncated131"),x+8,y+h-11,com.fixmer.mared.technology.editor.GenesisEditorVisuals.warn(),false);
+    }
+}

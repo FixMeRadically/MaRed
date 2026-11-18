@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "package": "com.fixmer.mared.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "MouseHandlerMixin",
+    "TitleScreenMixin",
+    "RestartWindowMixin",
+    "RestartKeyboardMixin",
+    "FirstLaunchConnectAccessor58",
+    "BootstrapConnectMixin76",
+    "LocalWorldOpenMixin91"
+  ],
+  "mixins": [
+    "GenesisMobGoals"
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "patch": 107,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "3a73b59b3b25557e9a940a4159a5af7d62c59c46111c1a20ce838c9e29dbb4c2",
+      "after": "1f25dfd62e3bfd3812377a1b3299446b36e8f7ccdc7650e514dc604b108c3281"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InPlaceServerService104.java",
+      "existed": true,
+      "before": "7ee8f6909903d92447fe3fadfa78163bc4599f696a8bf1e0fa7c515d43b97a2e",
+      "after": "29a57932a740e72904888ffb39ca0cb0175e4c52cf1c31a8a9346cdad9a67042"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerRecoveryChecks107.java",
+      "existed": false,
+      "before": null,
+      "after": "d8d2655958321a35c842b1e803321430107777c9f0734326e5991b1c2e11ef8d"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/bootstrap/agent106/Entry.java",
+      "existed": true,
+      "before": "2eab1c90aec0a5e1152900661d12f891f89f64b43a3aa2e8c46648cdfecb8e79",
+      "after": "1ef68d51c63b603111995b4285d61682662742f6409957f7ed628abf633f6d47"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerAgent106.java",
+      "existed": true,
+      "before": "844fe3a1ea9e39f2a9211fbbb9cf3fb07ed8f45dc85eeef72276ffdc6a306460",
+      "after": "5850f607bbaf4cbbf2fbc03bfccf20d24d12ed47771d82ce85171fe8bfb091bb"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerLocal105.java",
+      "existed": true,
+      "before": "b4862904408875e5ed88d9937bcf4d9793fb615b5ef12e01538c400e330ac4e2",
+      "after": "a0734d4a519b41e2279a4623fbd1078e009f6c934b7af8b8cf633b95224bb518"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerOffline107.java",
+      "existed": false,
+      "before": null,
+      "after": "7a166c6e35b1916fd60fb88dc8e9807e8fa55f6d7a74cce98b54ae51fa57e264"
+    }
+  ]
+}

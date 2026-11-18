@@ -1,0 +1,108 @@
+{
+  "patch": 81,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "90569cd590eb05e9bc71afc505370e36636d3763a473199eae80d5a191239c90",
+      "after": "8cf356cbb58d6c75b1b088b5af10babdced5851987b704688d65bba76fc751ba"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/ServerAdmin75.java",
+      "existed": true,
+      "before": "cc980a89492ef300645971e3ae21c02c38c66b8b49c8925570e261ce6dc17e28",
+      "after": "ce2240c613a2c850d9222ee83cb3cb16001b82926a2ebc1ae1bb9f48fabd622c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/DedicatedPanelScreen75.java",
+      "existed": true,
+      "before": "1117846e37c071bc4a81a58664dc194b144d960b6cb1c55e3749919fcaca346c",
+      "after": "a3dafee965a25a596bdc6108e7a33b6425d19c8513d6dbe2dcad249f327e34c6"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/TransitionScreen81.java",
+      "existed": false,
+      "before": null,
+      "after": "5478aa60d3cc60c8f191032061fa2d8a92e4e66807e1731d40bda8ed55867ae2"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "a8080b3c8cf0a3f5e62b2d7f20a0293f07009ac8ff963b1667607a283749d038",
+      "after": "6eff726f9ad23aeceb4090ac6d84a9d8445e7efb2d945e9a273f06877686a584"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "a7fbd147881f90f4cc37facc09929f8cfbc3855c00528eb606eb1633fb50eb7e",
+      "after": "ac5deae2ce734e001aa398578f178a94111314814c26c06e411d3c6ce46a2a19"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/CommitFenceChecks81.java",
+      "existed": false,
+      "before": null,
+      "after": "466ff45ea91305bfa5c017926d03442b8ce1b6d62ac5e32156cbf45d929c8e40"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "b6287d525b6ab156ca6ba5c391cf9ab631c7c25a241c772c6267cfa2d97898a6",
+      "after": "c8b92117d63dd334b4a7df88e46e72d166e90acf1d441a526aacc74a6a8f0d44"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/CommitFence81.java",
+      "existed": false,
+      "before": null,
+      "after": "eb521900277cceb520ff6575c9088337f1dfc1f51f2d5f08b725f9f0b09f72b7"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ControlRoom73.java",
+      "existed": true,
+      "before": "c3c60ccb7a2d10bfb09766e2742c1a80886b7f8c5aa1781292386d28ab787f6d",
+      "after": "1e0b148bbf7ceee81bf51d07bc018789257f0aa56daee16f9b2cc453616226aa"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/DedicatedAdmin75.java",
+      "existed": true,
+      "before": "da5e8f0355cb502139faf1a39fba51f53cfdfa04b9b5b4477f1857acaf166617",
+      "after": "f11f85395e54744a49e5b17f6afefe6fb89c5a905d96a7ab9d285b42cb4a8fe6"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/DedicatedTools74.java",
+      "existed": true,
+      "before": "a10fb08283116a6ca76917eb097d03e7790b8477d79044d769810e13943dcef9",
+      "after": "5783aaf1b102f6c41c93e5858ad1b7404f335e077a2f700790d5d8bb55d1652e"
+    },
+    {
+      "path": "tools/dedicated_server75.py",
+      "existed": true,
+      "before": "4c831f0cdc33731f432b5f3e3c4db07fee598a6f32de15699eaca740896a528c",
+      "after": "66c51ec1dc448928b35efafeeb0acc323f55d2c3de4c844e584678eab63b8935"
+    },
+    {
+      "path": "tools/first58/dedicated75.py",
+      "existed": true,
+      "before": "04abc00ac04c71f8bddbdbca29c858e18904e1b9958d4a65a7c6f1998c2ee762",
+      "after": "46b3e0d512e8a2856aef09562c7eccec99089c3b86063e365ba88798bf362cc2"
+    },
+    {
+      "path": "tools/first58/dedicated81.py",
+      "existed": false,
+      "before": null,
+      "after": "6782368075dac67e1bb5d24d7f0a1abc68ca7493bffe20500442cdcc588c5c15"
+    },
+    {
+      "path": "tools/first58/transition81.py",
+      "existed": false,
+      "before": null,
+      "after": "cabf9091e7e3ff17553e84f9b9736820d4a676d98bf88c114365af364976275a"
+    },
+    {
+      "path": "verification/server59/test_transition81.py",
+      "existed": false,
+      "before": null,
+      "after": "eeff33bf0aff92fc1890c7bf5aa835c5db5f5cf51648afb9a9f0befaa5fd16bb"
+    }
+  ]
+}

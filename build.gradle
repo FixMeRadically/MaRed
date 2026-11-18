@@ -16,6 +16,8 @@ sourceSets.main.resources {
     srcDir('src/generated/resources')
     exclude("**/*.bbmodel")
     exclude("src/generated/**/.cache")
+    // Commands are user data under config/mared/commands, not bundled templates.
+    exclude 'mared/commands', 'mared/commands/**'
 }
 
 repositories {
@@ -116,6 +118,7 @@ idea {
 // NeoForge Jar-in-Jar includes the exact same library used by this mod.
 def genesisMetadata = layout.buildDirectory.dir('generated/genesis-jarjar')
 tasks.register('genesisJarJarMetadata') {
+    inputs.property('desktopBridge148',true)
     inputs.property('genesisVersion', provider { project(':genesis-core').version.toString() })
     outputs.dir(genesisMetadata)
     doLast {
@@ -133,6 +136,8 @@ tasks.named('jar') {
     dependsOn ':genesis-core:jar', 'genesisJarJarMetadata'
     from(genesisMetadata)
     from(project(':genesis-core').tasks.named('jar')) { into 'META-INF/jarjar' }
+    // Also exclude stale outputs left by earlier incremental/resource-cache builds.
+    exclude 'mared/commands', 'mared/commands/**'
 }
 
 // Explicit dependency-free regression main, using the compiled mod and real game classpath.
@@ -158,18 +163,23 @@ tasks.withType(Test).configureEach {
     systemProperty 'genesis.packagedMod', tasks.named('jar').get().archiveFile.get().asFile.absolutePath
 }
 
-// Copy tasks can retain removed outputs: remove the obsolete bundled MC templates on rebuild.
-tasks.register('purgeObsoleteCommandTemplates', Delete) {
-    delete layout.buildDirectory.dir('resources/main/mared/commands')
-}
 tasks.named('processResources') {
-    dependsOn 'purgeObsoleteCommandTemplates'
+    exclude 'mared/commands', 'mared/commands/**'
 }
 
 // A private bootstrap resource for FML/module launches. This is built by the mod itself.
 def supervisorClasses = layout.buildDirectory.dir('supervisor/classes')
 tasks.register('compileSupervisorBootstrap', JavaCompile) {
-    source = fileTree('src/main/java') { include 'com/fixmer/genesis/supervisor/**' }
+    source = fileTree('src/main/java') { include 'com/fixmer/genesis/supervisor/**'; include 'com/fixmer/genesis/admission/**' }
+    //121fix: bootstrap has an empty external classpath and must carry approval's complete JDK-only graph.
+    source fileTree('technologies/core/src/main/java') {
+        include 'com/fixmer/genesis/technology/server/remote/Approval120.java'
+        include 'com/fixmer/genesis/technology/server/packages/PackageModel.java'
+        include 'com/fixmer/genesis/technology/server/firstlaunch/FirstLaunchFiles.java'
+        include 'com/fixmer/genesis/technology/server/firstlaunch/LocalApply67.java'
+        include 'com/fixmer/genesis/technology/server/firstlaunch/FirstLaunchSession.java'
+        include 'com/fixmer/genesis/technology/server/firstlaunch/FirstLaunchDev62.java'
+    }
     classpath = files()
     destinationDirectory = supervisorClasses
     javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(21) }
@@ -177,6 +187,12 @@ tasks.register('compileSupervisorBootstrap', JavaCompile) {
 }
 // Isolated agent: no agent classes on the game/module classpath.
 sourceSets.main.java.exclude 'com/fixmer/genesis/startup/**'
+
+// Older patch installs can leave these retired or relocated files on disk.
+sourceSets.main.java.exclude 'com/fixmer/mared/gui2/framework/components/editor/CodeSyntaxLexer.java'
+sourceSets.main.java.exclude 'com/fixmer/mared/gui2/framework/components/editor/EditorSplitState.java'
+sourceSets.main.java.exclude 'com/fixmer/mared/commands/expr/MaredExprFast.java'
+
 def startupAgentClasses = layout.buildDirectory.dir('startup-agent/classes')
 tasks.register('compileStartupAgent', JavaCompile) {
     source = fileTree('src/main/java') { include 'com/fixmer/genesis/startup/**' }
@@ -194,12 +210,22 @@ def startupAgentArchive = tasks.register('startupAgentJar', Jar) {
     preserveFileTimestamps = false
     reproducibleFileOrder = true
 }
+def profileAdmissionArchive93 = tasks.register('profileAdmissionJar93', Jar) {
+    dependsOn 'compileSupervisorBootstrap'
+    archiveFileName = 'profile-admission93.jar'
+    destinationDirectory = layout.buildDirectory.dir('profile-admission93')
+    from(supervisorClasses) { include 'com/fixmer/genesis/admission/**' }
+    manifest { attributes 'Premain-Class': 'com.fixmer.genesis.admission.ProfileAgent93' }
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
 def supervisorBootstrap = tasks.register('supervisorBootstrapJar', Jar) {
-    dependsOn 'compileSupervisorBootstrap', startupAgentArchive
+    dependsOn 'compileSupervisorBootstrap', startupAgentArchive, profileAdmissionArchive93
     archiveFileName = 'supervisor-bootstrap.jar'
     destinationDirectory = layout.buildDirectory.dir('supervisor/resource/mared/dev')
     from supervisorClasses
     from(startupAgentArchive.flatMap { it.archiveFile }) { into 'mared/dev' }
+    from(profileAdmissionArchive93.flatMap { it.archiveFile }) { into 'mared/dev' }
     preserveFileTimestamps = false
     reproducibleFileOrder = true
 }
@@ -232,6 +258,17 @@ tasks.withType(JavaExec).configureEach { launchTask ->
         String captureState = "pending"
         def seedFile = null
         def captureId = UUID.randomUUID().toString()
+        // Only the actual game JVM gets the admission agent; never Gradle or a shared daemon.
+        launchTask.jvmArgumentProviders.add({
+            if (!armed) return []
+            def admissionHelper93 = new URLClassLoader([supervisorBootstrap.get().archiveFile.get().asFile.toURI().toURL()] as URL[],ClassLoader.getPlatformClassLoader())
+            try {
+                def guardType93 = admissionHelper93.loadClass('com.fixmer.genesis.supervisor.ProfileLaunch93')
+                String option93 = guardType93.getMethod('forGradle',String.class,java.nio.file.Path.class,java.nio.file.Path.class)
+                    .invoke(null,System.getenv('GENESIS_PROFILE_AGENT93'),profileAdmissionArchive93.get().archiveFile.get().asFile.toPath(),launchTask.workingDir.toPath())
+                return [option93]
+            } finally { admissionHelper93.close() }
+        } as org.gradle.process.CommandLineArgumentProvider)
         doFirst { armed = true }
         launchTask.jvmArgumentProviders.add({
             if (!armed) return []
@@ -260,6 +297,7 @@ tasks.withType(JavaExec).configureEach { launchTask ->
                 if (executable == null || !new File(executable).isAbsolute()) throw new GradleException('Unresolved Java executable')
                 if (launchTask.mainModule.present) throw new GradleException('Capture of inferred module entry is unsupported')
                 captureStage = 'jvm_options'
+                // JavaExecCommand removes only the transient admission capsule from persisted argv.
                 def jvm = launchTask.allJvmArgs.collect { it.toString() }
                 if (!jvm.contains(marker)) throw new GradleException('Missing JVM confirmation marker')
                 captureStage = 'application'
@@ -337,3 +375,1050 @@ tasks.withType(JavaExec).configureEach { launchTask ->
         } as org.gradle.process.CommandLineArgumentProvider)
     }
 }
+
+// Portable setup UI: includes the same core JAR and Python controller as the build.
+// No paths, credentials or developer profiles are included in this resource.
+def genesisServerSetup59 = tasks.register('genesisServerSetup59', Zip) {
+    dependsOn ':genesis-core:jar'
+    archiveFileName = 'controller.zip'
+    destinationDirectory = layout.buildDirectory.dir('server59-bundle')
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    from('tools') {
+        include 'server104.py', 'first_launch.py', 'server_setup.py', 'server_panel66.py', 'remote_update.py', 'control_setup73.py', 'dedicated_server74.py', 'dedicated_server75.py', 'remote_client70.py', 'first58/**/*.py'
+        exclude '**/__pycache__/**'
+        into 'tools'
+    }
+    from(project(':genesis-core').tasks.named('jar')) {
+        into 'runtime'
+        rename { 'core.jar' }
+    }
+}
+tasks.named('processResources') {
+    dependsOn genesisServerSetup59
+    from(genesisServerSetup59.flatMap { it.archiveFile }) { into 'genesis/server59' }
+}
+tasks.register('serverSetupResourceChecks59', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerSetupResourceChecks59'
+}
+tasks.named('check') { dependsOn 'serverSetupResourceChecks59' }
+
+//72: consent state checks also run on the real Gradle game classpath.
+tasks.register('remoteConsentChecks72', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.RemoteConsentChecks72'
+}
+tasks.named('check') { dependsOn 'remoteConsentChecks72' }
+
+//73: real cryptography, receipt ordering, durable journal and frozen threshold checks.
+tasks.register('remoteControlChecks73', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.RemoteControlChecks73'
+}
+tasks.named('check') { dependsOn 'remoteControlChecks73' }
+
+//74: private dedicated session and real runtime-path receipt checks.
+tasks.register('dedicatedChecks74', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.DedicatedChecks74'
+}
+tasks.named('check') { dependsOn 'dedicatedChecks74' }
+
+//75: generation binding, admin authorization and authenticated request queue.
+tasks.register('dedicatedChecks75', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.DedicatedChecks75'
+}
+tasks.named('check') { dependsOn 'dedicatedChecks75' }
+
+//76: real signature, pre-login config and filesystem checks; native/game acceptance remains separate.
+tasks.register('bootstrapChecks76', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.BootstrapChecks76'
+}
+tasks.named('check') { dependsOn 'bootstrapChecks76' }
+
+//79: actual signed paired releases and preview snapshot guards.
+tasks.register('publicationChecks79', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.PublicationChecks79'
+}
+tasks.named('check') { dependsOn 'publicationChecks79' }
+
+//80: expiry is separate from saved-world integrity; real signatures and signer EOF checks.
+tasks.register('recoveryExpiryChecks80', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.RecoveryExpiryChecks80'
+}
+tasks.named('check') { dependsOn 'recoveryExpiryChecks80' }
+
+//81: actual signed COMMIT snapshots and idempotent close; native/game fixtures are explicit.
+tasks.register('commitFenceChecks81', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.CommitFenceChecks81'
+}
+tasks.named('check') { dependsOn 'commitFenceChecks81' }
+
+//82: actual expired signed pair and member-bound JOIN-only proof (no game/native claims).
+tasks.register('admissionChecks82', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.AdmissionChecks82'
+}
+tasks.named('check') { dependsOn 'admissionChecks82' }
+
+//83: first publisher identity, paired release and immutable preview; no game/native readiness claims.
+tasks.register('publicationChecks83', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.PublicationChecks83'
+}
+tasks.named('check') { dependsOn 'publicationChecks83' }
+
+// Script build provenance and complete signed successor sets (no Minecraft process).
+tasks.register('scriptPublicationChecks84', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ScriptPublicationChecks84'
+}
+tasks.named('check') { dependsOn 'scriptPublicationChecks84' }
+
+// Immutable-code renewal; signatures and package bytes, no game processes.
+tasks.register('renewalChecks85', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.RenewalChecks85'
+}
+tasks.named('check') { dependsOn 'renewalChecks85' }
+
+// Fresh identical-code continuation is separate from install authority.
+tasks.register('updaterChecks86', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.UpdaterChecks86'
+}
+tasks.named('check') { dependsOn 'updaterChecks86' }
+
+//88 roles: real HMAC/CAS/queue tests, actual game context remains an adapter obligation.
+tasks.register('serverAccessChecks88', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerAccessChecks88'
+}
+tasks.named('check') { dependsOn 'serverAccessChecks88' }
+
+//89 current-client identity handoff. Online HTTP/network is tested separately with bounded fixtures.
+tasks.register('sessionHandoffChecks89', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.SessionHandoffChecks89'
+}
+tasks.named('check') { dependsOn 'sessionHandoffChecks89' }
+
+//90 integrated save/exit evidence; game adapters are verified separately.
+tasks.register('integratedChecks90', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.IntegratedChecks90'
+}
+tasks.named('check') { dependsOn 'integratedChecks90' }
+
+//91 real deployment journal, candidate bytes, recovery decisions; no Minecraft runtime.
+tasks.register('recoveryChecks91', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.RecoveryChecks91'
+}
+tasks.named('check') { dependsOn 'recoveryChecks91' }
+
+//92 owner-bound emergency recovery, lease and single-use control; real process checks live in verification.
+tasks.register('bootstrapRecoveryChecks92', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.RecoveryChecks92'
+}
+tasks.named('check') { dependsOn 'bootstrapRecoveryChecks92' }
+
+// Profile93 admission contract; real cross-process premain checks have a separate harness.
+tasks.register('profileAdmissionChecks93', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.AdmissionChecks93'
+}
+tasks.named('check') { dependsOn 'profileAdmissionChecks93' }
+
+// Cold94 uses real OS locks and journal/config binding; native JVM admission is a separate harness.
+tasks.register('coldRecoveryChecks94', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.ColdChecks94'
+}
+tasks.named('check') { dependsOn 'coldRecoveryChecks94' }
+
+//95 prepare/commit/cancel gate; real child-JVM/HTTP integration is a separate harness.
+tasks.register('restartFlowChecks95', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.RestartChecks95'
+}
+tasks.named('check') { dependsOn 'restartFlowChecks95' }
+
+//96 initial activation requires final save + normal source exit, never PID-only handoff.
+tasks.register('initialHandoffChecks96', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.HandoffChecks96'
+}
+tasks.named('check') { dependsOn 'initialHandoffChecks96' }
+
+//97 read-only history, bounded persistence, privacy projection and screen-scoped async publication.
+tasks.register('restartHistoryChecks97', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.HistoryChecks97'
+}
+tasks.named('check') { dependsOn 'restartHistoryChecks97' }
+
+//98 real-file inventory / stale-review / deferred installation checks.
+tasks.register('deploymentReviewChecks98', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.DeploymentChecks98'
+}
+tasks.named('check') { dependsOn 'deploymentReviewChecks98' }
+tasks.register('deploymentOverlayChecks98', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.DeploymentOverlayChecks98'
+}
+tasks.named('check') { dependsOn 'deploymentOverlayChecks98' }
+
+//99 whole managed revisions, future dependencies, journal/CAS and partial installation recovery.
+tasks.register('modSetChecks99', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.ModSetChecks99'
+}
+tasks.named('check') { dependsOn 'modSetChecks99' }
+// Explicit: starts only disposable JVM/TLS/file fixtures; does not launch Minecraft or use real accounts.
+tasks.register('modSetSystemChecks99', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.UpdateSystemChecks99'
+    workingDir layout.buildDirectory.dir('update-system99').get().asFile
+    doFirst { workingDir.mkdirs() }
+    systemProperty 'genesis.report99', layout.buildDirectory.file('update-system99/report99.json').get().asFile.absolutePath
+}
+
+// Failed trial diagnostics and atomic startup/world admission gates.
+tasks.register('startupFailureChecks101', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.FailureChecks101'
+}
+tasks.named('check') { dependsOn tasks.named('startupFailureChecks101') }
+
+// Opt-in disposable owner/child JVM tests. Requires Python 3; does not launch Minecraft.
+tasks.register('startupFailureSystemChecks101', Exec) {
+    dependsOn tasks.named('testClasses'), supervisorBootstrap
+    workingDir projectDir
+    doFirst {
+        def failureClasspath101 = layout.buildDirectory.file('startup-failure101/classpath.json').get().asFile
+        failureClasspath101.parentFile.mkdirs()
+        failureClasspath101.setText(groovy.json.JsonOutput.toJson((sourceSets.test.runtimeClasspath + files(supervisorBootstrap.flatMap { it.archiveFile })).files.collect { it.absolutePath }), 'UTF-8')
+        def failureJava101 = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get().executablePath.asFile.absolutePath
+        def failureWindows101 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).startsWith('windows')
+        commandLine(([failureWindows101 ? 'py' : 'python3'] + (failureWindows101 ? ['-3'] : []) +
+            [file('verification/server59/failure_process101.py').absolutePath, '--java', failureJava101, '--classpath-file', failureClasspath101.absolutePath]))
+    }
+}
+
+// Routine server restart stays behind owner capability and existing player authorization.
+tasks.register('simpleServerChecks103', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.SimpleServerChecks103'
+}
+tasks.named('check') { dependsOn tasks.named('simpleServerChecks103') }
+
+// Standalone host application: Java21/Python3, no Minecraft client or IDE required.
+def serverLauncher104 = tasks.register('serverLauncher104Jar', Jar) {
+    dependsOn tasks.named('jar'), genesisServerSetup59, project(':genesis-core').tasks.named('jar')
+    archiveFileName = 'Genesis-server.jar'
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from({ zipTree(project(':genesis-core').tasks.named('jar', Jar).get().archiveFile.get().asFile) }) { include 'com/fixmer/genesis/**' }
+    from(genesisServerSetup59.flatMap { it.archiveFile }) { into 'genesis/server59' }
+    from(tasks.named('jar', Jar).flatMap { it.archiveFile }) { into 'genesis/server104'; rename { 'mared.jar' } }
+    manifest { attributes 'Main-Class': 'com.fixmer.genesis.technology.server.remote.ServerLauncher104' }
+}
+//106: the normal build ships only MaRed. The standalone launcher remains an explicit optional task.
+tasks.register('retireStandaloneLauncher106') {
+    doLast {
+        def oldLauncher106 = layout.buildDirectory.file('libs/Genesis-server.jar').get().asFile
+        if (oldLauncher106.isFile()) {
+            boolean generatedLauncher106 = false
+            try {
+                def archive106 = new java.util.zip.ZipFile(oldLauncher106)
+                try {
+                    def entry106 = archive106.getEntry('META-INF/MANIFEST.MF')
+                    if (entry106 != null && entry106.size >= 0 && entry106.size < 16384) {
+                        def stream106 = archive106.getInputStream(entry106)
+                        try {
+                            def manifest106 = new java.util.jar.Manifest(stream106)
+                            generatedLauncher106 = manifest106.mainAttributes.getValue('Main-Class') == 'com.fixmer.genesis.technology.server.remote.ServerLauncher104' && archive106.getEntry('genesis/server104/mared.jar') != null
+                        } finally { stream106.close() }
+                    }
+                } finally { archive106.close() }
+            } catch (IOException ignored106) { }
+            if (generatedLauncher106 && !oldLauncher106.delete()) throw new GradleException('Cannot remove old generated Genesis-server.jar; close its launcher and build again.')
+        }
+    }
+}
+tasks.named('assemble') { dependsOn tasks.named('retireStandaloneLauncher106') }
+
+// Same-folder controller contracts; game/native Windows acceptance remains separate.
+tasks.register('inplaceServerChecks104', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.InPlaceChecks104'
+}
+tasks.named('check') { dependsOn tasks.named('inplaceServerChecks104') }
+
+// Optional real Windows test, not part of normal build and never starts Minecraft.
+tasks.register('serverNativeChecks104', Exec) {
+    dependsOn tasks.named('testClasses')
+    doFirst {
+        def nativeWindows104 = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')
+        if (!nativeWindows104) throw new GradleException('Actual Windows x64 is required for serverNativeChecks104')
+        def nativeClasspath104 = layout.buildDirectory.file('server104/native-classpath.txt').get().asFile
+        nativeClasspath104.parentFile.mkdirs()
+        nativeClasspath104.setText(sourceSets.test.runtimeClasspath.asPath, 'UTF-8')
+        commandLine 'py', '-3', file('verification/server59/independent_process104.py').absolutePath,
+            '--java', javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get().executablePath.asFile.absolutePath,
+            '--classpath-file', nativeClasspath104.absolutePath,
+            '--output', layout.buildDirectory.file('server104/native-report.json').get().asFile.absolutePath
+    }
+}
+
+// UI decisions and diagnostic/recovery controls on actual test runtime dependencies.
+tasks.register('serverUiChecks105', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerUiChecks105'
+}
+tasks.named('check') { dependsOn tasks.named('serverUiChecks105') }
+
+//106: real JVM bootstrap-agent isolation plus authenticated handoff/console contracts.
+tasks.register('serverAutoChecks106', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerAutoChecks106'
+}
+tasks.named('check') { dependsOn tasks.named('serverAutoChecks106') }
+
+// Optional native source identity check. Does not launch Minecraft or touch a server profile.
+tasks.register('serverNativeChecks106', Exec) {
+    dependsOn tasks.named('testClasses')
+    doFirst {
+        if (!System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')) throw new GradleException('Actual Windows x64 is required')
+        def sourceClasspath106 = layout.buildDirectory.file('server106/source-classpath.txt').get().asFile
+        sourceClasspath106.parentFile.mkdirs()
+        sourceClasspath106.setText(sourceSets.test.runtimeClasspath.asPath, 'UTF-8')
+        commandLine 'py', '-3', file('verification/server59/source_native106.py').absolutePath,
+            '--java', javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get().executablePath.asFile.absolutePath,
+            '--classpath-file', sourceClasspath106.absolutePath,
+            '--output', layout.buildDirectory.file('server106/source-report.json').get().asFile.absolutePath
+    }
+}
+
+//107: stale owner recovery checks use real locks/sockets and a separate Java process.
+tasks.register('serverRecoveryChecks107', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerRecoveryChecks107'
+}
+tasks.named('check') { dependsOn tasks.named('serverRecoveryChecks107') }
+
+//108: reconnect intent, rejection, deadlines, retries and cancellation without game dependencies.
+tasks.register('serverReturnChecks108', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerReturnChecks108'
+}
+tasks.named('check') { dependsOn tasks.named('serverReturnChecks108') }
+
+tasks.register('serverReturnLocalChecks108', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerReturnLocalChecks108'
+}
+tasks.named('check') { dependsOn tasks.named('serverReturnLocalChecks108') }
+
+//109: scoped IPv6 endpoint parsing and conservative local-server matching.
+tasks.register('serverTargetChecks109', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerTargetChecks109'
+}
+tasks.named('check') { dependsOn tasks.named('serverTargetChecks109') }
+
+//110: actual deadline/layout/scope invariants; Minecraft rendering remains a separate runtime check.
+tasks.register('serverReturnChecks110', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerReturnChecks110'
+}
+tasks.named('check') { dependsOn tasks.named('serverReturnChecks110') }
+
+tasks.register('serverCoreGeometryChecks110', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerCoreGeometryChecks110'
+}
+tasks.named('check') { dependsOn tasks.named('serverCoreGeometryChecks110') }
+
+//111: actual executor/file lifecycle and editor-model regression tests.
+tasks.register('auditCoreChecks111', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.AuditCoreChecks111'
+}
+tasks.register('auditEditorChecks111', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.AuditEditorChecks111'
+}
+tasks.named('check') { dependsOn tasks.named('auditCoreChecks111'), tasks.named('auditEditorChecks111') }
+
+//112: shared Workspace permissions/revisions and actual child-JVM crash recovery.
+tasks.register('workspaceChecks112', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.WorkspaceChecks112'
+}
+tasks.register('workspaceProcessChecks112', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.WorkspaceProcessChecks112'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceChecks112'), tasks.named('workspaceProcessChecks112') }
+
+//113: explicit MaRed roles; vanilla OP is not an authority source.
+tasks.register('maopChecks113', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.MaopChecks113'
+}
+tasks.named('check') { dependsOn tasks.named('maopChecks113') }
+
+tasks.register('maopSystemChecks113', Exec) {
+    dependsOn tasks.named('testClasses')
+    doFirst {
+        def windows113 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+        def classpath113 = layout.buildDirectory.file('maop113/classpath.json').get().asFile
+        classpath113.parentFile.mkdirs()
+        classpath113.setText(groovy.json.JsonOutput.toJson(sourceSets.test.runtimeClasspath.files.collect { it.absolutePath }), 'UTF-8')
+        def launcher113 = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get()
+        commandLine(([windows113 ? 'py' : 'python3'] + (windows113 ? ['-3'] : []) +
+            [file('verification/server59/maop_cross113.py').absolutePath,
+             '--java', launcher113.executablePath.asFile.absolutePath,
+             '--classpath-file', classpath113.absolutePath]) as List)
+    }
+}
+tasks.named('check') { dependsOn tasks.named('maopSystemChecks113') }
+
+//114: serialize same-target settings writes; bounded Windows sharing retries, no test suppression.
+tasks.register('atomicSettingsChecks114', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.storage.AtomicSettingsChecks114'
+}
+tasks.named('check') { dependsOn tasks.named('atomicSettingsChecks114') }
+
+//115: connect Script snapshots to the active folder owner, including actual Java/Python provenance checks.
+tasks.register('serverUpdateChecks115', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerUpdateChecks115'
+}
+tasks.register('serverUpdateOwnerChecks115', Exec) {
+    def windows115 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+    commandLine(([windows115 ? 'py' : 'python3'] + (windows115 ? ['-3'] : []) +
+        ['-m', 'unittest', 'discover', '-s', file('verification/server59').absolutePath, '-p', 'test_update115.py']) as List)
+}
+tasks.register('serverUpdateSystemChecks115', Exec) {
+    dependsOn tasks.named('testClasses'), ':genesis-core:jar'
+    doFirst {
+        def windows115 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+        def classpath115 = layout.buildDirectory.file('server-update115/classpath.json').get().asFile
+        classpath115.parentFile.mkdirs()
+        classpath115.setText(groovy.json.JsonOutput.toJson(sourceSets.test.runtimeClasspath.files.collect { it.absolutePath }), 'UTF-8')
+        def launcher115 = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get()
+        def core115 = project(':genesis-core').tasks.named('jar').get().archiveFile.get().asFile
+        commandLine(([windows115 ? 'py' : 'python3'] + (windows115 ? ['-3'] : []) +
+            [file('verification/server59/update_cross115.py').absolutePath,
+             '--java', launcher115.executablePath.asFile.absolutePath,
+             '--classpath-file', classpath115.absolutePath, '--core', core115.absolutePath]) as List)
+    }
+}
+tasks.named('check') { dependsOn tasks.named('serverUpdateChecks115'), tasks.named('serverUpdateOwnerChecks115'), tasks.named('serverUpdateSystemChecks115') }
+
+//116: current feature routes, owner context and shared helper process boundary.
+tasks.register('integrationChecks116', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.IntegrationChecks116'
+}
+tasks.register('bundleChecks116', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.technology.server.setup.BundleChecks116'
+}
+tasks.register('integrationSystemChecks116', Exec) {
+    dependsOn tasks.named('testClasses')
+    doFirst {
+        def windows116 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+        def classpath116 = layout.buildDirectory.file('integration116/classpath.json').get().asFile
+        classpath116.parentFile.mkdirs()
+        classpath116.setText(groovy.json.JsonOutput.toJson(sourceSets.test.runtimeClasspath.files.collect { it.absolutePath }), 'UTF-8')
+        def launcher116 = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get()
+        commandLine(([windows116 ? 'py' : 'python3'] + (windows116 ? ['-3'] : []) +
+            [file('verification/server59/integration_process116.py').absolutePath,
+             '--java', launcher116.executablePath.asFile.absolutePath,
+             '--classpath-file', classpath116.absolutePath]) as List)
+    }
+}
+tasks.register('integrationInventory116', Exec) {
+    def windows116 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+    commandLine(([windows116 ? 'py' : 'python3'] + (windows116 ? ['-3'] : []) +
+        [file('tools/integration_audit116.py').absolutePath, rootDir.absolutePath,
+         '--output', layout.buildDirectory.file('reports/genesis/integration116.json').get().asFile.absolutePath]) as List)
+}
+tasks.named('check') { dependsOn tasks.named('integrationChecks116'), tasks.named('bundleChecks116'), tasks.named('integrationSystemChecks116'), tasks.named('integrationInventory116') }
+
+
+//117: inspect the actual compile task classpath, not a separate manually assembled javac command.
+tasks.register('verifyCoreClasspath117') {
+    dependsOn ':genesis-core:jar'
+    doLast {
+        def coreProject117 = project(':genesis-core')
+        def manifest117 = new groovy.json.JsonSlurper().parse(coreProject117.file('foundation117.json'), 'UTF-8')
+        def required117 = manifest117.abi as List
+        def unresolved117 = new LinkedHashSet(required117)
+        def classpath117 = tasks.named('compileJava', JavaCompile).get().classpath.files
+        classpath117.each { entry117 ->
+            if (entry117.isDirectory()) {
+                required117.each { name117 -> if (new File(entry117, name117).isFile()) unresolved117.remove(name117) }
+            } else if (entry117.isFile() && entry117.name.endsWith('.jar')) {
+                def archive117 = new java.util.zip.ZipFile(entry117)
+                try { required117.each { name117 -> if (archive117.getEntry(name117) != null) unresolved117.remove(name117) } }
+                finally { archive117.close() }
+            }
+        }
+        if (!unresolved117.isEmpty()) throw new GradleException('GENESIS117_CORE_NOT_ON_COMPILE_CLASSPATH: ' + unresolved117.join(', '))
+        logger.lifecycle('Genesis117 real mod compile classpath verified: ' + required117.size() + ' core ABI entries')
+    }
+}
+tasks.named('compileJava') { dependsOn tasks.named('verifyCoreClasspath117') }
+
+//118: actual signed archives + cross-language folder owner + separate control JVM helpers.
+tasks.register('folderSystemChecks118', Exec) {
+    dependsOn tasks.named('testClasses')
+    doFirst {
+        def windows118 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+        def classpath118 = layout.buildDirectory.file('folder118/classpath.json').get().asFile
+        classpath118.parentFile.mkdirs()
+        classpath118.setText(groovy.json.JsonOutput.toJson(sourceSets.test.runtimeClasspath.files.collect { it.absolutePath }), 'UTF-8')
+        def launcher118 = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get()
+        commandLine(([windows118 ? 'py' : 'python3'] + (windows118 ? ['-3'] : []) +
+            [file('verification/server59/folder_process118.py').absolutePath,
+             '--java', launcher118.executablePath.asFile.absolutePath,
+             '--classpath-file', classpath118.absolutePath]) as List)
+    }
+}
+tasks.named('check') { dependsOn tasks.named('folderSystemChecks118') }
+
+//119: remote old-code return, real copied files and a separate signed-channel JVM.
+tasks.register('remoteReturnSystemChecks119', Exec) {
+    dependsOn tasks.named('testClasses')
+    doFirst {
+        def windows119 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+        def classpath119 = layout.buildDirectory.file('return119/classpath.json').get().asFile
+        classpath119.parentFile.mkdirs()
+        classpath119.setText(groovy.json.JsonOutput.toJson(sourceSets.test.runtimeClasspath.files.collect { it.absolutePath }), 'UTF-8')
+        def launcher119 = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get()
+        commandLine(([windows119 ? 'py' : 'python3'] + (windows119 ? ['-3'] : []) +
+            [file('verification/server59/return_process119.py').absolutePath,
+             '--java', launcher119.executablePath.asFile.absolutePath,
+             '--classpath-file', classpath119.absolutePath]) as List)
+    }
+}
+tasks.named('check') { dependsOn tasks.named('remoteReturnSystemChecks119') }
+
+//120: integrated approval, renewal and restored-code return.
+tasks.register('connectionsSystemChecks120', Exec) {
+    dependsOn tasks.named('testClasses')
+    doFirst {
+        def windows120 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+        def classpath120 = layout.buildDirectory.file('connections120/classpath.json').get().asFile
+        classpath120.parentFile.mkdirs()
+        classpath120.setText(groovy.json.JsonOutput.toJson(sourceSets.test.runtimeClasspath.files.collect { it.absolutePath }), 'UTF-8')
+        def launcher120 = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get()
+        commandLine(([windows120 ? 'py' : 'python3'] + (windows120 ? ['-3'] : []) +
+            [file('verification/server59/connections_process120.py').absolutePath,
+             '--java', launcher120.executablePath.asFile.absolutePath,
+             '--classpath-file', classpath120.absolutePath]) as List)
+    }
+}
+tasks.named('check') { dependsOn tasks.named('connectionsSystemChecks120') }
+
+//121: opt-in collaboration backend, not registered with existing editor/network yet.
+tasks.register('workspaceFoundationChecks121', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.collaboration121.WorkspaceChecks121'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceFoundationChecks121') }
+
+// Exercise the ACTUAL standalone archive through a platform-parent loader.
+tasks.register('bootstrapIsolationChecks121', JavaExec) {
+    dependsOn tasks.named('testClasses'), supervisorBootstrap
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.BootstrapIsolationChecks121'
+    doFirst { args = [supervisorBootstrap.get().archiveFile.get().asFile.absolutePath] }
+}
+tasks.named('check') { dependsOn tasks.named('bootstrapIsolationChecks121') }
+
+//122: real collaboration storage and separate client JVMs; not a Minecraft runtime assertion.
+tasks.register('workspaceLiveChecks122', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceFlowChecks122'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceLiveChecks122') }
+
+tasks.register('workspaceRegressionChecks123', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceRegressionChecks123'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceRegressionChecks123') }
+
+tasks.register('supervisorControlChecks123', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.SupervisorControlChecks123'
+}
+tasks.named('check') { dependsOn tasks.named('supervisorControlChecks123') }
+
+tasks.register('workspaceMaintenanceChecks124', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceMaintenanceChecks124'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceMaintenanceChecks124') }
+
+tasks.register('serverBatchChecks124', Exec) {
+    doFirst {
+        def windows124 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+        environment 'PYTHONPATH', file('tools').absolutePath
+        commandLine(([windows124 ? 'py' : 'python3'] + (windows124 ? ['-3'] : []) +
+            ['-m','unittest','discover','-s',file('verification/server59').absolutePath,'-p','test_batch124.py','-v']) as List)
+    }
+}
+
+tasks.register('serverPythonChecks124', Exec) {
+    doFirst {
+        def windows124 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows')
+        environment 'PYTHONPATH', file('tools').absolutePath
+        environment 'PYTHONUTF8', '1'
+        commandLine(([windows124 ? 'py' : 'python3'] + (windows124 ? ['-3'] : []) +
+            ['-m','unittest','discover','-s',file('verification/server59').absolutePath,'-p','test_*.py','-q']) as List)
+    }
+}
+tasks.named('check') { dependsOn tasks.named('serverPythonChecks124') }
+
+tasks.register('serverBatchNativeChecks124', Exec) {
+    doFirst {
+        if (!System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).contains('windows'))
+            throw new GradleException('Real Windows is required for serverBatchNativeChecks124')
+        def launcher124 = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get()
+        commandLine 'py','-3',file('verification/server59/batch_native124.py').absolutePath,
+            '--java',launcher124.executablePath.asFile.absolutePath
+    }
+}
+
+
+tasks.register('workspacePipelineChecks125', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspacePipelineChecks125'
+}
+tasks.named('check') { dependsOn tasks.named('workspacePipelineChecks125') }
+
+tasks.register('workspaceBuildProcessChecks125', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceBuildProcessChecks125'
+}
+
+tasks.register('workspaceToolsChecks126', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceToolsChecks126'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceToolsChecks126') }
+
+tasks.register('workspaceBundledBuildChecks126', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceBuildProcessChecks125'
+    args 'bundled'
+}
+
+tasks.register('serverJoinChecks128', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerJoinChecks128'
+}
+tasks.named('check') { dependsOn tasks.named('serverJoinChecks128') }
+
+tasks.register('serverLanNetwork128', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerLanNetwork128'
+}
+
+// Six-section WorkSpace: existing Scripts project binding, sync, history and removal.
+tasks.register('workspaceSectionsChecks129', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceSectionsChecks129'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceSectionsChecks129') }
+
+// Real-time collaboration: queued input, push frames, cursor presence and fair scheduling.
+tasks.register('workspaceRealtimeChecks130', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceRealtimeChecks130'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceRealtimeChecks130') }
+
+// Shared workspace UI, invitation consent, permissions and complete join snapshots.
+tasks.register('workspaceInvitationChecks131', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceInvitationChecks131'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceInvitationChecks131') }
+
+// Native workbench documents and safe Scripts mirror/binding migration.
+tasks.register('workspaceWorkbenchChecks132', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceWorkbenchChecks132'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceWorkbenchChecks132') }
+
+// Shared native editor, ordinary folder links, legacy Commands and current bundled guides.
+tasks.register('workspaceUnifiedChecks133', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.WorkspaceUnifiedChecks133'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceUnifiedChecks133') }
+
+//134: file-audit regressions for project storage and linked folders; no game renderer.
+tasks.register('storageAuditChecks134', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.storage.StorageAuditChecks134'
+}
+tasks.named('check') { dependsOn tasks.named('storageAuditChecks134') }
+
+//135: audited hub/storage and real client transport state machine with an injected host.
+tasks.register('auditRegressionChecks135', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.technology.workspace.live122.AuditRegressionChecks135'
+}
+tasks.register('workspaceTransportChecks135', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.technology.workspace.live122.WorkspaceTransportChecks135'
+}
+tasks.named('check') { dependsOn tasks.named('auditRegressionChecks135'), tasks.named('workspaceTransportChecks135') }
+
+//140: bounded expressions, portable storage fixtures and audited runtime/UI regressions.
+['valueRepairChecks140': 'com.fixmer.genesis.technology.expression.ValueRepairChecks140',
+ 'runtimeRepairChecks140': 'com.fixmer.mared.RuntimeRepairChecks140'].each { taskName, entryPoint ->
+    tasks.register(taskName, JavaExec) {
+        dependsOn testClasses
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = entryPoint
+        def fixtureDirectory = layout.buildDirectory.dir("audit140/${taskName}")
+        doFirst { fixtureDirectory.get().asFile.mkdirs() }
+        workingDir fixtureDirectory
+    }
+    tasks.named('check') { dependsOn tasks.named(taskName) }
+}
+
+//142: broad audit regressions, initialization ordering and JDK regex replacement parity.
+['auditRepairChecks142': 'com.fixmer.mared.RepairChecks142',
+ 'globalInitializationChecks142': 'com.fixmer.mared.GlobalInitProbe142',
+ 'regexParityChecks142': 'com.fixmer.mared.RegexParity142'].each { taskName, entryPoint ->
+    tasks.register(taskName, JavaExec) {
+        dependsOn testClasses
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = entryPoint
+        maxHeapSize = '256m'
+        systemProperty 'mared.repair.logEntries', '2000'
+        def fixtureDirectory = layout.buildDirectory.dir("audit142/${taskName}")
+        doFirst { fixtureDirectory.get().asFile.mkdirs() }
+        workingDir fixtureDirectory
+    }
+    tasks.named('check') { dependsOn tasks.named(taskName) }
+}
+
+//143: callback context, cancellation, ordered command sections and empty project replay.
+['runtimeChecks143': 'com.fixmer.mared.RuntimeChecks143',
+ 'workspaceChecks143': 'com.fixmer.mared.WorkspaceChecks143'].each { taskName, entryPoint ->
+    tasks.register(taskName, JavaExec) {
+        dependsOn testClasses
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = entryPoint
+        maxHeapSize = '256m'
+        def fixtureDirectory = layout.buildDirectory.dir("audit143/${taskName}")
+        doFirst { fixtureDirectory.get().asFile.mkdirs() }
+        workingDir fixtureDirectory
+    }
+    tasks.named('check') { dependsOn tasks.named(taskName) }
+}
+
+// Sequential stage-1 audit: stream framing and private diagnostic redaction.
+tasks.register('sequentialAuditChecks144', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.SequentialChecks144'
+    maxHeapSize = '128m'
+}
+tasks.named('check') { dependsOn tasks.named('sequentialAuditChecks144') }
+
+tasks.register('metadataAuditChecks144', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.MetadataChecks144'
+    maxHeapSize = '128m'
+}
+tasks.named('check') { dependsOn tasks.named('metadataAuditChecks144') }
+
+tasks.register('fontAuditChecks144', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.FontChecks144'
+    maxHeapSize = '128m'
+    systemProperty 'java.awt.headless', 'true'
+}
+tasks.named('check') { dependsOn tasks.named('fontAuditChecks144') }
+
+tasks.register('recoveryConfigChecks144', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.RecoveryConfigChecks144'
+    maxHeapSize = '128m'
+}
+tasks.named('check') { dependsOn tasks.named('recoveryConfigChecks144') }
+
+tasks.register('uiResourceChecks144', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.UiResourceChecks144'
+    maxHeapSize = '128m'
+    systemProperty 'java.awt.headless', 'true'
+}
+tasks.named('check') { dependsOn tasks.named('uiResourceChecks144') }
+
+['commandChecks144':'com.fixmer.mared.CommandChecks144',
+ 'parserChecks144':'com.fixmer.mared.ParserChecks144'].each { taskName, entryPoint ->
+    tasks.register(taskName, JavaExec) {
+        dependsOn testClasses
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = entryPoint
+        maxHeapSize = '128m'
+    }
+    tasks.named('check') { dependsOn tasks.named(taskName) }
+}
+
+// Product directions, shared tools, templates and Genesis routes.
+tasks.register('creationChecks145', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.CreationChecks145'
+    maxHeapSize = '256m'
+}
+tasks.named('check') { dependsOn tasks.named('creationChecks145') }
+
+// Optional native browser is loaded reflectively; this check exercises the project storage bridge.
+tasks.register('blockbenchChecks146', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.BlockbenchChecks146'
+    maxHeapSize = '128m'
+}
+tasks.named('check') { dependsOn tasks.named('blockbenchChecks146') }
+
+tasks.register('workspaceModelChecks147',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.WorkspaceModelChecks147'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceModelChecks147') }
+tasks.register('workspaceModelWireChecks147',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.technology.workspace.live122.WorkspaceModelWireChecks147'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('workspaceModelWireChecks147') }
+
+// No browser engine is bundled or initialized at game startup. Legacy adapters remain optional source.
+tasks.register('verifyDesktopDistribution148') {
+    dependsOn tasks.named('jar')
+    doLast {
+        new java.util.zip.ZipFile(tasks.named('jar',Jar).get().archiveFile.get().asFile).withCloseable { zip ->
+            if (zip.entries().any { it.name.toLowerCase(java.util.Locale.ROOT).contains('mcef') && it.name.endsWith('.jar') }) throw new GradleException('Unexpected embedded MCEF')
+            for (String forbidden : ['com/fixmer/mared/technology/blockbench/McefBrowser146.class','com/fixmer/mared/technology/blockbench/BlockbenchScreen146.class','assets/mared/blockbench/bridge146.js']) {
+                if (zip.getEntry(forbidden)!=null) throw new GradleException('Obsolete browser artifact remains: '+forbidden)
+            }
+            def modMetadata=zip.getInputStream(zip.getEntry('META-INF/neoforge.mods.toml')).withCloseable { it.getText('UTF-8') }
+            if (modMetadata.contains('modId = "mcef"')) throw new GradleException('Obsolete browser dependency remains')
+            if (zip.getEntry('assets/mared/blockbench/mared_desktop148.js')==null) throw new GradleException('Desktop connector missing')
+        }
+    }
+}
+tasks.named('check') { dependsOn tasks.named('verifyDesktopDistribution148') }
+
+tasks.register('syncChecks148',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.SyncChecks148'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('syncChecks148') }
+
+tasks.register('performanceChecks149',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.PerformanceChecks149'
+    maxHeapSize='256m'
+}
+tasks.register('realtimeChecks149',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.technology.workspace.live122.RealtimeChecks149'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('performanceChecks149'),tasks.named('realtimeChecks149') }
+
+tasks.register('continuityChecks150',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.ContinuityChecks150'
+    maxHeapSize='256m'
+}
+tasks.register('recoveryWireChecks150',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.technology.workspace.live122.RecoveryWireChecks150'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('continuityChecks150'),tasks.named('recoveryWireChecks150') }
+
+ tasks.register('caretChecks151',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.technology.workspace.live122.CaretChecks151'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('caretChecks151') }
+
+tasks.register('featuresChecks152',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.FeaturesChecks152'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('featuresChecks152') }
+
+tasks.register('remoteWireChecks152',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.technology.workspace.live122.RemoteWireChecks152'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('remoteWireChecks152') }
+
+tasks.register('deviceChecks153',JavaExec) {
+    dependsOn testClasses
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.DeviceChecks153'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('deviceChecks153') }
+
+tasks.register('uxWireChecks154',JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.technology.workspace.live122.UxWireChecks154'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('uxWireChecks154') }
+
+tasks.register('displayChecks155',JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.DisplayChecks155'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('displayChecks155') }
+
+tasks.register('serverWorkflowChecks156',JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.ServerWorkflowChecks156'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('serverWorkflowChecks156') }
+
+// Packaged client input for runClient and launcher-owned jar locations.
+tasks.register('clientModSetChecks157',JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.ClientModSetChecks157'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('clientModSetChecks157') }
+
+// Real local TLS and signed download; no Minecraft or Windows-native assertion.
+tasks.register('tlsChecks159',JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath=sourceSets.test.runtimeClasspath
+    mainClass='com.fixmer.mared.TlsChecks159'
+    maxHeapSize='256m'
+}
+tasks.named('check') { dependsOn tasks.named('tlsChecks159') }

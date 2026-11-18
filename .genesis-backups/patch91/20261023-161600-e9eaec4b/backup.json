@@ -1,0 +1,150 @@
+{
+  "patch": 91,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "04855aadbca540e7567929e7781b43447096a45454438426f2c575df649ef37c",
+      "after": "d4bc7fcf0e87b121f886bb3c7afca61ac2e798165fae0d058e20984375f9c14d"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/GameSession.java",
+      "existed": true,
+      "before": "172e8bab5dbb505404ffa61c1770ebf99e8d548b4ccf22f196ebaf459a18f7f1",
+      "after": "82ef58a6baa1fc6eabcb556698c04bb081ab5fe2a69b52109cc3a1af3205294e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ManagedChildProcess.java",
+      "existed": true,
+      "before": "63481f3e67a857fdec854c3c398c4481bdc226d1b613315ca59cc48ef900a02c",
+      "after": "bd294424b17a4256a737f34fbb1d347150b22aabd2cc70901ae90f07af0bb923"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ModDeployment.java",
+      "existed": true,
+      "before": "828ee871ae665ea04d283f78ff96abd84dd9fd42423e547266f8059577500ad5",
+      "after": "93b1e81944b2498bd6a4f9a9341e3279e37be340da06ad4dc06e4f61bb75c620"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RecoveryView91.java",
+      "existed": false,
+      "before": null,
+      "after": "6eaf77f224278d86cce236c61ea11e84f5578d044db2bd143a7ba07c6d9711eb"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/Supervisor.java",
+      "existed": true,
+      "before": "a3e4269ef73a6ebd5e01ad5c1eb046150a63abc63323847f6fc77e177e3c4da5",
+      "after": "452a83024a87fc41573d5e5d041e1c0cf8e69c7985a31467e5881dc76152d9bb"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevActivationService.java",
+      "existed": true,
+      "before": "2be353ccb9beeb4ee1fb8269f66c4a1ef98351eb5abe2e425581d5d0ee37a69d",
+      "after": "b595527c1c3372819b5a95e8d7319bacf9864b945c6ebd8ab87e1d822e5806a2"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevQuickStart.java",
+      "existed": true,
+      "before": "4d80d769ba40d61ed367ba86d33a097e343f2b60d767fb676154756ee055b294",
+      "after": "a4a871fb7dae2dd95b25e1a78c27c421faf156c0e96547a7fd85ce06f9303908"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevRestartService.java",
+      "existed": true,
+      "before": "48ecb0324c695d781db0725c21b88c9d624054335aba55b16946e4f6e4e9b765",
+      "after": "960c0c03b7c4c09a4ac47173c07e9811b37d55e13b0f27a95b4e750919629750"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevSessionResume.java",
+      "existed": true,
+      "before": "048947c193f0ebbf89cb5b3d2e4ffd247a805698ce5d6715f5b1604a2acc11f1",
+      "after": "3e723b70744d6b36ff77a7f7425272eb88788011064e7e168a92910f476fa703"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/LocalRecovery91.java",
+      "existed": false,
+      "before": null,
+      "after": "d6fa2eb20c84b98ecf1fa9a87d1fc2f7ab496eec94ab53b696a82ff0dfe82793"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/LocalRecoveryScreen91.java",
+      "existed": false,
+      "before": null,
+      "after": "6fbd1ca8cdfff8a789ad096fbb0769be3fa63eadb6e7b296b9e6179c9d595ed3"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/storage/DevResumeStore.java",
+      "existed": true,
+      "before": "1b00e944ae224a1e8aecab59081d836ad0203de5dbdf561b7450a4484962b4b4",
+      "after": "20c2c8da0d6c6e44eb204ddcd1e90ca184cc0a65993a120232597435b8cee2f8"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/mixin/LocalWorldOpenMixin91.java",
+      "existed": false,
+      "before": null,
+      "after": "eed6485a88f02f59178b203895fd297df09230821821f68077f38811ca14deee"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/IntegratedRecoveryHooks91.java",
+      "existed": false,
+      "before": null,
+      "after": "42d9fde1be7da3b2e2017504961f17147a04a2f2f9f837a04a91100098f82a34"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerPanelScreen66.java",
+      "existed": true,
+      "before": "7d9d58b5543bd2133ea681620da9113cc71545ee24a431ca3169819984fc99e1",
+      "after": "614419796bb5b5be3bf62a8c562453940623ed2ea8a7c9709c9c1c3ca16836e6"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "e302cdd8f6c6d6021c47b1ac39c441d7535c387ff658a4afe10c8c9ac57c4fed",
+      "after": "5c50b7de5e8716f8cd6640f5a010e7098cfbaed9ca7f8b26f101aa1b2b6bfe68"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "76ab0abc2f9c4e4688e63860426c6daab95ad408b6279f181d7adaf60dfb55ab",
+      "after": "cf5ec37dce380fa4e8c33bdf66c6219232f7479741afeb02381767fe1785c3f0"
+    },
+    {
+      "path": "src/main/resources/mared.mixins.json",
+      "existed": true,
+      "before": "6d18807061ad3b7db66178e791f709f5a79774afa06aa3afcbb2c3020a3e8de3",
+      "after": "44fe611085c882e0437e9c0a97497f3323630a74701b364128043187f3172752"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/RecoveryChecks91.java",
+      "existed": false,
+      "before": null,
+      "after": "136883c47560e488d1eb1ab8b910df379942e11b4fe460ffc93663d760216c78"
+    },
+    {
+      "path": "tools/local_recovery91.py",
+      "existed": false,
+      "before": null,
+      "after": "8036bc7a260e8bc6172e75cd7ea465111626422d982fe5e2364b0bc50a7a602c"
+    },
+    {
+      "path": "verification/server59/RecoveryGateChecks91.java",
+      "existed": false,
+      "before": null,
+      "after": "7a3e3565cf610f9d161a68933edd58cad21fea7bec79068169182f8fed5ff092"
+    },
+    {
+      "path": "verification/server59/recovery_gate91.py",
+      "existed": false,
+      "before": null,
+      "after": "2ab9a05803beb679b5ac9ac02b0e3972c46d52802039bc2ba37b6cfe44ce801c"
+    },
+    {
+      "path": "verification/server59/test_recovery91.py",
+      "existed": false,
+      "before": null,
+      "after": "e6a29c4f549610b5bcf25cf07a0bfd86c8ce2b6d6b25c75af9a87ebe585367b3"
+    }
+  ]
+}

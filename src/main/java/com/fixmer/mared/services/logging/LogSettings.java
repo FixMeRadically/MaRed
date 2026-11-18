@@ -28,7 +28,7 @@ public final class LogSettings {
 
     public static final List<String> CATEGORIES = List.of(
         "mared", "say", "cmd", "mc", "give", "bind", "on",
-        "run", "assert", "auto-save", "log", "info", "error", "other"
+        "run", "assert", "auto-save", "log", "info", "error", "other", "print", "chat", "block", "unblock", "toggle", "studio", "action"
     );
 
     public static int getVersion() {

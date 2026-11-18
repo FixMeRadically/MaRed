@@ -1,0 +1,114 @@
+{
+  "patch": 67,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/scripts/ScriptProjectEditor.java",
+      "existed": true,
+      "before": "3bb396c2479007ca74ffce5ff53a908b7acb35ce4bd71f7533793021ad5c18ed",
+      "after": "c2144916e30fab4b33193e0ea7a351f96569b11b93e0f45c1181da7773cc188b"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/FirstLaunchServer58.java",
+      "existed": true,
+      "before": "50717b079d2f7eac2a448957256c7137132a26ae0dfc763d296cc92b8cbd9646",
+      "after": "1efcaec2c48fec7c0150119d6f86d74692622ae340e0abdeeffdfbfe3e4226f7"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ManagedApplyPanel67.java",
+      "existed": false,
+      "before": null,
+      "after": "4720e945cc2f707209e3c5a4746c32311e42dcc9cf8b2c6cdf39e68e87684ab2"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerPanelScreen66.java",
+      "existed": true,
+      "before": "d0ee84a7414a14cc2915b634d30018a8dac0525902a9183351ebac3293410568",
+      "after": "228aa02b7ce4f02473633165213e1aa8abea814ab102199ee385c27f0b17b568"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerPanelService66.java",
+      "existed": true,
+      "before": "525223ef9d2eb0b3056d7dea5cb135bf0ec2b5b80d306432b5205bcccd078287",
+      "after": "b3a99d78f8e47b0bdf5fcc5bf3534e9b7f679dc7685ed6531021eb64c40144c3"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "3178db7c1b9e2053d761a8b4ef945f823b0b8eb93768e2848bb601cfdc381ea3",
+      "after": "2a75cc52c9df91244383637ef402701915fc9b1b917d9ae6ca0214a021e74910"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "fb81646293dd6dce0415fc55921ae9314898c3d30de81a21f468b27ca458096d",
+      "after": "7030e185f57be71262f212baed3173978a6570b432a990c4e755602dfed5300d"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "b9013a67fd95f39c57eac49115a6a78b6dd0edfde5aabfc5a6d86dfac816845f",
+      "after": "26a9cce99e48d5c6faee5b0afe412421d093765d760cab9b214cc5454b1a4ac6"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/firstlaunch/FirstLaunchSession.java",
+      "existed": true,
+      "before": "a5fdbfaa487f3f707d3828899cc4954bf916f451787f507e21f2d89b790c7d9d",
+      "after": "94e047b9e1f371dfb906b44cf5ed7df9d671e0e30a3a10e042eccb8ee6108a18"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/firstlaunch/LocalApply67.java",
+      "existed": false,
+      "before": null,
+      "after": "abce630f8666dfff10cda92e6498cb2e96569634d79a1c382ec92a985628cf39"
+    },
+    {
+      "path": "tools/first58/bridge67.py",
+      "existed": false,
+      "before": null,
+      "after": "22cfb5b96563a60420688beac80e20a2f04e490f1982c20cf2421daeed995640"
+    },
+    {
+      "path": "tools/first58/controller.py",
+      "existed": true,
+      "before": "825d34c6a12886d0eace6428277929657f617c006826c378fd0ab0fb174970e3",
+      "after": "b4625ea8c2c2f9191f6d2be81fce740b3eeb31babba167021a9dd2075aadf293"
+    },
+    {
+      "path": "tools/first58/panel66.py",
+      "existed": true,
+      "before": "54ab1dff9f6e11b59436de003fc7db03736011736c9e27a73f5e5a3ec5b2b4c6",
+      "after": "c612fdafe36680ad54337d52f8b3465d5a26b0f8f430d6cfb3416ecc80b6df83"
+    },
+    {
+      "path": "tools/first58/repeat67.py",
+      "existed": false,
+      "before": null,
+      "after": "29b8841faaa8ff15bf954127b869dcb273514d9dd2336af3e4327252b4e3751d"
+    },
+    {
+      "path": "tools/first58/wizard_model.py",
+      "existed": true,
+      "before": "326b9395012b213c271d3e439b31a227c4a7daed1846080af67080f4e666daab",
+      "after": "367e605ac0f6a9117599a5cb470051d3f0fc041f330179a3ae504aa8a9450704"
+    },
+    {
+      "path": "verification/server59/LocalApplyChecks67.java",
+      "existed": false,
+      "before": null,
+      "after": "5e885cf5ba3d253c2e0d7774141e8e08c33c48f7b959ef84e7edc57e597fdfde"
+    },
+    {
+      "path": "verification/server59/test_panel66.py",
+      "existed": true,
+      "before": "328e9060f6089dfaeb4317b95641e7bbd8f9e17cfd8094894dcf2255bc94b8ed",
+      "after": "4d8cbca7cf428bc8fefffd9afa7eb05f486e41bc5bc1d59f7e68a62eed761100"
+    },
+    {
+      "path": "verification/server59/test_repeat67.py",
+      "existed": false,
+      "before": null,
+      "after": "d3ade74e423391b6376fc77fc021a442c30da15984e716658df37f23988c1345"
+    }
+  ]
+}

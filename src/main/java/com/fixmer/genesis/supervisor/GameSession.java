@@ -18,7 +18,10 @@ final class GameSession {
     private final long startupNanos,leaseNanos;
     private long pid,start,sequence=-1,lastSeen,exitSeen;
     private String state="UNREGISTERED";
+    private boolean integratedSeen90,integratedInvalid90;
+    private final IntegratedState90 integrated90=new IntegratedState90();
     private boolean normal,ready,frameHandoff,frameReady;
+    private String failure101="";private boolean attention101;
     private long readySince;
     private long jvmStartMs;
     private String leaseToken="";
@@ -29,6 +32,8 @@ final class GameSession {
     synchronized End poll(long now){
         read(now);
         if(pid==0)return now-begin>=startupNanos?End.FAILED:End.NONE;
+        // A held source lease contradicts PID metadata: retain the real writer even if metadata says DEAD.
+        if(!leaseToken.isEmpty()&&lease()==GameLease.State.HELD)return End.NONE;
         Life life=probe.life(pid,start);
         if(life==Life.DEAD)return normal?End.NORMAL:End.FAILED;
         // A live, same-identity JVM is never killed because GC or a disk stall delayed heartbeats.
@@ -56,6 +61,10 @@ final class GameSession {
             if(pid!=0&&(pid!=nextPid||start!=nextStart))return; // A second JVM cannot take over an existing session.
             if(state.equals("EXITED")&&!nextState.equals("EXITED"))return;
             if(state.equals("CLOSING")&&nextState.equals("RUNNING"))return;
+            if(p.containsKey("integrated90")||p.containsKey("integratedEpoch90")){
+                integratedSeen90=true;try{integrated90.accept(p.getProperty("integratedEpoch90"),p.getProperty("integrated90"));}catch(RuntimeException bad){integratedInvalid90=true;}
+            }else if(integratedSeen90)integratedInvalid90=true;
+            String failure=p.getProperty("failure101","");if(StartupAbort101.reason(failure)&&failure101.isEmpty())failure101=failure;attention101=Boolean.parseBoolean(p.getProperty("attention101","false"));
             leaseToken=nextLease;pid=nextPid;start=nextStart;sequence=nextSequence;lastSeen=now;state=nextState;
             boolean nextReady=Boolean.parseBoolean(p.getProperty("ready","false"));
             if(nextReady&&!ready)readySince=now;ready|=nextReady;
@@ -69,8 +78,18 @@ final class GameSession {
         if(leaseToken.isEmpty())return leaseState=GameLease.State.UNKNOWN;
         return leaseState=GameLease.probe(file.resolveSibling("game.lease"),GameLease.marker(launch,leaseToken,pid,start));
     }
+    synchronized String failure101(){return failure101;}
+    synchronized boolean attention101(){return attention101;}
+    synchronized boolean normalClose92(){return normal;}
+    synchronized boolean normalExit91(){return normal&&confirmedExit();}
+    synchronized boolean integrated90(){return integratedSeen90;}
+    synchronized String lastEpoch95(){return integrated90.epoch();}
+    synchronized String activeEpoch95(){return !integratedInvalid90&&integrated90.phase().equals("ACTIVE")?integrated90.epoch():"";}
+    synchronized void requireIntegratedRestart90(){if(integratedInvalid90||integratedSeen90&&!integrated90.present())throw new IllegalStateException("INTEGRATED90_INVALID");integrated90.requireRestart(confirmedExit(),normal);}
+    synchronized boolean integratedStopped90(){return !integrated90.present()||integrated90.stopped();}
     synchronized boolean confirmedExit(){
         if(pid==0)return false;
+        if(!leaseToken.isEmpty()&&lease()==GameLease.State.HELD)return false;
         Life life=probe.life(pid,start);if(life==Life.ALIVE)return false;if(life==Life.DEAD)return true;
         GameLease.State lease=lease();if(lease==GameLease.State.HELD)return false;if(lease==GameLease.State.RELEASED)return true;
         return leaseToken.isEmpty()&&state.equals("EXITED");

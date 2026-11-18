@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class TranslationFormattingIntegrationTest {
     @Test void versionAndQuotedFileNamesAreSubstituted() {
-        assertEquals("Версия: 0.4.0", MaredLang.formatTemplate("Версия: {0}", Mared.VERSION));
+        assertEquals("Версия: 0.4.0", MaredLang.formatTemplate("Версия: {0}", "0.4.0"));
         assertEquals("Rename 'quests/start'", MaredLang.formatTemplate("Rename '{0}'", "quests/start"));
     }
     @Test void insertedTextIsLiteralAndNeverExpandedAgain() {

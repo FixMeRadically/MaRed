@@ -131,14 +131,6 @@ public final class GenesisSpace implements MaredSpace {
     // ---------------------------------------------------------
 
     private static SpaceId mapNodeToSpace(GenesisNodeData.NodeType type) {
-        return switch (type) {
-            case CORE      -> null;   // ядро — не пространство
-            case CONTENT   -> SpaceId.CONTENT;
-            case WORLD     -> SpaceId.WORLD;
-            case LOGIC     -> SpaceId.LOGIC;
-            case RESOURCES -> SpaceId.RESOURCES;
-            case TOOLS     -> SpaceId.TOOLS;
-            case SCENARIOS -> SpaceId.SCENARIOS;
-        };
+        return type==GenesisNodeData.NodeType.CORE?null:SpaceId.valueOf(type.name());
     }
 }

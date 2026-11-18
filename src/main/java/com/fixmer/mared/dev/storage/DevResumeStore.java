@@ -58,6 +58,7 @@ public final class DevResumeStore {
         if (Long.toString(pid).equals(p.getProperty("sourcePid"))) return new Boot(false, null);
         Files.delete(file); // consume before connecting: no retry loop on failure or later TitleScreens
         String kind = p.getProperty("kind");
+        if("hold91".equals(kind))return new Boot(true,null);
         if (!"server".equals(kind) && !"world".equals(kind)) return new Boot(false, null);
         try {
             long age = now - Long.parseLong(p.getProperty("createdAt", "0"));

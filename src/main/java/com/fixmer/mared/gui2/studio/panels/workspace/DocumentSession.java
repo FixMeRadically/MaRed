@@ -26,9 +26,12 @@ import com.fixmer.mared.gui2.framework.components.editor.EditorView;
  */
 public final class DocumentSession {
 
-    public final EditorDocument document = new EditorDocument();
-    public final EditorHistory  history  = new EditorHistory();
-    public final EditorView     view     = new EditorView();
+    public final EditorDocument document;
+    public final EditorHistory history;
+    public final EditorView view;
+
+    public DocumentSession(){this(new EditorDocument(),new EditorHistory(),new EditorView());}
+    public DocumentSession(EditorDocument document,EditorHistory history,EditorView view){this.document=java.util.Objects.requireNonNull(document);this.history=java.util.Objects.requireNonNull(history);this.view=java.util.Objects.requireNonNull(view);}
 
     /** Имя файла на диске. null — untitled-документ. */
     public String storageId;
@@ -100,6 +103,6 @@ public final class DocumentSession {
             dirty = !document.getValue().isEmpty();
             return;
         }
-        dirty = !document.getValue().equals(lastSavedText);
+        dirty = !document.getValue().equals(EditorDocument.normalizeLineEndings(lastSavedText));
     }
 }

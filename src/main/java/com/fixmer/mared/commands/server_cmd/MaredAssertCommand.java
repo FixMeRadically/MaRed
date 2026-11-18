@@ -9,8 +9,7 @@ import com.fixmer.mared.MaredLang;
  * assert <условие> ["сообщение"] — проверка.
  * Если условие ложно — вывести сообщение и остановить скрипт.
  *
- * Не бросает исключений — при провале вызывает exec.stopAll(),
- * чтобы не было [error] null в логе.
+ * При провале помечает весь запуск ошибкой и отменяет принадлежащие ему задачи.
  */
 public class MaredAssertCommand extends MaredScriptCommand {
 
@@ -28,7 +27,7 @@ public class MaredAssertCommand extends MaredScriptCommand {
         if (!ok) {
             String m = (message != null) ? ctx.substitute(message) : "(no message)";
             ctx.log(MaredLang.format("mared.log.assert.fail", condition, m));
-            exec.stopAll();
+            exec.fail(new IllegalStateException("Assertion failed: " + condition + " — " + m));
         } else {
             ctx.log(MaredLang.format("mared.log.assert.ok", condition));
         }

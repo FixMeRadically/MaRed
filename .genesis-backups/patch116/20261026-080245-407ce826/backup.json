@@ -1,0 +1,234 @@
+{
+  "patch": 116,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "875ef09383dc09c1ff4a23646b00a9d74235921c39763b065fb9d18fd6a80fe0",
+      "after": "bad1e8a0bcde82fd17c7bd8938061ff1dd28e9dee41f4796b7bc347bb1386367"
+    },
+    {
+      "path": "docs/FEATURE_STATUS_0_4_5.json",
+      "existed": true,
+      "before": "9f384f93e92fb56fafe987c6771a873a39a1cda9cb2d4cffed5f7c28aac03628",
+      "after": "df1e288c4eacc43cbfaae8da9240f7c241a44ec7aa6bf3ab32324c9dac9e2a61"
+    },
+    {
+      "path": "docs/GENESIS_0_4_5_ROADMAP_RU.md",
+      "existed": true,
+      "before": "7f344fe240bdd200ca449b84db0ce3404d6e0b338a13bf85be9503899edc7bf6",
+      "after": "01388be421d76dbe4d1ac08b36769209c5ad765c39e20fcc2cd37a042b4cb928"
+    },
+    {
+      "path": "docs/INTEGRATION_116_RU.md",
+      "existed": false,
+      "before": null,
+      "after": "9d6542d1d721baedde743d1b98e7dc7d185da0c1116ffc57f7ebcc606d669ecb"
+    },
+    {
+      "path": "docs/INTEGRATION_CATALOG_116.json",
+      "existed": false,
+      "before": null,
+      "after": "b0053e0914a6184123b1fb74b05a2a556a12bbd79423e8d3ee95033c66b7b62d"
+    },
+    {
+      "path": "docs/SERVER_INTEGRATION_115_RU.md",
+      "existed": false,
+      "before": null,
+      "after": "bf5d53e279e2a1c58d0feaa777487b7c6d7dbe046c798c3334cc347992791217"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/scripts/ScriptProjectEditor.java",
+      "existed": true,
+      "before": "aae60ba190e5dee22a162c52073e91540f036c4c4913efd87e8854bd64233934",
+      "after": "9af9e0b21d494547b0ce3f72c86d3ef41cd3eaedae539a5bc5b6e3ee2efb3f3d"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/DedicatedPanelScreen75.java",
+      "existed": true,
+      "before": "39e83fba381494d6926967450bfdf8d0a7e338d931ca529530f62669f6dbfea4",
+      "after": "62ed9cf476b9659ee03a6944d726d7f939e45756e922208ac22cd0b6fb50be83"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/DedicatedPanelService75.java",
+      "existed": true,
+      "before": "b09afefb5961ef3be09c2f3f2fb9e806d8d090546de4ae41beb53dd77562524f",
+      "after": "2d197622a16994f5d2b3f11205dd9fce2ef494d80ac9a9414ac42510793424c7"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/HttpsService78.java",
+      "existed": true,
+      "before": "e758117326c4b7bdf48ce621f8d12219fa344b596f7e4925d839093c43cb0b2f",
+      "after": "faebccce7e8338dce12a00ce8bc630b3a92fecd564e1cd4d21cdd99ee882bb02"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InPlaceAdvanced104.java",
+      "existed": true,
+      "before": "fd390f10fa2db30a4c5c0c6a53811c969fb02d1fa9f09effaca4cdad859eaf31",
+      "after": "0174cd737074ebef89208f052c38bbd4e0dc0862e6a8b31e5b1f9409037e02ba"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/InPlaceServerScreen104.java",
+      "existed": true,
+      "before": "ce27dab13a2a8deede86f1e3e4e3c1055e193fd062578d100a002e5e63908df3",
+      "after": "854b9b152da71551c726993acc68c073f1fb80d7adfd70141f53af450b031aed"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/PublicationService79.java",
+      "existed": true,
+      "before": "906f7f0c6e06eea402af4217b9b95f978d910bf2ed0d3dc1e405e7acc6df67d0",
+      "after": "6b06d148f9261bbbebb3a6fbe2b4e8e509781b7df35986200e5ef6c7cfa18d72"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RecoveryService77.java",
+      "existed": true,
+      "before": "ba23210a51998504a4d775f058c1e8123e2740c83c12633dbed8884700bcced6",
+      "after": "476f30eedb5da9edd1a4fc03e9f69e10e996d02721eb50d17d62bad0180c8742"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RenewalService85.java",
+      "existed": true,
+      "before": "b2c4ab51258204255a4479b5ccbff4cc988488ea1a2ef12f33a545dfb930e245",
+      "after": "b0fc563b04e7934253db0e376d10f2703a5a61c5692d20565793ef1ccd99599c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ScriptPublicationScreen84.java",
+      "existed": true,
+      "before": "549ea8d2f8e28fe57fe3d37a34378b89d2cf2419f42f5bf57ce92cfa2ef5557b",
+      "after": "d35d19b72b22da5f9ac7f671992ecd7b97a3e8e946d1c6dde5604dddb8dfc42c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ScriptPublicationService84.java",
+      "existed": true,
+      "before": "d97932e098d48fcf3173ca42df1701a73f6e3ec17be0f96844a0bcb6c328b0bd",
+      "after": "2ac9dc744561c748fbd1a7c063c02c465027b45d0663435d6a224e7f1d83a4af"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerRouteScreen116.java",
+      "existed": false,
+      "before": null,
+      "after": "bb6d248c16b45b2358f325a81c10ebccc829367426a87952ded9c58f54e8438a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerSetupBundle59.java",
+      "existed": true,
+      "before": "6f8ca79b0457581a1960e16f3244fc41282ee41202d922500cbf8f0b64eb1aee",
+      "after": "255be2733d9996753a98990ecba4cfb0022160676caf58d55f9b89f6f03b5b19"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerSetupLauncher59.java",
+      "existed": true,
+      "before": "87cd6f367235cd9738906dc2f2b541e6e436412e718175829f8c9c38c3521818",
+      "after": "1d8c8a7f9118cb4c9ce32e1d4838f47bd9ae00d75819fe44dc01608be21fc2fc"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerToolsScreen116.java",
+      "existed": false,
+      "before": null,
+      "after": "7dd58a5617e14df7e6303153ddbf1139d898cbc8d266a79f01bca8fc317e6318"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerUpdateScreen115.java",
+      "existed": false,
+      "before": null,
+      "after": "edd6e75a982150ec10e8d07116c0c2938c5836de7d7cff8650418f9c69980c0a"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "6d6419f04fd9c67578b04dd30acc9ffb8fc772dedce54cf7481f99ccbfbe1126",
+      "after": "726e9968d7f66e38cf792fe381e176edf4d66e376340714cf30be410ccf6ef3d"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "bd42efcb02a0dbed3330fdb37797a962d250bbd20cf5f21659860b678ac818b5",
+      "after": "cbee27781bd39f85940a864874688b9b694af0ca6dbbc9a2736dd78f8a6522b5"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/IntegrationChecks116.java",
+      "existed": false,
+      "before": null,
+      "after": "6be6399aa348d4a68d516566bf2a132fabf545f8afedb703a056964a082e67af"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerUpdateChecks115.java",
+      "existed": false,
+      "before": null,
+      "after": "33f02741595f4727a55480f5a71bb7fda4ab7f4990e05ed7cc37e43dc9c0467f"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/technology/server/setup/BundleChecks116.java",
+      "existed": false,
+      "before": null,
+      "after": "89e651eb399b89296c2a203172fdf61f70f866c9c3ea0ee453580e72bd731220"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerDiagnostics105.java",
+      "existed": true,
+      "before": "07859bec98d98add8401194f3477b3ba6065b72f30ed84e806c902267a634cfb",
+      "after": "bdba87639750536c7c1e11e874da3c240d13ead50403751a04d9d1572a51d555"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerHelperProcess116.java",
+      "existed": false,
+      "before": null,
+      "after": "e8eed779f1ff996b2ddf4b5eea8d86c58cbfe8bd0c0ce5cbc0ef7d4e8c56c518"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerNavigation116.java",
+      "existed": false,
+      "before": null,
+      "after": "f7186f25bb20c9b02fd8a03e48cbf2f87ea3891d8f7882e0847315d5e2e72b39"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerUpdate115.java",
+      "existed": false,
+      "before": null,
+      "after": "c964f61a126cc86f62cc3c47802ea51f98c5b21e30f84a14158fc9cc51097fef"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/ServerView105.java",
+      "existed": true,
+      "before": "2d291c5c6c6c1b8031525669aa8106061fc4836fac27ac06c7fd76b6f9859688",
+      "after": "7e6c9bd54ca5f0fde04948287c01d3e3f85eac5d7350b915f58e623c9886db8a"
+    },
+    {
+      "path": "tools/first58/inplace104.py",
+      "existed": true,
+      "before": "72c72fedd8186094ebfa9f013c8b4c1aa31defd2e39fad19804d6ff05d7c0e5c",
+      "after": "9abaa175c44b6b6480f4f9137f27c37665d96ab63e775bf5cbd2efd28a01d3c2"
+    },
+    {
+      "path": "tools/first58/update115.py",
+      "existed": false,
+      "before": null,
+      "after": "b7ae99f3910db1244781aabdfb0cb2f5d9c2e0f993c2f04b14634b46a5dcfa5a"
+    },
+    {
+      "path": "tools/integration_audit116.py",
+      "existed": false,
+      "before": null,
+      "after": "44fa7d5f0637e2202da5ccb2b1ecb213b2ed6452389a93027efcde88a983ddcd"
+    },
+    {
+      "path": "verification/server59/integration_process116.py",
+      "existed": false,
+      "before": null,
+      "after": "f949fea10f353d3b8d0cc813bbd770c0de3064aab4e8c32a355c76396f277420"
+    },
+    {
+      "path": "verification/server59/test_update115.py",
+      "existed": false,
+      "before": null,
+      "after": "21bfce909b2c42161b5de846c32ebd43fc25fc99a2cf80d2aff72e8aab537134"
+    },
+    {
+      "path": "verification/server59/update_cross115.py",
+      "existed": false,
+      "before": null,
+      "after": "84a7635a542df3c5fdfc651b495718a0a184d8da4ba600a60069098e442f9ee0"
+    }
+  ]
+}

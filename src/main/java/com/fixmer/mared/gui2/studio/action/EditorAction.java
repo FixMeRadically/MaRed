@@ -16,6 +16,11 @@ import java.util.function.Predicate;
  */
 public final class EditorAction {
 
+    public enum Scope { GLOBAL, COMMANDS, SCRIPTS }
+    private Scope scope=Scope.GLOBAL;
+    public Scope scope(){return scope;}
+    public EditorAction inScope(Scope value){scope=java.util.Objects.requireNonNull(value);return this;}
+    public boolean overlaps(EditorAction other){return scope==Scope.GLOBAL||other.scope==Scope.GLOBAL||scope==other.scope;}
     private final String id;
     private final String titleKey;
     private final String shortcutDisplay;
@@ -95,7 +100,7 @@ public final class EditorAction {
 
     public boolean isEnabled(EditorActionContext ctx, EditorActionArgs args) {
         try {
-            return enabled.test(ctx, args == null ? EditorActionArgs.EMPTY : args);
+            return ctx!=null && (scope==Scope.GLOBAL||ctx.commandsActive()==(scope==Scope.COMMANDS)) && enabled.test(ctx, args == null ? EditorActionArgs.EMPTY : args);
         } catch (Throwable t) {
             return false;
         }

@@ -1,0 +1,120 @@
+{
+  "patch": 90,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "bb4e8709a06494435871f2d75afe7b4718b57af83f9b6fb528f3fd62a140e396",
+      "after": "04855aadbca540e7567929e7781b43447096a45454438426f2c575df649ef37c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/GameSession.java",
+      "existed": true,
+      "before": "d4d72512d22caebe005af74d95187ff50242db6a150c2d215924d5012450ea99",
+      "after": "172e8bab5dbb505404ffa61c1770ebf99e8d548b4ccf22f196ebaf459a18f7f1"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/GameSessionClient.java",
+      "existed": true,
+      "before": "18d50ca818b95e7d5167ecf2ed89e88e7273c6ae1912c8e41c6774aad5bf44ec",
+      "after": "7b882d11138df26823bc1607307dcd1d32a5346b4a1153899e7591f6c93ef350"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/IntegratedState90.java",
+      "existed": false,
+      "before": null,
+      "after": "3f318b009fba2fbe2cb7daac362f0c883e1166629769e44424dbe7a8ea053209"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ManagedChildProcess.java",
+      "existed": true,
+      "before": "11a7c64119031b580526dc0b2b63c49a00dabfe457bc054eefb57bc9432f04aa",
+      "after": "63481f3e67a857fdec854c3c398c4481bdc226d1b613315ca59cc48ef900a02c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/Supervisor.java",
+      "existed": true,
+      "before": "0e755c59d97297e30c9685e329fc996db7cccde79a7c77150e546777aca4277f",
+      "after": "a3e4269ef73a6ebd5e01ad5c1eb046150a63abc63323847f6fc77e177e3c4da5"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevActivationService.java",
+      "existed": true,
+      "before": "2659fc32836836766cd6233063373d1dc252c595c54ed6523fba4a3d171fd7f8",
+      "after": "2be353ccb9beeb4ee1fb8269f66c4a1ef98351eb5abe2e425581d5d0ee37a69d"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevIntegratedRestart90.java",
+      "existed": false,
+      "before": null,
+      "after": "fd0748a1dbcd0f3259bc19cbde75191efbc556921c158314693c4a568330d6d6"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevRestartService.java",
+      "existed": true,
+      "before": "8bf18a2369cbd748b6031ba3af8c612fae67b3a6403d322972ca330e8a8acd81",
+      "after": "48ecb0324c695d781db0725c21b88c9d624054335aba55b16946e4f6e4e9b765"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/dev/client/DevShutdownSignal.java",
+      "existed": true,
+      "before": "1b2a643f69ea966fce1db66a0e88c23080b3e9154313dc5cc8045f81f9792b1e",
+      "after": "2398771792ac03cd4ce627beb8200b2b7de3e00fe90f8b701b0afa602c817589"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/GenesisServerLifecycleHooks.java",
+      "existed": true,
+      "before": "e1724b801b063b8d0dfde3d3d90f858e641640624bdb257e8dbc44a54bc5d9b6",
+      "after": "98c97f4897ab074b2faae8d113e569790bf52035e56c5aba80cd04f91061cc2e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/IntegratedWorld90.java",
+      "existed": false,
+      "before": null,
+      "after": "8f68ef97a046b377ce73a37a2820d9fc5e6faf0936038d02341fae7234af1e1d"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "1e2a469780bd6c5799b25d769316e30e21e6ef0b271305e9ca4a4a8bffbb1c37",
+      "after": "e302cdd8f6c6d6021c47b1ac39c441d7535c387ff658a4afe10c8c9ac57c4fed"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "227c7d30f3073591b02c93f46f7d337123031ff857783754c3b0680b1c5b5dcf",
+      "after": "76ab0abc2f9c4e4688e63860426c6daab95ad408b6279f181d7adaf60dfb55ab"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/IntegratedChecks90.java",
+      "existed": false,
+      "before": null,
+      "after": "b9370915b149cf521d32a9582fb5c1e00f33f45d7f1621dd3e9f8b1495b6334e"
+    },
+    {
+      "path": "tools/integrated_last90.py",
+      "existed": false,
+      "before": null,
+      "after": "eb7256bc762f8d0320f6ef798c16123ec019a6e4a26c4c0d74765085bb08670c"
+    },
+    {
+      "path": "verification/server59/IntegratedAdapterChecks90.java",
+      "existed": false,
+      "before": null,
+      "after": "699febd39c6b66c9e02e1a8fe447685944f5ac6ce8b6f66e822889b1efd811dc"
+    },
+    {
+      "path": "verification/server59/integrated90_checks.py",
+      "existed": false,
+      "before": null,
+      "after": "ee73ab1c938f4d977f4ee997a65718d7b925156ad6d354b5baf1035f378cbea4"
+    },
+    {
+      "path": "verification/server59/test_integrated90.py",
+      "existed": false,
+      "before": null,
+      "after": "6890b135ced85d03478c6d0fa466e7c4928b5f73d319f61e92917e8619e8a2de"
+    }
+  ]
+}

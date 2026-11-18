@@ -32,8 +32,9 @@ public final class SupervisorRecovery {
                 status.accept("Waiting for the previous supervisor to release its session lock...");
                 Thread.sleep(100);continue;
             }
-            String token=saved.getProperty("controlToken","");
-            if(token.length()<32)throw occupied(port,"no saved owner credentials; existing process left untouched");
+            String token;
+            try{token=SupervisorConfig.controlToken(saved);}
+            catch(IOException invalid){throw occupied(port,"no valid saved owner credentials; existing process left untouched");}
             Properties owner;
             try{owner=identity(port,token);}
             catch(IOException e){if(known){Thread.sleep(100);continue;}throw occupied(port,"owner cannot be verified; existing process left untouched");}
@@ -42,7 +43,7 @@ public final class SupervisorRecovery {
             boolean canRetire=Boolean.parseBoolean(owner.getProperty("canRetire")),closing=Boolean.parseBoolean(owner.getProperty("gameClosing"));
             if(canRetire&&!retiring){
                 status.accept("Retiring the previous supervisor after its game session ended...");
-                try{retiring=post(port,token,"/retire",saved.getProperty("instanceId"),0);}catch(IOException ignored){/* The watchdog may have closed it first. */}
+                try{retiring=post(port,token,"/retire",saved.getProperty("instanceId", "").trim(),0);}catch(IOException ignored){/* The watchdog may have closed it first. */}
             }else if(!retiring&&!closing){
                 throw occupied(port,"an active game/handoff still owns this supervisor (game PID "+owner.getProperty("gamePid","unknown")+"); it was not stopped");
             }
@@ -58,7 +59,7 @@ public final class SupervisorRecovery {
         return p;
     }
     public static boolean matches(Properties owner,Path config,Properties saved,int port){
-        try{return saved.getProperty("instanceId","").equals(owner.getProperty("instanceId"))
+        try{return saved.getProperty("instanceId","").trim().equals(owner.getProperty("instanceId"))
             &&config.toAbsolutePath().normalize().equals(Path.of(owner.getProperty("configPath")).toAbsolutePath().normalize())
             &&Integer.parseInt(owner.getProperty("controlPort"))==port;}
         catch(RuntimeException e){return false;}
@@ -69,7 +70,7 @@ public final class SupervisorRecovery {
     }
     private record Response(int code,String body) { }
     private static Response request(int port,String token,String method,String path,String instance,long parent)throws IOException{
-        HttpURLConnection connection=(HttpURLConnection)new URL("http://127.0.0.1:"+port+path).openConnection();
+        HttpURLConnection connection=(HttpURLConnection)new URL("http://127.0.0.1:"+port+path).openConnection(Proxy.NO_PROXY);
         connection.setInstanceFollowRedirects(false);connection.setConnectTimeout(750);connection.setReadTimeout(1000);
         connection.setRequestMethod(method);connection.setRequestProperty("X-Genesis-Token",token);
         if(instance!=null)connection.setRequestProperty("X-Genesis-Instance",instance);
@@ -86,11 +87,7 @@ public final class SupervisorRecovery {
         catch(ConnectException e){return false;}
     }
     static boolean lockFree(Path config)throws IOException{
-        Path path=config.resolveSibling("supervisor.lock");RuntimeFiles.safe(path);
-        try(FileChannel channel=FileChannel.open(path,StandardOpenOption.CREATE,StandardOpenOption.WRITE)){
-            try{FileLock lock=channel.tryLock();if(lock==null)return false;lock.release();return true;}
-            catch(OverlappingFileLockException e){return false;}
-        }
+        return OwnerLease94.available(config);
     }
     private static IOException occupied(int port,String reason){return new IOException("Port "+port+": "+reason);}
 }

@@ -70,6 +70,7 @@ public final class MaredBuiltins {
                 long mx = MaredExpr.toLong(arg(args, 1));
                 if (mx < mn) { long t = mn; mn = mx; mx = t; }
                 if (mx == mn) return mn;
+                if(mx==Long.MAX_VALUE){if(mn==Long.MIN_VALUE)return ThreadLocalRandom.current().nextLong();return ThreadLocalRandom.current().nextLong(mn-1,mx)+1;}
                 return ThreadLocalRandom.current().nextLong(mn, mx + 1);
             }
 
@@ -89,8 +90,8 @@ public final class MaredBuiltins {
             case "trimEnd":   return str(args, 0).stripTrailing();
             case "sub": {
                 String s = str(args, 0);
-                int start = (int) MaredExpr.toLong(arg(args, 1));
-                int end = args.size() >= 3 ? (int) MaredExpr.toLong(arg(args, 2)) : s.length();
+                int start = Math.toIntExact(MaredExpr.toLong(arg(args, 1)));
+                int end = args.size() >= 3 ? Math.toIntExact(MaredExpr.toLong(arg(args, 2))) : s.length();
                 int n = s.length();
                 if (start < 0) start = Math.max(0, n + start);
                 if (end < 0) end = Math.max(0, n + end);
@@ -103,21 +104,21 @@ public final class MaredBuiltins {
             case "contains":   return str(args, 0).contains(str(args, 1));
             case "startsWith": return str(args, 0).startsWith(str(args, 1));
             case "endsWith":   return str(args, 0).endsWith(str(args, 1));
-            case "replace":    return str(args, 0).replace(str(args, 1), str(args, 2));
-            case "replaceAll": return str(args, 0).replaceAll(str(args, 1), str(args, 2));
-            case "matches":    return str(args, 0).matches(str(args, 1));
+            case "replace":    return com.fixmer.genesis.technology.expression.ValueLimits140.replace(str(args,0),str(args,1),str(args,2));
+            case "replaceAll": return com.fixmer.genesis.technology.expression.ValueLimits140.replaceAll(str(args,0),str(args,1),str(args,2));
+            case "matches":    return com.fixmer.genesis.technology.expression.ValueLimits140.matches(str(args,0),str(args,1));
             case "concat": {
                 int n = args.size();
                 if (n == 0) return "";
                 if (n == 1) return MaredExpr.stringify(args.get(0));
                 StringBuilder sb = new StringBuilder(n * 8);
-                for (int i = 0; i < n; i++) sb.append(MaredExpr.stringify(args.get(i)));
+                for (int i = 0; i < n; i++){String value=MaredExpr.stringify(args.get(i));com.fixmer.genesis.technology.expression.ValueLimits140.textSize((long)sb.length()+value.length());sb.append(value);}
                 return sb.toString();
             }
             case "repeat": {
                 String s = str(args, 0);
-                int count = (int) MaredExpr.toLong(arg(args, 1));
-                return count <= 0 ? "" : s.repeat(count);
+                int count = Math.toIntExact(MaredExpr.toLong(arg(args, 1)));
+                return com.fixmer.genesis.technology.expression.ValueLimits140.repeat(s,count);
             }
             case "split": {
                 String s = str(args, 0);
@@ -132,16 +133,16 @@ public final class MaredBuiltins {
                 if (n == 0) return "";
                 StringBuilder sb = new StringBuilder(n * 8);
                 for (int i = 0; i < n; i++) {
-                    if (i > 0) sb.append(sep);
+                    if (i > 0) com.fixmer.genesis.technology.expression.ValueLimits140.append(sb,sep);
                     Object item = list.get(i);
-                    if (item instanceof String s) sb.append(s);
-                    else sb.append(MaredExpr.stringify(item));
+                    if (item instanceof String s) com.fixmer.genesis.technology.expression.ValueLimits140.append(sb,s);
+                    else com.fixmer.genesis.technology.expression.ValueLimits140.append(sb,MaredExpr.stringify(item));
                 }
                 return sb.toString();
             }
             case "charAt": {
                 String s = str(args, 0);
-                int i = (int) MaredExpr.toLong(arg(args, 1));
+                int i = Math.toIntExact(MaredExpr.toLong(arg(args, 1)));
                 int n = s.length();
                 if (i < 0) i = n + i;
                 if (i < 0 || i >= n) return "";
@@ -150,8 +151,9 @@ public final class MaredBuiltins {
             case "format": return formatImpl(args);
             case "padStart": {
                 String s = str(args, 0);
-                int target = (int) MaredExpr.toLong(arg(args, 1));
+                int target = Math.toIntExact(MaredExpr.toLong(arg(args, 1)));
                 String pad = args.size() >= 3 ? str(args, 2) : " ";
+                com.fixmer.genesis.technology.expression.ValueLimits140.textSize(target);
                 if (s.length() >= target || pad.isEmpty()) return s;
                 StringBuilder sb = new StringBuilder(target);
                 while (sb.length() < target - s.length()) sb.append(pad);
@@ -159,8 +161,9 @@ public final class MaredBuiltins {
             }
             case "padEnd": {
                 String s = str(args, 0);
-                int target = (int) MaredExpr.toLong(arg(args, 1));
+                int target = Math.toIntExact(MaredExpr.toLong(arg(args, 1)));
                 String pad = args.size() >= 3 ? str(args, 2) : " ";
+                com.fixmer.genesis.technology.expression.ValueLimits140.textSize(target);
                 if (s.length() >= target || pad.isEmpty()) return s;
                 StringBuilder sb = new StringBuilder(s);
                 while (sb.length() < target) sb.append(pad);
@@ -217,9 +220,9 @@ public final class MaredBuiltins {
                 long a = MaredExpr.toLong(arg(args, 0));
                 long b = args.size() >= 2 ? MaredExpr.toLong(arg(args, 1)) : 0;
                 if (args.size() < 2) { b = a; a = 0; }
-                if (a == b) return Collections.emptyList();
-                long count = Math.abs(b - a);
-                if (count > 1_000_000) count = 1_000_000;
+                if (a == b) return new ArrayList<>();
+                long count;try{count=Math.abs(Math.subtractExact(b,a));}catch(ArithmeticException e){throw new IllegalArgumentException("Range exceeds 1000000 elements",e);}
+                com.fixmer.genesis.technology.expression.ValueLimits140.listSize(count);
                 List<Object> list = new ArrayList<>((int) count);
                 if (a < b) for (long i = a; i < b; i++) list.add(i);
                 else for (long i = a; i > b; i--) list.add(i);
@@ -348,11 +351,7 @@ public final class MaredBuiltins {
             return simpleFormat2(pattern, args.get(1), args.get(2));
         }
         Object[] rest = args.subList(1, args.size()).toArray();
-        try {
-            return String.format(pattern, rest);
-        } catch (Exception e) {
-            return pattern;
-        }
+        return com.fixmer.genesis.technology.expression.ValueLimits140.format(pattern,rest);
     }
 
     private static boolean isSimpleFormat1(String pattern) {
@@ -395,7 +394,7 @@ public final class MaredBuiltins {
         String value = spec == 'd'
             ? Long.toString(MaredExpr.toLong(a))
             : MaredExpr.stringify(a);
-        return pattern.substring(0, idx) + value + pattern.substring(idx + 2);
+        com.fixmer.genesis.technology.expression.ValueLimits140.textSize((long)pattern.length()+value.length());return pattern.substring(0, idx) + value + pattern.substring(idx + 2);
     }
 
     private static String simpleFormat2(String pattern, Object a, Object b) {
@@ -403,7 +402,7 @@ public final class MaredBuiltins {
         int idx2 = pattern.indexOf('%', idx1 + 2);
         String v1 = specValue(pattern, idx1, a);
         String v2 = specValue(pattern, idx2, b);
-        StringBuilder sb = new StringBuilder(pattern.length() + v1.length() + v2.length());
+        com.fixmer.genesis.technology.expression.ValueLimits140.textSize((long)pattern.length()+v1.length()+v2.length());StringBuilder sb = new StringBuilder(pattern.length() + v1.length() + v2.length());
         sb.append(pattern, 0, idx1).append(v1);
         sb.append(pattern, idx1 + 2, idx2).append(v2);
         sb.append(pattern, idx2 + 2, pattern.length());

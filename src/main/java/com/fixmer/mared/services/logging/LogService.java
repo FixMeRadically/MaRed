@@ -32,6 +32,7 @@ public final class LogService {
 
     private static final int MAX_ENTRIES = 2000;
     private static final int TRIM_BATCH  = 200;
+    private static final int DISK_BUDGET142 = 8 * 1024 * 1024;
 
     private static final DateTimeFormatter TIME_FMT =
         DateTimeFormatter.ofPattern("HH:mm:ss");
@@ -93,19 +94,17 @@ public final class LogService {
 
     private void appendEntry(LogEntry entry) {
         synchronized (entries) {
+            entry=bounded142(entry);
             entries.add(entry);
             trimIfNeeded();
+            dataRevision++;dirty=true;bumpVersion();
         }
-        dataRevision++;
-        dirty = true;
-        bumpVersion();
     }
 
     public void clear() {
-        synchronized (entries) { entries.clear(); }
-        dataRevision++;
-        dirty = true;
-        bumpVersion();
+        ensureLoaded();
+        if(!loadedFromDisk)return;
+        synchronized(entries){entries.clear();dataRevision++;dirty=true;bumpVersion();}
         save();
     }
 
@@ -139,34 +138,25 @@ public final class LogService {
     //  Load
     // ============================================================
 
-    public void ensureLoaded() {
+    public synchronized void ensureLoaded() {
         if (loadedFromDisk) return;
-        loadFromDisk();
-        loadedFromDisk = true;
+        loadedFromDisk = loadFromDisk();
     }
 
-    private void loadFromDisk() {
-        synchronized (entries) {
-            if (!entries.isEmpty()) {
-                Mared.LOGGER.info(
-                    "[Mared] Log already has {} entries, skip disk restore",
-                    entries.size());
-                return;
-            }
-        }
-
+    private boolean loadFromDisk() {
         Path file = currentLogFile();
-        if (!Files.exists(file)) return;
+        if (!Files.exists(file)) return true;
 
         try {
+            if(Files.size(file)>16L*1024*1024)throw new IOException("Log file exceeds 16 MiB");
             List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
 
             synchronized (entries) {
-                if (!entries.isEmpty()) return;
-
+                var recent=new ArrayList<>(entries);entries.clear();
                 int n = lines.size();
                 for (int i = 0; i < n; i++) {
                     String line = lines.get(i);
+                    if(line.startsWith("{140 ")){try{String json=line.substring(5);LogEntry entry=new com.google.gson.Gson().fromJson(json,LogEntry.class);if(entry==null||entry.text==null||entry.time==null||entry.level==null||entry.category==null||entry.message==null)throw new IllegalArgumentException();entries.add(bounded142(entry));continue;}catch(RuntimeException invalid){continue;}}
                     if (line.isEmpty() || line.charAt(0) != '[') continue;
                     int close = line.indexOf(']');
                     if (close <= 0) continue;
@@ -175,15 +165,15 @@ public final class LogService {
                     // Structured parsing выполняется в LogEntry ctor.
                     entries.add(new LogEntry(time, text));
                 }
-                trimIfNeeded();
+                entries.addAll(recent);trimIfNeeded();bumpVersion();
             }
-
-            bumpVersion();
             Mared.LOGGER.info("[Mared] Log restored from disk: {} entries",
                 size());
+            return true;
         } catch (IOException e) {
             Mared.LOGGER.warn("[Mared] Failed to load current.log: {}",
                 e.getMessage());
+            return false;
         }
     }
 
@@ -191,36 +181,42 @@ public final class LogService {
     //  Save
     // ============================================================
 
-    public void save() {
-        if (!dirty) return;
-
-        long myRev = dataRevision;
-        Path file = currentLogFile();
-
+    private static String cap142(String value,int maximum){
+        if(value==null)return null;
+        if(value.length()<=maximum)return value;
+        int end=maximum-1;
+        if(end>0&&Character.isHighSurrogate(value.charAt(end-1)))end--;
+        return value.substring(0,end)+"…";
+    }
+    private static LogEntry bounded142(LogEntry entry){
+        if(entry.text.length()<=4096&&entry.message.length()<=4096&&entry.time.length()<=64
+            &&entry.category.length()<=64&&(entry.source==null||entry.source.length()<=256))return entry;
+        return new LogEntry(cap142(entry.time,64),entry.epochMillis,entry.level,cap142(entry.category,64),cap142(entry.message,4096),cap142(entry.source,256));
+    }
+    private static String diskLine142(com.google.gson.Gson gson,LogEntry entry){
+        return "{140 "+gson.toJson(entry)+"\n";
+    }
+    public synchronized void save() {
+        ensureLoaded();
+        if(!loadedFromDisk||!dirty)return;
+        long myRev=dataRevision;
         try {
-            Files.createDirectories(file.getParent());
-
-            List<LogEntry> copy;
-            synchronized (entries) { copy = new ArrayList<>(entries); }
-
-            StringBuilder sb = new StringBuilder(4096);
-            int n = copy.size();
-            for (int i = 0; i < n; i++) {
-                LogEntry e = copy.get(i);
-                sb.append('[').append(e.time).append("] ")
-                  .append(e.text).append('\n');
+            var retained=new java.util.ArrayDeque<String>();
+            var gson=new com.google.gson.Gson();int bytes=0,omitted=0;
+            for(LogEntry entry:snapshot()){
+                String line=diskLine142(gson,bounded142(entry));
+                int size=line.getBytes(StandardCharsets.UTF_8).length;
+                while(!retained.isEmpty()&&bytes+size>DISK_BUDGET142-4096){
+                    bytes-=retained.removeFirst().getBytes(StandardCharsets.UTF_8).length;omitted++;
+                }
+                retained.addLast(line);bytes+=size;
             }
-
-            Files.writeString(file, sb.toString(), StandardCharsets.UTF_8,
-                java.nio.file.StandardOpenOption.CREATE_NEW);
-
-            if (dataRevision == myRev) {
-                dirty = false;
-            }
-        } catch (IOException e) {
-            Mared.LOGGER.warn("[Mared] Failed to save current.log: {}",
-                e.getMessage());
-        }
+            var text=new StringBuilder(Math.min(bytes+4096,DISK_BUDGET142));
+            if(omitted>0)text.append(diskLine142(gson,new LogEntry("",System.currentTimeMillis(),LogSettings.Level.WARN,"other",omitted+" older log entries omitted by the 8 MiB disk budget",null)));
+            for(String line:retained)text.append(line);
+            com.fixmer.genesis.technology.storage.AtomicSettings111.write(currentLogFile(),text.toString());
+            synchronized(entries){if(dataRevision==myRev)dirty=false;}
+        } catch(IOException error){Mared.LOGGER.warn("[Mared] Failed to save current.log: {}",error.getMessage());}
     }
 
     // ============================================================

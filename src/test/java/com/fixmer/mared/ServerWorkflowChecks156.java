@@ -1,0 +1,45 @@
+package com.fixmer.mared;
+import com.fixmer.genesis.technology.server.workbench156.ServerFiles156;
+import com.fixmer.genesis.technology.creation.CreationCatalog145;
+import com.fixmer.genesis.technology.editor.SectionIcons156;
+import com.fixmer.mared.technology.server.setup.ConfigValues156;
+import java.nio.file.*;import java.util.*;
+public final class ServerWorkflowChecks156 {
+ static int count;static void ok(boolean b,String why){if(!b)throw new AssertionError(why);count++;}
+ interface Work{void run()throws Exception;}static void reject(Work work)throws Exception{try{work.run();throw new AssertionError("accepted unsafe operation");}catch(java.io.IOException|IllegalArgumentException expected){count++;}}
+ public static void main(String[] args)throws Exception{
+  var sections=CreationCatalog145.sections(CreationCatalog145.Direction.SERVERS);ok(sections.stream().map(CreationCatalog145.Section::id).toList().equals(List.of("server","server_configs156","server_settings156")),"server has only scoped pages");
+  for(var direction:CreationCatalog145.Direction.values())for(var section:CreationCatalog145.sections(direction))if(!SectionIcons156.known(section.id()))throw new AssertionError("missing semantic icon "+section.id());ok(true,"every category section has a semantic icon");
+  var all=new TreeSet<String>();for(var d:CreationCatalog145.Direction.values())for(var s:CreationCatalog145.sections(d))all.add(s.id());var silhouettes=new HashSet<List<String>>();for(String id:all)if(!silhouettes.add(SectionIcons156.shape(id)))throw new AssertionError("duplicate icon "+id);ok(true,"all active section silhouettes differ");
+  Path root=Files.createTempDirectory("server156-");try{
+   reject(()->new ServerFiles156(root));Files.writeString(root.resolve("server.properties"),"# world\nlevel-name=world\nserver-port=25565\n");Files.createDirectories(root.resolve("config/voicechat"));Files.writeString(root.resolve("config/voicechat/voicechat-server.properties"),"enabled=true\nport=24454\n");Files.createDirectories(root.resolve("world/serverconfig"));Files.writeString(root.resolve("world/serverconfig/test.toml"),"[general]\nenabled = true\n");Files.writeString(root.resolve("whitelist.json"),"[]\n");
+   var files=new ServerFiles156(root);var configs=files.catalog(false);var settings=files.catalog(true);ok(configs.size()==2,"mod and world config discovered");ok(settings.size()==2,"server settings discovered");ok(configs.stream().noneMatch(c->settings.stream().anyMatch(s->s.path().equals(c.path()))),"catalogs never duplicate entries");ok(configs.stream().anyMatch(e->e.group().equals("voicechat")),"voicechat is config, not duplicated server setting");
+   reject(()->files.read("../secret"));reject(()->files.read(".genesis/owner74.key"));reject(()->files.read("C:/server.properties"));reject(()->files.read("config/../server.properties"));
+   var original=files.read("server.properties");files.remember(original,original.text()+"# draft\n");ok(files.draft(original.path()).text().contains("# draft"),"unsaved settings draft retained");ok(files.draft(original.path()).base().equals(original.hash()),"draft bound to original server bytes");files.remember(original,original.text());ok(files.draft(original.path())==null,"discard clears only own draft");var updated=files.save(original,ConfigValues156.replace(original.path(),original.text(),"server-port","25566"));ok(updated.text().contains("# world\n"),"comments/order preserved");ok(updated.text().contains("server-port=25566"),"parameter saved to real server");ok(Files.isDirectory(root.resolve(".genesis/config-backups156")),"backup created");reject(()->files.save(original,"bad"));
+   Files.writeString(root.resolve("server.properties"),"level-name=world\nserver-port=25567\n");reject(()->files.save(updated,"bad"));ok(Files.readString(root.resolve("config/voicechat/voicechat-server.properties")).contains("24454"),"other configs unchanged");
+   String toml="# header\r\n[general]\r\nenabled = true\r\n";String changed=ConfigValues156.replace("test.toml",toml,"general/enabled","false");ok(changed.equals("# header\r\n[general]\r\nenabled = false\r\n"),"TOML section and CRLF preserved");ok(ConfigValues156.list("test.toml",toml).get(0).key().equals("general/enabled"),"qualified section key");
+   reject(()->ConfigValues156.replace("a.properties","x=1\nx=2\n","x","3"));reject(()->ConfigValues156.replace("a.properties","x=1","x","a\nb"));
+   String json="{\"a/b\":{\"~key\":true}}";var values=ConfigValues156.list("a.json",json);ok(values.get(0).key().equals("a~1b/~0key"),"JSON path escapes keys");String next=ConfigValues156.replace("a.json",json,values.get(0).key(),"false");ok(next.contains("false"),"JSON scalar updated");reject(()->ConfigValues156.replace("a.json",json,values.get(0).key(),"[]"));
+   ok(ConfigValues156.list("a.yaml","a:\n  port: 1\nb:\n  port: 2").isEmpty(),"complex YAML stays raw instead of corrupting nesting");
+   ok(ConfigValues156.list("a.toml","message = \"\"\"\ntext\n\"\"\"").isEmpty(),"multiline TOML stays raw");
+   var latest=files.read("server.properties");try{files.save(latest,"level-name=world\nserver-port=70000");throw new AssertionError("invalid port");}catch(java.io.IOException expected){ok(expected.getMessage().equals("SERVER156_INVALID_PORT"),"server port validated");}
+   Files.writeString(root.resolve("server.properties"),"level-name=Мир\nserver-port=25565\n");Files.createDirectories(root.resolve("Мир/serverconfig"));Files.writeString(root.resolve("Мир/serverconfig/a.toml"),"enabled=true\n");ok(files.catalog(false).stream().anyMatch(e->e.path().contains("Мир/")),"Unicode world configuration discovered");
+   boolean linkCreated=false;
+   try{
+    Files.createSymbolicLink(root.resolve("config/escape.properties"),root.resolve("server.properties"));
+    linkCreated=true;
+   }catch(UnsupportedOperationException unavailable){
+    System.out.println("SKIP symlink checks: filesystem does not support symbolic links");
+   }catch(java.nio.file.FileSystemException unavailable){
+    if(!System.getProperty("os.name","").toLowerCase(Locale.ROOT).startsWith("windows"))throw unavailable;
+    System.out.println("SKIP symlink checks: Windows could not create the test link: "+unavailable.getReason());
+   }
+   if(linkCreated){
+    reject(()->files.read("config/escape.properties"));
+    reject(()->files.catalog(false));
+   }
+  }finally{try(var paths=Files.walk(root)){for(Path p:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);}}
+  for(String lang:List.of("ru","en")){var help=com.fixmer.mared.technology.scripts.ScriptHelpManual.load(lang);ok(help.article("server156").id().equals("server156"),"updated server help");ok(help.article("apply156").id().equals("apply156"),"updated deployment help");}
+  System.out.println("ServerWorkflowChecks156: "+count+" passed");
+ }
+}

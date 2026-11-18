@@ -21,6 +21,11 @@ public final class MaredWelcomeScreen extends MaredScreen {
     public MaredWelcomeScreen() {
         super(Component.literal("MaRed Welcome"));
         genesis = new GenesisWorld();
+        genesis.controller().setEnterCallback(type -> {
+            if(type!=com.fixmer.mared.gui2.genesis.node.GenesisNodeData.NodeType.CORE)
+                net.minecraft.client.Minecraft.getInstance().setScreen(new com.fixmer.mared.gui2.shell.MaredShellScreen()
+                    .setInitialSpace(com.fixmer.mared.gui2.navigation.SpaceId.valueOf(type.name())));
+        });
     }
 
     @Override

@@ -26,8 +26,8 @@ public record Edit(
 ) {
 
     public Edit {
-        if (removedText == null) removedText = "";
-        if (insertedText == null) insertedText = "";
+        removedText = EditorDocument.normalizeLineEndings(removedText);
+        insertedText = EditorDocument.normalizeLineEndings(insertedText);
     }
 
     public boolean isEmpty() {
@@ -52,7 +52,8 @@ public record Edit(
      * Учитывает возможные переводы строк.
      */
     public static int[] advancePosition(int line, int col, String text) {
-        if (text == null || text.isEmpty()) return new int[]{line, col};
+        text = EditorDocument.normalizeLineEndings(text);
+        if (text.isEmpty()) return new int[]{line, col};
         int lastNl = text.lastIndexOf('\n');
         if (lastNl < 0) {
             return new int[]{line, col + text.length()};

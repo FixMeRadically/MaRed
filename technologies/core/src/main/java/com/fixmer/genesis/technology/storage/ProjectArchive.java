@@ -34,7 +34,10 @@ public final class ProjectArchive {
         for (String p = RepositoryPath.parent(path); !p.isEmpty(); p = RepositoryPath.parent(p)) folders.add(p);
     }
     private static Plan validated(Map<String,String> files, Set<String> folders, long bytes) throws IOException {
-        if (files.size() + folders.size() > MAX_ENTRIES || bytes > MAX_TOTAL_BYTES) throw new IOException("Project exceeds archive limits");
+        folders = new TreeSet<>(folders);
+        for (String path : files.keySet()) addParents(path, folders);
+        for (String path : new ArrayList<>(folders)) addParents(path, folders);
+        if (files.size() + folders.size() > MAX_ENTRIES || bytes < 0 || bytes > MAX_TOTAL_BYTES) throw new IOException("Project exceeds archive limits");
         Set<String> physical = new HashSet<>();
         for (String folder : folders) {
             if (!RepositoryPath.valid(folder) || !physical.add(folder.toLowerCase(Locale.ROOT))) throw new IOException("Invalid or ambiguous folder: " + folder);

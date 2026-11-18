@@ -59,8 +59,8 @@ public final class ScriptsSettingsTab implements MaredSettingsTab {
                 r.add(new Row(tr("check_build_tools"),()->tools.accept("check")));
             }
             case "keys" -> {
-                for(String label:List.of("search_files:Ctrl+P","search_text:Ctrl+F","search_project_text:Ctrl+Shift+F","search_goto_line:Ctrl+G","search_open_files:Ctrl+O")){
-                    var parts=label.split(":");r.add(new Row(tr(parts[0])+"   "+parts[1],null));
+                for(String label:List.of("search_files:Ctrl+P","search_text:Ctrl+F","search_project_text:Ctrl+Shift+F","search_goto_line:Ctrl+G","search_open_files:Ctrl+O","save:Ctrl+S","save_all:Ctrl+Alt+S","launch_primary:Ctrl+R","split.toggle:Ctrl+\\","assist.replace:Ctrl+H","assist.snippets:Ctrl+J","assist.jump:Ctrl+M","assist.block:Ctrl+Shift+M","assist.delete_lines:Ctrl+Shift+K","next_diagnostic:F8","previous_diagnostic:Shift+F8")){
+                    var parts=label.split(":");String text=tr(parts[0]);r.add(new Row(text.contains(parts[1])?text:text+"   "+parts[1],null));
                 }
                 r.add(new Row(tr("settings_palette_keys"),null));
             }

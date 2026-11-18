@@ -1,0 +1,102 @@
+{
+  "patch": 66,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "e66af296f40a53559bbd5a560c6d8d78771fabfd720c8bcb7ee8729cb2911ff6",
+      "after": "a28ad2a86bdcec922407a5929f705a716d10f80a27a2060b4641c2c6c933246a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/settings/tabs/MaredServerTab59.java",
+      "existed": true,
+      "before": "134f7878eb5994de8837443091f06c3372f6c9ba8b80ca4d12e56a60c3b3ebdd",
+      "after": "24a847838615bcb33a87a0b2463fd58365be813843fe4019258d87976d440298"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/scripts/ScriptProjectEditor.java",
+      "existed": true,
+      "before": "dbdec843479df02bee0b62a30009f71ffdd92f8ac97db9ce1c6efbed6b07e543",
+      "after": "3bb396c2479007ca74ffce5ff53a908b7acb35ce4bd71f7533793021ad5c18ed"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerPanelScreen66.java",
+      "existed": false,
+      "before": null,
+      "after": "d0ee84a7414a14cc2915b634d30018a8dac0525902a9183351ebac3293410568"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerPanelService66.java",
+      "existed": false,
+      "before": null,
+      "after": "525223ef9d2eb0b3056d7dea5cb135bf0ec2b5b80d306432b5205bcccd078287"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerSetupLauncher59.java",
+      "existed": true,
+      "before": "b025a615a66e7ccc9b7b76d66dcdcbb5486da8caf5ce10c44554787fb32da6f7",
+      "after": "26096cd2c223701e3d0b7911aa0d5c8b4c02bd8c314cecb587af777100342261"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "99d4e3cd172a4c20004e748f89618feb6d5deb05033e89d4506666739dc24779",
+      "after": "3178db7c1b9e2053d761a8b4ef945f823b0b8eb93768e2848bb601cfdc381ea3"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "45a9b46009a402d5fa340ff285382b24e0fd93b7d9e3206373040cf2ed4958ab",
+      "after": "fb81646293dd6dce0415fc55921ae9314898c3d30de81a21f468b27ca458096d"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "15ee41cd17eb89e83cfae46af0f1ac66097163dbf002697206eb007755801454",
+      "after": "b9013a67fd95f39c57eac49115a6a78b6dd0edfde5aabfc5a6d86dfac816845f"
+    },
+    {
+      "path": "tools/first58/controller.py",
+      "existed": true,
+      "before": "149a19f50c79486652683d9ab1b046079ce6fe8c438fdcffea667c8c26321d0d",
+      "after": "825d34c6a12886d0eace6428277929657f617c006826c378fd0ab0fb174970e3"
+    },
+    {
+      "path": "tools/first58/desktop66.py",
+      "existed": false,
+      "before": null,
+      "after": "8d437dcedf711efdafd6d223efa63b7e853e4078fac54a9600916039851d319b"
+    },
+    {
+      "path": "tools/first58/diagnostics63.py",
+      "existed": true,
+      "before": "d251ee68a10d3a81a2abd5292d9a5b3acffdbfd817225888b557a6e07219f2e4",
+      "after": "90e8aa39d8d37c0f2314bb0a9e2d8465da59ff425beddcfd74399a350d413d9c"
+    },
+    {
+      "path": "tools/first58/panel66.py",
+      "existed": false,
+      "before": null,
+      "after": "54ab1dff9f6e11b59436de003fc7db03736011736c9e27a73f5e5a3ec5b2b4c6"
+    },
+    {
+      "path": "tools/first58/ui.py",
+      "existed": true,
+      "before": "0996c6699a3dc1f82d8ea9ee0a0dabddc67f0b85c2bb140f7c24febdbee2646b",
+      "after": "49299339b8533b5b03e646ccbb4fac23c3b6d7f4df73c24ca7d0baa4709bc2d7"
+    },
+    {
+      "path": "tools/server_panel66.py",
+      "existed": false,
+      "before": null,
+      "after": "f9be10584753533df76ce5d4aa2050dfbc640e763b71136387009b7575442992"
+    },
+    {
+      "path": "verification/server59/test_panel66.py",
+      "existed": false,
+      "before": null,
+      "after": "328e9060f6089dfaeb4317b95641e7bbd8f9e17cfd8094894dcf2255bc94b8ed"
+    }
+  ]
+}

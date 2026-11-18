@@ -63,7 +63,10 @@ public final class DevRestartWindow {
         }catch(RuntimeException|LinkageError unsupported){release(window,"window_setup_unavailable");return false;}
         finally{initializing=false;}
     }
-    public static void beforeFrame(Window window){
+    public static void beforeFrame(Window window){ 
+        GameSessionClient.start();
+        startupFailure101(window);
+
         hooks++;
         if(finished||initializing||!initialize(window))return;
         try{
@@ -141,6 +144,22 @@ public final class DevRestartWindow {
             pendingInput=false;
             System.out.println("[Genesis restart] v32 input: "+(gameplay?"handoff_settled":"menu_settled")+"; foreground="+nativeForeground+"; coverHidden=true; nativeFocus=true; gameActive="+mc.isWindowActive()+"; mouseGrabbed="+mc.mouseHandler.isMouseGrabbed());
         }catch(RuntimeException|LinkageError unavailable){pendingInput=false;System.out.println("[Genesis restart] v32 input: unavailable");}
+    }
+    private static boolean stopping101;
+    private static void startupFailure101(Window window){
+        if(System.getenv("GENESIS_MOD_TRIAL")==null)return;
+        try{
+            Minecraft mc=Minecraft.getInstance();if(mc==null)return;
+            String failure=com.fixmer.genesis.supervisor.StartupErrorProbe101.classify(mc.screen);
+            GameSessionClient.attention101(failure.equals("ATTENTION"));
+            if(!failure.isEmpty()){
+                release(window,"loader_attention101");
+                if(failure.equals("LOADER_ERROR"))GameSessionClient.failure101(failure);
+            }
+            if(!stopping101&&GameSessionClient.abortRequested101()&&mc.level==null&&mc.getSingleplayerServer()==null){
+                stopping101=true;release(window,"startup_abort101");GameSessionClient.normalClosing();mc.stop();
+            }
+        }catch(RuntimeException|LinkageError unavailable){/* Reveal errors via the controller timeout if an optional provider is unavailable. */}
     }
     private static void restoreOpacity(Window window){
         if(transparent){GLFW.glfwSetWindowOpacity(window.getWindow(),originalOpacity);transparent=false;}

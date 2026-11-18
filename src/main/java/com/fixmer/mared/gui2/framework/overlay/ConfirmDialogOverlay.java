@@ -47,6 +47,9 @@ public final class ConfirmDialogOverlay implements Overlay {
     private int confirmX, confirmY;
 
     private boolean closeRequested = false;
+    private boolean confirmFocused,actionAttempted;
+    private int scroll,maxScroll,messageY,messageBottom;
+    private String actionError="";
 
     public ConfirmDialogOverlay(String title, String message,
                                 Runnable onConfirm, boolean warning) {
@@ -60,6 +63,7 @@ public final class ConfirmDialogOverlay implements Overlay {
         this.message = message != null ? message : "";
         this.onConfirm = onConfirm;
         this.warning = warning;
+        this.confirmFocused = !warning;
         this.categoryColor = categoryColor;
         this.destructive = destructive;
         this.confirmLabelKey = java.util.Objects.requireNonNull(confirmLabelKey);
@@ -84,9 +88,10 @@ public final class ConfirmDialogOverlay implements Overlay {
                        int screenW, int screenH,
                        int mouseX, int mouseY) {
         panelW = Math.min(PANEL_W, Math.max(1, screenW - 16));
-        int messageHeight = TextUtils.wrappedHeight(font, message,
+        String displayedMessage=actionError.isEmpty()?message:message+"\n\n"+actionError;
+        int messageHeight = TextUtils.wrappedHeight(font, displayedMessage,
             Math.max(1, panelW - EditorDialogStyle.PADDING * 2));
-        panelH = Math.max(PANEL_H, 50 + messageHeight + BTN_H + EditorDialogStyle.PADDING * 2);
+        panelH = Math.min(Math.max(1,screenH-16),Math.max(PANEL_H, 58 + messageHeight + BTN_H + EditorDialogStyle.PADDING * 2));
         panelX = (screenW - panelW) / 2;
         panelY = (screenH - panelH) / 2;
         buttonW = Math.min(BTN_W, Math.max(1, (panelW - EditorDialogStyle.PADDING * 2 - BTN_GAP) / 2));
@@ -107,9 +112,12 @@ public final class ConfirmDialogOverlay implements Overlay {
         style.panel(g, panelX, panelY, panelW, panelH);
 
         Render.text(g, font, TextUtils.ellipsize(font, title, panelW - EditorDialogStyle.PADDING * 2), panelX + EditorDialogStyle.PADDING, panelY + EditorDialogStyle.PADDING, style.text());
-        TextUtils.wrapped(g, font, message,
-            panelX + EditorDialogStyle.PADDING, panelY + 50,
-            panelW - EditorDialogStyle.PADDING * 2, style.text());
+        messageY=panelY+34;messageBottom=Math.max(messageY,btnY-18);
+        maxScroll=Math.max(0,messageHeight-(messageBottom-messageY));scroll=Math.max(0,Math.min(scroll,maxScroll));
+        g.enableScissor(panelX+EditorDialogStyle.PADDING,messageY,panelX+panelW-EditorDialogStyle.PADDING,messageBottom);
+        try{TextUtils.wrapped(g,font,displayedMessage,panelX+EditorDialogStyle.PADDING,messageY-scroll,Math.max(1,panelW-EditorDialogStyle.PADDING*2),style.text());}finally{g.disableScissor();}
+        if(maxScroll>0&&messageBottom>messageY){int track=messageBottom-messageY,thumb=Math.max(3,track*track/Math.max(1,messageHeight));int top=messageY+(track-thumb)*scroll/maxScroll;g.fill(panelX+panelW-6,top,panelX+panelW-4,top+thumb,style.muted());}
+        Render.text(g,font,TextUtils.ellipsize(font,MaredLang.get("mared.dialog.keyboard_hint"),Math.max(1,panelW-EditorDialogStyle.PADDING*2)),panelX+EditorDialogStyle.PADDING,btnY-12,style.muted());
 
         // Кнопки — свои, не AbstractWidget.
         boolean cancelHover = Render.hovered(mouseX, mouseY,
@@ -120,7 +128,9 @@ public final class ConfirmDialogOverlay implements Overlay {
         boolean confirmHover = Render.hovered(mouseX, mouseY,
             confirmX, btnY, buttonW, BTN_H);
         style.button(g, font, confirmX, btnY, buttonW, BTN_H,
-            MaredLang.get(confirmLabelKey), confirmHover, true, destructive);
+            MaredLang.get(actionError.isEmpty()?confirmLabelKey:"mared.dialog.close"), confirmHover, true, destructive&&actionError.isEmpty());
+        int focusedX=confirmFocused?confirmX:cancelX;
+        g.fill(focusedX,btnY+BTN_H-1,focusedX+buttonW,btnY+BTN_H,style.accent());
     }
 
     // ============================================================
@@ -152,18 +162,24 @@ public final class ConfirmDialogOverlay implements Overlay {
         }
         // Enter: warning → Cancel; иначе Confirm.
         if (keyCode == 257 || keyCode == 335) {
-            if (warning) cancel(); else confirm();
+            if (confirmFocused) confirm(); else cancel();
             return true;
         }
-        return false;
+        if(keyCode==258){confirmFocused=!confirmFocused;return true;}
+        if(keyCode==262||keyCode==263){confirmFocused=keyCode==262;return true;}
+        if(keyCode==32){if(confirmFocused)confirm();else cancel();return true;}
+        if(keyCode==264||keyCode==267)scroll=Math.min(maxScroll,scroll+(keyCode==267?60:10));
+        if(keyCode==265||keyCode==266)scroll=Math.max(0,scroll-(keyCode==266?60:10));
+        return true;
     }
+    @Override public boolean mouseScrolled(double mx,double my,double dx,double dy){scroll=Math.max(0,Math.min(maxScroll,scroll+(dy<0?30:dy>0?-30:0)));return true;}
 
     private void confirm() {
-        if (onConfirm != null) {
-            try { onConfirm.run(); }
-            catch (Throwable ignored) { }
-        }
-        closeRequested = true;
+        if(closeRequested)return;
+        if(actionAttempted){if(!actionError.isEmpty())closeRequested=true;return;}
+        actionAttempted=true;
+        try{if(onConfirm!=null)onConfirm.run();closeRequested=true;}
+        catch(RuntimeException bad){actionError=MaredLang.get("mared.dialog.action_failed")+": "+(bad.getMessage()==null?bad.getClass().getSimpleName():bad.getMessage());confirmFocused=false;scroll=Integer.MAX_VALUE;}
     }
 
     private void cancel() {

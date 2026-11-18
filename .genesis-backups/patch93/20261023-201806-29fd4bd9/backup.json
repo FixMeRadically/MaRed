@@ -1,0 +1,90 @@
+{
+  "patch": 93,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "8277ca1117593f4d0d22b2ed9bf5575d6c385204706c4274523d130ee69a7304",
+      "after": "946907c5587e761159caa34f5d29f46d0c5f7a761193abe1d6f8cdaa45381ff1"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/admission/ProfileAgent93.java",
+      "existed": false,
+      "before": null,
+      "after": "44eb1229189fe699366a5854131d2e44ac3defdc7fc5359575f812bebb7f53b3"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/JavaExecCommand.java",
+      "existed": true,
+      "before": "f09d632d4a7d183572246b5635cbe07e8fc15786d52fb041a06b3d0dddc48927",
+      "after": "a460b7cbfaba273bc18bcf8f1b1aac913a88c7fc84936dc907b133620e29b08e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ManagedChildProcess.java",
+      "existed": true,
+      "before": "0be9a9db0030fae85641935856d03186d20ac4d64a69307b2d1406d4a523aca1",
+      "after": "e28d1eceb827233b1f315a85cc2d022b05969c16bf635b791762ac6a37ffde3d"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ProfileLaunch93.java",
+      "existed": false,
+      "before": null,
+      "after": "b4b338391fd07d932b13539c0c723630ad40d77eb639d136eefe5c9cc1192da4"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ProfileLease92.java",
+      "existed": true,
+      "before": "a2a9643d051e1c4fb092e262cdbdb7960608cdc238fae20dad0dd55e7e6dfda6",
+      "after": "06b7fd354cf84ef45702a5db92258591ac0df993cbc9eb60d9ec4678afdc7512"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/StartupPathCache.java",
+      "existed": true,
+      "before": "c7e32de98363edcf5df514d0c3a78146ec6ed1bd402ad6ceb171b247f029c9a6",
+      "after": "5b78ffaaf34b3fe1d7b9fda59ef87cb67dcf41e308ab5db6676b7895c069a65d"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/Mared.java",
+      "existed": true,
+      "before": "8e223df69300dcd05f12478e940a7ac3b320c90bb2cb2a9b3e03a033027cbd09",
+      "after": "c019f1e8bab55d2b3f2b3335b1e27706385bd61603b865351942726124f82e2f"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/AdmissionChecks93.java",
+      "existed": false,
+      "before": null,
+      "after": "3fc98197c626b3072095de55472e044c14fb50a493e41c335030dca65f066e9c"
+    },
+    {
+      "path": "tools/profile_guard93.py",
+      "existed": false,
+      "before": null,
+      "after": "a66814e43253306c100e4e672777c25e676830e36868f1089dd5af39563efa90"
+    },
+    {
+      "path": "tools/recover_local92.py",
+      "existed": true,
+      "before": "bb062c7b14ef36b25782465fdb8880a8868f9d4db74fedc15796df8a23776ea1",
+      "after": "50009a5349b1c144d058ec662080074f9d5bc6b029c427452aa23cdd17cbfdbb"
+    },
+    {
+      "path": "verification/server59/AdmissionProcessFixture93.java",
+      "existed": false,
+      "before": null,
+      "after": "39797c7b4e194f0ff5f82ce42ff1eb2ada3a987ba1f4c3b290f062c49c30e4a5"
+    },
+    {
+      "path": "verification/server59/admission_process93.py",
+      "existed": false,
+      "before": null,
+      "after": "e83a5ac7796a871f720d3613d7574c9e190379474e5eb6297acbd964ee4d2fb6"
+    },
+    {
+      "path": "verification/server59/test_profile_guard93.py",
+      "existed": false,
+      "before": null,
+      "after": "536a926f050a9f606b4f45efb8e7fe69bf12de81110808d701ad0cb5b263cc29"
+    }
+  ]
+}

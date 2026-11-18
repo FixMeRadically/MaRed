@@ -1,0 +1,338 @@
+"""Server-folder owner. No generations, world copies or external client profile.
+The selected run.bat/CMD/Java tree is created in one Job; restart/changes wait for its exit.
+"""
+from pathlib import Path
+import contextlib,hashlib,json,os,re,secrets,socket,subprocess,sys,time,uuid,zipfile
+from .common import safe,sha,atomic,json_read,json_write,inventory
+from .bridge67 import read,verify,write
+from .changes104 import Changes104
+from . import dedicated74 as old,access88
+from .windows_job import WindowsJob
+from .batch124 import WindowsServerJob124,java21,batch
+from .dedicated75 import independent_owner
+
+@contextlib.contextmanager
+def lease(path):
+ path=safe(path);stream=path.open('a+b')
+ try:
+  if path.stat().st_size==0:stream.write(b'0');stream.flush()
+  stream.seek(0)
+  if os.name=='nt':
+   import msvcrt
+   msvcrt.locking(stream.fileno(),msvcrt.LK_NBLCK,1)
+  else:
+   import fcntl
+   fcntl.lockf(stream,fcntl.LOCK_EX|fcntl.LOCK_NB,1)
+  yield
+ finally:
+  stream.close()
+
+def root_for(server):return safe(server)/'.genesis/server104'
+def identity(server):
+ server=safe(server);root=root_for(server)
+ with safe(root/'owner74.key').open('rb') as stream:key=stream.read(33)
+ if len(key)!=32:raise ValueError('SERVER104_KEY')
+ return root,key
+
+def config(server,java):
+ server=safe(server);java=safe(java)
+ if not server.is_dir() or java.name.lower()!='java.exe' or not java.is_file():raise ValueError('SERVER104_SERVER_OR_JAVA')
+ if not (server/'eula.txt').is_file() or not re.search(r'(?m)^\s*eula\s*=\s*true\s*$',(server/'eula.txt').read_text(encoding='utf-8-sig')):raise ValueError('SERVER104_ACCEPT_EULA')
+ java=java21(java)
+ args=list((server/'libraries/net/neoforged/neoforge').glob('21.1.*/win_args.txt'))
+ if len(args)>1 and (server/'run.bat').is_file():
+  # Select the runtime referenced by the actual script, excluding commented examples.
+  run_text=safe(server/'run.bat').read_text(encoding='utf-8-sig',errors='replace')
+  run_text='\n'.join(line for line in run_text.splitlines() if not re.match(r'(?i)^\s*(?:@?rem(?:\s|$)|::)',line))
+  selected=set(re.findall(r'libraries[/\\]net[/\\]neoforged[/\\]neoforge[/\\](21\.1\.[0-9]+)[/\\]win_args\.txt',run_text))
+  args=[path for path in args if path.parent.name in selected]
+ if len(args)!=1:raise ValueError('SERVER104_ONE_NEOFORGE_RUNTIME')
+ p=old.properties(server) if (server/'server.properties').exists() else {'level-name':'world','server-port':'25565','server-ip':'','online-mode':'true'}
+ if not re.fullmatch('[A-Za-z0-9_-]{1,80}',p['level-name']) or p['level-name'].lower() in {'mods','config','libraries','.genesis'}:raise ValueError('SERVER104_WORLD_NAME')
+ argv=[str(java)]
+ if (server/'user_jvm_args.txt').exists():argv.append('@user_jvm_args.txt')
+ argv+=['@'+str(args[0].relative_to(server))];old.validate_argv(argv,server,allow_bootstrap106=True)
+ launch=batch(server,args[0].parent.name)
+ return dict(**launch,java_argv=argv,java=str(java),neoforge=args[0].parent.name,minecraft='1.21.1',level=p['level-name'],port=p['server-port'],bind=p['server-ip'],auth=p['online-mode'])
+
+def current(server):
+ root,key=identity(server)
+ if not (root/'state104').exists():return {'phase':'STOPPED'}
+ d=read(root/'state104',key);owner=read(root/'owner104',key)
+ if d.get('schema')!='104' or d.get('run')!=owner.get('run') or owner.get('profile')!=str(safe(server)):raise ValueError('SERVER104_STATE_BINDING')
+ if d['phase'] not in {'STOPPED','FAILED','RECOVERY_REQUIRED','BOOTSTRAP_FAILED_RESTORED'} and abs(int(time.time()*1000)-int(d['updated']))>10000:d=dict(d,phase='OWNER_UNAVAILABLE')
+ return d
+
+def request(server,action):
+ if action not in {'RESTART','SHUTDOWN'}:raise ValueError('SERVER104_ACTION')
+ root,key=identity(server);d=current(server)
+ if d['phase'] not in {'RUNNING','STARTING','WAITING_FOR_STOP'} or d['busy']=='true' and action!='SHUTDOWN':raise ValueError('SERVER104_BUSY_OR_STOPPED')
+ with lease(root/'submit75.lock'):
+  oldreq=read(root/'request74',key) if (root/'request74').exists() else None
+  ack=read(root/'request74.ack',key) if (root/'request74.ack').exists() else {}
+  if oldreq and oldreq.get('request')!=ack.get('request'):raise ValueError('SERVER104_REQUEST_PENDING')
+  write(root/'request74',key,dict(schema='75',run=d['run'],generation=d['generation'],request=str(uuid.uuid4()),action=action,label='r1'))
+ return {'phase':'QUEUED','action':action}
+
+class Owner104:
+ def __init__(self,server,app,java,job_factory=WindowsServerJob124):
+  self.server=safe(server);self.app=safe(app);self.root=root_for(server);self.c=config(server,java);self.key=identity(self.server)[1];self.run=str(uuid.uuid4());self.job_factory=job_factory;self.job=None;self.channel=None;self.launch='';self.generation=0;self.sequence=0;self.phase='STARTING';self.error='';self.busy=False;self.seen=set();self.changes=Changes104(self.server,self.root,self.key);self.expected='';self.last_receipt=None;self.shutdown=False;self.last_request=b'';self.last_report=None;self.last_report_at=0;self.request_id='';self.request_result=''
+  self.pending_ack=None
+  # A new owner may preserve signed role assignments, but old run-bound permits must expire.
+  subjects=''
+  if (self.root/'access88.state').exists():
+   prior=read(self.root/'access88.state',self.key);oldmarker=read(self.root/'owner88',self.key)
+   if prior.get('run')!=oldmarker.get('run') or prior.get('schema')!='88':raise ValueError('SERVER104_OLD_POLICY')
+   access88.state(self.root,self.key,prior['run']);subjects=prior['subjects']
+  write(self.root/'owner104',self.key,dict(schema='104',run=self.run,profile=str(self.server)))
+  for version in (75,88,103,115,152,153):write(self.root/f'owner{version}',self.key,dict(schema=str(version),run=self.run))
+  from .maop113 import controller
+  controller(self.root,self.key,self.run)
+  write(self.root/'access88.state',self.key,dict(schema='88',run=self.run,revision='0',subjects=subjects,sequence='0',audit=''))
+  for p in ['request74','request74.ack']:(self.root/p).unlink(missing_ok=True)
+  (self.root/'runs').mkdir(exist_ok=True);(self.root/'logs').mkdir(exist_ok=True)
+ def report(self,phase=None,error=None):
+  if phase:self.phase=phase
+  if error is not None:self.error=error
+  fingerprint=(self.phase,self.error,self.generation,self.busy,self.launch,self.request_id,self.request_result);clock=time.monotonic()
+  if fingerprint==self.last_report and clock-self.last_report_at<1:return
+  if self.last_report is None or fingerprint!=self.last_report:print(json.dumps(dict(event='server105',phase=self.phase,error=self.error,generation=self.generation,launch=self.launch),ensure_ascii=False),flush=True)
+  now=str(int(time.time()*1000));write(self.root/'state104',self.key,dict(schema='104',run=self.run,phase=self.phase,generation=str(self.generation),updated=now,busy=str(self.busy).lower(),error=self.error,launch=self.launch,request=self.request_id,requestResult=self.request_result,launchMode='BAT' if 'batchSha' in self.c else 'JAVA'))
+  rollout=getattr(self,'rollout118',None)
+  target_ready=rollout.target_ready() if rollout else False
+  nativephase={'RUNNING':('ACTIVE_UPDATED' if rollout and rollout.target else 'ACTIVE_BASELINE'),'STOPPED':'STOPPED_SAVED','STOPPING':'SAVING_OLD_SERVER','RESTARTING':'STARTING_NEW_SERVER'}.get(self.phase,self.phase)
+  write(self.root/'view75',self.key,dict(schema='75',run=self.run,generation=str(self.generation),phase=nativephase,updated=now,ready=str(self.phase=='RUNNING').lower(),control=json.dumps(rollout.view(target_ready),separators=(',',':')) if rollout else '{}',delta='{}',history='[]',failureCode=self.error,failureStage='',reason='',busy=str(self.busy).lower()))
+  json_write(self.root/'logs/status.json',dict(phase=self.phase,error=self.error,generation=self.generation,launch=self.launch,server=str(self.server),launchMode='BAT' if 'batchSha' in self.c else 'JAVA'))
+  self.last_report=fingerprint;self.last_report_at=clock
+  if rollout:
+   try:rollout.heartbeat(target_ready)
+   except Exception:self.error='FOLDER118_PUBLICATION_UNAVAILABLE'
+ def world_idle(self):
+  return old.stopped_world(self.server,self.c['level'])
+ def all_exited(self):
+  if self.job is None:return True
+  d=self.job.status();return d['rootExited'] and d['active']==0
+ def reap(self):
+  if not self.all_exited():raise ValueError('SERVER104_GAME_STILL_ACTIVE')
+  if self.job:self.job.close();self.job=None
+ def bootstrap(self):
+  candidate=safe(self.app/'mared.jar')
+  with zipfile.ZipFile(candidate) as z:
+   if 'com/fixmer/mared/technology/server/firstlaunch/InPlaceWorld104.class' not in z.namelist():raise ValueError('SERVER104_BOOTSTRAP_VERSION')
+  self.changes.inventory()
+  existing=[]
+  for p in (self.server/'mods').glob('*.jar'):
+   with zipfile.ZipFile(p) as z:
+    if 'com/fixmer/mared/Mared.class' in z.namelist():existing.append(p)
+  if len(existing)>1:raise ValueError('SERVER104_DUPLICATE_GENESIS')
+  name=existing[0].name if existing else 'mared-genesis.jar'
+  self.changes.stage({name:candidate},approval=self.changes.approve(self.changes.review({name:candidate})))
+  if self.changes.load():self.changes.apply()
+ def start_game(self):
+  self.reap();self.generation+=1
+  if self.generation>999999999:raise ValueError('SERVER104_COUNTER_LIMIT')
+  self.seen.clear();self.launch=str(uuid.uuid4());self.sequence=0;self.last_receipt=None;self.channel=self.root/'runs'/self.launch;self.channel.mkdir();self.changes.inventory();self.expected=inventory(self.server)
+  c=dict(schema='74',run=self.run,generation=str(self.generation),inventory=self.expected,minecraft=self.c['minecraft'],neoforge=self.c['neoforge'],auth=self.c['auth'],bind=self.c['bind'],port=self.c['port'])
+  write(self.channel/f'server-{self.generation}.session',self.key,c);write(self.channel/'launch104',self.key,dict(schema='104',run=self.run,launch=self.launch,generation=str(self.generation),profile=str(self.server)))
+  (self.root/'channels118').mkdir(exist_ok=True)
+  write(self.root/'channels118'/str(self.generation),self.key,dict(schema='118',run=self.run,generation=str(self.generation),launch=self.launch,profile=str(self.server)))
+  env=old.environment(self.c['java'],self.server);env.update(GENESIS_DEDICATED74_ROOT=str(self.root),GENESIS_DEDICATED74_RUN=self.run,GENESIS_DEDICATED74_GENERATION=str(self.generation),GENESIS_DEDICATED75_VERSION='75',GENESIS_INPLACE_VERSION='104',GENESIS_INPLACE_LAUNCH=self.launch)
+  if 'batchSha' in self.c:env.update(GENESIS_SERVER_BATCH124=self.c['batchSha'],GENESIS_SERVER_NEO124=self.c['neoforge'],NoDefaultCurrentDirectoryInExePath='1')
+  self.report('STARTING');self.job=self.job_factory(self.c['argv'],self.server,env,self.root/'logs'/('server-'+self.launch+'.log'));deadline=time.monotonic()+180
+  while time.monotonic()<deadline:
+   d=self.receipt()
+   if d and d['phase']=='READY' and d['sequence']=='0':
+    if inventory(self.server)!=self.expected:raise ValueError('SERVER104_MODS_CHANGED_DURING_START')
+    native=self.job.status()
+    if native['rootExited'] or native.get('logFailed'):raise ValueError('SERVER104_STARTUP_EXIT')
+    if self.changes.load():self.changes.finish(True)
+    self.report('RUNNING');return
+   if d and d['phase']=='ERROR':raise ValueError('SERVER104_RUNTIME_ERROR')
+   if self.all_exited():
+    final=self.receipt()
+    if final and final['phase']=='ERROR':raise ValueError('SERVER104_RUNTIME_ERROR')
+    raise ValueError('SERVER104_STARTUP_EXIT')
+   if self.job.status().get('logFailed'):raise ValueError('SERVER104_STARTUP_EXIT')
+   self.report();time.sleep(.25)
+  raise ValueError('SERVER104_STARTUP_TIMEOUT')
+ def receipt(self):
+  if not self.channel:return None
+  p=self.channel/f'server-{self.generation}.status'
+  if not p.exists():return None
+  d=read(p,self.key)
+  if set(d)!={'schema','run','generation','inventory','sequence','request','phase','round','at'} or any(d[k]!=v for k,v in {'schema':'74','run':self.run,'generation':str(self.generation),'inventory':self.expected}.items()):raise ValueError('SERVER104_RECEIPT_BINDING')
+  if d['phase'] not in {'READY','SAVED','STOPPED_SAVED','STOPPED','ERROR','COMMAND_ACCEPTED','QUIESCED'}:raise ValueError('SERVER104_RECEIPT_PHASE')
+  self.last_receipt=d;return d
+ def stop_game(self,action="SHUTDOWN",round_id=None):
+  if self.job is None:return
+  if self.all_exited():raise ValueError('SERVER104_EXIT_WITHOUT_SAVE')
+  if action not in {'SHUTDOWN','SAVE_STOP','RESTART125'}:raise ValueError('FOLDER118_STOP_ACTION')
+  self.sequence+=1;nonce=str(uuid.uuid4());round_id=round_id or str(uuid.uuid4());cmd=dict(schema='74',run=self.run,generation=str(self.generation),inventory=self.expected,sequence=str(self.sequence),request=nonce,action=action,round=round_id,label='r1');write(self.channel/f'server-{self.generation}.command',self.key,cmd);deadline=time.monotonic()+120;self.report('STOPPING')
+  while time.monotonic()<deadline:
+   d=self.receipt()
+   if self.all_exited():
+    # The final receipt can be published between the previous read and process exit.
+    if not d or d['phase']!='STOPPED_SAVED':d=self.receipt()
+    if not d or d['phase']!='STOPPED_SAVED' or any(d[k]!=cmd[k] for k in ('sequence','request','round','inventory')) or self.job.status()['exitCode']!=0:raise ValueError('SERVER104_SAVE_UNCONFIRMED')
+    self.reap();return
+   self.report();time.sleep(.2)
+  raise ValueError('SERVER104_SAVE_TIMEOUT')
+ def send_request_ack(self):
+  raw,packet,rejection=self.pending_ack
+  if rejection is None and self.phase=='WAITING_FOR_STOP' and packet['action']!='SHUTDOWN':
+   rejection=ValueError('SERVER104_GAME_STILL_ACTIVE')
+   self.pending_ack=(raw,packet,rejection)
+  try:write(self.root/'request74.ack',self.key,dict(schema='75',run=self.run,request=packet['request']))
+  except OSError as error:
+   if rejection is None and 'permit88' in packet:
+    self.pending_ack=(raw,packet,ValueError('SERVER104_REMOTE_ACK_EXPIRED'))
+   raise access88.AccessBusy88('SERVER104_ACK_RETRY') from error
+  self.pending_ack=None
+  self.last_request=raw
+  self.request_id=packet['request']
+  self.request_result='ACCEPTED' if rejection is None else 'REJECTED'
+  if rejection is not None:raise rejection
+  self.request_label118=packet['label']
+  if packet['action']=='APPLY115':self.update_request115=dict(packet)
+  return packet['action']
+ def receive(self):
+  if self.pending_ack is not None:return self.send_request_ack()
+  p=self.root/'request74'
+  if not p.exists():return None
+  with safe(p).open('rb') as stream:raw=stream.read(16385)
+  if len(raw)>16384:raise ValueError('SERVER105_REQUEST_LIMIT')
+  if raw==self.last_request:return None
+  d=verify(self.key,raw)
+  if d.get('action')=='APPLY115':
+   from .update115 import packet
+   packet(d) # exact local-only schema: a network permit or extra field is refused
+  elif set(d) not in ({'schema','run','generation','request','action','label'},{'schema','run','generation','request','action','label','permit88'}) or d.get('schema')!='75' or d.get('action') not in ({'RESTART','SHUTDOWN'}|(__import__('first58.folder118',fromlist=['ACTIONS']).ACTIONS if getattr(self,'rollout118',None) else set())) or not re.fullmatch('[A-Za-z0-9_-]{1,40}',d.get('label','')) or str(uuid.UUID(d['request']))!=d['request'] or uuid.UUID(d['request']).int==0:raise ValueError('SERVER104_REQUEST')
+  rejection=None
+  if d.get('run')!=self.run or d.get('generation')!=str(self.generation) or d['request'] in self.seen:
+   rejection=ValueError('SERVER104_STALE_REQUEST')
+  elif len(self.seen)>=8192 and d['action']!='SHUTDOWN':
+   rejection=ValueError('SERVER104_REQUEST_LIMIT')
+  elif self.phase=='WAITING_FOR_STOP' and d['action']!='SHUTDOWN':
+   rejection=ValueError('SERVER104_GAME_STILL_ACTIVE')
+  elif getattr(self,'rollout118',None) and self.rollout118.pending and d['action'] in {'RESTART','APPLY115','PUBLISH_BASELINE'}:
+   rejection=ValueError('FOLDER118_UPDATE_ACTIVE')
+  else:
+   try:access88.consume(self.root,self.key,self.run,d)
+   except access88.AccessBusy88:raise
+   except ValueError as error:rejection=error
+  if rejection is None:self.seen.add(d['request'])
+  self.pending_ack=(raw,d,rejection)
+  return self.send_request_ack()
+
+ def run_loop(self):
+  try:
+   with lease(self.root/'game104.lock'),self.world_idle():
+    pending=self.changes.load()
+    if pending and pending[0]['phase']=='COMMITTED':self.changes.clear_terminal();pending=None
+    if pending:
+     write(self.root/'review104',self.key,dict(schema='104',reason='INTERRUPTED_CHANGE'))
+     if pending[0]['phase']!='RESTORED':self.changes.restore()
+     self.changes.finish(False);self.report('RECOVERY_REQUIRED','SERVER104_INTERRUPTED_CHANGE_RESTORED');return
+    if (self.root/'review104').exists():self.report('RECOVERY_REQUIRED','SERVER104_REVIEW_REQUIRED');return
+    self.bootstrap()
+   self.start_game()
+  except Exception as error:
+   self.report('FAILED',error_code(error))
+   self.hold_live(error_code(error))
+   # A live/hung server is never assumed stopped because its startup timer expired.
+   pending=self.changes.load() if self.all_exited() else None
+   if pending and pending[0]['phase']!='COMMITTED':
+    world=bool(self.channel and (self.channel/'world104').exists());self.reap()
+    with lease(self.root/'game104.lock'),self.world_idle():
+     if pending[0]['phase']!='RESTORED':self.changes.restore()
+     self.changes.finish(False)
+    if world:write(self.root/'review104',self.key,dict(schema='104',reason='WORLD_MAY_HAVE_CHANGED'));self.report('RECOVERY_REQUIRED','SERVER104_RESTORED_WORLD_REVIEW')
+    else:self.report('BOOTSTRAP_FAILED_RESTORED','SERVER104_BOOTSTRAP_FAILED_RESTORED')
+   raise
+  while True:
+   if self.all_exited():
+    code=self.job.status()['exitCode'];self.reap();self.report('STOPPED' if code==0 else 'FAILED','' if code==0 else 'SERVER104_UNEXPECTED_EXIT');return
+   try:action=self.receive()
+   except access88.AccessBusy88:action=None
+   except ValueError as error:self.error=error_code(error);action=None
+   rollout=getattr(self,'rollout118',None)
+   if rollout:
+    from .folder118 import ACTIONS
+    if action in ACTIONS:
+     try:rollout.handle(action,self.request_label118);self.request_result='COMPLETED';self.error=''
+     except Exception as failed:self.request_result='REJECTED';self.error=error_code(failed)
+     self.report();continue
+    if action!='SHUTDOWN':
+     try:
+      if not rollout.tick():return
+     except Exception as failed:
+      if not rollout.fence and not self.busy:
+       self.error=error_code(failed);self.report();time.sleep(.5);continue
+      if not rollout.failed(failed):return
+      self.report();continue
+   if action=='APPLY115':
+    from .update115 import execute
+    try:
+     if not execute(self,self.update_request115):return
+    except Exception as failed:
+     self.hold_live(error_code(failed));self.reap();self.busy=False;self.request_result='FAILED'
+     write(self.root/'review104',self.key,dict(schema='104',reason='UPDATE115_OPERATION_FAILED'))
+     self.report('RECOVERY_REQUIRED','SERVER115_OPERATION_FAILED');return
+    self.report();continue
+   if rollout and action=='SHUTDOWN':
+    try:rollout.finish_completed()
+    except Exception as failed:
+     self.error=error_code(failed)
+     self.request_result='REJECTED';self.report();continue
+   if action:
+    self.busy=True;next_config=self.c
+    if action=='RESTART':
+     self.report('CHECKING','')
+     try:
+      next_config=config(self.server,Path(self.c['java']))
+      self.changes.inventory()
+      if inventory(self.server)!=self.expected:raise ValueError('SERVER105_MODS_CHANGED')
+     except Exception as error:
+      self.busy=False;self.request_result='REJECTED';self.report('RUNNING',error_code(error));continue
+    try:self.stop_game('RESTART125' if action=='RESTART' else 'SHUTDOWN')
+    except Exception as error:self.hold_live(error_code(error));self.reap();self.request_result='FAILED';self.report('FAILED',error_code(error));return
+    if action=='SHUTDOWN':self.busy=False;self.request_result='COMPLETED';self.report('STOPPED','');return
+    # No files/world are copied or overwritten for an ordinary restart.
+    if inventory(self.server)!=self.expected:self.request_result='FAILED';self.report('FAILED','SERVER105_MODS_CHANGED');return
+    self.c=next_config;self.report('RESTARTING','')
+    try:self.start_game()
+    except Exception as error:self.hold_live(error_code(error));self.reap();self.request_result='FAILED';self.report('FAILED',error_code(error));return
+    self.busy=False;self.request_result='COMPLETED'
+   self.report();time.sleep(.25)
+ def hold_live(self,reason):
+  while True:
+   try:
+    if self.all_exited():return
+   except Exception:pass # Unknown native liveness is never treated as an empty Job.
+   self.busy=False
+   try:self.report('WAITING_FOR_STOP',reason)
+   except Exception:pass # Full disk must not end the owner and kill an unsaved game.
+   try:
+    if self.receive()=='SHUTDOWN':self.stop_game()
+   except Exception:pass
+   time.sleep(.25)
+ def close(self):
+  rollout=getattr(self,'rollout118',None)
+  if rollout:rollout.close()
+  # Never close a live/unknown Job from a recoverable timeout or disk-error path.
+  try:
+   if self.all_exited():self.reap()
+  except Exception:pass
+
+def error_code(error):
+ code=str(error)
+ if re.fullmatch('[A-Z][A-Z0-9_]{1,100}',code):return code
+ now=time.monotonic();signature=(type(error).__name__,code)
+ previous=globals().get('_last_error_detail104')
+ if previous is None or previous[0]!=signature or now-previous[1]>=60:
+  globals()['_last_error_detail104']=(signature,now)
+  try:
+   print('[MaRed controller exception]',file=sys.stderr)
+   __import__('traceback').print_exception(type(error),error,error.__traceback__,file=sys.stderr)
+  except Exception:pass
+ return 'SERVER104_OPERATION_FAILED'

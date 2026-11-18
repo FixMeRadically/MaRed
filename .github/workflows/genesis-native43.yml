@@ -1,0 +1,54 @@
+name: Genesis native lifecycle 50 diagnostics
+# Explicit opt-in only: no push/PR/schedule and no game/server installation.
+'on':
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-selftest:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 8
+    steps:
+      - name: Checkout selected revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Build and test synthetic native fixtures
+        shell: cmd
+        run: call tools\native_ci.cmd
+      - name: Preserve diagnostics even after failure
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: genesis-native43-${{ matrix.os }}
+          path: |
+            build/genesis-native43/build.json
+            build/genesis-native43/attempt.json
+            build/genesis-native43/selftest.json
+            build/genesis-native43/ci-status.json
+            build/genesis-native43/owner-attempt.json
+            build/genesis-native43/owner-demo.json
+            build/genesis-native43/java-attempt.json
+            build/genesis-native43/java-demo.json
+            build/genesis-native43/evidence-status.json
+            build/genesis-native43/bound-attempt.json
+            build/genesis-native43/bound-demo.json
+            build/genesis-native43/bound-status.json
+            build/genesis-native43/lifecycle-attempt.json
+            build/genesis-native43/lifecycle-demo.json
+            build/genesis-native43/lifecycle-status.json
+            build/genesis-native43/evidence-47/evidence.json
+            build/genesis-native43/evidence-47/evidence.properties
+            build/genesis-native43/evidence-47/raw/build.json
+            build/genesis-native43/evidence-47/raw/attempt.json
+            build/genesis-native43/evidence-47/raw/selftest.json
+            build/genesis-native43/evidence-47/raw/owner-attempt.json
+            build/genesis-native43/evidence-47/raw/owner-demo.json
+            build/genesis-native43/evidence-47/raw/java-attempt.json
+            build/genesis-native43/evidence-47/raw/java-demo.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -68,7 +68,7 @@ public final class DocumentSearch {
                     hits.add(new Hit(path, -1, 0, "", ""));
             } else {
                 String text;
-                try { text = reader.read(path).replace("\r", ""); }
+                try { text = reader.read(path).replace("\r\n", "\n").replace('\r','\n'); }
                 catch (IOException error) { errors.put(path, String.valueOf(error.getMessage())); continue; }
                 check(cancelled);
                 if (text.length() > MAX_CHARACTERS - characters) return new Result(hits, errors, scanned, true);

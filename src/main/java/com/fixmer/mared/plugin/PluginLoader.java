@@ -53,9 +53,9 @@ public final class PluginLoader {
             // Preserve the original ordering for plugins, including constructor-time registration.
             UiRegistries.bootstrap();
             while(providers.hasNext()) {
-                MaredPlugin p=providers.next().get();
+                MaredPlugin p;try{p=providers.next().get();}catch(java.util.ServiceConfigurationError|RuntimeException provider){Mared.LOGGER.error("[plugin] provider construction failed; continuing discovery",provider);continue;}
                 if (p == null) continue;
-                String id = p.id();
+                String id;try{id=p.id();}catch(RuntimeException bad){Mared.LOGGER.error("[plugin] invalid provider identity; continuing",bad);continue;}
                 if (id == null || id.isBlank()) {
                     Mared.LOGGER.warn(
                         "[plugin] ignoring plugin with blank id: {}",
@@ -83,25 +83,28 @@ public final class PluginLoader {
 
         // 4. Load.
         int ok = 0, skip = 0, fail = 0;
-        for (MaredPlugin p : discovered.values()) {
-            if (PluginConfig.isDisabled(p.id())) {
+        for (var discoveredEntry : discovered.entrySet()) {
+            MaredPlugin p=discoveredEntry.getValue();String stableId=discoveredEntry.getKey();
+            if (PluginConfig.isDisabled(stableId)) {
                 Mared.LOGGER.info(
-                    "[plugin:{}] disabled by config", p.id());
+                    "[plugin:{}] disabled by config", stableId);
                 skip++;
                 continue;
             }
             try {
-                PluginContext ctx = new PluginContext(p.id());
+                PluginContext ctx = new PluginContext(stableId);
                 p.onLoad(ctx);
+                String title=p.displayName(),version=p.version();
+                ctx.commit140();
                 PluginRegistry.registerLoaded(p);
                 Mared.LOGGER.info(
                     "[plugin:{}] loaded '{}' v{}",
-                    p.id(), p.displayName(), p.version());
+                    stableId, title, version);
                 ok++;
             } catch (Throwable t) {
                 Mared.LOGGER.error(
                     "[plugin:{}] onLoad failed, plugin disabled",
-                    p.id(), t);
+                    stableId, t);
                 fail++;
             }
         }

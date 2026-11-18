@@ -1,0 +1,228 @@
+{
+  "patch": 114,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "b4ad3c40dd50a7d7a4ca83abdb1ff08fddc8532ebdff075a75eb6755884cd15b",
+      "after": "875ef09383dc09c1ff4a23646b00a9d74235921c39763b065fb9d18fd6a80fe0"
+    },
+    {
+      "path": "docs/FEATURE_STATUS_0_4_5.json",
+      "existed": false,
+      "before": null,
+      "after": "9f384f93e92fb56fafe987c6771a873a39a1cda9cb2d4cffed5f7c28aac03628"
+    },
+    {
+      "path": "docs/GENESIS_0_4_5_ROADMAP_RU.md",
+      "existed": false,
+      "before": null,
+      "after": "7f344fe240bdd200ca449b84db0ce3404d6e0b338a13bf85be9503899edc7bf6"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/editor/EditorWorkbench.java",
+      "existed": true,
+      "before": "8220e859272eee6b0be4f3b6fba1118ea42c05245aeef750d0eeb782cd9605fa",
+      "after": "f957a5b1b2ce0a735953ab27d82b3bb60b5f52846ede63d08d048e23a016e293"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/editor/LogicRailIcons.java",
+      "existed": true,
+      "before": "49e8d0fd1edeba43522d5a9589590bc33360eac5414798356790e5891cccac98",
+      "after": "0312ec9a8860a21390d1298efd5c440d8d9d819b99413e2b0b495b8f2ff6072b"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/permissions/MaopServer113.java",
+      "existed": false,
+      "before": null,
+      "after": "6b545c37076fa70ad5a8133868077ae0d57e6450e7d48434a1fb54525a876d32"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/GenesisServerLifecycleHooks.java",
+      "existed": true,
+      "before": "98c97f4897ab074b2faae8d113e569790bf52035e56c5aba80cd04f91061cc2e",
+      "after": "f3f0f4d3ac0ee91c2ecfdb026d1300d184f8f2ceeb749d4d02fae27cfeae8092"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/RemoteConsentServer72.java",
+      "existed": true,
+      "before": "48f368a82aded86ae1f878645aa7f9b449faf5d734edd5e7208ee85aa9d674a0",
+      "after": "442b0a12211f2850068dac7245c173100cb5a0b3b546bcb0e6706b5436f4847a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/RemoteControlServer73.java",
+      "existed": true,
+      "before": "e0ae43f361a6da2680d807c06e8b11c7b8e63fec731ee8f3b63546d9d4f3adb7",
+      "after": "97c18c0d1092964d3e04c92ed9a4a8d1a9d6098461363f8f1645dfbade5401f3"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/ServerAdmin75.java",
+      "existed": true,
+      "before": "d90636f4394ddee2491c8e3e3b66d3bc70b2af567ea7692a5a764d21570c3bd8",
+      "after": "aa98a51da552866dfdc495de8c7477bbef08aa464754422c18fb19bbd0d264e9"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/ServerCommands103.java",
+      "existed": true,
+      "before": "c067c345b56029beb562310bea38b459b7f75ef90d392aafa1176f6984da4c5b",
+      "after": "f6608bb1f04e597bbc965044f4d2ebab2848cbf872ad4e6c4773d69b7bf6b10d"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/WorkspaceClient112.java",
+      "existed": false,
+      "before": null,
+      "after": "26014493a1166d65dabfbc16fd3393dba404cd085b85ac97d53b0571867e5350"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/WorkspaceMembersScreen112.java",
+      "existed": false,
+      "before": null,
+      "after": "0de1aa2e2035dfdc2161793ab6583b4a400e9ee025c10ad947c17bb332e7e813"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/WorkspacePayloads112.java",
+      "existed": false,
+      "before": null,
+      "after": "859b851255a5ada0c7bfa718aef0e44c5dc930fac1871648efcfdcea7072fae1"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/WorkspacePickerScreen112.java",
+      "existed": false,
+      "before": null,
+      "after": "6e40305f9a5064e78546f1e366469c5f6141a858aca174c1edbb894e26633c65"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/WorkspaceScreen112.java",
+      "existed": false,
+      "before": null,
+      "after": "45ca9e18cd4b431d01867d14c50437130789d2722484b9e5a2ee2501383d0194"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/WorkspaceServer112.java",
+      "existed": false,
+      "before": null,
+      "after": "cc06d3b49c64e83f798f41614c6afea9289c2b617506485ba905e15b4dca414e"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "23e5f7e7ae0d65820726ac38b8fe0090747e8263802b460d50ea3e424be9ffe1",
+      "after": "6d6419f04fd9c67578b04dd30acc9ffb8fc772dedce54cf7481f99ccbfbe1126"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "d9c4b732737d70e6ae4ab1acef05fd32851b0d277a3c4b82bf6216a3250dba0b",
+      "after": "bd42efcb02a0dbed3330fdb37797a962d250bbd20cf5f21659860b678ac818b5"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/technology/storage/AtomicSettingsChecks114.java",
+      "existed": false,
+      "before": null,
+      "after": "9c3e19bdcc3239b6629ca6dbd9639804bc5efc49d8f999f2c94952c11e02b737"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/AuditCoreChecks111.java",
+      "existed": true,
+      "before": "e40af15854e92a7d02fac73b8aea89af6ecf1bdd0f1d8fc396abe220f2048c74",
+      "after": "07e43e7b43bfb86c0251d785e8023196fd4110a9f7b45222fbd63a2343e15f7c"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/MaopChecks113.java",
+      "existed": false,
+      "before": null,
+      "after": "8bd6677eac59ea04bd14ac87ff35e8c1f71b282c9d34b2d0528958750665f526"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/WorkspaceChecks112.java",
+      "existed": false,
+      "before": null,
+      "after": "17b93e23c3b5e83f31938f676841fe09f037aa789ff86808c33557ea76de24df"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/WorkspaceProcessChecks112.java",
+      "existed": false,
+      "before": null,
+      "after": "52759852502795af0042c608c737b0f097cf929797ec017d6814f47d67d73ed4"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/permissions/MaopPolicy113.java",
+      "existed": false,
+      "before": null,
+      "after": "40abea08c3e9686eae276d318978253e499525bf97d56a745753bbae60c029e7"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/storage/AtomicSettings111.java",
+      "existed": true,
+      "before": "c51d0e77c0a448546183e85bed59c25e8d74061232bbd50b45ff45a8c10cb3c4",
+      "after": "039b06f3fed4d456c7f4dfb839142f067395792b4721993c9dd7e7a47f58d83f"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/WorkspaceDraft112.java",
+      "existed": false,
+      "before": null,
+      "after": "c357223c3503420d8e8193a82e83da53bafcc68efc12587ebd260a87e0d4225c"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/WorkspaceDraftCache112.java",
+      "existed": false,
+      "before": null,
+      "after": "e9d83992d7c340e54f8b6f3c6dfe1284ab741f651b44f5ce9627f7f5a7f9c5e3"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/WorkspaceRate112.java",
+      "existed": false,
+      "before": null,
+      "after": "f110979576f7085290d0c7734d31d61bae15309c5d6ca181df6453804de8616f"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/WorkspaceStore112.java",
+      "existed": false,
+      "before": null,
+      "after": "d8706d2830575dcf2b763420be731c9ca34638842933af07c6400518cc424797"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/WorkspaceWire112.java",
+      "existed": false,
+      "before": null,
+      "after": "2fdd8fbe29aded3583e3fd7dfc070e05fc3c028d334bc8cbffbaaa7b84934aed"
+    },
+    {
+      "path": "tools/first58/access88.py",
+      "existed": true,
+      "before": "22b76ce5759286dca90f3011ade3d29c6f5801c31932aeddf897018b451a94b2",
+      "after": "fb6f26bda1a021282ba422117b44ca3861892e2c69e303966151f226eb08c880"
+    },
+    {
+      "path": "tools/first58/dedicated75.py",
+      "existed": true,
+      "before": "aa282547832baaab3562707531d828dade758830c47334c1de47498d6ba0ee74",
+      "after": "cc70672503cf4751f1f445712bdd53bc6f9525a038262adb0946faa3674f5d46"
+    },
+    {
+      "path": "tools/first58/inplace104.py",
+      "existed": true,
+      "before": "95f8978fc2048ff99356dc100ce09dddcb0e82f088bac8a51b33ac7c109ec279",
+      "after": "72c72fedd8186094ebfa9f013c8b4c1aa31defd2e39fad19804d6ff05d7c0e5c"
+    },
+    {
+      "path": "tools/first58/maop113.py",
+      "existed": false,
+      "before": null,
+      "after": "6249231f4de4d2b144b6f30e0fdfff3247cde3797df87589d90bb54dff526c8e"
+    },
+    {
+      "path": "verification/server59/maop_cross113.py",
+      "existed": false,
+      "before": null,
+      "after": "6160c3a0bbe811a2801801c15eeecae188b3276bc03ff18a0226b06e9c861fe3"
+    },
+    {
+      "path": "verification/server59/test_maop113.py",
+      "existed": false,
+      "before": null,
+      "after": "a132aeeae8515e79e969bcd67c72e857cc175d1533662181aa12021184cd9b5d"
+    }
+  ]
+}

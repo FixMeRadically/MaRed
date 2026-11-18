@@ -38,29 +38,34 @@ public final class LogSettingsService {
     private volatile int version = 0;
 
     private LogSettingsService() {
-        resetDefaults();
+        defaults142();
     }
 
     public int version() { return version; }
     private void bumpVersion() { version++; }
 
-    public Set<LogSettings.Level> enabledLevels() {
+    public synchronized Set<LogSettings.Level> enabledLevels() {
+        ensureLoaded();
         return Set.copyOf(enabledLevels);
     }
 
-    public Set<String> enabledCategories() {
+    public synchronized Set<String> enabledCategories() {
+        ensureLoaded();
         return Set.copyOf(enabledCategories);
     }
 
-    public boolean isLevelEnabled(LogSettings.Level l) {
+    public synchronized boolean isLevelEnabled(LogSettings.Level l) {
+        ensureLoaded();
         return enabledLevels.contains(l);
     }
 
-    public boolean isCategoryEnabled(String c) {
+    public synchronized boolean isCategoryEnabled(String c) {
+        ensureLoaded();
         return enabledCategories.contains(c);
     }
 
-    public void toggleLevel(LogSettings.Level l) {
+    public synchronized void toggleLevel(LogSettings.Level l) {
+        ensureLoaded();
         if (enabledLevels.contains(l)) {
             if (enabledLevels.size() <= 1) return;
             enabledLevels.remove(l);
@@ -71,7 +76,8 @@ public final class LogSettingsService {
         save();
     }
 
-    public void toggleCategory(String c) {
+    public synchronized void toggleCategory(String c) {
+        ensureLoaded();
         if (enabledCategories.contains(c)) {
             if (enabledCategories.size() <= 1) return;
             enabledCategories.remove(c);
@@ -87,21 +93,24 @@ public final class LogSettingsService {
      * Используется, если caller не имеет LogEntry под рукой.
      * Предпочтительно использовать shouldShow(LogEntry).
      */
-    public boolean shouldShow(String line) {
+    public synchronized boolean shouldShow(String line) {
+        ensureLoaded();
         return shouldShow(
             LogSettings.parseLevel(line),
             LogSettings.parseCategory(line));
     }
 
     /** Проверка по structured полям — основной путь. */
-    public boolean shouldShow(LogSettings.Level level, String category) {
+    public synchronized boolean shouldShow(LogSettings.Level level, String category) {
+        ensureLoaded();
         if (level == null || category == null) return true;
         return enabledLevels.contains(level)
             && enabledCategories.contains(category);
     }
 
-    public void applyDraft(Set<LogSettings.Level> newLevels,
+    public synchronized void applyDraft(Set<LogSettings.Level> newLevels,
                            Set<String> newCategories) {
+        ensureLoaded();
         if (newLevels != null && !newLevels.isEmpty()) {
             enabledLevels.clear();
             enabledLevels.addAll(newLevels);
@@ -114,7 +123,10 @@ public final class LogSettingsService {
         save();
     }
 
-    public void resetDefaults() {
+    public synchronized void resetDefaults(){
+        ensureLoaded();defaults142();bumpVersion();save();
+    }
+    private void defaults142() {
         enabledLevels.clear();
         for (LogSettings.Level l : LogSettings.Level.values()) {
             enabledLevels.add(l);
@@ -127,7 +139,7 @@ public final class LogSettingsService {
         return FMLPaths.CONFIGDIR.get().resolve("mared").resolve("log_settings.json");
     }
 
-    public void ensureLoaded() {
+    public synchronized void ensureLoaded() {
         if (loaded) return;
         loaded = true;
 
@@ -138,6 +150,7 @@ public final class LogSettingsService {
         }
 
         try {
+            if(Files.size(p)>64*1024)throw new IOException("Log settings exceed 64 KiB");
             String json = Files.readString(p, StandardCharsets.UTF_8);
             JsonObject o = JsonParser.parseString(json).getAsJsonObject();
 
@@ -165,12 +178,13 @@ public final class LogSettingsService {
             }
         } catch (Exception e) {
             Mared.LOGGER.error("[Mared] Failed to load log_settings.json", e);
-            resetDefaults();
+            defaults142();
         }
         bumpVersion();
     }
 
-    public void save() {
+    public synchronized void save() {
+        ensureLoaded();
         Path p = configFile();
         try {
             Files.createDirectories(p.getParent());
@@ -185,7 +199,7 @@ public final class LogSettingsService {
             o.add("categories", cats);
 
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
-            Files.writeString(p, gson.toJson(o), StandardCharsets.UTF_8);
+            com.fixmer.genesis.technology.storage.AtomicSettings111.write(p, gson.toJson(o));
         } catch (IOException e) {
             Mared.LOGGER.error("[Mared] Failed to save log_settings.json", e);
         }

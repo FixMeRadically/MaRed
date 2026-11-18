@@ -58,14 +58,14 @@ public final class MaredGlobalStorage {
         return GLOBALS.get(key);
     }
 
-    public static void set(String key, Object value) {
+    public static synchronized void set(String key, Object value) {
         ensureLoaded();
         if (key == null) return;
 
         if (value == null) GLOBALS.remove(key);
         else GLOBALS.put(key, value);
 
-        if (key.startsWith("__")) {
+        if ((key.startsWith("__")||key.startsWith("global.__first_join_"))) {
             dataRevision++;
             dirty = true;
             maybeSave();
@@ -78,11 +78,11 @@ public final class MaredGlobalStorage {
         return GLOBALS.containsKey(key);
     }
 
-    public static void remove(String key) {
+    public static synchronized void remove(String key) {
         ensureLoaded();
         if (key == null) return;
         GLOBALS.remove(key);
-        if (key.startsWith("__")) {
+        if ((key.startsWith("__")||key.startsWith("global.__first_join_"))) {
             dataRevision++;
             dirty = true;
             maybeSave();
@@ -90,6 +90,14 @@ public final class MaredGlobalStorage {
     }
 
     public static void clear() { GLOBALS.clear(); }
+    public static synchronized void resetSession140(){
+        flush();
+        if(dirty){
+            // A failed flush must not erase the only remaining copy of persistent markers.
+            GLOBALS.keySet().removeIf(key->!persistent142(key));loaded=true;
+        } else {GLOBALS.clear();loaded=false;}
+    }
+    private static boolean persistent142(String key){return key.startsWith("__")||key.startsWith("global.__first_join_");}
 
     public static Map<String, Object> all() { return GLOBALS; }
     public static int size() { return GLOBALS.size(); }
@@ -107,8 +115,8 @@ public final class MaredGlobalStorage {
         if (loaded) return;
         synchronized (MaredGlobalStorage.class) {
             if (loaded) return;
-            loaded = true;
             loadVisited();
+            loaded = true;
         }
     }
 
@@ -116,12 +124,15 @@ public final class MaredGlobalStorage {
         Path file = visitedFile();
         if (!Files.exists(file)) return;
         try {
-            String json = Files.readString(file, StandardCharsets.UTF_8);
+            byte[] bytes;
+            try(var input=Files.newInputStream(file)){bytes=input.readNBytes(8*1024*1024+1);}
+            if(bytes.length>8*1024*1024)throw new IOException("Visited markers exceed 8 MiB");
+            String json=new String(bytes,StandardCharsets.UTF_8);
             JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
             int n = obj.size();
-            for (Map.Entry<String, com.google.gson.JsonElement> e : obj.entrySet()) {
-                GLOBALS.put(e.getKey(), e.getValue().getAsBoolean());
-            }
+            var restored=new java.util.HashMap<String,Object>();
+            for(var e:obj.entrySet())restored.put(e.getKey(),e.getValue().getAsBoolean());
+            GLOBALS.putAll(restored);
             Mared.LOGGER.info("[Mared] Loaded {} visited entries", n);
         } catch (Exception e) {
             Mared.LOGGER.warn("[Mared] Failed to load visited.json: {}",
@@ -151,7 +162,7 @@ public final class MaredGlobalStorage {
             Files.createDirectories(file.getParent());
             JsonObject obj = new JsonObject();
             for (Map.Entry<String, Object> e : GLOBALS.entrySet()) {
-                if (e.getKey().startsWith("__")) {
+                if ((e.getKey().startsWith("__")||e.getKey().startsWith("global.__first_join_"))) {
                     obj.addProperty(e.getKey(), Boolean.TRUE.equals(e.getValue()));
                 }
             }

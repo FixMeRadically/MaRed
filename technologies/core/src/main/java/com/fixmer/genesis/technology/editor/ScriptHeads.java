@@ -24,7 +24,7 @@ public final class ScriptHeads {
             if (c == '$' && i + 1 < source.length() && source.charAt(i + 1) == '{') { interpolation++; i++; continue; }
             if (c == '}' && interpolation > 0) { interpolation--; continue; }
             if (interpolation > 0) continue;
-            if (c == '"' || (mc && c == '\'')) { quote = c; continue; }
+            if (c == '"' || c == '\'') { quote = c; continue; }
             if (mc) {
                 if (c == '{' || c == '[') { dataDepth++; continue; }
                 if ((c == '}' || c == ']') && dataDepth > 0) { dataDepth--; continue; }

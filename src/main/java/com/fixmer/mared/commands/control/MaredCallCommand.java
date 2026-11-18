@@ -113,7 +113,7 @@ public class MaredCallCommand extends MaredScriptCommand {
         } catch (NumberFormatException ignored) {}
 
         try { return MaredExpr.eval(s, ctx); }
-        catch (Exception e) { return s; }
+        catch (Exception e) {if(s.matches("[\\p{L}\\p{N}_ -]+"))return s;throw new IllegalArgumentException("Call argument failed: "+s,e);}
     }
 
     @Override public int getDelayTicks() { return 0; }

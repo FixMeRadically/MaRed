@@ -38,7 +38,7 @@ public final class LaunchCacheClient {
             if(!result.matches("[a-z_]{1,80}"))return;
             String launch=Objects.toString(System.getenv("GENESIS_LAUNCH_ID"),"");
             if(!launch.matches("[0-9a-f-]{36}"))launch="unrecorded";
-            List<String> labels=changes.stream().limit(8).map(s->s.replaceAll("[\\p{Cntrl}]","?")).map(s->s.length()>230?s.substring(0,230):s).toList();
+            List<String> labels=changes.stream().limit(8).map(s->s.replaceAll("[\\p{Cntrl}]","?")).map(s->DiagnosticText.prefix(s,230)).toList();
             String json="{\"schema\":1,\"launch\":"+SupervisorHttpServer.quote(launch)+",\"status\":"+SupervisorHttpServer.quote(result)+",\"changed_inputs\":["+
                     String.join(",",labels.stream().map(SupervisorHttpServer::quote).toList())+"]}\n";
             Files.createDirectories(target.getParent());temporary=Files.createTempFile(target.getParent(),".capture-report-",".tmp");

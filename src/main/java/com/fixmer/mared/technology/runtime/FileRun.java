@@ -50,6 +50,16 @@ public final class FileRun {
         if (stopRequested || terminal != null) return false;
         begun = true; pending++; return true;
     }
+    /** A submission reservation is released exactly once, even if dispatch throws after running inline. */
+    public final class Reservation143 implements AutoCloseable {
+        private final java.util.concurrent.atomic.AtomicBoolean released=new java.util.concurrent.atomic.AtomicBoolean();
+        @Override public void close(){if(released.compareAndSet(false,true))blockSubmitted();}
+    }
+    public synchronized Reservation143 reserveSection143(){return reserveBlock()?new Reservation143():null;}
+    /** Background listeners/timers do not block the next foreground section. */
+    public synchronized boolean readyForNextSection143(){
+        return !stopRequested()&&error==null&&pending==0&&executors.stream().allMatch(e->e.snapshot().finished());
+    }
     public synchronized void attach(MaredScriptExecutor executor) {
         executors.add(executor);
         if (stopRequested) executor.requestStop();
@@ -94,7 +104,7 @@ public final class FileRun {
         }
         State state = terminal != null ? terminal : stopRequested ? State.STOPPING
             : submissionDone && pending == 0 && active == 0 && resources.resources() > 0 ? State.BACKGROUND
-            : !begun ? State.QUEUED : active > 0 && waiting && submissionDone ? State.WAITING : State.RUNNING;
+            : !begun ? State.QUEUED : active > 0 && waiting ? State.WAITING : State.RUNNING;
         return new Snapshot(id, title, state, ((ended == 0 ? System.nanoTime() : ended) - started)/1_000_000,
             steps, active, sent, resources.resources(), error);
     }

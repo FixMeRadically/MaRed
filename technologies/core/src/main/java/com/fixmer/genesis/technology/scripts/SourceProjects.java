@@ -13,6 +13,7 @@ public final class SourceProjects {
     public static final int MAX_BYTES = 4 * 1024 * 1024, MAX_FILES = 2000;
     private static final String MANIFEST = "genesis-project.properties";
     public enum Language {
+        FILES("Files", "txt", "README.md", "# Project\n"),
         JAVA("Java", "java", "Main.java", "public final class Main {\n    public static void main(String[] args) {\n        System.out.println(\"Hello, Genesis\");\n    }\n}\n"),
         PYTHON("Python", "py", "main.py", "def main():\n    print(\"Hello, Genesis\")\n\n\nif __name__ == \"__main__\":\n    main()\n"),
         RUST("Rust", "rs", "main.rs", "fn main() {\n    println!(\"Hello, Genesis\");\n}\n"),
@@ -90,6 +91,8 @@ public final class SourceProjects {
         try { p.load(new StringReader(decode(readBytes(projectPath(id).resolve(MANIFEST),4096)))); }
         catch(IllegalArgumentException e){throw fail("Malformed project metadata: "+id);}
         if(!"1".equals(p.getProperty("format")))throw fail("Unsupported project format: "+id);
+        if(!dependencyUpdate&&Set.of("linked_minecraft","linked_sources").contains(p.getProperty("workspace","")))
+            DependencyJournal.recover(resolveLinkedDirectory(p));
         try { return new Project(id,Language.valueOf(p.getProperty("language",""))); }
         catch(IllegalArgumentException e){throw fail("Unsupported project language: "+id);}
     }
@@ -118,6 +121,19 @@ public final class SourceProjects {
             safe(target);Files.move(staging,target);return new Project(id,language);
         } finally { if(Files.exists(staging,LinkOption.NOFOLLOW_LINKS))try(var paths=Files.walk(staging)){for(Path p:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);} }
     }
+    /** Build a content project in a private staging directory and publish it only when complete. */
+    public synchronized Project createContent145(String id,com.fixmer.genesis.technology.creation.CreationCatalog145.Direction direction)throws IOException {
+        Objects.requireNonNull(direction);directories(root);Path target=projectPath(id);noAlias(target);
+        Path staging=Files.createTempDirectory(root,".create-");
+        try {
+            Files.writeString(staging.resolve(MANIFEST),"format=1\nlanguage=FILES\nproject_layout=shared\ncreation_direction="+direction.id()+"\n",StandardCharsets.UTF_8);
+            for(var entry:com.fixmer.genesis.technology.creation.CreationTemplates145.files(direction).entrySet()){
+                if(!GradleProjectImport.editable(entry.getKey()))throw fail("Invalid content template path");
+                Path file=staging.resolve(entry.getKey());Files.createDirectories(file.getParent());Files.write(file,bytes(entry.getValue()),StandardOpenOption.CREATE_NEW);
+            }
+            safe(target);noAlias(target);Files.move(staging,target);return new Project(id,Language.FILES);
+        }finally{if(Files.exists(staging,LinkOption.NOFOLLOW_LINKS))try(var walk=Files.walk(staging)){for(Path path:walk.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(path);}}
+    }
     private boolean sharedLayout(String id)throws IOException{
         var properties=new Properties();properties.load(new StringReader(decode(readBytes(projectPath(id).resolve(MANIFEST),4096))));return "shared".equals(properties.getProperty("project_layout"));
     }
@@ -134,7 +150,8 @@ public final class SourceProjects {
         } finally {if(Files.exists(staging,LinkOption.NOFOLLOW_LINKS))try(var paths=Files.walk(staging)){for(Path path:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(path);}}
     }
     public synchronized Path exportServerApi(String id)throws IOException {
-        Path path=projectDirectory(id).resolve("libraries/genesis-server-api-v1.jar");safe(path);directories(path.getParent());
+        if(linkedMinecraft(id)&&temporaryBound==null)return withBound(workingDirectory(id),()->exportServerApi(id));
+        Path path=workingDirectory(id).resolve("libraries/genesis-server-api-v1.jar");safe(path);directories(path.getParent());
         byte[] api=RuntimeModuleCompiler.apiJar();
         if(Files.exists(path,LinkOption.NOFOLLOW_LINKS)) {if(!Arrays.equals(readBytes(path,1024*1024),api))throw fail("Existing API JAR differs; preserve or rename it first");return path;}
         noAlias(path);Path temporary=Files.createTempFile(path.getParent(),".server-api-",".tmp");
@@ -151,7 +168,7 @@ public final class SourceProjects {
         project(id);var properties=new Properties();try{properties.load(new StringReader(decode(readBytes(projectPath(id).resolve(MANIFEST),4096))));}
         catch(IllegalArgumentException bad){throw fail("Malformed project metadata");}
         String workspace=properties.getProperty("workspace","");
-        return "imported_gradle".equals(workspace)||"linked_minecraft".equals(workspace);
+        return "imported_gradle".equals(workspace)||"linked_minecraft".equals(workspace)||("linked_sources".equals(workspace)&&hasGradle(id));
     }
     public synchronized Imported importGradle(String id,Path external,java.util.function.BooleanSupplier cancelled)throws IOException {
         return importProject(id,external,cancelled,true);
@@ -163,9 +180,10 @@ public final class SourceProjects {
     public synchronized Project createMinecraftLink(String id,Path external,com.fixmer.genesis.technology.minecraft.MinecraftProjectInfo info)throws IOException {
         if(external==null||!external.isAbsolute())throw fail("Select an absolute project directory");
         Objects.requireNonNull(info);
-        Path real=external.toRealPath(),managed=root.toRealPath();
+        directories(root);Path real=external.toRealPath(),managed=root.toRealPath();
+        if(!Files.isDirectory(real,LinkOption.NOFOLLOW_LINKS))throw fail("Select a directory");
         if(real.startsWith(managed)||managed.startsWith(real))throw fail("Link a project outside the Genesis storage tree");
-        directories(root);Path target=projectPath(id);noAlias(target);
+        Path target=projectPath(id);noAlias(target);
         Path staging=Files.createTempDirectory(root,".link-minecraft-");
         try{
             var hints=com.fixmer.genesis.technology.minecraft.MinecraftWorkspaceCreator.manifestHints(info,com.fixmer.genesis.technology.minecraft.MinecraftImportMode.LINK,external);
@@ -173,28 +191,59 @@ public final class SourceProjects {
             String normalizedPath = external.toAbsolutePath().normalize().toString().replace('\\', '/');
             hints.setProperty("linked_path", normalizedPath);
 
-            StringBuilder manifest=new StringBuilder("format=1\nlanguage=JAVA\nmod_version=0.4.0\nproject_layout=shared\nworkspace=linked_minecraft\n");
-            for(String key:hints.stringPropertyNames())manifest.append(key).append('=').append(hints.getProperty(key)).append('\n');
-            Files.writeString(staging.resolve(MANIFEST),manifest.toString(),StandardCharsets.UTF_8,StandardOpenOption.CREATE_NEW);
-            if(bytes(manifest.toString()).length>4096)throw fail("Project metadata size limit");
+            var metadata=new Properties();metadata.putAll(hints);
+            metadata.setProperty("format","1");metadata.setProperty("language","JAVA");
+            metadata.setProperty("mod_version","0.4.0");metadata.setProperty("project_layout","shared");
+            metadata.setProperty("workspace","linked_minecraft");
+            var manifest=new StringWriter();metadata.store(manifest,"MaRed Minecraft link");
+            byte[] content=bytes(manifest.toString());if(content.length>4096)throw fail("Project metadata size limit");
+            Files.write(staging.resolve(MANIFEST),content,StandardOpenOption.CREATE_NEW);
             safe(target);noAlias(target);Files.move(staging,target);return new Project(id,Language.JAVA);
         }finally{if(Files.exists(staging,LinkOption.NOFOLLOW_LINKS))try(var entries=Files.walk(staging)){for(Path p:entries.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);}}
+    }
+    /** Opens an ordinary folder in place. Only its MaRed metadata is stored in the managed catalog. */
+    public synchronized Project createFolder133(String id,Path parent)throws IOException{
+        if(parent==null||!parent.isAbsolute())throw fail("Select an absolute parent directory");directories(root);noAlias(projectPath(id));
+        Path real=parent.toRealPath();if(!Files.isDirectory(real,LinkOption.NOFOLLOW_LINKS)||real.startsWith(root.toRealPath())||root.toRealPath().startsWith(real))throw fail("Select a folder outside the managed catalog");
+        Path folder=real.resolve(id);Files.createDirectory(folder);
+        try{return linkFolder133(id,folder);}catch(IOException|RuntimeException error){try{Files.delete(folder);}catch(IOException preserved){error.addSuppressed(preserved);}throw error;}
+    }
+    public synchronized Project linkFolder133(String id,Path external)throws IOException{
+        if(external==null||!external.isAbsolute())throw fail("Select an absolute project directory");
+        Path real=external.toRealPath();if(!Files.isDirectory(real,LinkOption.NOFOLLOW_LINKS))throw fail("Select a directory");
+        directories(root);if(real.startsWith(root.toRealPath())||root.toRealPath().startsWith(real))throw fail("Select a folder outside the managed project catalog");
+        return createFolderLink133(id,real);
+    }
+    private Project createFolderLink133(String id,Path real)throws IOException{
+        // Validate the external tree separately; it intentionally lies outside the managed catalog.
+        for(Path part=real;part!=null;part=part.getParent())if(Files.isSymbolicLink(part))throw fail("Symbolic links are not supported");
+        for(Project known:list().projects())if(linkedMinecraft(known.id())){
+            Path existing;
+            try{existing=workingDirectory(known.id());}catch(IOException unavailable){continue;}
+            if(existing.toRealPath().equals(real))return known;
+        }
+        Path target=projectPath(id);noAlias(target);Path staging=Files.createTempDirectory(root,".link-folder-");
+        try{var metadata=new Properties();metadata.setProperty("format","1");metadata.setProperty("language","JAVA");metadata.setProperty("workspace","linked_sources");metadata.setProperty("project_layout","shared");metadata.setProperty("linked_path",real.toString().replace('\\','/'));var out=new StringWriter();metadata.store(out,"MaRed folder link");byte[] bytes=bytes(out.toString());if(bytes.length>4096)throw fail("Project metadata size limit");Files.write(staging.resolve(MANIFEST),bytes);safe(target);Files.move(staging,target);return project(id);}
+        finally{if(Files.exists(staging)){Files.deleteIfExists(staging.resolve(MANIFEST));Files.deleteIfExists(staging);}}
     }
     public synchronized boolean linkedMinecraft(String id)throws IOException {
         project(id);var properties=new Properties();try{properties.load(new StringReader(decode(readBytes(projectPath(id).resolve(MANIFEST),4096))));}
         catch(IllegalArgumentException bad){throw fail("Malformed project metadata");}
-        return "linked_minecraft".equals(properties.getProperty("workspace"));
+        return Set.of("linked_minecraft","linked_sources").contains(properties.getProperty("workspace",""));
     }
     /** Build / browse root: linked Minecraft projects resolve to the original path. */
     public synchronized Path workingDirectory(String id)throws IOException {
         Path managed=projectDirectory(id);
         var properties=new Properties();try{properties.load(new StringReader(decode(readBytes(managed.resolve(MANIFEST),4096))));}
         catch(IllegalArgumentException bad){throw fail("Malformed project metadata");}
-        if(!"linked_minecraft".equals(properties.getProperty("workspace")))return managed;
+        if(!Set.of("linked_minecraft","linked_sources").contains(properties.getProperty("workspace","")))return managed;
+        return resolveLinkedDirectory(properties);
+    }
+    private Path resolveLinkedDirectory(Properties properties)throws IOException {
         String linked=properties.getProperty("linked_path","");
         if(linked.isEmpty())throw fail("Invalid linked Minecraft path");
         Path path;
-        try { path=Path.of(linked).toAbsolutePath().normalize(); }
+        try { path=Path.of(linked).normalize(); }
         catch (RuntimeException ex) { throw fail("Invalid linked Minecraft path: "+linked); }
         if(!path.isAbsolute())throw fail("Invalid linked Minecraft path: "+linked);
         if(!Files.isDirectory(path,LinkOption.NOFOLLOW_LINKS)||Files.isSymbolicLink(path))throw fail("Linked Minecraft project is missing");
@@ -314,26 +363,28 @@ public final class SourceProjects {
         copyEntry(id,from,to,expected,()->false);
     }
     public synchronized void copyEntry(String id,String from,String to,Map<String,String> expected,java.util.function.BooleanSupplier stop)throws IOException{
+        if(linkedMinecraft(id)&&temporaryBound==null){withBound(workingDirectory(id),()->{copyEntry(id,from,to,expected,stop);return null;});return;}
         Objects.requireNonNull(expected);Objects.requireNonNull(stop);Path source=entryPath(id,from),target=entryPath(id,to);
         if(from.equals(to)||to.startsWith(from+"/"))throw fail("Cannot copy inside the source");
         if(!Files.exists(source,LinkOption.NOFOLLOW_LINKS))throw fail("Missing copy source");
-        for(Path current=source;!current.equals(root);current=current.getParent()){
+        for(Path current=source,copyRoot=linkedMinecraft(id)?workingDirectory(id):root;current!=null&&!current.equals(copyRoot);current=current.getParent()){
             String spelling=current.getFileName().toString();try(var siblings=Files.list(current.getParent())){for(Path sibling:siblings.toList())if(sibling.getFileName().toString().equalsIgnoreCase(spelling)&&!sibling.getFileName().toString().equals(spelling))throw fail("Copy source case alias");}
         }
         if(!Files.isDirectory(target.getParent(),LinkOption.NOFOLLOW_LINKS))throw fail("Destination parent must exist");
         String parent=RepositoryPath.parent(to);if(!parent.isEmpty())createDirectory(id,parent);noAlias(target);
         for(var e:expected.entrySet())if(!read(id,e.getKey()).equals(e.getValue()))throw fail("File changed outside Scripts: "+e.getKey());
         for(String file:files(id))if(file.equals(from)||file.startsWith(from+"/"))if(recovery(id,file)!=null)throw fail("Resolve recovered drafts before copying");
-        if(stop.getAsBoolean())throw fail("Copy cancelled");boolean directory=Files.isDirectory(source,LinkOption.NOFOLLOW_LINKS);Path staging=Files.createTempDirectory(root,".genesis-copy-");boolean published=false;
+        if(stop.getAsBoolean())throw fail("Copy cancelled");boolean directory=Files.isDirectory(source,LinkOption.NOFOLLOW_LINKS);Path stagingParent=linkedMinecraft(id)?workingDirectory(id).resolve(".genesis"):root;directories(stagingParent);Path staging=Files.createTempDirectory(stagingParent,".genesis-copy-");boolean published=false;
         try{Path data=staging.resolve("data");
             if(directory){Files.createDirectory(data);GradleProjectImport.copyContents(source,data,stop,from);}
             else{byte[] content=readBytes(source,GradleProjectImport.MAX_FILE_BYTES);Files.write(data,content,StandardOpenOption.CREATE_NEW);if(!Arrays.equals(content,readBytes(source,GradleProjectImport.MAX_FILE_BYTES)))throw fail("Copy source changed");}
             for(var e:expected.entrySet())if(!read(id,e.getKey()).equals(e.getValue()))throw fail("File changed outside Scripts: "+e.getKey());
-            GradleProjectImport.validateAddition(projectPath(id),data,directory,to);
+            GradleProjectImport.validateAddition(workingDirectory(id),data,directory,to);
             if(stop.getAsBoolean())throw fail("Copy cancelled");safe(target);noAlias(target);Files.move(data,target);published=true;
         }finally{try(var paths=Files.walk(staging)){for(Path entry:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(entry);}catch(IOException cleanup){if(!published)throw cleanup;}}
     }
     public synchronized void renameEntry(String id,String from,String to,Map<String,String> expected)throws IOException {
+        if(linkedMinecraft(id)&&temporaryBound==null){withBound(workingDirectory(id),()->{renameEntry(id,from,to,expected);return null;});return;}
         Path source=entryPath(id,from),target=entryPath(id,to);
         if(from.equals(to)||to.startsWith(from+"/"))throw fail("Invalid move destination");
         if(!Files.exists(source,LinkOption.NOFOLLOW_LINKS))throw fail("Missing project entry");
@@ -348,22 +399,32 @@ public final class SourceProjects {
     }
     /** Reversible delete: entries go to local trash outside projects; no recursive permanent deletion. */
     public synchronized Path trashEntry(String id,String path,Map<String,String> expected)throws IOException{
+        if(linkedMinecraft(id)&&temporaryBound==null)return withBound(workingDirectory(id),()->trashEntry(id,path,expected));
         Path source=entryPath(id,path);if(!Files.exists(source,LinkOption.NOFOLLOW_LINKS))throw fail("Missing project entry");
         for(var e:expected.entrySet())if(!read(id,e.getKey()).equals(e.getValue()))throw fail("File changed outside Scripts: "+e.getKey());
         for(String file:files(id))if(file.equals(path)||file.startsWith(path+"/"))if(recovery(id,file)!=null)throw fail("Save or resolve recovered drafts before deletion");
-        Path trash=root.resolve(".genesis-trash");directories(trash);Path target=Files.createTempDirectory(trash,id+"-");
+        Path trash=linkedMinecraft(id)?workingDirectory(id).resolve(".genesis/trash"):root.resolve(".genesis-trash");directories(trash);Path target=Files.createTempDirectory(trash,id+"-");
         try{Files.writeString(target.resolve("origin.properties"),"project="+id+"\npath="+path+"\n",StandardCharsets.UTF_8);Files.move(source,target.resolve("data"));return target;}
         catch(IOException bad){Files.deleteIfExists(target.resolve("origin.properties"));Files.deleteIfExists(target);throw bad;}
     }
     public synchronized String restoreTrash(Path directory)throws IOException{
-        Path trash=root.resolve(".genesis-trash"),item=directory.toAbsolutePath().normalize();
+        Path item=directory.toAbsolutePath().normalize();
+        if(temporaryBound==null&&!root.resolve(".genesis-trash").equals(item.getParent())){
+            for(Project project:list().projects())if(linkedMinecraft(project.id())){Path working=workingDirectory(project.id());if(working.resolve(".genesis/trash").equals(item.getParent()))return withBound(working,()->restoreTrash(item));}
+            throw fail("Invalid trash entry");
+        }
+        Path trash=temporaryBound!=null&&temporaryBound.resolve(".genesis/trash").equals(item.getParent())?temporaryBound.resolve(".genesis/trash"):root.resolve(".genesis-trash");
         if(!trash.equals(item.getParent()))throw fail("Invalid trash entry");safe(item);var properties=new Properties();
         try{properties.load(new StringReader(decode(readBytes(item.resolve("origin.properties"),4096))));}catch(IllegalArgumentException bad){throw fail("Invalid trash metadata");}
-        String id=properties.getProperty("project",""),path=properties.getProperty("path","");Path target=entryPath(id,path),data=item.resolve("data");safe(data);
+        String id=properties.getProperty("project",""),path=properties.getProperty("path","");if(linkedMinecraft(id)&&temporaryBound==null)return withBound(workingDirectory(id),()->restoreTrash(directory));Path target=entryPath(id,path),data=item.resolve("data");safe(data);
         if(!Files.exists(data,LinkOption.NOFOLLOW_LINKS)||Files.isSymbolicLink(data))throw fail("Missing trash data");noAlias(target);
         String parent=RepositoryPath.parent(path);if(!parent.isEmpty())createDirectory(id,parent);safe(target);Files.move(data,target);
         try{Files.deleteIfExists(item.resolve("origin.properties"));Files.deleteIfExists(item);}catch(IOException ignored){ /* Restored data is already at its destination; residue is not a failed restore. */ }
         return id+"/"+path;
+    }
+    public synchronized String direction147(String id)throws IOException{
+        project(id);var metadata=new Properties();metadata.load(new StringReader(decode(readBytes(projectPath(id).resolve(MANIFEST),4096))));
+        return com.fixmer.genesis.technology.creation.CreationCatalog145.Direction.fromId(metadata.getProperty("creation_direction","mods")).id();
     }
     public synchronized String read(String id,String file) throws IOException {
         if(linkedMinecraft(id))return withBound(workingDirectory(id),()->decode(readBytes(source(id,file),MAX_BYTES)));
@@ -455,7 +516,8 @@ public final class SourceProjects {
     /** Flat, bounded JAR snapshot. Nested folders and links are refused instead of silently ignored. */
     public synchronized Map<String,byte[]> javaLibraries(String id)throws IOException {
         if(project(id).language()!=Language.JAVA)throw fail("Java libraries require a Java project");
-        Path dir=projectPath(id).resolve("libraries");safe(dir);
+        if(linkedMinecraft(id)&&temporaryBound==null)return withBound(workingDirectory(id),()->javaLibraries(id));
+        Path dir=workingDirectory(id).resolve("libraries");safe(dir);
         if(!Files.exists(dir,LinkOption.NOFOLLOW_LINKS))return Map.of();
         if(!Files.isDirectory(dir,LinkOption.NOFOLLOW_LINKS))throw fail("libraries must be a directory");
         var paths=new TreeMap<String,Path>();var names=new HashSet<String>();int count=0;
@@ -480,9 +542,16 @@ public final class SourceProjects {
     }
     /** Creates editable Java/application build files without moving existing sources. */
     public synchronized void initializeGradle(String id)throws IOException {
-        if(project(id).language()!=Language.JAVA)throw fail("Gradle setup requires a Java project");Path p=projectPath(id);
+        if(project(id).language()!=Language.JAVA)throw fail("Gradle setup requires a Java project");
+        if(linkedMinecraft(id)&&temporaryBound==null){withBound(workingDirectory(id),()->{initializeGradle(id);return null;});return;}
+        Path p=workingDirectory(id);
         for(String name:List.of("build.gradle","settings.gradle","build.gradle.kts","settings.gradle.kts")){Path f=p.resolve(name);safe(f);if(Files.exists(f,LinkOption.NOFOLLOW_LINKS))throw fail("Build configuration already exists: "+name);noAlias(f);}
         String build="plugins { id 'java'; id 'application' }\nversion = '0.4.0'\nrepositories { mavenCentral() }\njava { toolchain { languageVersion = JavaLanguageVersion.of(21) } }\nsourceSets { main { java.srcDirs = ['src']; resources.srcDirs = ['resources'] }; test { java.srcDirs = ['tests'] } }\ndependencies { implementation fileTree(dir: 'libraries', includes: ['*.jar', '*.JAR']) }\n// Add testImplementation dependencies and test framework configuration here.\n def genesis = new Properties()\nfile('genesis-project.properties').withReader('UTF-8') { genesis.load(it) }\napplication { mainClass = genesis.getProperty('main_class', 'Main') }\ntasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }\ntasks.withType(Jar).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }\njar { manifest { attributes 'Main-Class': genesis.getProperty('main_class', 'Main') } }\n";
+        if(linkedMinecraft(id)){
+            String main=javaMainClass(id);if(!JavaSourceRunner.validMainClass(main))throw fail("Invalid Java main class");
+            build=build.replace(" def genesis = new Properties()\nfile('genesis-project.properties').withReader('UTF-8') { genesis.load(it) }\n","")
+                .replace("genesis.getProperty('main_class', 'Main')","'"+main+"'");
+        }
         Map<String,String> content=new LinkedHashMap<>();content.put("settings.gradle","rootProject.name = '"+id+"'\n");content.put("build.gradle",build);var created=new ArrayList<Path>();
         try{for(var e:content.entrySet()){Path file=p.resolve(e.getKey());safe(file);try(var output=Files.newOutputStream(file,StandardOpenOption.CREATE_NEW)){created.add(file);output.write(e.getValue().getBytes(StandardCharsets.UTF_8));}}}
         catch(IOException|RuntimeException bad){for(Path file:created)try{Files.deleteIfExists(file);}catch(IOException cleanup){bad.addSuppressed(cleanup);}throw bad;}
@@ -535,7 +604,8 @@ public final class SourceProjects {
     }
     public synchronized Map<String,byte[]> javaResources(String id)throws IOException {
         if(project(id).language()!=Language.JAVA)throw fail("Java resources require a Java project");
-        Path dir=projectPath(id).resolve("resources");safe(dir);
+        if(linkedMinecraft(id)&&temporaryBound==null)return withBound(workingDirectory(id),()->javaResources(id));
+        Path dir=workingDirectory(id).resolve("resources");safe(dir);
         if(!Files.exists(dir,LinkOption.NOFOLLOW_LINKS))return Map.of();
         if(!Files.isDirectory(dir,LinkOption.NOFOLLOW_LINKS))throw fail("resources must be a directory");
         var paths=new TreeMap<String,Path>();var aliases=new HashSet<String>();int count=0;
@@ -567,7 +637,13 @@ public final class SourceProjects {
         var overrides=new HashMap<String,GradleProjectImport.Edit>();
         for(var e:edits.entrySet())overrides.put(e.getKey(),new GradleProjectImport.Edit(e.getValue().baseline(),e.getValue().text()));
         Path exports=root.resolve(".exports");directories(exports);
-        return GradleProjectImport.export(projectPath(id),exports,id,overrides,readBytes(projectPath(id).resolve(MANIFEST),4096));
+        Path directory=workingDirectory(id);byte[] originalMetadata=readBytes(projectPath(id).resolve(MANIFEST),4096),metadata=originalMetadata;
+        if(linkedMinecraft(id)){
+            var portable=new Properties();portable.load(new StringReader(decode(metadata)));
+            portable.remove("linked_path");portable.setProperty("workspace",hasGradle(id)?"imported_gradle":"local_sources");
+            var text=new StringWriter();portable.store(text,"MaRed portable project");metadata=bytes(text.toString());
+        }
+        return GradleProjectImport.export(directory,exports,id,overrides,metadata,projectPath(id).resolve(MANIFEST),originalMetadata);
     }
     /** Compatibility entry point; language-specific callers retain their original contract. */
     public synchronized Path exportJava(String id,Map<String,Recovery> edits)throws IOException {
@@ -585,9 +661,10 @@ public final class SourceProjects {
     }
     public synchronized void validateDependencies(String id)throws IOException{var state=dependencyState(id);if(!state.files().containsKey(ProjectDependencies.CONFIG))return;var config=state.config();if(!state.files().containsKey(ProjectDependencies.SCRIPT))throw fail("Managed dependency script missing; reopen the dependency manager");ProjectDependencies.render(state,config);}
     public synchronized Map<String,byte[]> buildRuntimeLibraries(String id,BuildArtifacts.Artifact artifact,java.util.function.BooleanSupplier cancelled)throws IOException{
-        Path p=projectDirectory(id);var result=new LinkedHashMap<String,byte[]>(javaLibraries(id));if(!artifact.buildId().isEmpty()&&!GradleOutputs.reported(p,artifact.buildId()))throw fail("Gradle runtime report unavailable; build again before server apply");if(!artifact.buildId().isEmpty())result.putAll(GradleOutputs.runtime(p,artifact.buildId(),artifact.path(),cancelled));return Collections.unmodifiableMap(result);
+        Path p=workingDirectory(id);var result=new LinkedHashMap<String,byte[]>(javaLibraries(id));if(!artifact.buildId().isEmpty()&&!GradleOutputs.reported(p,artifact.buildId()))throw fail("Gradle runtime report unavailable; build again before server apply");if(!artifact.buildId().isEmpty())result.putAll(GradleOutputs.runtime(p,artifact.buildId(),artifact.path(),cancelled));return Collections.unmodifiableMap(result);
     }
     public synchronized ProjectDependencies.State dependencyState(String id)throws IOException{
+        if(linkedMinecraft(id)&&temporaryBound==null)return withBound(workingDirectory(id),()->dependencyState(id));
         if(project(id).language()!=Language.JAVA)throw fail("Dependencies require a Java project");var files=new LinkedHashMap<String,String>();
         for(String name:ProjectDependencies.FILES){Path p=entryPath(id,name);if(Files.exists(p,LinkOption.NOFOLLOW_LINKS))files.put(name,decode(readBytes(p,MAX_BYTES)));}
         return new ProjectDependencies.State(files);
@@ -595,17 +672,18 @@ public final class SourceProjects {
     /** Conflict checked multi-file update, restoring bytes on a local write failure. */
     public synchronized void setDependencies(String id,ProjectDependencies.State expected,ProjectDependencies.Config config)throws IOException{setDependencies(id,expected,config,()->false);}
     public synchronized void setDependencies(String id,ProjectDependencies.State expected,ProjectDependencies.Config config,java.util.function.BooleanSupplier cancelled)throws IOException{
+        if(linkedMinecraft(id)&&temporaryBound==null){withBound(workingDirectory(id),()->{setDependencies(id,expected,config,cancelled);return null;});return;}
         Objects.requireNonNull(cancelled);if(cancelled.getAsBoolean()||Thread.currentThread().isInterrupted())throw fail("Dependency update cancelled");
         if(!dependencyState(id).equals(expected))throw fail("Dependency files changed externally; reopen dependency manager");
         if(config.localLibraries()){var jars=JavaSourceRunner.librarySnapshot(javaLibraries(id));long expanded=0;var token=new JavaSourceRunner.Cancellation();for(String name:jars.keySet())expanded+=JavaSourceRunner.verifyLibrary(entryPath(id,"libraries/"+name),128L*1024*1024-expanded,token);}
         var changes=ProjectDependencies.render(expected,config);var originals=new LinkedHashMap<String,byte[]>();var output=new LinkedHashMap<String,byte[]>();
         for(var e:changes.entrySet()){Path p=entryPath(id,e.getKey());if(!Files.exists(p,LinkOption.NOFOLLOW_LINKS))noAlias(p);originals.put(e.getKey(),Files.exists(p,LinkOption.NOFOLLOW_LINKS)?readBytes(p,MAX_BYTES):null);output.put(e.getKey(),bytes(e.getValue()));}
-        var transaction=DependencyJournal.start(projectPath(id),originals,output);dependencyUpdate=true;var attempted=new ArrayList<String>();
+        var transaction=DependencyJournal.start(workingDirectory(id),originals,output);dependencyUpdate=true;var attempted=new ArrayList<String>();
         try{for(var e:output.entrySet()){if(cancelled.getAsBoolean()||Thread.currentThread().isInterrupted())throw fail("Dependency update cancelled");Path p=entryPath(id,e.getKey());byte[] current=Files.exists(p,LinkOption.NOFOLLOW_LINKS)?readBytes(p,MAX_BYTES):null;
-            if(!Arrays.equals(current,originals.get(e.getKey())))throw fail("Dependency file changed during update: "+e.getKey());attempted.add(e.getKey());atomic(p,e.getValue());}if(cancelled.getAsBoolean()||Thread.currentThread().isInterrupted())throw fail("Dependency update cancelled");if(config.localLibraries())directories(projectPath(id).resolve("libraries"));Files.delete(DependencyJournal.path(projectPath(id)));
+            if(!Arrays.equals(current,originals.get(e.getKey())))throw fail("Dependency file changed during update: "+e.getKey());attempted.add(e.getKey());atomic(p,e.getValue());}if(cancelled.getAsBoolean()||Thread.currentThread().isInterrupted())throw fail("Dependency update cancelled");if(config.localLibraries())directories(workingDirectory(id).resolve("libraries"));Files.delete(DependencyJournal.path(workingDirectory(id)));
         }catch(IOException|RuntimeException bad){Collections.reverse(attempted);for(String name:attempted)try{Path p=entryPath(id,name);byte[] current=Files.exists(p,LinkOption.NOFOLLOW_LINKS)?readBytes(p,MAX_BYTES):null;
             if(Arrays.equals(current,output.get(name))){byte[] old=originals.get(name);if(old==null)Files.deleteIfExists(p);else atomic(p,old);}
-        }catch(IOException cleanup){bad.addSuppressed(cleanup);}try{DependencyJournal.recoverOwned(projectPath(id));}catch(IOException recovery){bad.addSuppressed(recovery);}throw bad;}finally{dependencyUpdate=false;transaction.close();}
+        }catch(IOException cleanup){bad.addSuppressed(cleanup);}try{DependencyJournal.recoverOwned(workingDirectory(id));}catch(IOException recovery){bad.addSuppressed(recovery);}throw bad;}finally{dependencyUpdate=false;transaction.close();}
     }
     private void atomic(Path target,byte[] data) throws IOException {
         safe(target);directories(target.getParent());Path temp=Files.createTempFile(target.getParent(),".write-",".tmp");

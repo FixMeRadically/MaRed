@@ -1,0 +1,58 @@
+"""Explicit read-only argv capture from a user-selected Java PID; never adopts or stops it."""
+from pathlib import Path
+import ctypes as C,json,os,subprocess
+from .common import safe,json_write
+from .setup import java
+
+def resolve_profile(source, profile_hint=None):
+ source=Path(source)
+ hint=None
+ if profile_hint is not None:
+  if not Path(profile_hint).is_absolute():raise ValueError('Minecraft profile path must be absolute')
+  hint=safe(profile_hint)
+  if not hint.is_dir():raise ValueError('Minecraft profile directory is unavailable')
+ if source.is_absolute():
+  profile=safe(source)
+  if hint is not None and profile!=hint:raise ValueError('Captured gameDir differs from the running Minecraft profile')
+  return profile
+ if hint is None:raise ValueError('Relative gameDir requires the Minecraft profile supplied by the in-game setup button')
+ # A relative path is resolved by Minecraft itself, not against the wizard working directory.
+ return hint
+
+def read_client(pid,profile_hint=None):
+ if os.name!='nt' or not 1<=pid<=0xffffffff:raise ValueError('Explicit Windows Java PID required')
+ script=f'[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); $p=Get-CimInstance Win32_Process -Filter "ProcessId={pid}"; if (!$p) {{exit 2}}; $p | Select-Object ExecutablePath,CommandLine | ConvertTo-Json -Compress'
+ result=subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',script],capture_output=True,text=True,encoding="utf-8-sig",timeout=20)
+ if result.returncode:raise ValueError('Selected process is unavailable')
+ data=json.loads(result.stdout);exe=safe(data['ExecutablePath'])
+ if exe.name.lower() not in ('java.exe','javaw.exe'):raise ValueError('Selected PID is not Java')
+ shell=C.WinDLL('shell32',use_last_error=True);kernel=C.WinDLL('kernel32',use_last_error=True)
+ shell.CommandLineToArgvW.argtypes=[C.c_wchar_p,C.POINTER(C.c_int)];shell.CommandLineToArgvW.restype=C.POINTER(C.c_wchar_p);kernel.LocalFree.argtypes=[C.c_void_p];kernel.LocalFree.restype=C.c_void_p
+ count=C.c_int();pointer=shell.CommandLineToArgvW(data['CommandLine'],C.byref(count))
+ if not pointer:raise C.WinError(C.get_last_error())
+ try:argv=[pointer[i] for i in range(count.value)]
+ finally:kernel.LocalFree(pointer)
+ if not argv or safe(argv[0])!=exe:raise ValueError('Process executable/command mismatch')
+ argv[0]=str(exe.with_name('java.exe'))
+ if argv.count('--gameDir')!=1 or argv.index('--gameDir')+1>=len(argv):raise ValueError('Capture requires expanded --gameDir argv; launch with normal full arguments')
+ profile=resolve_profile(argv[argv.index('--gameDir')+1],profile_hint)
+ argv[argv.index('--gameDir')+1]='{profile}'
+ # Launcher quick-play metadata/targets belong to the original session, not the copy.
+ discard={'--server','--port','--quickPlayMultiplayer','--quickPlaySingleplayer','--quickPlayRealms','--quickPlayPath'}
+ normalized=[];i=0
+ while i<len(argv):
+  if argv[i] in discard:
+   if i+1>=len(argv):raise ValueError('Incomplete launcher quick-play argument')
+   i+=2;continue
+  normalized.append(argv[i]);i+=1
+ argv=normalized
+ # Old dev seed/cover flags refer to a different owner and must not survive the isolated launch.
+ argv=[x for x in argv if not x.startswith(('-Dgenesis.launch.seed=','-Dgenesis.launch.capture=','-Dgenesis.restart.'))]
+ return argv,profile
+
+def capture(project,pid,output):
+ argv,profile=read_client(pid)
+ output=safe(output)
+ if output.exists() or not output.parent.is_dir():raise ValueError('NEW private capture directory required')
+ output.mkdir();java(project,argv[0],'private',output);json_write(output/'client-argv.json',argv,new=True)
+ return {'captured':True,'file':str(output/'client-argv.json'),'processModified':False,'containsPrivateLaunchArguments':True}

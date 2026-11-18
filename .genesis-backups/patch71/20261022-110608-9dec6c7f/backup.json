@@ -1,0 +1,108 @@
+{
+  "patch": 69,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ManagedRemote71.java",
+      "existed": false,
+      "before": null,
+      "after": "47eed80d8bc58f1756e6a8b74e68d85ea8a8e21ea3780fa6219be71c5ea28124"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RemoteApplyService70.java",
+      "existed": true,
+      "before": "57cbf45def62339f3b82c19f800866ea71db8d31dad512049347abe00d1a805b",
+      "after": "028dfe7d9bfa9b6c76f70f946d44ca4bbe8517c570182b426929bc99553bb337"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RemoteInstallScreen70.java",
+      "existed": true,
+      "before": "bdb12847128fe60b8e2736d5ea362de5cc42e9a3df5831379b84f589f7f3f2b3",
+      "after": "d368eeb9073dbb233b7323d6d89e06d62347b2655f7cb6ddf1799989a2b71e60"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "d76f462f3044991135460dbd93465b1eecc98009d3b3380d7e40129f18827434",
+      "after": "a671c30c5dd78dce4d9ad9187fb3ad90ee8e660e1e1d46a8293e4e96198d4a02"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "d8a4f38e3516c619b5ea44d7826d071ffdbcdcc63af44974c7968ca366cabaaa",
+      "after": "568b422f7b6d49f63427d4a340b109e23bc32c48b176dc6430f704e4b4e3f81d"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "a5a8dd0817fab43921ecc2aa6dda49adc4ae1a840c1c2ba07441a196ac90672d",
+      "after": "1a125ee1704c7716200e34ea4129fef00e2003d4b71ca0dc0072969368983637"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteInstallCli70.java",
+      "existed": true,
+      "before": "b3c290d2212965978058f0ea8b8e270125a6ebc58ba5e8986084cc487cda6c3c",
+      "after": "508f19a6221f63adcc64393f6f9a4dd49628194ce7b5fe8fcd06e26b692cb53e"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteRepeat71.java",
+      "existed": false,
+      "before": null,
+      "after": "6c06870d0656c58fc1adfffbb5590afa3ddc4fe3beac1b113f3f05378f449131"
+    },
+    {
+      "path": "tools/first58/desktop66.py",
+      "existed": true,
+      "before": "8d437dcedf711efdafd6d223efa63b7e853e4078fac54a9600916039851d319b",
+      "after": "10e9c928274e2bac75726cc05b0df4c0d33486dd59398793dad542e0405da9d4"
+    },
+    {
+      "path": "tools/first58/remote70.py",
+      "existed": true,
+      "before": "566773793456a615d348a923032829a1c738edcf51f9fddce606563340f2faf4",
+      "after": "14809fab51e6218c8ac10f33c6f04127fcd55a3c85edd61418177ae5a6be61c7"
+    },
+    {
+      "path": "tools/first58/repeat71.py",
+      "existed": false,
+      "before": null,
+      "after": "5c322c6c46baea523d9aa8d9587400fa85dcb224385089edb413ecf3300bf897"
+    },
+    {
+      "path": "tools/remote_client70.py",
+      "existed": true,
+      "before": "2374dd738f7c6825f8dd9d58ce85f7a1d9ff8d3489da40efd9fca589871ab2f3",
+      "after": "3f6184316ea525f3b740d3ac70e6070931bcb6453cb7468334ad31c6173cf05c"
+    },
+    {
+      "path": "verification/server59/RemoteChecks69.java",
+      "existed": true,
+      "before": "854dbf42f755704f445c751f5fcd68dc303e2ea1bb156c148b5af9011a38b236",
+      "after": "c8ca5faf5762ed515f3108571b4b7f74adcffedae6b84254e24fbe722811e68d"
+    },
+    {
+      "path": "verification/server59/RemoteRepeatChecks71.java",
+      "existed": false,
+      "before": null,
+      "after": "21337499d462a435f24565d9a60f8791fe9b5cd64af76a4ba5008676324f15ba"
+    },
+    {
+      "path": "verification/server59/remote_https_checks69.py",
+      "existed": true,
+      "before": "66b4f2e67f38284ea2ee74d000ab1915d988d61d1a532ca7a529f6cd11972667",
+      "after": "530f88383cb017de43793f4b118db6d8d8dc34b135ecba8dd5faa511ec50157b"
+    },
+    {
+      "path": "verification/server59/remote_repeat_checks71.py",
+      "existed": false,
+      "before": null,
+      "after": "a3f7f0fe47d9e160f2320554414a1c45de4adbbc4500356a9c44bf41e21492ac"
+    },
+    {
+      "path": "verification/server59/test_remote_repeat71.py",
+      "existed": false,
+      "before": null,
+      "after": "72b928a2420cee9727980fea1badd7ced94fd34857b431d6ac036470896b3b1d"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+package com.fixmer.genesis.technology.server.remote;
+import com.fixmer.genesis.technology.server.firstlaunch.*;
+import java.io.*;import java.nio.file.*;import java.util.*;
+/** Local owner-created dedicated session. HMAC is not remote-player authentication or PID adoption. */
+public final class DedicatedSession74 {
+ public final Path root,profile;public final int generation;public final Map<String,String> config;private final byte[] key;
+ private DedicatedSession74(Path root,int gen,Map<String,String> c,byte[] key)throws Exception{this.root=root;generation=gen;config=c;this.key=key;profile=FirstLaunchFiles.safe(root.resolve("generations/server-"+gen));}
+ public static DedicatedSession74 open(Map<String,String> env)throws Exception{
+  if(env.get("GENESIS_DEDICATED74_ROOT")==null)return null;Path root=FirstLaunchFiles.safe(Path.of(env.get("GENESIS_DEDICATED74_ROOT")));String gen=env.get("GENESIS_DEDICATED74_GENERATION");if(!Set.of("0","1").contains(gen))throw new IOException("DEDICATED74_GENERATION");byte[] key=FirstLaunchFiles.read(root.resolve("owner74.key"),32);if(key.length!=32)throw new IOException("DEDICATED74_KEY");var c=LocalApply67.verify(key,FirstLaunchFiles.read(root.resolve("server-"+gen+".session"),16384));
+  if(!c.keySet().equals(Set.of("schema","run","generation","inventory","minecraft","neoforge","auth","bind","port"))||!c.get("schema").equals("74")||!c.get("run").equals(env.get("GENESIS_DEDICATED74_RUN"))||!c.get("generation").equals(gen)||!c.get("inventory").matches("[a-f0-9]{64}")||!Set.of("true","false").contains(c.get("auth"))||!c.get("port").matches("[0-9]{1,5}")||Integer.parseInt(c.get("port"))<1||Integer.parseInt(c.get("port"))>65535)throw new IOException("DEDICATED74_SESSION");UUID.fromString(c.get("run"));return new DedicatedSession74(root,Integer.parseInt(gen),c,key);
+ }
+ public void verifyRuntime(Path actual,Collection<Path> loaded,String mc,String neo,boolean auth,String bind,int port)throws Exception{
+  if(!FirstLaunchFiles.safe(actual).equals(profile)||!config.get("minecraft").equals(mc)||!config.get("neoforge").equals(neo)||!config.get("auth").equals(Boolean.toString(auth))||!config.get("bind").equals(bind)||!config.get("port").equals(Integer.toString(port))||!FirstLaunchFiles.inventory(profile).equals(config.get("inventory")))throw new IOException("DEDICATED74_RUNTIME");
+  try(var paths=Files.list(profile.resolve("mods"))){for(Path jar:paths.filter(p->p.getFileName().toString().endsWith(".jar")).toList()){boolean found=false;for(Path p:loaded){try{if(Files.isSameFile(jar,p)){found=true;break;}}catch(IOException|RuntimeException unrelated){}}if(!found)throw new IOException("DEDICATED74_NOT_LOADED");}}
+ }
+ public Map<String,String> command()throws Exception{
+  Path p=root.resolve("server-"+generation+".command");if(!Files.exists(p))return Map.of();var d=LocalApply67.verify(key,FirstLaunchFiles.read(p,16384));
+  if(!d.keySet().equals(Set.of("schema","run","generation","inventory","sequence","request","action","round","label"))||!d.get("schema").equals("74")||!d.get("run").equals(config.get("run"))||!d.get("generation").equals(config.get("generation"))||!d.get("inventory").equals(config.get("inventory"))||!d.get("sequence").matches("[1-9][0-9]{0,16}")||!Set.of("LOCAL_TEST_ON","LOCAL_TEST_OFF","PREPARE","OFFER","STATUS","COMMIT","CANCEL","CLOSE","QUIESCE","SAVE_STOP","SHUTDOWN").contains(d.get("action"))||!d.get("label").matches("[A-Za-z0-9_-]{1,40}"))throw new IOException("DEDICATED74_COMMAND");if(UUID.fromString(d.get("request")).equals(new UUID(0,0)))throw new IOException("DEDICATED74_REQUEST");if(!d.get("round").equals("none"))UUID.fromString(d.get("round"));return d;
+ }
+ public void prepared(RemoteOffer69 offer)throws Exception{
+  if(generation!=0)throw new IOException("DEDICATED74_ONE_TRANSITION");var d=LocalApply67.verify(key,FirstLaunchFiles.read(root.resolve("prepared74"),16384));
+  if(!d.keySet().equals(Set.of("schema","run","generation","oldInventory","newInventory","release","client","server","label","codeSeal"))||!d.get("schema").equals("74")||!d.get("run").equals(config.get("run"))||!d.get("generation").equals("0")||!d.get("oldInventory").equals(config.get("inventory"))||!d.get("release").equals(offer.release().toString())||!d.get("client").equals(offer.archiveSha())||!d.get("newInventory").matches("[a-f0-9]{64}")||!d.get("server").matches("[a-f0-9]{64}")||!d.get("codeSeal").matches("[a-f0-9]{64}"))throw new IOException("DEDICATED74_NOT_PREPARED");
+ }
+ public synchronized void status(String phase,long seq,UUID request,String round)throws Exception{
+  if(!Set.of("READY","QUIESCED","SAVED","STOPPED_SAVED","STOPPED","ERROR","COMMAND_ACCEPTED").contains(phase))throw new IOException("DEDICATED74_PHASE");FirstLaunchFiles.write(root.resolve("server-"+generation+".status"),LocalApply67.sign(key,Map.of("schema","74","run",config.get("run"),"generation",Integer.toString(generation),"inventory",config.get("inventory"),"sequence",Long.toString(seq),"request",request.toString(),"phase",phase,"round",round,"at",Long.toString(System.currentTimeMillis()))),true);
+ }
+}

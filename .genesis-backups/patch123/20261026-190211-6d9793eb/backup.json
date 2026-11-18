@@ -1,0 +1,156 @@
+{
+  "patch": 123,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "8c6f7f0b1d0ee74898c84129c6f9a3a4d21e6e5540927df11e395ac2b8d958c4",
+      "after": "7d352a0458d82e379a759a8d52e695f0d8db4a2dc622fd3855f8a63fa71fb1d2"
+    },
+    {
+      "path": "docs/LIVE_WORKSPACE_122_RU.md",
+      "existed": false,
+      "before": null,
+      "after": "186e4938fb163fb8cb0c3029407b0738cdf6125c938e4bd0690b70346dffb858"
+    },
+    {
+      "path": "docs/WORKSPACE_CONNECTION_PLAN_122.json",
+      "existed": true,
+      "before": "9436b302aa7cf788e9b364396bbe71db6011d090887060e78add788490b1a2b2",
+      "after": "b32468c632ba961220c4a4b8a1ff1b71741759081a1afd9e0077f235baf105a7"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/gui2/framework/components/editor/EditorView.java",
+      "existed": true,
+      "before": "a9e1e3d5718f8173e376488f4819b04b458c6cdfcd05b1786eede7f6cb35adbc",
+      "after": "4dcd50de924352fbdd21749d269c4150ab2ae782bbf0dbc781b9fd2d3cef5b39"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/editor/EditorWorkbench.java",
+      "existed": true,
+      "before": "f957a5b1b2ce0a735953ab27d82b3bb60b5f52846ede63d08d048e23a016e293",
+      "after": "ac7fffcabcb339ba01de46423ba984a8ee437ada725ae360457b20f3b1f1876e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/WorkspacePickerScreen112.java",
+      "existed": true,
+      "before": "6e40305f9a5064e78546f1e366469c5f6141a858aca174c1edbb894e26633c65",
+      "after": "d6e345971daa27fd13a559a6fa3c91cc74f339465877cffed3c448bf3fab1864"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/WorkspaceServer112.java",
+      "existed": true,
+      "before": "cc06d3b49c64e83f798f41614c6afea9289c2b617506485ba905e15b4dca414e",
+      "after": "1975719b7a76a81780adac8f565ee506892a1b24f9664089c22c12972aa7d862"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/live122/WorkspaceClient122.java",
+      "existed": false,
+      "before": null,
+      "after": "a002083cd077e8e86d624decee007ea6d9985eb2bf1936133e66c2d70eb83e50"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/live122/WorkspaceMembers122.java",
+      "existed": false,
+      "before": null,
+      "after": "924993457d8f4139fb08aca917e10ac072f1080d8528924d45f457582b475afb"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/live122/WorkspacePayloads122.java",
+      "existed": false,
+      "before": null,
+      "after": "5a3f93dcd1fedbabaee41c64d1d11f80d89f01d0c259dc2e723e25c7e6287c5d"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/live122/WorkspaceReview122.java",
+      "existed": false,
+      "before": null,
+      "after": "6e138a27f7e33f34e30767224a1af670fa9841acd4df93d8117ed285ce191f5c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/live122/WorkspaceScreen122.java",
+      "existed": false,
+      "before": null,
+      "after": "ffd5525bcb4bcf3c5d1e09881d7ecbe0849a237be4803ed28f7702e14eb5579e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/workspace/live122/WorkspaceServer122.java",
+      "existed": false,
+      "before": null,
+      "after": "8e7f9642904e7b7fb847ab3a26f0b25de19b850b038a9aef1203634bf58a90ea"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "3e23e1aaf58f5cd62142811ba543bb442c5784883cdf590a49dc731e915e6f56",
+      "after": "38a9b60d0bc91fbd212cb8dd92791d6628ffe46574e83d95656eb9fae32536c4"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "4c9438107d90c405972227a8b3475aa431fb1608bed3f25f40fe98034e4c4c52",
+      "after": "5a4fc3cdf4efce991cddc1d918a33c9eac10f3115282960079a844b71be6d52c"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/technology/workspace/live122/WorkspaceFlowChecks122.java",
+      "existed": false,
+      "before": null,
+      "after": "e0a2573f8c6ad45a85ecfe561ccd29f60dd2c1dc80556584712740d89a86cac7"
+    },
+    {
+      "path": "technologies/core/foundation117.json",
+      "existed": true,
+      "before": "307aadc6c910679ebf44cbca4627a65c22cb1ab9f87ab1674842345dd99d04ee",
+      "after": "15d809356e26da8c74ab1b17f487ec1173d3f862571b3d2fa81e85c504e2c3f5"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/WorkspaceStore112.java",
+      "existed": true,
+      "before": "d8706d2830575dcf2b763420be731c9ca34638842933af07c6400518cc424797",
+      "after": "2e8366a856331b51850f412af31629c9b7a547a061ebcf3f06f20ebe9a395663"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/collaboration121/WorkspaceEngine121.java",
+      "existed": true,
+      "before": "e7314f6b59bd41d4961a47b5fa6e1bf34e5454e08f665d4e3e56eba43464dfe5",
+      "after": "d469114b23b5ea1d490828df9b81cebc3c683e1b0b08c71e6d41607a17fea46b"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/collaboration121/WorkspaceJournal121.java",
+      "existed": true,
+      "before": "1a8947ebc724461aa99a9f58b688f34ee81e44db158193e61a52a76c69a7d79e",
+      "after": "4c10936a85f0b73a851e174ade105fb1eb102b7c144d8934f79912b80c6d0262"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/live122/WorkspaceCache122.java",
+      "existed": false,
+      "before": null,
+      "after": "7cdf33b75bd61f20b89d7949e0e81074768756704d68124bf5a24a0712a2f893"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/live122/WorkspaceCodec122.java",
+      "existed": false,
+      "before": null,
+      "after": "5a4266e80259430fd1b6f0653348f6da7a48432496237ea26a5b0caeeada3883"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/live122/WorkspaceHub122.java",
+      "existed": false,
+      "before": null,
+      "after": "b871d21a2c91a2c58ef6487d5c3961493ebe4de87963b0124a6854d61ec39b1d"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/workspace/live122/WorkspaceReplica122.java",
+      "existed": false,
+      "before": null,
+      "after": "e7e2edda226564b42ac2fa632f00dcf2038094c2a7d7e5a924e1377f79681821"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/technology/server/remote/FolderChecks118.java",
+      "existed": true,
+      "before": "fefeb83172a44a5c7f23d1accbf2cd321aa9ea27d5134ed8b479de6e3ef81c7d",
+      "after": "15849292d1331bc386f17d8b4a36e6608e5c873a0060842fc107373fafb02fac"
+    }
+  ]
+}

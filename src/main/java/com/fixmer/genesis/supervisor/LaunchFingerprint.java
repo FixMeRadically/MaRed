@@ -108,7 +108,7 @@ final class LaunchFingerprint {
     private static boolean nativeName(Path path){String n=path.getFileName().toString().toLowerCase(Locale.ROOT);return n.endsWith(".dll")||n.endsWith(".so")||n.contains(".so.")||n.endsWith(".dylib")||n.endsWith(".jnilib");}
     private static String label(Path project,Root root){
         Path path=root.path();String value=(root.nativeOnly()?"native: ":"")+(path.startsWith(project)?project.relativize(path).toString():"external/"+path.getFileName());
-        value=value.replace('\\','/').replaceAll("[\\p{Cntrl}]","?");return value.length()>230?value.substring(0,227)+"...":value;
+        value=value.replace('\\','/').replaceAll("[\\p{Cntrl}]","?");return value.length()>230?DiagnosticText.prefix(value,227)+"...":value;
     }
     private static String required(Properties p,String key)throws IOException {String value=p.getProperty(key);if(value==null||value.isBlank())throw new IOException("Missing cache field");return value;}
     private static MessageDigest digest()throws IOException {try{return MessageDigest.getInstance("SHA-256");}catch(NoSuchAlgorithmException e){throw new IOException(e);}}

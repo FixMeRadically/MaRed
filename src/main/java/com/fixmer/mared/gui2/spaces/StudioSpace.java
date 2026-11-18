@@ -11,11 +11,11 @@ public class StudioSpace implements MaredSpace,Disposable {
     private final SpaceId id;
     private StudioSession session;
     public StudioSpace(){this(SpaceId.STUDIO);}
-    protected StudioSpace(SpaceId id){this.id=id;}
+    public StudioSpace(SpaceId id){this.id=id;}
     @Override public SpaceId id(){return id;}
     @Override public String titleKey(){return "mared.space."+id.id();}
-    @Override public int accentColor(){return GenesisEditorVisuals.LOGIC;}
-    @Override public void onEnter(SpaceCameraState camera){if(RuntimeProvider.isInstalled())session=RuntimeProvider.get().session();}
+    @Override public int accentColor(){return id.direction145()==null?GenesisEditorVisuals.LOGIC:id.direction145().color;}
+    @Override public void onEnter(SpaceCameraState camera){if(RuntimeProvider.isInstalled()){session=RuntimeProvider.get().session();if(id.direction145()!=null)session.workbench().enterDirection145(id.direction145());}}
     @Override public void onExit(){if(session!=null)session.workbench().suspended();session=null;}
     @Override public void dispose(){onExit();}
     @Override public void tick(float dt){if(session!=null)session.workbench().tick(dt);}

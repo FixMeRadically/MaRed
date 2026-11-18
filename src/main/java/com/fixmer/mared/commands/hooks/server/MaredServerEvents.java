@@ -356,7 +356,7 @@ public class MaredServerEvents {
     public static void onServerStopped(ServerStoppedEvent event) {
         com.fixmer.mared.technology.ai.GenesisAiRuntime.clear(event.getServer());
         MaredScriptRunner.stopAll();
-        MaredGlobalStorage.clear();
+        MaredGlobalStorage.resetSession140();
         MaredEventRegistry.clearAll();
         MaredBindRegistry.clearAll();
         MaredKeyBlocker.clear();

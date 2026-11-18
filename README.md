@@ -4,7 +4,7 @@ Supervisor performance stage: [docs/PERFORMANCE_05_RU.md](docs/PERFORMANCE_05_RU
 
 Native mod import/edit/build/apply/export cycle (singleplayer): [docs/MOD_CYCLE_04_RU.md](docs/MOD_CYCLE_04_RU.md). Includes supervisor stable-03 fixes.
 
-Development of 0.4.0 starts with Genesis stage 7.1. Release tracking: [docs/RELEASE_0_4_0_TRACKING_RU.md](docs/RELEASE_0_4_0_TRACKING_RU.md). Publication instructions will be prepared at the project owner's final request.
+Development of 0.4.0 starts with Genesis stage 7.1. Development roadmap: [docs/GENESIS_0_4_5_ROADMAP_RU.md](docs/GENESIS_0_4_5_ROADMAP_RU.md). Publication instructions will be prepared at the project owner's final request.
 
 
 Installation information

@@ -30,3 +30,5 @@ side = "BOTH"
 
 [[mixins]]
 config = "mared.mixins.json"
+
+

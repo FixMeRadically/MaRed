@@ -1,0 +1,18 @@
+{
+  "patch": 121,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "032f0b45b3483074968b48aa2d6d91abc524748778591a2a6789f119004bb7b7",
+      "after": "8c6f7f0b1d0ee74898c84129c6f9a3a4d21e6e5540927df11e395ac2b8d958c4"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/BootstrapIsolationChecks121.java",
+      "existed": false,
+      "before": null,
+      "after": "3bd1f878bb643d895e2f04b7e9c5a768ea3b9eb7bb86500e79ea6df8bb0de20c"
+    }
+  ]
+}

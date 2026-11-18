@@ -1,0 +1,90 @@
+package com.fixmer.genesis.technology.workspace.collaboration121;
+import java.io.*;import java.nio.charset.StandardCharsets;import java.nio.file.*;import java.util.*;
+import static com.fixmer.genesis.technology.workspace.collaboration121.WorkspacePolicy121.Capability;
+/** New opt-in backend; NO network, editor, Gradle or supervisor registration in patch121.
+ * Each acknowledged mutation has a forced journal frame. Revision CAS prevents stale whole-file actions. */
+public final class WorkspaceEngine121 implements AutoCloseable {
+ private static final int MAGIC=0x47573121,MAX_FILES=64;
+ private final UUID project,owner;private final WorkspaceJournal121 journal;
+ private State state;private boolean closed;
+ private record Deletion(UUID actor,String path,long revision,String hash,long deadline){}
+ private final Map<UUID,Deletion> deletionTickets=new HashMap<>();
+ public record Change(String path,String kind,String beforeHash,String afterHash){}
+ public synchronized List<Change> changes(UUID actor){var old=state.release==null?Map.<String,WorkspaceRelease121.File>of():state.release.files();var current=files(state);var paths=new TreeSet<String>(old.keySet());paths.addAll(current.keySet());var result=new ArrayList<Change>();for(String p:paths){if(!state.policy.allows(actor,Capability.READ,p))continue;var a=old.get(p);var b=current.get(p);String ah=a==null?"":WorkspaceRelease121.sha(a.bytes()),bh=b==null?"":WorkspaceRelease121.sha(b.bytes());if(!ah.equals(bh))result.add(new Change(p,a==null?"ADDED":b==null?"DELETED":"MODIFIED",ah,bh));}return List.copyOf(result);}
+ public synchronized UUID reviewDeletion(UUID actor,long expected,String path){exact(expected);state.policy.require(actor,Capability.DELETE,path);var file=files(state).get(path);if(file==null)throw new IllegalArgumentException("MISSING");long now=System.nanoTime();deletionTickets.entrySet().removeIf(e->now-e.getValue().deadline>=0);if(deletionTickets.size()>=32)throw new IllegalStateException("LIMIT");UUID ticket=UUID.randomUUID();deletionTickets.put(ticket,new Deletion(actor,path,expected,WorkspaceRelease121.sha(file.bytes()),now+60_000_000_000L));return ticket;}
+ public synchronized void deleteReviewed(UUID actor,long expected,String path,UUID ticket)throws IOException{exact(expected);state.policy.require(actor,Capability.DELETE,path);var t=deletionTickets.get(ticket);var f=files(state).get(path);if(t==null||!t.actor.equals(actor)||!t.path.equals(path)||t.revision!=expected||System.nanoTime()-t.deadline>=0||f==null||!t.hash.equals(WorkspaceRelease121.sha(f.bytes())))throw new SecurityException("DELETE_REVIEW_REQUIRED");var n=copy();n.text.remove(path);n.assets.remove(path);commit(n,actor,"DELETE");deletionTickets.remove(ticket);}
+
+ private static final class State {long revision;UUID actor;String action;WorkspacePolicy121 policy;TreeMap<String,CollaborativeDocument121> text=new TreeMap<>();TreeMap<String,WorkspaceRelease121.File> assets=new TreeMap<>();WorkspaceRelease121.Snapshot release;WorkspaceRelease121.Approval approval;}
+ public record Event(long revision,UUID actor,String action){}
+ public WorkspaceEngine121(Path journalPath,UUID project,UUID owner)throws IOException{
+  this.project=Objects.requireNonNull(project);this.owner=Objects.requireNonNull(owner);journal=new WorkspaceJournal121(journalPath);
+  try{var records=journal.records();if(records.isEmpty()){state=new State();state.revision=1;state.actor=owner;state.action="CREATE";state.policy=new WorkspacePolicy121(owner);journal.append(encode(state));}else{for(byte[] b:records){State next=decode(b);if(state!=null&&next.revision!=state.revision+1)throw new IOException("REVISION_CHAIN");state=next;}}}catch(Exception e){journal.close();if(e instanceof IOException io)throw io;throw new IOException("CORRUPT",e);}
+ }
+ private State copy()throws IOException{if(closed)throw new IOException("CLOSED");return decode(encode(state));}
+ private void commit(State next,UUID actor,String action)throws IOException{if(state.revision==Long.MAX_VALUE)throw new IOException("LIMIT");next.revision=state.revision+1;next.actor=actor;next.action=action;journal.append(encode(next));state=next;}
+ private void exact(long revision){if(closed)throw new IllegalStateException("CLOSED");if(state.revision!=revision)throw new IllegalStateException("CONFLICT");}
+ public synchronized long revision(){return state.revision;}
+ public synchronized WorkspacePolicy121.Snapshot policy(){return state.policy.snapshot();}
+ public synchronized void grant(UUID actor,long expected,UUID target,WorkspacePolicy121.Member member)throws IOException{exact(expected);var n=copy();n.policy.grant(actor,n.policy.revision(),target,member);n.approval=null;commit(n,actor,"GRANT");}
+ public synchronized void revoke(UUID actor,long expected,UUID target)throws IOException{exact(expected);var n=copy();n.policy.revoke(actor,n.policy.revision(),target);n.approval=null;commit(n,actor,"REVOKE");}
+ public synchronized void createText(UUID actor,long expected,String path,String text)throws IOException{
+  exact(expected);path=WorkspacePolicy121.path(path);state.policy.require(actor,Capability.CREATE,path);if(collision(state,path)||state.text.size()+state.assets.size()>=MAX_FILES)throw new IllegalArgumentException("EXISTS_OR_LIMIT");var n=copy();var d=new CollaborativeDocument121();if(!text.isEmpty())d.apply(d.replace(actor,0,0,text));n.text.put(path,d);commit(n,actor,"CREATE_TEXT");
+ }
+ /** No whole-project revision fence for concurrent CRDT batches. Dependencies and author are checked. */
+ public synchronized boolean edit(UUID actor,String path,CollaborativeDocument121.Batch batch)throws IOException{
+  state.policy.require(actor,Capability.EDIT,path);if(!actor.equals(batch.actor()))throw new SecurityException("ACTOR");var n=copy();var d=n.text.get(path);if(d==null)throw new IllegalArgumentException("NOT_TEXT");if(!d.apply(batch))return false;commit(n,actor,"EDIT");return true;
+ }
+ public synchronized CollaborativeDocument121.Snapshot document(UUID actor,String path){state.policy.require(actor,Capability.READ,path);var d=state.text.get(path);if(d==null)throw new IllegalArgumentException("NOT_TEXT");return d.snapshot();}
+ public synchronized Map<String,WorkspaceRelease121.File> files(UUID actor){var all=files(state);all.entrySet().removeIf(e->!state.policy.allows(actor,Capability.READ,e.getKey()));return Map.copyOf(all);}
+ public synchronized void putAsset(UUID actor,long expected,String path,byte[] bytes)throws IOException{
+  exact(expected);path=WorkspacePolicy121.path(path);boolean exists=state.assets.containsKey(path);state.policy.require(actor,exists?Capability.EDIT:Capability.CREATE,path);if(state.text.containsKey(path)||!exists&&collision(state,path)||!exists&&state.text.size()+state.assets.size()>=MAX_FILES)throw new IllegalArgumentException("EXISTS_OR_LIMIT");var n=copy();n.assets.put(path,new WorkspaceRelease121.File(path,state.revision+1,bytes));commit(n,actor,"ASSET");
+ }
+ /** Old unreviewed API deliberately fails closed. */
+ public synchronized void delete(UUID actor,long expected,String path)throws IOException{throw new SecurityException("DELETE_REVIEW_REQUIRED");}
+ public synchronized void rename(UUID actor,long expected,String path,String target)throws IOException{exact(expected);target=WorkspacePolicy121.path(target);state.policy.require(actor,Capability.DELETE,path);state.policy.require(actor,Capability.CREATE,target);var n=copy();if(collision(n,target))throw new IllegalArgumentException("EXISTS");if(n.text.containsKey(path))n.text.put(target,n.text.remove(path));else{var a=n.assets.remove(path);if(a==null)throw new IllegalArgumentException("MISSING");n.assets.put(target,new WorkspaceRelease121.File(target,state.revision+1,a.bytes()));}commit(n,actor,"RENAME");}
+ public synchronized List<Event> history(UUID actor,String path)throws IOException{state.policy.require(actor,Capability.VIEW_HISTORY,path);var result=new ArrayList<Event>();WorkspaceRelease121.File previous=null;for(byte[] bytes:journal.records()){State s=decode(bytes);var current=files(s).get(path);if(previous!=null||current!=null){if(current==null||previous==null||!same(previous,current))result.add(new Event(s.revision,s.actor,s.action));}previous=current;}return List.copyOf(result);}
+ public synchronized void restore(UUID actor,long expected,String path,long historicalRevision)throws IOException{
+  exact(expected);state.policy.require(actor,Capability.RESTORE,path);State source=null;for(byte[] bytes:journal.records()){State s=decode(bytes);if(s.revision==historicalRevision){source=s;break;}}if(source==null)throw new IllegalArgumentException("HISTORY");var n=copy();n.text.remove(path);n.assets.remove(path);if(collision(n,path))throw new IllegalArgumentException("PATH_COLLISION");if(source.text.containsKey(path))n.text.put(path,source.text.get(path));else if(source.assets.containsKey(path))n.assets.put(path,source.assets.get(path));else throw new IllegalArgumentException("HISTORY_PATH");if(n.text.size()+n.assets.size()>MAX_FILES)throw new IllegalArgumentException("LIMIT");commit(n,actor,"RESTORE");
+ }
+ /** Selected paths overlay last approved build. Unselected edits stay drafts; selected deletions are explicit. */
+ public synchronized WorkspaceRelease121.Snapshot preview(UUID actor,long expected,Set<String> selected){
+  exact(expected);if(selected.isEmpty()||selected.size()>MAX_FILES*2)throw new IllegalArgumentException("SELECTION");var result=new TreeMap<String,WorkspaceRelease121.File>();if(state.release!=null)result.putAll(state.release.files());var working=files(state);
+  for(String p:selected){state.policy.require(actor,Capability.READ,p);if(working.containsKey(p))result.put(p,working.get(p));else if(result.remove(p)==null)throw new IllegalArgumentException("MISSING");}
+  // Cannot leak previously approved content through preview after access restrictions change.
+  for(String p:result.keySet())state.policy.require(actor,Capability.READ,p);
+  return WorkspaceRelease121.freeze(project,state.revision,actor,result);
+ }
+ public synchronized void approve(UUID reviewer,long expected,WorkspaceRelease121.Snapshot candidate)throws IOException{
+  exact(expected);if(!project.equals(candidate.project())||candidate.revision()!=expected)throw new IllegalStateException("STALE_RELEASE");
+  // Candidate must consist exclusively of current working data or exact retained baseline files.
+  var working=files(state);for(var e:candidate.files().entrySet()){var f=working.get(e.getKey());var old=state.release==null?null:state.release.files().get(e.getKey());if(!same(f,e.getValue())&&!same(old,e.getValue()))throw new SecurityException("FORGED_FILE");}
+  if(state.release!=null)for(String removed:state.release.files().keySet())if(!candidate.files().containsKey(removed))state.policy.require(reviewer,Capability.APPROVE,removed);
+  var n=copy();n.approval=WorkspaceRelease121.approve(n.policy,reviewer,candidate);n.release=candidate;commit(n,reviewer,"APPROVE");
+ }
+ private static boolean same(WorkspaceRelease121.File a,WorkspaceRelease121.File b){return a!=null&&a.path().equals(b.path())&&a.revision()==b.revision()&&Arrays.equals(a.bytes(),b.bytes());}
+ public synchronized Map<String,WorkspaceRelease121.File> build(UUID actor){if(closed)throw new IllegalStateException("CLOSED");if(state.release==null||state.approval==null)throw new IllegalStateException("NOT_APPROVED");return WorkspaceRelease121.build(state.policy,actor,state.release,state.approval);}
+ private static boolean collision(State s,String path){return java.util.stream.Stream.concat(s.text.keySet().stream(),s.assets.keySet().stream()).anyMatch(p->p.equalsIgnoreCase(path));}
+ private TreeMap<String,WorkspaceRelease121.File> files(State s){var r=new TreeMap<>(s.assets);s.text.forEach((p,d)->r.put(p,new WorkspaceRelease121.File(p,Math.max(1,d.revision()+1),d.text().getBytes(StandardCharsets.UTF_8))));return r;}
+ private static void id(DataOutputStream o,UUID u)throws IOException{o.writeLong(u.getMostSignificantBits());o.writeLong(u.getLeastSignificantBits());}private static UUID id(DataInputStream i)throws IOException{return new UUID(i.readLong(),i.readLong());}
+ private static void node(DataOutputStream o,CollaborativeDocument121.Id n)throws IOException{id(o,n.actor());o.writeLong(n.clock());}private static CollaborativeDocument121.Id node(DataInputStream i)throws IOException{return new CollaborativeDocument121.Id(id(i),i.readLong());}
+ private static <E extends Enum<E>> void enums(DataOutputStream o,Set<E> s)throws IOException{o.writeInt(s.size());for(E e:s)o.writeUTF(e.name());}
+ private static <E extends Enum<E>> Set<E> enums(DataInputStream i,Class<E> type)throws IOException{int n=count(i,64);var s=EnumSet.noneOf(type);for(int x=0;x<n;x++)if(!s.add(Enum.valueOf(type,i.readUTF())))throw new IOException("DUPLICATE");return s;}
+ private static int count(DataInputStream i,int max)throws IOException{int n=i.readInt();if(n<0||n>max)throw new IOException("LIMIT");return n;}
+ private static void file(DataOutputStream o,WorkspaceRelease121.File f)throws IOException{o.writeUTF(f.path());o.writeLong(f.revision());byte[] b=f.bytes();o.writeInt(b.length);o.write(b);}private static WorkspaceRelease121.File file(DataInputStream i)throws IOException{String p=i.readUTF();long r=i.readLong();int n=count(i,8*1024*1024);byte[] b=i.readNBytes(n);if(b.length!=n)throw new EOFException();return new WorkspaceRelease121.File(p,r,b);}
+ private byte[] encode(State s)throws IOException{
+  var bytes=new ByteArrayOutputStream();try(var o=new DataOutputStream(bytes)){o.writeInt(MAGIC);id(o,project);id(o,owner);o.writeLong(s.revision);id(o,s.actor);o.writeUTF(s.action);var policy=s.policy.snapshot();o.writeLong(policy.revision());o.writeInt(policy.members().size());for(var e:new TreeMap<>(policy.members()).entrySet()){id(o,e.getKey());var m=e.getValue();o.writeUTF(m.role().name());enums(o,m.denied());enums(o,m.hidden());o.writeInt(m.rules().size());for(var rule:m.rules()){o.writeUTF(rule.prefix());enums(o,rule.denied());enums(o,rule.hidden());}}
+   o.writeInt(s.text.size());for(var e:s.text.entrySet()){o.writeUTF(e.getKey());var d=e.getValue().snapshot();o.writeLong(d.revision());o.writeInt(d.nodes().size());for(var n:d.nodes()){node(o,n.id());node(o,n.after());o.writeInt(n.codepoint());}o.writeInt(d.deleted().size());for(var n:new TreeSet<>(d.deleted()))node(o,n);}
+   o.writeInt(s.assets.size());for(var f:s.assets.values())file(o,f);o.writeBoolean(s.release!=null);if(s.release!=null){o.writeLong(s.release.revision());id(o,s.release.author());o.writeUTF(s.release.hash());o.writeInt(s.release.files().size());for(var f:new TreeMap<>(s.release.files()).values())file(o,f);}
+   o.writeBoolean(s.approval!=null);if(s.approval!=null){id(o,s.approval.reviewer());o.writeUTF(s.approval.hash());o.writeLong(s.approval.policyRevision());}}
+  if(bytes.size()>WorkspaceJournal121.MAX_RECORD)throw new IOException("STATE_LIMIT");return bytes.toByteArray();
+ }
+ private State decode(byte[] bytes)throws IOException{
+  try(var i=new DataInputStream(new ByteArrayInputStream(bytes))){if(i.readInt()!=MAGIC||!id(i).equals(project)||!id(i).equals(owner))throw new IOException("IDENTITY");var s=new State();s.revision=i.readLong();s.actor=id(i);s.action=i.readUTF();if(s.revision<1)throw new IOException("REVISION");long pr=i.readLong();int members=count(i,64);var ms=new HashMap<UUID,WorkspacePolicy121.Member>();for(int n=0;n<members;n++){UUID u=id(i);var role=WorkspacePolicy121.Role.valueOf(i.readUTF());var denied=enums(i,Capability.class);var hidden=enums(i,WorkspacePolicy121.Panel.class);int nr=count(i,128);var rules=new ArrayList<WorkspacePolicy121.Rule>();for(int r=0;r<nr;r++)rules.add(new WorkspacePolicy121.Rule(i.readUTF(),enums(i,Capability.class),enums(i,WorkspacePolicy121.Panel.class)));if(ms.put(u,new WorkspacePolicy121.Member(role,denied,hidden,rules))!=null)throw new IOException("DUPLICATE");}s.policy=WorkspacePolicy121.restore(new WorkspacePolicy121.Snapshot(owner,pr,ms));
+   int docs=count(i,MAX_FILES);for(int n=0;n<docs;n++){String p=WorkspacePolicy121.path(i.readUTF());long rev=i.readLong();int nn=count(i,CollaborativeDocument121.MAX_NODES);var nodes=new ArrayList<CollaborativeDocument121.Insert>();for(int k=0;k<nn;k++)nodes.add(new CollaborativeDocument121.Insert(node(i),node(i),i.readInt()));int nd=count(i,nn);var deleted=new HashSet<CollaborativeDocument121.Id>();for(int k=0;k<nd;k++)if(!deleted.add(node(i)))throw new IOException("DUPLICATE");if(s.text.put(p,new CollaborativeDocument121(new CollaborativeDocument121.Snapshot(nodes,deleted,rev)))!=null)throw new IOException("DUPLICATE");}
+   int assets=count(i,MAX_FILES);for(int n=0;n<assets;n++){var f=file(i);if(s.text.containsKey(f.path())||s.assets.put(f.path(),f)!=null)throw new IOException("DUPLICATE");}if(docs+assets>MAX_FILES)throw new IOException("LIMIT");
+   if(i.readBoolean()){long rev=i.readLong();UUID a=id(i);String h=i.readUTF();int nf=count(i,512);var fs=new TreeMap<String,WorkspaceRelease121.File>();for(int n=0;n<nf;n++){var f=file(i);if(fs.put(f.path(),f)!=null)throw new IOException("DUPLICATE");}s.release=new WorkspaceRelease121.Snapshot(project,rev,a,fs,h);}
+   if(i.readBoolean()){s.approval=new WorkspaceRelease121.Approval(id(i),i.readUTF(),i.readLong());if(s.release==null||!s.release.hash().equals(s.approval.hash()))throw new IOException("APPROVAL");}if(i.available()!=0)throw new IOException("TRAILING");return s;
+  }catch(IllegalArgumentException e){throw new IOException("CORRUPT",e);}
+ }
+ @Override public synchronized void close()throws IOException{closed=true;journal.close();}
+}

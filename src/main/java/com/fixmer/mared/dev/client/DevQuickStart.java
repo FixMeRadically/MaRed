@@ -15,11 +15,12 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 @EventBusSubscriber(modid = Mared.MOD_ID, value = Dist.CLIENT)
 public final class DevQuickStart {
     private static final AtomicBoolean TRIGGERED = new AtomicBoolean();
-    private static String pendingWorld;
+    private static volatile String pendingWorld;
+    public static void suppressForSession91(){TRIGGERED.set(true);pendingWorld=null;}
     private static boolean titleChecked;
     private DevQuickStart() { }
     public static boolean intercept() {
-        if (TRIGGERED.get() || DevSessionResume.skipLocalWorld() || !DevMode.isEnabled() || !DevWorldConfig.autoLoadEnabled()) return false;
+        if (LocalRecovery91.blocksAutoOpen() || TRIGGERED.get() || DevSessionResume.skipLocalWorld() || !DevMode.isEnabled() || !DevWorldConfig.autoLoadEnabled()) return false;
         String world = DevWorldConfig.worldToLoad();
         if (world == null || !DevWorldConfig.worldExists(world) || !TRIGGERED.compareAndSet(false,true)) return false;
         pendingWorld = world;
@@ -33,6 +34,7 @@ public final class DevQuickStart {
             titleChecked = true; intercept();
         }
         if (pendingWorld == null || !(mc.screen instanceof TitleScreen) || mc.getOverlay() != null || mc.getConnection() != null) return;
+        if(LocalRecovery91.blocksAutoOpen())return;
         String world = pendingWorld; pendingWorld = null;
         try {
             Mared.LOGGER.info("[Mared dev] Opening configured world after resource loading");

@@ -1,0 +1,102 @@
+{
+  "patch": 79,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "99ab41cd206dd5ae6b613eb1c0e025b6b8476ed8d6188891b85d0f1d413259e4",
+      "after": "ca4387ab0c19473cd23f84347d61a37b7a1385af891b1c190eebf2de7d3eb373"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/DedicatedPanelScreen75.java",
+      "existed": true,
+      "before": "243d226770cae3d5430ce90e32c11155cf5b036e9145c973c2dfc6e832def038",
+      "after": "3ffd6c7a7f1ba92862e3b2d0d87f2eb6bf049b27cdd46f3e79654db32a103f97"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/PublicationScreen79.java",
+      "existed": false,
+      "before": null,
+      "after": "822725f65440a389dc1d12f32053784cc7f9722ada3fcb6aec42d75dc551feee"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/PublicationService79.java",
+      "existed": false,
+      "before": null,
+      "after": "96448e2aa5b19fda75fbe62a89f81d6d96bfb7bb6bbfe8967de2c1d75c0275ca"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "1cbe10c27b7f87ff05a53d1410241581103d0407981572472dfc577c34f3b0dc",
+      "after": "36bb9cbf5da0154cc933de42a90883b65541368835c6547666718794d496fc5e"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "7ad0afc70e500dddb3359ada5b31a3f94e05af055ee6b4c686006bb9a1c24ecc",
+      "after": "a758949948a1e987056e3e2c22f20547c425a7b52c951ce6b7bfff9b8aa3ba70"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/PublicationChecks79.java",
+      "existed": false,
+      "before": null,
+      "after": "1881a85d60a4313692472944ba8adfd4bd08f3bfeb6291eeb98bdf0ccc550578"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "cc28795eedb83de5036235e4a349b23b2fd942889ccc856d3a1fe342dce36844",
+      "after": "5bfb04c258879693307517dcd72cba47d9d7bc15cce4533c0cd4b036fa005cf8"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Publication79.java",
+      "existed": false,
+      "before": null,
+      "after": "7af9b993e01da6ca4e6507e376110576ab2c4f418c70c5cde417141515f692f2"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/PublicationStatus79.java",
+      "existed": false,
+      "before": null,
+      "after": "106bc60aa7e715fc0c84819b48fbf01f9d05c09a9647c6c383e532c82819b8f6"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteUpdateCli69.java",
+      "existed": true,
+      "before": "081e301807af3713d49b1381881cf371b215f2f180ccd471a8ab3c669db5fbc5",
+      "after": "501d2cb21ef40c7c1884a924041f8adee349057abfd78ca07a4f6643276699fe"
+    },
+    {
+      "path": "tools/dedicated_server75.py",
+      "existed": true,
+      "before": "f8578a938c34a17ecc7b4db5f69d8489aafe0fb59a80517ecea141a9458f3640",
+      "after": "4c831f0cdc33731f432b5f3e3c4db07fee598a6f32de15699eaca740896a528c"
+    },
+    {
+      "path": "tools/first58/dedicated74.py",
+      "existed": true,
+      "before": "899049930beec20b61be26f642333131c8aff9bd0c64422c8e661b03d7d8d807",
+      "after": "78cdf3a7fb3aaa441a938bb829ce7e020b6226c71be8969e44b658646e7ca378"
+    },
+    {
+      "path": "tools/first58/dedicated77.py",
+      "existed": true,
+      "before": "554e737fac4b7e920bfad6d1cda864f1848de2f528f26bd6d2b17370ded7cbc6",
+      "after": "e2ae8f721b173c784da32e0c645794cdaed65d4135592457381b00180ba31b49"
+    },
+    {
+      "path": "tools/first58/publication79.py",
+      "existed": false,
+      "before": null,
+      "after": "b0d05407bf7e99028c3744790654118915a28f0113a06bb439d435b54443ac7b"
+    },
+    {
+      "path": "verification/server59/test_publication79.py",
+      "existed": false,
+      "before": null,
+      "after": "6cc6b155b3e96232c206a859ccd786245cbf52ef9a38c59b1d0b622907cd4cd3"
+    }
+  ]
+}

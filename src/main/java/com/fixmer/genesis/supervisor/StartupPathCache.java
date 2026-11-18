@@ -57,6 +57,7 @@ final class StartupPathCache {
         } catch(Exception e) {log.warn("[startup-path-cache] Preparation declined; ordinary launch continues");return false;}
     }
     private static boolean conflict(String value) {
+        if(ProfileLaunch93.transientArgument(value))return false; // Our admission capsule never transforms classes.
         return value.startsWith("@")||value.startsWith("-javaagent:")||value.startsWith("-agentlib:")||value.startsWith("-agentpath:")
                 ||value.startsWith("-XX:SharedArchiveFile")||value.startsWith("-XX:ArchiveClassesAtExit")||value.startsWith("-Dgenesis.path.cache.");
     }

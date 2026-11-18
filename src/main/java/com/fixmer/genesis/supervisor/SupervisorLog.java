@@ -39,7 +39,7 @@ final class SupervisorLog implements AutoCloseable {
     private void write(String level,String message){
         if(closed.get())return;
         String msg=message==null?"null":message;
-        if(msg.length()>16384)msg=msg.substring(0,16384)+" [truncated]";
+        if(msg.length()>16384)msg=DiagnosticText.prefix(msg,16384)+" [truncated]";
         String line="["+timestamp()+"] ["+level+"] "+msg;
         synchronized(tail){tail.addLast(line);if(tail.size()>TAIL_MAX)tail.removeFirst();}
         if(!output.offer(line))dropped.incrementAndGet();

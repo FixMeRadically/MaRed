@@ -17,12 +17,6 @@ public final class GenesisNode {
     private float spinYaw, spinPitch;
     private final float pulsePhase;
 
-    private static final String[] SUB_GLYPHS = {
-        "{", "}", "if", "==", "->", "<-", "()", "[]", ":",
-        "entity", "model", "value", "true", "0.3", "+", "world",
-        "spawn", "tick", "block", "data", "json", "npc", "quest"
-    };
-
     private static final int SUB_COUNT = 12;
     private static final float BOB_AMP = 12f;
     private static final float BOB_SPEED = 0.85f;
@@ -39,6 +33,17 @@ public final class GenesisNode {
     private static List<GenesisSubParticle> buildSubParticles(
             GenesisNodeData.NodeType type) {
         Random rng = new Random(type.ordinal() * 0x9E3779B9L + 0xDEADBEEF);
+        String[] glyphs = switch(type){
+            case CORE -> new String[]{"MaRed","Genesis","project"};
+            case MODS -> new String[]{"class","block","entity","model","event","config"};
+            case DATAPACKS -> new String[]{"function","recipe","loot","tag","data","json"};
+            case MAPS -> new String[]{"command","score","spawn","event","map","mode"};
+            case SERVERS -> new String[]{"server","port","players","config","world","log"};
+            case SHADERS -> new String[]{"vec3","uniform","color","light","glsl","render"};
+            case MODPACKS -> new String[]{"mods","pack","config","recipe","profile","data"};
+            case RESOURCEPACKS -> new String[]{"texture","model","sound","font","lang","assets"};
+        };
+
 
         List<GenesisSubParticle> out = new ArrayList<>(SUB_COUNT);
         for (int i = 0; i < SUB_COUNT; i++) {
@@ -50,7 +55,7 @@ public final class GenesisNode {
                 rng.nextFloat() * (float)(Math.PI * 2),
                 1.0f + rng.nextFloat() * 1.5f,
                 0.10f + rng.nextFloat() * 0.10f,
-                SUB_GLYPHS[rng.nextInt(SUB_GLYPHS.length)],
+                glyphs[rng.nextInt(glyphs.length)],
                 rng.nextFloat()
             ));
         }

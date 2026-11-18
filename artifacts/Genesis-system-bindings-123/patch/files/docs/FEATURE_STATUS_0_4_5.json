@@ -1,0 +1,75 @@
+﻿{
+    "target_version":  "0.4.5",
+    "release_ready":  false,
+    "implemented_through_patch":  123,
+    "policy":  "Частично написанный backend не считается подключённой пользовательской функцией.",
+    "features":  {
+                     "shared_files":  {
+                                          "status":  "implemented_unverified",
+                                          "evidence":  "122/123: действующий сетевой Workspace, CRDT, два документа, локальные черновики; полная JDK21/NeoForge сборка проверена, игровой тест нужен"
+                                      },
+                     "global_maop":  {
+                                         "status":  "implemented_unverified",
+                                         "evidence":  "113: отдельные роли/консоль/controller recheck; нужен Windows/Minecraft тест"
+                                     },
+                     "realtime_same_document":  {
+                                                    "status":  "implemented_requires_minecraft_confirmation",
+                                                    "evidence":  "121/122/123: CRDT, точные повторы пакетов и merge; отдельный личный undo по автору ещё не реализован"
+                                                },
+                     "presence_colored_cursors":  {
+                                                      "status":  "implemented_requires_minecraft_confirmation",
+                                                      "evidence":  "122/123: цветные курсоры/выделения, текущий файл, отметка редактирования и синхронизация обеих панелей"
+                                                  },
+                     "granular_acl_modules_paths":  {
+                                                        "status":  "implemented_requires_minecraft_confirmation",
+                                                        "evidence":  "121/122/123: capabilities, роли, запреты папок и скрытые панели, фильтрация метаданных и присутствия"
+                                                    },
+                     "protected_history_antideletion":  {
+                                                            "status":  "partial",
+                                                            "evidence":  "Есть ревизии и ограниченный журнал, нет полной защищённой истории/массового restore"
+                                                        },
+                     "restart_drafts":  {
+                                            "status":  "partial",
+                                            "evidence":  "122/123: локальный текст и очередь CRDT; старая идентичность файла сохраняется при повторном открытии, ресурсы и расположение вкладок не восстановлены"
+                                        },
+                     "binary_assets_collaboration":  {
+                                                         "status":  "planned",
+                                                         "evidence":  "Общие текстуры/бинарные blobs/chunk resume отсутствуют"
+                                                     },
+                     "approved_snapshots_flags":  {
+                                                      "status":  "backend_partial",
+                                                      "evidence":  "121/122/123: выбор файлов, утверждение и неизменяемый экспорт; запуск Gradle и дальнейшее применение через supervisor для этого Workspace не подключены"
+                                                  },
+                     "all_device_rollout":  {
+                                                "status":  "backend_partial",
+                                                "evidence":  "Отдельные механизмы доставки/согласия/admission остаются;115 подключает только локальное серверное применение, не массовый rollout"
+                                            },
+                     "local_mod_rollback":  {
+                                                "status":  "user_confirmed_limited",
+                                                "evidence":  "Пользователь подтвердил возврат после ошибочного локального мода; это не тест всех устройств"
+                                            },
+                     "windows_settings_write":  {
+                                                    "status":  "fixed_requires_windows_confirmation",
+                                                    "evidence":  "114: сериализация цели + bounded sharing retry; настоящее подтверждение Windows ещё нужно"
+                                                },
+                     "local_script_server_apply":  {
+                                                       "status":  "connected_requires_minecraft_confirmation",
+                                                       "evidence":  "115: Script artifact menu → BuildSnapshot84 → owner104/Changes104 → save+stop → READY/early rollback; local server only, no client mod delivery"
+                                                   },
+                     "existing_feature_entrypoints":  {
+                                                          "status":  "connected_requires_minecraft_confirmation",
+                                                          "evidence":  "116: primary server apply115, owner104/75 routing, restored advanced entries and helper boundary; current104 paired rollout is still blocked"
+                                                      }
+                 },
+    "priority":  "Закрыть путь утверждённый Workspace -\u003e сборка -\u003e BuildSnapshot84 -\u003e supervisor120 и выполнить игровую приёмку",
+    "integration_order":  [
+                              "local_script_server_apply",
+                              "current_owner_paired_publication",
+                              "all_device_rollout",
+                              "unified_approval_and_permissions",
+                              "real_minecraft_acceptance",
+                              "new_workspace_features"
+                          ],
+    "all_existing_integration_complete":  false,
+    "integration_inventory":  "docs/WORKSPACE_CONNECTION_PLAN_122.json"
+}

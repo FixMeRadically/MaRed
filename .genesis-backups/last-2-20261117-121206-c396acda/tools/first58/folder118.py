@@ -1,0 +1,487 @@
+"""Paired publication/consent bridge for the real server-folder owner.
+No world copy, no PID adoption, no unapproved install. All remote actions still pass
+Access88/Maop113. The existing signed control journal remains the cohort authority.
+"""
+from pathlib import Path
+import hashlib,json,os,re,subprocess,threading,time,uuid,zipfile,tempfile
+from .common import safe,sha,atomic,inventory,json_write
+from .bridge67 import read,write
+from . import dedicated74 as base,publication83,publication79
+from .install70 import policy
+from .transition81 import validate,Progress81
+
+ACTIONS={'STAGE_AUTO','STAGE','PREPARE','OFFER','COMMIT','CANCEL','CLOSE','STATUS','LOCAL_TEST_ON','LOCAL_TEST_OFF','CONTINUE_WAIT','PUBLISH_BASELINE'}
+TERMINAL={'CLOSED','CANCELLED','RESTORED'}
+INSTALL_WINDOW=30
+
+def settings118(root,key):
+ d=read(root/'settings118',key);o=read(root/'owner104',key)
+ if set(d)!={'schema','run','profile','java','minecraft','neoforge','level','port','bind','auth'} or d['schema']!='118' or d['run']!=o.get('run') or d['profile']!=o.get('profile') or safe(Path(d['profile']))/'.genesis/server104'!=root:raise ValueError('FOLDER118_SETTINGS')
+ if read(root/'owner118',key)!=dict(schema='118',run=d['run']):raise ValueError('FOLDER118_NEW_OWNER_REQUIRED')
+ props=base.properties(Path(d['profile']))
+ if any(d[k]!=props[v] for k,v in [('level','level-name'),('port','server-port'),('bind','server-ip'),('auth','online-mode')]):raise ValueError('FOLDER118_SERVER_MODE_CHANGED')
+ return dict(d,schema=74,initialGeneration=0)
+
+def initialize(owner):
+ root=owner.root;key=owner.key
+ for v in (76,77,78,81,82,83,118):write(root/f'owner{v}',key,dict(schema=str(v),run=owner.run))
+ write(root/'settings118',key,dict(schema='118',run=owner.run,profile=str(owner.server),**{k:str(owner.c[k]) for k in ('java','minecraft','neoforge','level','port','bind','auth')}))
+ for folder in ('releases','stages118','channels118'):safe(root/folder).mkdir(exist_ok=True)
+ # TLS settings are local configuration, never participant credentials. Validate old record before rebinding.
+ if (root/'https78.cfg').exists():
+  from .https78 import FIELDS
+  d=read(root/'https78.cfg',key)
+  if set(d)!=FIELDS or d['schema']!='78':raise ValueError('FOLDER118_TLS_RECORD')
+  d.update(run=owner.run,revision=str(uuid.uuid4()));write(root/'https78.cfg',key,d)
+ return FolderRollout118(owner)
+
+class FolderRollout118:
+ def __init__(self,owner):
+  self.o=owner;self.root=owner.root;self.key=owner.key;self.pending=None;self.fence=None;self.state=None;self.at=0;self.error='';self.serial=0;self.next=0;self.lock=threading.RLock();self.stop=threading.Event();self.thread=None;self.signer=None;self.target=False;self.progress=Progress81();self.closing=False;self.phase118='IDLE';self.cancel_request=None;self.baseline_binding=None
+  from .renew85 import Manager85
+  self.https=Manager85(owner.app,self.root,owner.c['java'])
+  # A new owner never replays a committed network round or pretends the old server saved.
+  if (self.root/'rollout118').exists():
+   d=read(self.root/'rollout118',self.key)
+   if d.get('schema')!='118' or d.get('phase') not in TERMINAL:
+    write(self.root/'review104',self.key,dict(schema='104',reason='FOLDER118_INTERRUPTED_ROUND'))
+  self.rebind_baseline()
+  from .folder120 import FolderServices120
+  self.services120=FolderServices120(self)
+ def rebind_baseline(self):
+  p=self.root/'publication75'
+  if p.exists():
+   d=read(p,self.key)
+   if set(d)!={'schema','run','label','release'} or d['schema']!='75':raise ValueError('FOLDER118_BASELINE')
+   base.label(d['label']);uuid.UUID(d['release']);write(p,self.key,dict(d,run=self.o.run))
+ def tool(self,*args):
+  with self.lock:return base.core(self.o.app,self.o.c['java'],*args,timeout=15 if args[0] in {'inspect','pulse','admit','close'} else 180)
+ def checkpoint(self):
+  if self.o.all_exited():raise ValueError('FOLDER118_SOURCE_EXIT')
+  if inventory(self.o.server)!=self.o.expected:raise ValueError('FOLDER118_SOURCE_CHANGED')
+  self.o.report()
+ def event(self,phase,**values):
+  self.serial+=1;self.phase118=phase
+  d=dict(schema='118',run=self.o.run,phase=phase,serial=str(self.serial),at=str(int(time.time()*1000)),label=self.pending['label'] if self.pending else 'none',**{k:str(v) for k,v in values.items()})
+  if self.pending:
+   p=self.pending;prior=p.get('prior') or {};binding=dict(schema='118',run=self.o.run,label=p['label'],source=str(p['source']),target=str(p['source']+1),oldInventory=p['old'],newInventory=p['new'],release=p['info']['release'],client=p['info']['client'],server=p['info']['server'],priorLabel=prior.get('label','none'),priorRelease=prior.get('release','none'),codeSeal=p['codeSeal'],change=p['change'] or 'none')
+   write(self.root/'rollout118.binding',self.key,binding);d['binding']=sha(self.root/'rollout118.binding',16384)
+  write(self.root/'rollout118',self.key,d);json_write(self.root/'logs/rollout118.json',d)
+ def command(self,action,round_id='none',label=None):
+  o=self.o;o.sequence+=1;d=dict(schema='74',run=o.run,generation=str(o.generation),inventory=o.expected,sequence=str(o.sequence),request=str(uuid.uuid4()),action=action,round=round_id,label=label or (self.pending['label'] if self.pending else 'r1'))
+  write(o.channel/f'server-{o.generation}.command',self.key,d);return d
+ def stage(self,label,baseline=False):
+  o=self.o;base.label(label)
+  if o.generation>=999999999:raise ValueError('FOLDER118_GENERATION_LIMIT')
+  if self.pending or self.fence or o.changes.load() or (self.root/'review104').exists():raise ValueError('FOLDER118_BUSY')
+  self.checkpoint()
+  active=self.root/'control73/active73'
+  if active.exists():
+   s=self.tool('inspect',self.root)
+   if s['phase'] not in {'CANCELLED','CLOSED'}:raise ValueError('FOLDER118_ACTIVE_ROUND')
+   self.tool('close',self.root)
+  pair=self.root/'releases'/label
+  info=publication83.verify_pair(o.app,self.root,pair,self.root/'publisher73/public.der',self.checkpoint)
+  settings118(self.root,self.key)
+  if info['minecraft']!=o.c['minecraft'] or info['neoforge']!=o.c['neoforge'] or int(info['game'].rsplit(':',1)[1])!=int(o.c['port']):raise ValueError('FOLDER118_VERSION_OR_ADDRESS')
+  if o.c['auth']=='false':
+   from urllib.parse import urlsplit
+   if info['game'].rsplit(':',1)[0] not in {'localhost','127.0.0.1','[::1]'} or urlsplit(info['endpoint']).hostname not in {'localhost','127.0.0.1','::1'}:raise ValueError('FOLDER118_OFFLINE_LOOPBACK')
+  previous=None
+  if (self.root/'publication75').exists():
+   prior=read(self.root/'publication75',self.key);previous=self.tool('verify-history',self.root/'releases'/prior['label'],self.root/'publisher73/public.der')
+   if info['release']!=previous['release']:
+    # Reuse the already signature-verifying ancestor walker for cancelled intermediate releases.
+    from .dedicated76 import Owner76
+    class Chain:
+     pass
+    c=Chain();c.root=self.root;c.previous_info=previous;c.tool=self.tool
+    if not Owner76.successor(c,info):raise ValueError('FOLDER118_RELEASE_CHAIN')
+   if any(info[k]!=previous[k] for k in ('game','endpoint','distribution','signer')):raise ValueError('FOLDER118_IDENTITY_CHANGED')
+  approved=policy(o.server/'mods',pair/'server.zip',info)
+  if baseline:
+   if approved['before']!=approved['after']:raise ValueError('PUBLICATION83_SERVER_CODE_DIFFERS')
+   if previous and publication83.call(o.app,self.root,'client-seal',pair,self.root/'publisher73/public.der',checkpoint=self.checkpoint)!=publication83.call(o.app,self.root,'client-seal',self.root/'releases'/prior['label'],self.root/'publisher73/public.der',checkpoint=self.checkpoint):raise ValueError('PUBLICATION83_CLIENT_CODE_DIFFERS')
+   if not previous:
+    first=publication83.call(o.app,self.root,'baseline',self.root/'publisher73',self.root/'releases',checkpoint=self.checkpoint)
+    if first['path']!=str(pair):raise ValueError('PUBLICATION83_FIRST_REQUIRED')
+   if hasattr(self,'services120'):self.services120.withdraw()
+   write(self.root/'publication75',self.key,dict(schema='75',run=o.run,label=label,release=info['release']));self.baseline_binding=(label,info['release'],o.expected);self.event('CLOSED',release=info['release']);return
+  # Initial baseline must be explicitly selected, so the first transition has a trusted source identity.
+  if previous is None or info['release']==previous['release']:raise ValueError('FOLDER118_BASELINE_REQUIRED')
+  from .https78 import load,status
+  _,_,tls=load(self.root)
+  transport=status(self.root)
+  if not tls or tls['enabled']!='true' or tls['endpoint']!=info['endpoint'] or transport['state']!='RUNNING_TLS':raise ValueError('FOLDER118_HTTPS_REQUIRED')
+  with tempfile.TemporaryDirectory(prefix='extract-',dir=self.root/'stages118') as directory:
+   stage=safe(Path(directory));updates={};total=0
+   with zipfile.ZipFile(safe(pair/'server.zip')) as z:
+    for e in info['files']:
+     name=e['path'][5:]
+     if approved['before'].get(name)==e['sha256']:continue
+     total+=e['bytes']
+     if total>256*1024*1024:raise ValueError('FOLDER118_PACKAGE_LIMIT')
+     path=safe(stage/name)
+     with z.open('files/'+e['path']) as stream:data=stream.read(e['bytes']+1)
+     if len(data)!=e['bytes'] or hashlib.sha256(data).hexdigest()!=e['sha256']:raise ValueError('FOLDER118_PACKAGE_CHANGED')
+     atomic(path,data,new=True);updates[name]=path
+   remove=set(approved['before'])-set(approved['after'])
+   self.checkpoint()
+   from .inplace104 import lease
+   # Stage immutable copies while the running game keeps its lifetime lease.
+   with lease(self.root/'prepare118.lock'):
+    if o.changes.inventory()!=approved['before']:raise ValueError('FOLDER118_SOURCE_CHANGED')
+    change=o.changes.stage(updates,remove,approval=o.changes.approve(o.changes.review(updates,remove)))
+  # A client-only update still needs an immutable empty server change plan, not a fabricated trial.
+  if change is None:
+   self.pending=dict(label=label,info=info,approved=approved,pair=pair,change='',source=o.generation,old=o.expected,new=o.expected,codeSeal=hashlib.sha256(json.dumps(approved['after'],sort_keys=True).encode()).hexdigest(),clientOnly=True)
+  else:
+   d,plan,_=o.changes.load()
+   self.pending=dict(label=label,info=info,approved=approved,pair=pair,change=change,source=o.generation,old=o.expected,new=self.inv(approved['after']),codeSeal=d['plan'],clientOnly=False)
+  # Server-side prepared() verifies the same artifact/transaction, not UI booleans.
+  p=self.pending;p['prior']=prior if previous else None
+  if p['clientOnly']:write(self.root/'clientonly118',self.key,dict(schema='118',run=o.run,generation=str(o.generation),inventory=p['old'],codeSeal=p['codeSeal'],release=info['release'],client=info['client'],server=info['server']))
+  write(self.root/'prepared74',self.key,dict(schema='74',run=o.run,generation=str(o.generation),oldInventory=p['old'],newInventory=p['new'],release=info['release'],client=info['client'],server=info['server'],label=label,codeSeal=p['codeSeal']))
+  write(self.root/'publication75',self.key,dict(schema='75',run=o.run,label=label,release=info['release']))
+  # The HTTPS owner runs independently. Check the signed release through its public route
+  # before sending a game command that starts participants' response timers.
+  from .https78 import java_check
+  probe=java_check(o.app,o.c['java'],'probe',info['endpoint'],self.root/'publisher73/public.der')
+  if probe['release']!=info['release'] or probe['signer']!=info['signer'] or probe['archive']!=info['client']:
+   raise ValueError('HTTPS78_WRONG_RELEASE')
+  self.state=None;self.at=0;self.error=''
+  dest=safe(o.server/'config/mared/remote-updates'/label);dest.mkdir(parents=True,exist_ok=True)
+  for file in (pair/'public').iterdir():
+   target=safe(dest/file.name);data=file.read_bytes()
+   if target.exists() and target.read_bytes()!=data:raise ValueError('FOLDER118_PUBLIC_CHANGED')
+   if not target.exists():atomic(target,data,new=True)
+  if hasattr(self,'services120'):self.services120.withdraw()
+  self.event('PREPARED',release=info['release'],change=change or 'none');self.command('PREPARE_OFFER118');self.offer_deadline=time.monotonic()+90
+ @staticmethod
+ def inv(entries):return hashlib.sha256(''.join('mods/'+k+'='+v+'\n' for k,v in sorted(entries.items())).encode('ascii')).hexdigest()
+ def fence_call(self,action):
+  p=self.pending
+  return publication83.command(self.o.app,self.root,'com.fixmer.genesis.technology.server.remote.CommitFence81',action,self.root,self.fence['round'] if self.fence else self.state['round'],p['label'],p['source'],p['source']+1)
+ def verify_pending(self):
+  p=self.pending
+  if not p:raise ValueError('FOLDER118_NOT_PREPARED')
+  settings118(self.root,self.key)
+  self.checkpoint()
+  proof=read(self.root/'prepared74',self.key)
+  if proof['codeSeal']!=p['codeSeal'] or proof['oldInventory']!=self.o.expected:raise ValueError('FOLDER118_ARTIFACT_CHANGED')
+  if not p['clientOnly']:
+   d,plan,_=self.o.changes.load()
+   if d['id']!=p['change'] or d['phase']!='PREPARED' or d['plan']!=p['codeSeal'] or plan['before']!=p['approved']['before'] or plan['after']!=p['approved']['after']:raise ValueError('FOLDER118_ARTIFACT_CHANGED')
+   for name,change in plan['changes'].items():
+    for field,folder in [('old','before'),('new','after')]:
+     if change[field] and sha(self.root/'changes'/d['id']/folder/name,64*1024*1024)!=change[field]:raise ValueError('FOLDER118_ARTIFACT_CHANGED')
+  info=self.tool('verify',p['pair'],self.root/'publisher73/public.der')
+  if info!=p['info']:raise ValueError('FOLDER118_PAIR_CHANGED')
+ def handle(self,action,label):
+  o=self.o
+  if action in {'STAGE','STAGE_AUTO','PREPARE','PUBLISH_BASELINE'}:
+   if self.pending or self.fence or o.changes.load() or (self.root/'review104').exists():raise ValueError('FOLDER118_BUSY')
+   before=read(self.root/'publication75',self.key) if (self.root/'publication75').exists() else None
+   try:
+    self.stage(label,action=='PUBLISH_BASELINE')
+    if self.pending:self.pending['autoCommit']=action=='STAGE_AUTO'
+   except Exception:
+    if not (self.root/'control73/active73').exists():
+     loaded=o.changes.load()
+     if loaded and loaded[0]['phase']=='PREPARED' and o.changes.inventory()==loaded[1]['before']:o.changes.restore();o.changes.finish(False)
+     if before:write(self.root/'publication75',self.key,before)
+     else:(self.root/'publication75').unlink(missing_ok=True)
+     self.pending=None;(self.root/'prepared74').unlink(missing_ok=True);(self.root/'clientonly118').unlink(missing_ok=True)
+     self.event('CANCELLED',reason='PREPARATION_FAILED')
+    raise
+   return
+  if not self.pending:raise ValueError('FOLDER118_NOT_PREPARED')
+  if label!=self.pending['label']:raise ValueError('FOLDER118_LABEL_CHANGED')
+  if action in {'OFFER','COMMIT'}:
+   if self.fence:raise ValueError('FOLDER118_ALREADY_COMMITTED')
+   self.verify_pending();self.command(action);return
+  if action=='CANCEL':
+   if self.fence:raise ValueError('FOLDER118_COMMIT_IRREVERSIBLE')
+   self.cancel_request=self.command('CANCEL');return
+  if action=='CLOSE':
+   if not self.target_ready() or not (self.closing or self.fresh() and self.state['admission']):raise ValueError('FOLDER118_TARGET_NOT_READY')
+   self.finish();return
+  if action=='CONTINUE_WAIT':self.progress.acknowledge(o.request_id);return
+  if action=='STATUS':return
+  if action.startswith('LOCAL_TEST_'):
+   if self.fence:raise ValueError('FOLDER118_ALREADY_COMMITTED')
+   self.command(action);return
+  raise ValueError('FOLDER118_ACTION')
+ def fresh(self):return bool(self.state and time.monotonic()-self.at<=5 and not self.error)
+ def target_ready(self):
+  if not self.target or self.o.generation!=self.pending['source']+1 or self.o.all_exited():return False
+  d=self.o.receipt();return bool(d and d['phase'] in {'READY','COMMAND_ACCEPTED'} and self.o.expected==self.pending['new'] and inventory(self.o.server)==self.pending['new'])
+ def start_pump(self):
+  self.stop.clear()
+  def loop():
+   while not self.stop.is_set():
+    try:
+     # READY is retained native/receipt evidence; a control POST or listening port is insufficient.
+     ready=self.target_ready();admit=ready and self.fresh() and self.state['installed']>=self.state['needed']
+     s=self.tool('admit' if admit else 'pulse',self.root)
+     with self.lock:validate(s,self.fence,self.state,ready);self.state=s;self.at=time.monotonic();self.error=''
+    except Exception:self.error='FOLDER118_CONTROL_UNAVAILABLE'
+    self.stop.wait(1)
+  self.thread=threading.Thread(target=loop,name='genesis-folder118-control',daemon=True);self.thread.start()
+ def activate(self):
+  started=time.monotonic()
+  def timing(stage):
+   nonlocal started
+   now=time.monotonic()
+   try:print(f"MaRed update timing: server-{stage} {now-started:.3f}s",flush=True)
+   except OSError:pass
+   started=now
+  o=self.o;p=self.pending;self.verify_pending();timing('verify-publication');self.event('COMMIT_SEEN',round=self.state['round']);o.busy=True
+  cmd=self.command('QUIESCE',self.state['round']);until=time.monotonic()+30
+  while time.monotonic()<until:
+   d=o.receipt()
+   if o.all_exited():raise ValueError('FOLDER118_SOURCE_EXIT')
+   if d and d['phase']=='QUIESCED' and all(d[k]==cmd[k] for k in ('sequence','request','round')):break
+   o.report();time.sleep(.1)
+  else:raise ValueError('FOLDER118_QUIESCE_UNCONFIRMED')
+  self.fence=self.fence_call('capture');self.event('COMMITTED',round=self.fence['round'],change=p['change'] or 'none');self.state=None;self.at=0;self.start_pump();o.report('WAITING_ALL_INSTALLED','')
+  timing('quiesce-and-fence')
+  deadline=time.monotonic()+INSTALL_WINDOW
+  while not (self.fresh() and self.state['installed']==int(self.fence['total'])):
+   if time.monotonic()>=deadline:
+    if not self.fresh():
+     timing('wait-control-timeout');return self.restore_before_apply()
+    break
+   if o.all_exited():raise ValueError('FOLDER118_SOURCE_EXIT')
+   # Bounded grace only. Individual admission still requires verified installation.
+   action=self.receive_install_action()
+   if action=='SHUTDOWN':
+    o.stop_game();o.reap();self.event('INTERRUPTED',reason='OPERATOR_SHUTDOWN')
+    o.busy=False;o.request_result='COMPLETED';o.report('STOPPED','');return False
+   if action=='CONTINUE_WAIT':
+    self.progress.acknowledge(o.request_id);o.request_result='COMPLETED';o.error=''
+   elif action:
+    o.request_result='REJECTED';o.error='FOLDER118_BUSY'
+   o.report();time.sleep(.25)
+  timing('client-install-grace')
+  if self.fence_call('check')!=self.fence:raise ValueError('FOLDER118_FENCE_CHANGED')
+  o.stop_game('SAVE_STOP',self.fence['round']);o.reap();self.event('STOPPED_SAVED',round=self.fence['round']);o.report('RESTARTING','')
+  timing('save-and-stop')
+  from .inplace104 import lease
+  with lease(self.root/'game104.lock'),o.world_idle():
+   if inventory(o.server)!=p['old']:raise ValueError('FOLDER118_SOURCE_CHANGED')
+   if not p['clientOnly']:o.changes.apply()
+   if inventory(o.server)!=p['new']:raise ValueError('FOLDER118_TARGET_CHANGED')
+  timing('apply-server-mods')
+  self.event('STARTING_TARGET');o.start_game();timing('start-target');self.target=True;o.busy=False;o.report('RUNNING','');self.event('ACTIVE_UPDATED',round=self.fence['round']);return True
+ def receive_install_action(self):
+  from .access88 import AccessBusy88
+  from .inplace104 import error_code
+  try:return self.o.receive()
+  except AccessBusy88:return None
+  except ValueError as error:self.o.error=error_code(error);return None
+ def restore_before_apply(self):
+  """End a timed-out committed round before changing server mods or loading a new world."""
+  o=self.o;p=self.pending;fence=self.fence
+  self.stop.set()
+  if self.thread:
+   self.thread.join(20)
+   if self.thread.is_alive():raise ValueError('FOLDER118_PUMP_BUSY')
+  self.verify_pending()
+  if self.fence_call('check')!=fence or inventory(o.server)!=p['old']:
+   raise ValueError('FOLDER118_FENCE_CHANGED')
+  # Stop and save the OLD generation before closing the round or retiring its PREPARED journal.
+  o.stop_game('SAVE_STOP',fence['round']);o.reap()
+  self.tool('close',self.root)
+  from .inplace104 import lease
+  with lease(self.root/'game104.lock'),o.world_idle():
+   if inventory(o.server)!=p['old']:raise ValueError('FOLDER118_SOURCE_CHANGED')
+   if not p['clientOnly']:
+    o.changes.restore();o.changes.finish(False)
+  write(self.root/'publication75',self.key,p['prior'])
+  o.report('RESTARTING','FOLDER118_CLIENT_INSTALL_TIMEOUT')
+  o.start_game()
+  self.event('RESTORED',reason='FOLDER118_CLIENT_INSTALL_TIMEOUT')
+  self.services120.restored(p,fence)
+  self.pending=self.fence=self.state=None
+  self.error='';o.busy=False
+  for name in ('prepared74','clientonly118','admission82.local'):
+   (self.root/name).unlink(missing_ok=True)
+  o.report('RUNNING','FOLDER118_CLIENT_INSTALL_TIMEOUT')
+  return True
+ def tick(self):
+  o=self.o
+  self.services120.tick()
+  self.https.tick()
+  if (self.root/'publisher73/private.der').is_file() and self.signer is None:
+   self.signer=subprocess.Popen([o.c['java'],'-cp',str(__import__('first58.runtime',fromlist=['core_classpath']).core_classpath(o.app)),'com.fixmer.genesis.technology.server.remote.BootstrapPublisher76','serve',str(self.root)],stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=base.environment(o.c['java'],o.server),creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0),close_fds=True)
+  if self.signer and self.signer.poll() is not None:
+   self.signer.stdin.close();self.signer=None;self.error='FOLDER118_SIGNER_EXIT'
+  if not self.pending and (self.root/'publication75').exists():
+   selected=read(self.root/'publication75',self.key);binding=(selected['label'],selected['release'],o.expected)
+   if binding!=self.baseline_binding:
+    info=self.tool('verify-history',self.root/'releases'/selected['label'],self.root/'publisher73/public.der')
+    plan=policy(o.server/'mods',self.root/'releases'/selected['label']/'server.zip',info)
+    if info['release']!=selected['release'] or plan['before']!=plan['after']:raise ValueError('FOLDER118_BASELINE_RUNTIME_CHANGED')
+    self.baseline_binding=binding
+  now=time.monotonic()
+  if not self.pending or now<self.next:return True
+  self.next=now+1
+  if self.fence:
+   try:self.finish_completed()
+   except (OSError,ValueError,subprocess.SubprocessError) as failed:
+    # A transient close failure must not stop the running target.
+    from .inplace104 import error_code
+    self.error=error_code(failed)
+    self.next=time.monotonic()+5
+   return True
+  if self.state and self.state['phase']=='CANCELLED':
+   self.cancel_stage()
+   return True
+  if not (self.root/'control73/active73').exists():
+   if self.cancel_request:
+    d=o.receipt()
+    if d and d['phase']=='COMMAND_ACCEPTED' and all(d[k]==self.cancel_request[k] for k in ('sequence','request','round')):self.cancel_stage()
+   elif time.monotonic()>=self.offer_deadline:
+    self.cancel_request=self.command('CANCEL')
+   return True
+  self.state=self.tool('inspect',self.root);self.at=time.monotonic()
+  if self.state['release']!=self.pending['info']['release'] or self.state['client']!=self.pending['info']['client']:raise ValueError('FOLDER118_ROUND_CHANGED')
+  if self.state['phase']=='CANCELLED':self.cancel_stage();return True
+  if self.state['phase']=='COMMITTED':return self.activate()
+  if self.pending.get('autoCommit') and not self.cancel_request and self.state['phase']=='PREPARING':
+   accepted=self.state['accepted']-self.state['aborted']
+   if self.state['pending']==0 and accepted==0:
+    self.cancel_request=self.command('CANCEL')
+   elif self.state['pending']==0 and accepted>0 and self.state['prepared']==accepted and not self.pending.get('autoCommitSent'):
+    self.verify_pending()
+    self.command('COMMIT')
+    self.pending['autoCommitSent']=True
+  return True
+ def cancel_stage(self):
+  if not self.pending or self.fence:raise ValueError('FOLDER118_COMMIT_IRREVERSIBLE')
+  active=(self.root/'control73/active73').exists()
+  if active and self.tool('inspect',self.root)['phase']!='CANCELLED':
+   raise ValueError('FOLDER118_COMMIT_IRREVERSIBLE')
+  if self.pending['change']:
+   loaded=self.o.changes.load()
+   if self.o.changes.inventory()!=self.pending['approved']['before']:
+    raise ValueError('FOLDER118_CANCEL_CHANGED')
+   if loaded:
+    record,plan,_=loaded
+    if record['id']!=self.pending['change'] or plan['before']!=self.pending['approved']['before'] or record['phase'] not in {'PREPARED','RESTORING','RESTORED'}:
+     raise ValueError('FOLDER118_CANCEL_CHANGED')
+    if record['phase']!='RESTORED':self.o.changes.restore()
+    self.o.changes.finish(False)
+  if active:self.tool('close',self.root)
+  write(self.root/'publication75',self.key,self.pending['prior'])
+  self.event('CANCELLED');self.pending=None;self.state=None;self.cancel_request=None
+  for name in ('prepared74','clientonly118'):(self.root/name).unlink(missing_ok=True)
+ def view(self,target_ready=None):
+  if target_ready is None:target_ready=self.target_ready()
+  state=dict(self.state or {});state['autoStage157']=True
+  if self.pending:
+   state['progress81']=self.progress.view(self.o.phase,state,self.fresh(),self.error,target_ready)
+   state['folder118']=True;state['stage118']=self.phase118
+  return state
+ def heartbeat(self,target_ready=None):
+  if target_ready is None:target_ready=self.target_ready()
+  o=self.o;self.serial+=1;now=str(int(time.time()*1000));p=self.pending
+  json_write(self.root/'logs/folder118-status.json',dict(schema=118,run=o.run,phase=self.phase118,controlFresh=self.fresh(),error=self.error,targetReady=target_ready,installed=self.state.get('installed',0) if self.state else 0,total=self.state.get('total',0) if self.state else 0))
+  # Native bootstrap uses the same live runtime, including on a machine with no client.
+  selected=read(self.root/'publication75',self.key) if (self.root/'publication75').exists() else None
+  if selected and o.generation>0:
+   receipt=o.receipt() if not o.all_exited() else None
+   ready=bool(receipt and receipt['phase'] in {'READY','COMMAND_ACCEPTED'}) and o.phase=='RUNNING' and ((not p and self.baseline_binding==(selected['label'],selected['release'],o.expected)) or bool(p and self.target and self.fresh() and self.state and self.state.get('admission')))
+   ready=ready and not (hasattr(self,'services120') and self.services120.uncertain)
+   write(self.root/'bootstrap76.local',self.key,dict(schema='76',run=o.run,at=now,serial=str(self.serial),phase='READY' if ready else 'TRANSITION' if p else 'UNAVAILABLE',label=selected['label'],generation=str(o.generation),release=selected['release']))
+  admission=self.root/'admission82.local'
+  if p and self.fence and target_ready and self.fresh() and self.state.get('admission'):
+   write(admission,self.key,dict(schema='82',run=o.run,round=self.fence['round'],source=str(p['source']),target=str(p['source']+1),label=p['label'],release=p['info']['release'],archive=p['info']['client'],serverInventory=p['new'],serial=str(self.serial),controlSequence=str(self.state['serial']),at=now))
+  else:admission.unlink(missing_ok=True)
+  if hasattr(self,'services120'):self.services120.heartbeat()
+ def finish_completed(self):
+  state=self.state
+  complete=self.fresh() and state and state['admission'] and state['joined']==int(self.fence['total']) if self.fence else False
+  if self.target and self.fence and (self.closing or complete) and self.target_ready():
+   self.finish()
+ def finish(self):
+  self.closing=True
+  self.stop.set()
+  if self.thread:self.thread.join(20)
+  if self.thread and self.thread.is_alive():raise ValueError('FOLDER118_PUMP_BUSY')
+  result=self.fence_call('close')
+  if result!=dict(round=self.fence['round'],phase='CLOSED'):raise ValueError('FOLDER118_CLOSE_UNCONFIRMED')
+  self.baseline_binding=(self.pending['label'],self.pending['info']['release'],self.pending['new']);self.event('CLOSED');self.pending=self.fence=self.state=None;self.target=self.closing=False;(self.root/'prepared74').unlink(missing_ok=True);(self.root/'clientonly118').unlink(missing_ok=True);(self.root/'admission82.local').unlink(missing_ok=True)
+ def failed(self,error):
+  o=self.o
+  from .inplace104 import error_code,lease
+  reason=error_code(error);self.target=False;self.stop.set()
+  if self.thread:self.thread.join(20)
+  if self.thread and self.thread.is_alive():reason='FOLDER118_PUMP_BUSY'
+  self.event('FAILED',reason=reason)
+  (self.root/'admission82.local').unlink(missing_ok=True)
+  # Withdraw transfer authority. COMMIT is not converted into a fabricated CANCEL.
+  if self.fence:
+   try:self.tool('close',self.root)
+   except Exception:pass # Signed state freshness expires even when transport/disk is unavailable.
+  o.hold_live(reason);o.reap()
+  pending=o.changes.load();world=bool(o.channel and (o.channel/'world104').exists())
+  # Retain the original local update's early-failure restore policy, without guessing about world compatibility.
+  if pending and not world:
+   try:
+    with lease(self.root/'game104.lock'),o.world_idle():
+     if pending[0]['phase']!='RESTORED':o.changes.restore()
+     o.changes.finish(False)
+    if self.pending and self.pending.get('prior'):write(self.root/'publication75',self.key,self.pending['prior'])
+    o.report('RESTARTING','FOLDER118_RESTORING');o.start_game()
+    self.event('RESTORED',reason=reason);o.busy=False;o.report('RUNNING','FOLDER118_RESTORED')
+    self.services120.restored(self.pending,self.fence)
+    self.pending=self.fence=self.state=None;o.report();return True
+   except Exception as failed:reason=error_code(failed);o.hold_live(reason);o.reap()
+  write(self.root/'review104',self.key,dict(schema='104',reason='FOLDER118_TRANSITION_REVIEW'))
+  o.busy=False;o.report('RECOVERY_REQUIRED',reason);return False
+ def close(self):
+  self.stop.set()
+  if self.thread:self.thread.join(20)
+  if self.signer:
+   self.signer.stdin.close()
+   try:self.signer.wait(5)
+   except subprocess.TimeoutExpired:self.signer.kill();self.signer.wait(5)
+  if hasattr(self,'services120'):self.services120.withdraw()
+  self.https.close();(self.root/'bootstrap76.local').unlink(missing_ok=True);(self.root/'admission82.local').unlink(missing_ok=True)
+
+
+def recover118(app,server,java):
+ """Explicit local review only, while server104 holds owner/game/world locks.
+ Never joins a participant, replays COMMIT or chooses a world downgrade automatically.
+ """
+ from .inplace104 import identity
+ root,key=identity(server);path=root/'rollout118'
+ if not path.exists():return
+ d=read(path,key)
+ if d.get('schema')!='118':raise ValueError('FOLDER118_RECOVERY_RECORD')
+ if d.get('phase') in TERMINAL:return
+ if d.get('binding')!=sha(root/'rollout118.binding',16384):raise ValueError('FOLDER118_RECOVERY_BINDING')
+ binding=read(root/'rollout118.binding',key)
+ if binding.get('schema')!='118' or binding.get('run')!=d.get('run') or binding.get('label')!=d.get('label'):raise ValueError('FOLDER118_RECOVERY_BINDING')
+ d=dict(d,**{k:v for k,v in binding.items() if k not in {'schema','run','label'}})
+ actual=inventory(server)
+ old_matches=actual==d.get('oldInventory')
+ new_matches=actual==d.get('newInventory')
+ # Client-only releases have identical server inventories. A durable target activation
+ # distinguishes a completed switch from an interruption before starting the target.
+ if new_matches and (not old_matches or d['phase']=='ACTIVE_UPDATED'):
+  label=d.get('label');release=d.get('release')
+ elif old_matches:
+  label=d.get('priorLabel');release=d.get('priorRelease')
+ else:raise ValueError('FOLDER118_RECOVERY_INVENTORY_CHANGED')
+ base.label(label)
+ info=base.core(app,java,'verify-history',root/'releases'/label,root/'publisher73/public.der')
+ plan=policy(server/'mods',root/'releases'/label/'server.zip',info)
+ if info['release']!=release or plan['before']!=plan['after']:raise ValueError('FOLDER118_RECOVERY_PAIR_CHANGED')
+ if (root/'control73/active73').exists():base.core(app,java,'close',root)
+ owner=read(root/'owner104',key)
+ write(root/'publication75',key,dict(schema='75',run=owner['run'],label=label,release=release))
+ d={k:v for k,v in d.items() if k in {'schema','run','phase','serial','at','label','binding'}};d.update(phase='CLOSED',reason='EXPLICIT_LOCAL_REVIEW',at=str(int(time.time()*1000)));write(path,key,d)
+ for name in ('prepared74','clientonly118','admission82.local','bootstrap76.local','bootstrap76.state'):(root/name).unlink(missing_ok=True)

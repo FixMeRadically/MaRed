@@ -20,7 +20,7 @@ public final class OverlayManager {
     private final List<Overlay> overlays = new ArrayList<>(4);
 
     public void push(Overlay overlay) {
-        if (overlay == null) return;
+        if (overlay == null || overlays.contains(overlay)) return;
         overlays.add(overlay);
         try { overlay.onOpen(); }
         catch (Throwable ignored) { }
@@ -46,11 +46,11 @@ public final class OverlayManager {
 
     public void clear() {
         List<Overlay> copy = new ArrayList<>(overlays);
+        overlays.clear(); // Detach before callbacks, which may call remove/clear themselves.
         for (Overlay o : copy) {
             try { o.onClose(); }
             catch (Throwable ignored) { }
         }
-        overlays.clear();
     }
 
     public boolean isEmpty() { return overlays.isEmpty(); }
@@ -143,6 +143,7 @@ public final class OverlayManager {
         if (keyCode == 256) {
             for (Overlay o : ordered) {
                 if (o.closeOnEscape()) { remove(o); return true; }
+                if(o.isInputBarrier())return true;
             }
         }
 
@@ -174,6 +175,7 @@ public final class OverlayManager {
 
     private List<Overlay> sortedDescending() {
         List<Overlay> ordered = new ArrayList<>(overlays);
+        java.util.Collections.reverse(ordered);
         ordered.sort(BY_LAYER.reversed());
         return ordered;
     }

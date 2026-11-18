@@ -1,0 +1,108 @@
+{
+  "patch": 92,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "d4bc7fcf0e87b121f886bb3c7afca61ac2e798165fae0d058e20984375f9c14d",
+      "after": "8277ca1117593f4d0d22b2ed9bf5575d6c385204706c4274523d130ee69a7304"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/GameSession.java",
+      "existed": true,
+      "before": "82ef58a6baa1fc6eabcb556698c04bb081ab5fe2a69b52109cc3a1af3205294e",
+      "after": "36bae8d90ec27a70284f870ce4e4eb14a94ba39124fab5b922c1ea01e0cd60e7"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ManagedChildProcess.java",
+      "existed": true,
+      "before": "bd294424b17a4256a737f34fbb1d347150b22aabd2cc70901ae90f07af0bb923",
+      "after": "0be9a9db0030fae85641935856d03186d20ac4d64a69307b2d1406d4a523aca1"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ModDeployment.java",
+      "existed": true,
+      "before": "93b1e81944b2498bd6a4f9a9341e3279e37be340da06ad4dc06e4f61bb75c620",
+      "after": "f60b911db3ff9c561b03b7fedfe40c8c6cb6c709636638d3d2c661710b41741a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/ProfileLease92.java",
+      "existed": false,
+      "before": null,
+      "after": "a2a9643d051e1c4fb092e262cdbdb7960608cdc238fae20dad0dd55e7e6dfda6"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RecoveryAuth92.java",
+      "existed": false,
+      "before": null,
+      "after": "f42a6defc74a15c47155bae5c46626821a4433a82df160327d9e60c8fbbb1a79"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RecoveryBootstrap92.java",
+      "existed": false,
+      "before": null,
+      "after": "d380041bea81b2ab96f8e240e16a73c989872169d483a7e9486169095938f8e5"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RecoveryConnection92.java",
+      "existed": false,
+      "before": null,
+      "after": "cdddefde70cc3ddeb650f23c4c01af34d9ded7b3f3b4575ba36f4fe43b04518e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/RecoveryControl92.java",
+      "existed": false,
+      "before": null,
+      "after": "f1598dc217254bda07a13936bc824c97eea47de4710bc159fc2a63ca97080edb"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/Supervisor.java",
+      "existed": true,
+      "before": "452a83024a87fc41573d5e5d041e1c0cf8e69c7985a31467e5881dc76152d9bb",
+      "after": "08acf41ec1d1d8a5127c99dadbfcf4bc78090169c2b0bf73e0981af88171229a"
+    },
+    {
+      "path": "src/main/java/com/fixmer/genesis/supervisor/SupervisorHttpServer.java",
+      "existed": true,
+      "before": "424aa3c50f54744141f1552bf98eb40405b2ac24bcb6dff44d6d63ef32d394f3",
+      "after": "7f2f1db223b214dc0fd5b5006579467325650dacdcd346bce403f5114ddc9572"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/Mared.java",
+      "existed": true,
+      "before": "bb0344a85ebea2f6b9f0bc7cf281f4f6de4de0390ba4c2d9772664265c385f4a",
+      "after": "8e223df69300dcd05f12478e940a7ac3b320c90bb2cb2a9b3e03a033027cbd09"
+    },
+    {
+      "path": "src/test/java/com/fixmer/genesis/supervisor/RecoveryChecks92.java",
+      "existed": false,
+      "before": null,
+      "after": "c306df9d3f1c216baf203a7473c5717dd312da634bd238cb331c73b6cc3a1e91"
+    },
+    {
+      "path": "tools/recover_local92.py",
+      "existed": false,
+      "before": null,
+      "after": "bb062c7b14ef36b25782465fdb8880a8868f9d4db74fedc15796df8a23776ea1"
+    },
+    {
+      "path": "verification/server59/RecoveryProcessFixture92.java",
+      "existed": false,
+      "before": null,
+      "after": "e1bd8ce2084bd08b9e18e9257d76e7b26c697a6f2268887b81b8e3440440a19c"
+    },
+    {
+      "path": "verification/server59/recovery_process92.py",
+      "existed": false,
+      "before": null,
+      "after": "15c6b1b6d12707098081a0ba99fba5c36b377cfe1d7d16ab1f2868ae807dd740"
+    },
+    {
+      "path": "verification/server59/test_bootstrap92.py",
+      "existed": false,
+      "before": null,
+      "after": "4d387caec0b2ee2609c41e374f9793241de070e33d77a864fde3664ef00c5787"
+    }
+  ]
+}

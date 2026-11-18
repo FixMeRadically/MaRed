@@ -1,0 +1,120 @@
+{
+  "patch": 62,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/firstlaunch/FirstLaunchServer58.java",
+      "existed": true,
+      "before": "d59133841630728f3556a18cd400c7e979127352d515f4cc3bed9d2c293ea6b8",
+      "after": "50717b079d2f7eac2a448957256c7137132a26ae0dfc763d296cc92b8cbd9646"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerSetupLauncher59.java",
+      "existed": true,
+      "before": "87a264a0d64cd35b9a78ce8e9e74d0de596d6098aecce5d213ecaaab3d3acb02",
+      "after": "b025a615a66e7ccc9b7b76d66dcdcbb5486da8caf5ce10c44554787fb32da6f7"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "a0cb728bf92f7d317e88a8213ce79cc15ccddd5f31f01a975ad61ad2ac0c7977",
+      "after": "99d4e3cd172a4c20004e748f89618feb6d5deb05033e89d4506666739dc24779"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "b8964a6dec8ad1e7d59b0dfaa457dc2a5f399dc50b2e2f0c47debe869c4cc861",
+      "after": "45a9b46009a402d5fa340ff285382b24e0fd93b7d9e3206373040cf2ed4958ab"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "5a9df915cd7070bc74174603abf6cece5e9817fe49fe50f00ca560c3eeeb7af2",
+      "after": "906bc0e15d680abf589971f908999f07cbe13b9cee212932c5ab735303bb8a99"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/firstlaunch/FirstLaunchArtifacts.java",
+      "existed": true,
+      "before": "cd20a45ef006d72f156e6c59fe349c6c3854d6111f57cdbea13b4c7eecb5513c",
+      "after": "a5bd858311bdcb346fa58a76439990cf141f1c1c3649c477eb45bb0e13c5c17f"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/firstlaunch/FirstLaunchDev62.java",
+      "existed": false,
+      "before": null,
+      "after": "ba99bb2420f026ab8a6f01f3caf9af0775c5abec1cbf9e82a2eece47ef5a83d4"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/firstlaunch/FirstLaunchSession.java",
+      "existed": true,
+      "before": "bd2eb56216b437437e8e35f8ef1c2b082cfeaf95c268ceb6ccda3a7cca3faeb7",
+      "after": "a5fdbfaa487f3f707d3828899cc4954bf916f451787f507e21f2d89b790c7d9d"
+    },
+    {
+      "path": "tools/align_dev_version62.py",
+      "existed": false,
+      "before": null,
+      "after": "ccdd44a9a80fa0b320cee406ba663dfd5d48c4668e259093e6b2fab16b824bed"
+    },
+    {
+      "path": "tools/first58/capture.py",
+      "existed": true,
+      "before": "4a62650c711e9636e8eb642d67df3d5859cc986df17fa18e8e172a5e31f246ea",
+      "after": "c33421dda0dab3d21f2bb58d06f29df0dfaae1f4773bab4311fa81b7932bff4e"
+    },
+    {
+      "path": "tools/first58/controller.py",
+      "existed": true,
+      "before": "36831f3710ff6c57eb163dc5c85c5d38cc1fed9ff289b94bd07a2224ad227f1a",
+      "after": "bb87d466f42c1e8c52fff4d5aecf213532407915edebeddec958b236a653ef22"
+    },
+    {
+      "path": "tools/first58/launch62.py",
+      "existed": false,
+      "before": null,
+      "after": "441a52d2fb631e8595bdebcc8d7ee0e4ef850d7afb16b55f8a02382bf5c613d3"
+    },
+    {
+      "path": "tools/first58/session61.py",
+      "existed": true,
+      "before": "712566606f4ae892287fe254b01c430a1f747fa5330546526f7cbec9738ee39d",
+      "after": "1268e29591e4ef78509fe28424fb13c3dc7bfeb799413e2e6096e0722601893b"
+    },
+    {
+      "path": "tools/first58/setup.py",
+      "existed": true,
+      "before": "21351ac17b96569e8dd665ada28a4fc312c74aed9d9682c9ad9f097727927538",
+      "after": "278dd5d0a900334136231f058e29eb645f6b69773f6777166cdea9275e51bad4"
+    },
+    {
+      "path": "tools/first58/wizard_model.py",
+      "existed": true,
+      "before": "7a1e57030638deec59a02d09d9d9a613d462dd78558af3d1d214fdb3fac7be30",
+      "after": "326b9395012b213c271d3e439b31a227c4a7daed1846080af67080f4e666daab"
+    },
+    {
+      "path": "tools/server_setup.py",
+      "existed": true,
+      "before": "1e1a023cc5d8fd86cf4d4f35b5a615a1de0c3a03cab300974780b178dcc0e65c",
+      "after": "de7f4b1245b5abcdb4d4c25e1085e4b602447ea21dce5307a9d8066a5dd558d6"
+    },
+    {
+      "path": "verification/server59/DevPolicyChecks62.java",
+      "existed": false,
+      "before": null,
+      "after": "184cde8820049e9c88b0bd5dd2608ed99bf0b3723bcb6fc47d2fd540a5297d26"
+    },
+    {
+      "path": "verification/server59/test_launch62.py",
+      "existed": false,
+      "before": null,
+      "after": "1c25dfe22a0fd642f5cf0c38435ef5d627a798c37ad0e7240883fadf4b484c64"
+    },
+    {
+      "path": "verification/server59/test_version62.py",
+      "existed": false,
+      "before": null,
+      "after": "d2ff826fac907c32639dc05358a5525e8ecf91e8f4e8ebb4b55078b60d491162"
+    }
+  ]
+}

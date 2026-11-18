@@ -108,6 +108,7 @@ public final class BreadcrumbBar {
             case TOOLS     -> "Tools";
             case SCENARIOS -> "Scenarios";
             case STUDIO    -> "Studio";
+            default -> com.fixmer.mared.MaredLang.get(space.id().direction145().key());
         };
     }
 }

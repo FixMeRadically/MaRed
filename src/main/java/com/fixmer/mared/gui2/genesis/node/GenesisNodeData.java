@@ -13,7 +13,8 @@ public record GenesisNodeData(
     float glow
 ) {
 
+    public int defaultColor(){return NodeRegistry.color152(type,defaultColor);}
     public enum NodeType {
-        CORE, CONTENT, WORLD, LOGIC, RESOURCES, TOOLS, SCENARIOS
+        CORE, MODS, DATAPACKS, MAPS, SERVERS, SHADERS, MODPACKS, RESOURCEPACKS
     }
 }

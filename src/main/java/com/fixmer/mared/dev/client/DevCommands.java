@@ -39,6 +39,7 @@ public final class DevCommands {
                 .then(Commands.literal("retry").executes(ctx->{return autoControl(ctx.getSource(),BackgroundAutoApply.retry());}))
                 .then(Commands.literal("stop").executes(ctx->{return autoControl(ctx.getSource(),BackgroundAutoApply.stop());}))
             )
+            .then(Commands.literal("history").executes(ctx->{var mc=net.minecraft.client.Minecraft.getInstance();mc.tell(()->mc.setScreen(new RestartHistoryScreen97(mc.screen)));return 1;}))
             .then(Commands.literal("restart")
                 .executes(ctx -> {
                     boolean ok = DevRestartService.requestRestart();

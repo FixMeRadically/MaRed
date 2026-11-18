@@ -219,7 +219,7 @@ public final class MaredScriptSpanResolver implements SpanResolver {
             if (c == ' ' || c == '\t') { i++; continue; }
 
             // Комментарий до конца строки.
-            if (c == '/' && i + 1 < n && lineText.charAt(i + 1) == '/') {
+            if ((c == '#' && lineText.substring(0,i).isBlank()) || (c == '/' && i + 1 < n && lineText.charAt(i + 1) == '/')) {
                 spans.add(new TextSpan(i, n, p.comment));
                 break;
             }

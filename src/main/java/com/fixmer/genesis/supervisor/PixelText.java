@@ -22,11 +22,24 @@ final class PixelText {
             Properties p=new Properties();try(var in=Files.newBufferedReader(file,StandardCharsets.UTF_8)){p.load(in);}
             String name=p.getProperty("image","");if(!name.matches("restart-font-[a-f0-9-]+\\.png"))return font;
             Path image=file.resolveSibling(name);RuntimeFiles.safe(image);if(Files.size(image)>4*1024*1024)return font;
-            BufferedImage sheet=ImageIO.read(image.toFile());if(sheet==null||sheet.getWidth()>1024||sheet.getHeight()>1024)return font;
+            BufferedImage sheet;
+            try(var input=ImageIO.createImageInputStream(image.toFile())){
+                if(input==null)return font;
+                var readers=ImageIO.getImageReaders(input);if(!readers.hasNext())return font;
+                var reader=readers.next();
+                try{
+                    reader.setInput(input,true,true);
+                    int width=reader.getWidth(0),height=reader.getHeight(0);
+                    if(width<1||height<1||width>1024||height>1024)return font;
+                    sheet=reader.read(0);
+                }finally{reader.dispose();}
+            }
+            if(sheet==null)return font;
             for(String k:p.stringPropertyNames())if(k.startsWith("glyph."))try{
                 int cp=Integer.parseInt(k.substring(6));String[] n=p.getProperty(k).split(",");
+                if(n.length!=6||!Character.isValidCodePoint(cp)||(cp>=0xD800&&cp<=0xDFFF))continue;
                 Glyph g=new Glyph(Integer.parseInt(n[0]),Integer.parseInt(n[1]),Integer.parseInt(n[2]),Integer.parseInt(n[3]),Integer.parseInt(n[4]),Integer.parseInt(n[5]));
-                if(g.x>=0&&g.y>=0&&g.w>0&&g.h>0&&g.x+g.w<=sheet.getWidth()&&g.y+g.h<=sheet.getHeight()&&g.advance>0&&g.advance<=64&&Math.abs(g.top)<32)font.glyphs.put(cp,g);
+                if(g.x>=0&&g.y>=0&&g.w>0&&g.h>0&&g.x<sheet.getWidth()&&g.y<sheet.getHeight()&&g.w<=sheet.getWidth()-g.x&&g.h<=sheet.getHeight()-g.y&&g.advance>0&&g.advance<=64&&g.top>-32&&g.top<32)font.glyphs.put(cp,g);
             }catch(RuntimeException ignored) { }
             font.atlas=sheet;
         }catch(IOException|RuntimeException ignored) { }

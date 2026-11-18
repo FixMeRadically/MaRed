@@ -98,29 +98,10 @@ public final class StudioRuntime implements Disposable {
     // ============================================================
 
     private void buildGraph() {
-        graph.register(SpaceId.GENESIS,   () -> new GenesisSpace(navigation));
-        graph.register(SpaceId.CONTENT,   ContentSpace::new);
-        graph.register(SpaceId.WORLD,     WorldSpace::new);
-        graph.register(SpaceId.LOGIC,     LogicSpace::new);
-        graph.register(SpaceId.RESOURCES, ResourcesSpace::new);
-        graph.register(SpaceId.TOOLS,     ToolsSpace::new);
-        graph.register(SpaceId.SCENARIOS, ScenariosSpace::new);
-        graph.register(SpaceId.STUDIO,    StudioSpace::new);
+        graph.register(SpaceId.GENESIS, () -> new GenesisSpace(navigation));
+        for(SpaceId id:SpaceId.values())if(id!=SpaceId.GENESIS)graph.register(id,()->new StudioSpace(id));
+        for(SpaceId from:SpaceId.values())for(SpaceId to:SpaceId.values())if(from!=to)graph.connect(from,to);
 
-        graph.connect(SpaceId.GENESIS, SpaceId.CONTENT);
-        graph.connect(SpaceId.GENESIS, SpaceId.WORLD);
-        graph.connect(SpaceId.GENESIS, SpaceId.LOGIC);
-        graph.connect(SpaceId.GENESIS, SpaceId.RESOURCES);
-        graph.connect(SpaceId.GENESIS, SpaceId.TOOLS);
-        graph.connect(SpaceId.GENESIS, SpaceId.SCENARIOS);
-        graph.connect(SpaceId.GENESIS, SpaceId.STUDIO);
-        graph.connect(SpaceId.STUDIO,  SpaceId.GENESIS);
-        graph.connect(SpaceId.CONTENT, SpaceId.STUDIO);
-        graph.connect(SpaceId.WORLD,   SpaceId.STUDIO);
-        graph.connect(SpaceId.LOGIC,   SpaceId.STUDIO);
-        graph.connect(SpaceId.RESOURCES, SpaceId.STUDIO);
-        graph.connect(SpaceId.TOOLS,   SpaceId.STUDIO);
-        graph.connect(SpaceId.SCENARIOS, SpaceId.STUDIO);
     }
 
     // ============================================================

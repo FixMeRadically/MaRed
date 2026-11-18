@@ -33,6 +33,7 @@ public class MaredClientShutdown {
         }
 
         MaredThreading.shutdown();
+        com.fixmer.mared.commands.storage.MaredGlobalStorage.flush();
 
         DevMode.clearRunning();
     }

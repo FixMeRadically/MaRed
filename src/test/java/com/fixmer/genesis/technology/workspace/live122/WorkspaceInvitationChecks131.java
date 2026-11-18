@@ -1,0 +1,59 @@
+package com.fixmer.genesis.technology.workspace.live122;
+import com.fixmer.genesis.technology.workspace.collaboration121.*;
+import com.fixmer.genesis.technology.workspace.collaboration121.WorkspacePolicy121.*;
+import java.nio.file.*;import java.util.*;import java.util.concurrent.atomic.AtomicLong;
+/** Actual consent, invitations, join snapshots, permissions, history and durable restart. */
+public final class WorkspaceInvitationChecks131 {
+    static final UUID O=new UUID(131,11),D=new UUID(131,12),R=new UUID(131,13),X=new UUID(131,14);static int checks;
+    interface Work{void run()throws Exception;}static void ok(boolean v){if(!v)throw new AssertionError("Invitation131 #"+checks);checks++;}static void deny(Work w)throws Exception{try{w.run();}catch(Exception expected){checks++;return;}throw new AssertionError("Missing denial #"+checks);}
+    static Map<String,String> call(WorkspaceHub122 h,UUID actor,String p,String op,Map<String,String> fields)throws Exception{var q=new TreeMap<>(fields);q.put("op",op);q.put("project",p);q.put("request",UUID.randomUUID().toString());var decoded=WorkspaceCodec122.decode(WorkspaceCodec122.encode(q,WorkspaceCodec122.REQUEST),WorkspaceCodec122.REQUEST);var reply=h.execute(actor,true,actor.equals(O)?"Owner":actor.equals(D)?"Developer":actor.equals(R)?"Requester":"Other",decoded);var envelope=new TreeMap<>(reply);envelope.put("request",q.get("request"));envelope.put("online",O+"|Owner\n"+D+"|Developer\n"+R+"|Requester");return WorkspaceCodec122.decode(WorkspaceCodec122.encode(envelope,WorkspaceCodec122.RESPONSE),WorkspaceCodec122.RESPONSE);}
+    static String rev(WorkspaceHub122 h,String p)throws Exception{return call(h,O,p,"VIEW",Map.of()).get("revision");}
+    static String offer(WorkspaceHub122 h,UUID who,String kind)throws Exception{return call(h,who,"","INBOX131",Map.of()).get("inbox131").lines().map(s->s.split("\\|",7)).filter(row->row[2].equals(kind)).findFirst().orElseThrow()[0];}
+    static Map<String,String> invite(UUID who){return Map.of("target",who.toString(),"role","DEVELOPER","prefix","","deny","ERASE_CODE,SELECT_FILES","hidden","HISTORY");}
+    static Map<String,String> edit(WorkspaceHub122 h,UUID who,String p,String target)throws Exception{var open=call(h,who,p,"OPEN",Map.of("path","src/A.java"));var r=new WorkspaceReplica122(who,WorkspaceCodec122.document(open.get("document")));r.grant(open.get("lease"),Long.parseLong(open.get("first")),Long.parseLong(open.get("last")));ok(r.prepare(target));var first=r.first();return callEdit(h,who,p,first);}
+    static Map<String,String> callEdit(WorkspaceHub122 h,UUID who,String p,WorkspaceReplica122.Pending op)throws Exception{return h.execute(who,false,"Player",Map.of("op","EDIT","project",p,"request",op.request().toString(),"path","src/A.java","lease",op.lease(),"batch",op.batch()));}
+    static void colors(){for(int color:new int[]{0,0xFFFFFF,0xFF0000,0x00FF00,0x0000FF,0xA879F5,0xF080C8}){float[] hsv=WorkspaceColorMath131.hsv(color);ok(WorkspaceColorMath131.rgb(hsv[0],hsv[1],hsv[2])==color);}ok(WorkspaceColorMath131.insertionOnly("ab😀","aXb😀Y"));ok(!WorkspaceColorMath131.insertionOnly("ab😀","ab"));ok(!WorkspaceColorMath131.insertionOnly("ab","ac"));}
+    static void persistence(Path root)throws Exception{var clock=new AtomicLong(100);var store=new WorkspaceInvitations131(root,clock::get);var member=new Member(Role.DEVELOPER,Set.of(),Set.of(),List.of());var first=store.issue(new UUID(1,1),O,D,"Owner","Project",WorkspaceInvitations131.Kind.INVITE,member);ok(store.inbox(D).size()==1);ok(store.issue(first.project(),O,D,"Owner","Project",first.kind(),member).id().equals(first.id()));deny(()->store.get(X,first.id()));var changed=new Member(Role.VIEWER,Set.of(),Set.of(),List.of());var second=store.issue(first.project(),O,D,"Owner","Project",first.kind(),changed);deny(()->store.get(D,first.id()));ok(new WorkspaceInvitations131(root,clock::get).get(D,second.id()).rights().role()==Role.VIEWER);clock.set(1_000_000);deny(()->store.get(D,second.id()));}
+    static void fullCapacity(Path root)throws Exception{
+        try(var hub=new WorkspaceHub122(root)){
+            String project=call(hub,O,"","CREATE",Map.of("text","Capacity")).get("project");
+            for(int i=1;i<WorkspacePolicy121.MAX_MEMBERS;i++){
+                var peer=new UUID(997,i);
+                call(hub,O,project,"MEMBER",Map.of("target",peer.toString(),"role","VIEWER","prefix","","deny","","hidden","","rev",rev(hub,project)));
+            }
+            call(hub,O,project,"INVITE131",invite(D));
+            String token=offer(hub,D,"INVITE");
+            deny(()->call(hub,D,"","ACCEPT131",Map.of("offer",token)));
+            ok(offer(hub,D,"INVITE").equals(token));
+            call(hub,O,project,"MEMBER",Map.of("target",new UUID(997,1).toString(),"role","NONE","prefix","","deny","","hidden","","rev",rev(hub,project)));
+            ok("true".equals(call(hub,D,"","ACCEPT131",Map.of("offer",token)).get("joined131")));
+        }
+    }
+    public static void main(String[] args)throws Exception{Path root=Files.createTempDirectory("workspace131-");String project;try{fullCapacity(root.resolve("capacity"));colors();var viewer=new WorkspaceRights131(Map.of("role","VIEWER","deny","","hidden","","prefix",""));ok(viewer.allows(Capability.READ));ok(!viewer.allows(Capability.EDIT));ok(!viewer.allows(Capability.ERASE_CODE));persistence(root.resolve("social-test"));
+        try(var h=new WorkspaceHub122(root.resolve("hub"))){
+            project=call(h,O,"","CREATE_SCRIPT",Map.of("source","ScriptsProject","data",WorkspaceProject126.pack(Map.of("src/A.java","base\n","src/B.java","second\n")))).get("project");String p=project;
+            ok(call(h,D,"","DISCOVER131",Map.of()).get("discover131").contains("ScriptsProject"));deny(()->call(h,D,p,"VIEW",Map.of()));deny(()->call(h,D,p,"JOIN_MANIFEST131",Map.of()));deny(()->call(h,X,p,"INVITE131",invite(D)));
+            call(h,O,p,"INVITE131",invite(D));String id=offer(h,D,"INVITE");deny(()->call(h,X,"","OFFER131",Map.of("offer",id)));var details=call(h,D,"","OFFER131",Map.of("offer",id));ok(details.get("deny").contains("ERASE_CODE"));var rights=new WorkspaceRights131(details);ok(rights.allows(Capability.EDIT));ok(!rights.allows(Capability.ERASE_CODE));ok(!rights.panel(Panel.HISTORY));deny(()->call(h,D,p,"OPEN",Map.of("path","src/A.java")));
+            var accepted=call(h,D,"","ACCEPT131",Map.of("offer",id));ok("true".equals(accepted.get("joined131")));ok(accepted.get("files").contains("src/B.java"));ok(call(h,O,"","INBOX131",Map.of()).get("inbox131").contains("JOINED"));deny(()->call(h,D,"","ACCEPT131",Map.of("offer",id)));
+            var manifest=call(h,D,p,"JOIN_MANIFEST131",Map.of());var download=new WorkspaceSources125.Download(manifest.get("sourceHash"),manifest.get("sourceFiles"));edit(h,O,p,"base\nowner advance\n");
+            while(download.next()!=null){var entry=download.next();var chunk=call(h,D,p,"JOIN_CHUNK131",Map.of("token",manifest.get("token131"),"path",entry.path(),"offset",Integer.toString(download.offset())));download.accept(entry.path(),download.offset(),chunk.get("chunk"));}
+            ok(download.verified().size()==2);ok(new String(download.verified().get("src/A.java").bytes(),java.nio.charset.StandardCharsets.UTF_8).equals("base\n"));ok(Files.isRegularFile(download.materialize(root.resolve("download")).resolve("src/B.java")));
+            call(h,O,p,"MEMBER",Map.of("target",D.toString(),"role","DEVELOPER","prefix","src/B.java","deny","","hidden","CODE","rev",rev(h,p)));
+            deny(()->call(h,D,p,"JOIN_CHUNK131",Map.of("token",manifest.get("token131"),"path","src/B.java","offset","0")));
+            var scoped=call(h,D,p,"JOIN_MANIFEST131",Map.of());ok(scoped.get("sourceFiles").lines().count()==1);ok(!scoped.get("sourceFiles").contains("src/B.java"));
+            call(h,O,p,"MEMBER",Map.of("target",D.toString(),"role","DEVELOPER","prefix","","deny","ERASE_CODE,SELECT_FILES","hidden","HISTORY","rev",rev(h,p)));
+            var open=call(h,D,p,"OPEN",Map.of("path","src/A.java"));ok(open.get("canErase131").equals("false"));edit(h,D,p,"base\nowner advance\ninsert\n");deny(()->edit(h,D,p,"removed"));deny(()->call(h,D,p,"PREVIEW",Map.of("paths","src/A.java","rev",rev(h,p))));deny(()->call(h,D,p,"HLOG131",Map.of("query","","author","","action","","before",Long.toString(Long.MAX_VALUE))));
+            var log=call(h,O,p,"HLOG131",Map.of("query","A.java","author",D.toString(),"action","EDIT","before",Long.toString(Long.MAX_VALUE)));ok(log.get("log131").contains("src/A.java"));ok(!log.get("log131").contains("src/B.java"));String[] row=log.get("log131").lines().findFirst().orElseThrow().split("\\|",4);var diff=call(h,O,p,"HISTORY_DIFF",Map.of("path",row[3],"history",row[0]));ok(diff.get("afterText").contains("insert"));ok(!diff.get("beforeText").contains("insert"));
+            call(h,O,p,"MEMBER",Map.of("target",D.toString(),"role","MAINTAINER","prefix","","deny","ERASE_CODE,SELECT_FILES,PUBLISH","hidden","","rev",rev(h,p)));
+            var ticket=call(h,D,p,"DELETE_REVIEW",Map.of("path","src/A.java","rev",rev(h,p)));deny(()->call(h,D,p,"DELETE",Map.of("path","src/A.java","rev",ticket.get("revision"),"ticket",ticket.get("ticket"))));
+            var importLog=call(h,O,p,"HLOG131",Map.of("query","A.java","author","","action","IMPORT_TEXT126","before",Long.toString(Long.MAX_VALUE)));String initial=importLog.get("log131").lines().findFirst().orElseThrow().split("\\|",4)[0];deny(()->call(h,D,p,"RESTORE",Map.of("path","src/A.java","history",initial,"rev",rev(h,p))));ok(call(h,O,p,"VIEW",Map.of()).get("files").contains("src/A.java"));
+            var preview=call(h,O,p,"PREVIEW",Map.of("paths","src/A.java\nsrc/B.java","rev",rev(h,p)));call(h,O,p,"APPROVE",Map.of("hash",preview.get("hash"),"rev",preview.get("revision")));
+            deny(()->call(h,D,p,"PUBLISH_CHECK131",Map.of("hash",preview.get("hash"))));ok(call(h,O,p,"PUBLISH_CHECK131",Map.of("hash",preview.get("hash"))).get("sourceHash").equals(preview.get("hash")));
+            call(h,R,p,"REQUEST_JOIN131",Map.of());String request=offer(h,O,"REQUEST");call(h,R,p,"REQUEST_JOIN131",Map.of());ok(offer(h,O,"REQUEST").equals(request));call(h,O,"","ACCEPT131",Map.of("offer",request));deny(()->call(h,R,p,"VIEW",Map.of()));String rInvite=offer(h,R,"INVITE");call(h,R,"","ACCEPT131",Map.of("offer",rInvite));ok(call(h,R,p,"VIEW",Map.of()).get("members").contains(D.toString()));
+            var oldToken=call(h,D,p,"JOIN_MANIFEST131",Map.of());call(h,O,p,"MEMBER",Map.of("target",D.toString(),"role","NONE","prefix","","deny","","hidden","","rev",rev(h,p)));deny(()->call(h,D,p,"JOIN_CHUNK131",Map.of("token",oldToken.get("token131"),"path","src/A.java","offset","0")));
+            call(h,O,p,"INVITE131",invite(X));String declined=offer(h,X,"INVITE");call(h,X,"","DECLINE131",Map.of("offer",declined));deny(()->call(h,X,p,"VIEW",Map.of()));call(h,O,p,"INVITE131",invite(X));call(h,O,p,"CANCEL_INVITE131",Map.of("target",X.toString()));ok(call(h,X,"","INBOX131",Map.of()).get("inbox131").isEmpty());
+        }
+        try(var h=new WorkspaceHub122(root.resolve("hub"))){ok(call(h,O,"","INBOX131",Map.of()).get("inbox131").contains("JOINED"));ok(call(h,R,project,"VIEW",Map.of()).get("files").contains("src/A.java"));}
+        Files.write(root.resolve("hub/invitations131"),new byte[]{1,2,3});try(var h=new WorkspaceHub122(root.resolve("hub"))){ok(call(h,O,project,"VIEW",Map.of()).get("files").contains("src/A.java"));deny(()->call(h,O,"","INBOX131",Map.of()));}
+    }finally{try(var paths=Files.walk(root)){for(Path p:paths.sorted(Comparator.reverseOrder()).toList())Files.deleteIfExists(p);}}System.out.println("Workspace131 passed: "+checks+"; durable invitations, consent, requests, all-file snapshot, ACL, erase/selection restrictions, history filters and colors.");}
+}

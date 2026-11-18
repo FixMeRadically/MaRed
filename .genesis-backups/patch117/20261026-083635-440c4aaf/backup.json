@@ -1,0 +1,30 @@
+{
+  "patch": 117,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "bad1e8a0bcde82fd17c7bd8938061ff1dd28e9dee41f4796b7bc347bb1386367",
+      "after": "009b0440aa1e2181d59032aa4deccfd4ff229f47341eebe27ddb37287dff63c9"
+    },
+    {
+      "path": "technologies/core/build.gradle",
+      "existed": true,
+      "before": "a60a5e05211f7404c134b61d85139f94d12a2e6c3c4f396942248c631c259e66",
+      "after": "9de737719e9d287cfc5c97368ca7dc15ed94a892a8a192e83de51b4a8e68afba"
+    },
+    {
+      "path": "technologies/core/foundation117.json",
+      "existed": false,
+      "before": null,
+      "after": "fe2463a9b74907f1bcdfc51173dcda6076554e6cc94ab627d995ccadbd36870c"
+    },
+    {
+      "path": "tools/core_doctor117.py",
+      "existed": false,
+      "before": null,
+      "after": "9b099211c5486ac36ddb69a59e3e92e632a5363750dc62ea440848f3d4f9ba15"
+    }
+  ]
+}

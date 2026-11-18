@@ -1,0 +1,111 @@
+{
+  "target_version": "0.4.5",
+  "release_ready": false,
+  "implemented_through_patch": 128,
+  "policy": "Частично написанный backend не считается подключённой пользовательской функцией.",
+  "features": {
+    "shared_files": {
+      "status": "implemented_unverified",
+      "evidence": "122–124: сетевой текстовый Workspace и две панели подключены; реальный многопользовательский Minecraft-тест нужен"
+    },
+    "global_maop": {
+      "status": "implemented_unverified",
+      "evidence": "113: отдельные роли/консоль/controller recheck; нужен Windows/Minecraft тест"
+    },
+    "realtime_same_document": {
+      "status": "implemented_requires_minecraft_confirmation",
+      "evidence": "121/122/123: CRDT, точные повторы пакетов и merge; отдельный личный undo по автору ещё не реализован"
+    },
+    "presence_colored_cursors": {
+      "status": "implemented_requires_minecraft_confirmation",
+      "evidence": "122–124: курсоры/выделения, активная панель, отметка редактирования и сохранение произвольного RGB"
+    },
+    "granular_acl_modules_paths": {
+      "status": "implemented_requires_minecraft_confirmation",
+      "evidence": "121–124: серверные capabilities, роли, запреты папок/панелей, единый регистр путей Windows, запрет обхода CODE через историю"
+    },
+    "protected_history_antideletion": {
+      "status": "implemented_with_bounded_history_ui",
+      "evidence": "124: страницы истории, восстановление недавно удалённых файлов, подтверждённое обслуживание CRDT с новой идентичностью; автоматической архивации журнала нет"
+    },
+    "restart_drafts": {
+      "status": "partial",
+      "evidence": "122/123: локальный текст и очередь CRDT; старая идентичность файла сохраняется при повторном открытии, ресурсы и расположение вкладок не восстановлены"
+    },
+    "binary_assets_collaboration": {
+      "status": "planned",
+      "evidence": "Общие текстуры/бинарные blobs/chunk resume отсутствуют"
+    },
+    "approved_snapshots_flags": {
+      "status": "connected_requires_minecraft_confirmation",
+      "evidence": "125: Workspace → утверждённый source manifest/chunks → локальный Gradle → BuildSnapshot84 → парная публикация; права и хеш проверяются повторно"
+    },
+    "all_device_rollout": {
+      "status": "connected_requires_minecraft_confirmation",
+      "evidence": "118/120/125: paired publication, consent/prepare/COMMIT, owner104 save-stop, mod replacement and client admission; 125 устраняет гонку согласия; нужна реальная игровая приёмка"
+    },
+    "local_mod_rollback": {
+      "status": "user_confirmed_limited",
+      "evidence": "Пользователь подтвердил возврат после ошибочного локального мода; это не тест всех устройств"
+    },
+    "windows_settings_write": {
+      "status": "fixed_requires_windows_confirmation",
+      "evidence": "114: сериализация цели + bounded sharing retry; настоящее подтверждение Windows ещё нужно"
+    },
+    "local_script_server_apply": {
+      "status": "connected_requires_minecraft_confirmation",
+      "evidence": "115: Script artifact menu → BuildSnapshot84 → owner104/Changes104 → save+stop → READY/early rollback; local server only, no client mod delivery"
+    },
+    "existing_feature_entrypoints": {
+      "status": "connected_requires_minecraft_confirmation",
+      "evidence": "116/118/125: owner104/75 navigation и новый вход из Workspace в существующую публикацию; автоматическая игровая приёмка не заявляется"
+    },
+    "server_batch_start": {
+      "status": "implemented_native_fixture_verified",
+      "evidence": "124: реальный run.bat, проверенная Java21, CMD/Java в общем Job и отдельный код выхода JVM; тестировался временный BAT, не пользовательский сервер"
+    },
+    "server_restart_all_clients": {
+      "status": "implemented_requires_minecraft_confirmation",
+      "evidence": "125: owner104 RESTART125, уведомление всех совместимых клиентов после сохранения, возврат к текущему адресу, отмена; SHUTDOWN не включает возврат"
+    },
+    "workspace_project_tools": {
+      "status": "implemented_requires_minecraft_confirmation",
+      "evidence": "126: атомарные text-only импорт папки и заготовка NeoForge MDK; предпросмотр, CAS, ACL и журнал; существующие файлы не заменяются"
+    },
+    "workspace_search": {
+      "status": "implemented_requires_minecraft_confirmation",
+      "evidence": "126: серверный поиск с учётом READ/CODE, регистра, лимитом 100 и переходом к строке"
+    },
+    "workspace_change_diff": {
+      "status": "implemented_requires_minecraft_confirmation",
+      "evidence": "126: сравнение с утверждённой версией, ACL, номера строк и явное сокращение больших сравнений"
+    },
+    "workspace_bundled_wrapper": {
+      "status": "implemented_requires_minecraft_confirmation",
+      "evidence": "126: встроенный проверенный Gradle Wrapper 9.2.1 при пустом поле; реальный offline Gradle build проверен"
+    },
+    "local_server_join": {
+      "status": "implemented_native_acceptance_verified",
+      "evidence": "128: кнопка входа, сохранение Multiplayer, подписанный адрес текущей сессии, показ LAN-адресов; реальный клиент прошёл logged in/joined the game"
+    },
+    "server_lan_discovery": {
+      "status": "implemented_native_acceptance_verified",
+      "evidence": "128: дополнение default-route pinger объявлениями по интерфейсам IPv4/IPv6; реальный multicast принят с игровым портом 25565"
+    },
+    "server_batch_gui": {
+      "status": "implemented_native_acceptance_verified",
+      "evidence": "128: принудительный nogui удалён; настоящий изолированный NeoForge открыл Minecraft server GUI, READY и STOPPED_SAVED подтверждены"
+    }
+  },
+  "priority": "Игровая приёмка на двух клиентах; затем бинарные ресурсы, импорт обновлений существующих файлов и личный undo",
+  "integration_order": [
+    "local_script_server_apply",
+    "current_owner_paired_publication",
+    "all_device_rollout",
+    "unified_approval_and_permissions",
+    "real_minecraft_acceptance",
+    "new_workspace_features"
+  ],
+  "all_existing_integration_complete": false,
+  "integration_inventory": "docs/SERVER_CONNECTION_128_RU.md"
+}

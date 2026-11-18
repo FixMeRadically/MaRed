@@ -29,7 +29,7 @@ public class MaredDebugCommand extends MaredScriptCommand {
         String trimmed = expr == null ? "" : expr.trim();
 
         String message;
-        if (trimmed.length() >= 2 && trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+        if (MaredExpr.isStringLiteral(trimmed)) {
             String inner = unescapeQuotes(trimmed.substring(1, trimmed.length() - 1));
             message = "[debug] " + ctx.substitute(inner);
         } else {

@@ -1,0 +1,29 @@
+{
+  "linked_pictures": [
+    [
+      "01_Отчёт.docx",
+      "Связи/01_План.png"
+    ],
+    [
+      "02_Отчёт.docx",
+      "Связи/02_Древо.png"
+    ],
+    [
+      "04_Отчёт.docx",
+      "Связи/04_Оценки.png"
+    ],
+    [
+      "05_Отчёт.docx",
+      "Связи/05_Содержание.png"
+    ],
+    [
+      "05_Отчёт.docx",
+      "Связи/05_Раздел.png"
+    ]
+  ],
+  "relocation_test": "passed",
+  "changed_tree_cache": "passed",
+  "changed_specification": "passed",
+  "changed_grades_and_mean": "passed",
+  "original_sources_preserved": "passed"
+}

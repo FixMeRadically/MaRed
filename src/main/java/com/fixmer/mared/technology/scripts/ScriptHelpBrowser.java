@@ -13,13 +13,14 @@ public final class ScriptHelpBrowser extends MaredComponent {
     private record Line(int y,String text,boolean heading,boolean code) {}
     private record Action(int y,String label,Runnable action) {}
     private record Diagram(int y,int height,String caption,String kind) {}
-    private ScriptHelpManual manual;
+    private ScriptHelpManual manual;private boolean commands133;public void commands133(boolean value){commands133=value;manual=null;}
     private String language="",selected="start",query="",group="";
     private List<ScriptHelpManual.Article> results=List.of();
     private final Deque<String> back=new ArrayDeque<>(),forward=new ArrayDeque<>();
     private final Set<String> bookmarks=new LinkedHashSet<>();
     private final Map<String,Integer> scrolls=new HashMap<>();
     private boolean searchFocus,indexOpen,bookmarksOnly,selectQuery;
+    private int searchSelection;
     private int scroll,indexScroll,maxScroll,bodyY,articleX,articleW,sidebarW,contentHeight,tutorialStep;
     private int cachedWidth=-1;
     private Font cachedFont;
@@ -27,11 +28,11 @@ public final class ScriptHelpBrowser extends MaredComponent {
     private List<Line> lines=List.of();private List<Action> actions=List.of();private List<Diagram> diagrams=List.of();
     private List<Hit> hits=List.of();
     private static String tr(String key){return MaredLang.get("mared.scripts.help_ui."+key);}
-    private void ensure(){String code=MaredLang.getCurrentCode();if(manual!=null&&language.equals(code))return;language=code;manual=ScriptHelpManual.load(code);selected=manual.article(selected).id();if(manual.articles().stream().noneMatch(a->a.group().equals(group)))group="";cachedWidth=-1;filter();}
+    private void ensure(){String code=MaredLang.getCurrentCode();if(manual!=null&&language.equals(code))return;language=code;manual=commands133?ScriptHelpManual.loadCommands133(code):ScriptHelpManual.load(code);selected=manual.article(selected).id();if(manual.articles().stream().noneMatch(a->a.group().equals(group)))group="";cachedWidth=-1;filter();}
     public ScriptHelpManual.Article article(){ensure();return manual.article(selected);}
     public void openArticle(String id){ensure();if(selected.equals(id)){navigate(id);return;}back.addLast(selected);if(back.size()>64)back.removeFirst();forward.clear();navigate(id);}
     private void navigate(String id){scrolls.put(selected,scroll);selected=manual.article(id).id();scroll=scrolls.getOrDefault(selected,0);cachedWidth=-1;indexOpen=false;searchFocus=false;hits=List.of();}
-    private void filter(){results=manual.search(query).stream().filter(a->(group.isEmpty()||a.group().equals(group))&&(!bookmarksOnly||bookmarks.contains(a.id()))).toList();indexScroll=0;hits=List.of();}
+    private void filter(){results=manual.search(query).stream().filter(a->(group.isEmpty()||a.group().equals(group))&&(!bookmarksOnly||bookmarks.contains(a.id()))).toList();indexScroll=0;searchSelection=0;hits=List.of();}
     private void search(String text){query=text.substring(0,Math.min(160,text.length()));selectQuery=false;if(bounds.width()<430)indexOpen=true;filter();}
     private void copy(String text){Minecraft.getInstance().keyboardHandler.setClipboard(text);}
     @Override public boolean focusable(){return true;}
@@ -58,8 +59,12 @@ public final class ScriptHelpBrowser extends MaredComponent {
         button(ctx,hs,x+(bw+3)*2,navY,bw,tr("contents"),()->{if(sidebarW>0){group="";bookmarksOnly=false;search("");}else indexOpen=!indexOpen;searchFocus=false;hits=List.of();});button(ctx,hs,x+(bw+3)*3,navY,bw,tr("copy_page"),()->copy(article().copyText()));
         bodyY=navY+22;sidebarW=bounds.width()>=430?Math.min(170,bounds.width()/3):0;boolean index=sidebarW>0||indexOpen;
         if(index){int iw=sidebarW>0?sidebarW:bounds.width()-10;button(ctx,hs,x,bodyY,Math.max(1,iw/2-2),tr(bookmarksOnly?"all":"bookmarks"),()->{bookmarksOnly=!bookmarksOnly;filter();});button(ctx,hs,x+iw/2,bodyY,Math.max(1,iw/2-2),group.isEmpty()?tr("groups"):group,()->{var groups=manual.articles().stream().map(ScriptHelpManual.Article::group).distinct().toList();int at=groups.indexOf(group)+1;group=at>=groups.size()?"":groups.get(at);filter();});
-            int iy=bodyY+23,visible=Math.max(1,(bounds.bottom()-iy)/25);indexScroll=Math.max(0,Math.min(indexScroll,Math.max(0,results.size()-visible)));g.enableScissor(x,iy,Math.max(x,x+iw),Math.max(iy,bounds.bottom()));
-            try{if(results.isEmpty())g.drawString(f,tr("empty"),x+3,iy+4,dim(),false);for(int i=indexScroll;i<Math.min(results.size(),indexScroll+visible);i++){var a=results.get(i);int ry=iy+(i-indexScroll)*25;if(a.id().equals(selected))g.fill(x,ry,x+iw,ry+24,raised());g.drawString(f,f.plainSubstrByWidth((bookmarks.contains(a.id())?"* ":"")+a.title(),Math.max(1,iw-7)),x+3,ry+3,a.id().equals(selected)?accent():text(),false);g.drawString(f,f.plainSubstrByWidth(a.group(),Math.max(1,iw-7)),x+3,ry+14,dim(),false);hs.add(new Hit(new MaredBounds(x,ry,iw,24),()->openArticle(a.id())));}}finally{g.disableScissor();}
+            int iy=bodyY+23,visible=Math.max(1,(bounds.bottom()-iy)/25);if(searchFocus){
+                if(searchSelection<indexScroll)indexScroll=searchSelection;
+                if(searchSelection>=indexScroll+visible)indexScroll=searchSelection-visible+1;
+            }
+            indexScroll=Math.max(0,Math.min(indexScroll,Math.max(0,results.size()-visible)));g.enableScissor(x,iy,Math.max(x,x+iw),Math.max(iy,bounds.bottom()));
+            try{if(results.isEmpty())g.drawString(f,tr("empty"),x+3,iy+4,dim(),false);for(int i=indexScroll;i<Math.min(results.size(),indexScroll+visible);i++){var a=results.get(i);int ry=iy+(i-indexScroll)*25;if(a.id().equals(selected)||searchFocus&&i==searchSelection)g.fill(x,ry,x+iw,ry+24,raised());if(searchFocus&&i==searchSelection)g.renderOutline(x,ry,iw,24,text());g.drawString(f,f.plainSubstrByWidth((bookmarks.contains(a.id())?"* ":"")+a.title(),Math.max(1,iw-7)),x+3,ry+3,a.id().equals(selected)?accent():text(),false);g.drawString(f,f.plainSubstrByWidth(a.group(),Math.max(1,iw-7)),x+3,ry+14,dim(),false);hs.add(new Hit(new MaredBounds(x,ry,iw,24),()->openArticle(a.id())));}}finally{g.disableScissor();}
         }
         if(sidebarW==0&&indexOpen){hits=List.copyOf(hs);return;}
         articleX=x+(sidebarW>0?sidebarW+8:0);articleW=Math.max(1,bounds.right()-articleX-5);int starW=Math.min(90,articleW);button(ctx,hs,articleX,bodyY,starW,tr(bookmarks.contains(selected)?"unbookmark":"bookmark"),()->{if(!bookmarks.remove(selected)&&bookmarks.size()<64)bookmarks.add(selected);filter();});int top=bodyY+23;
@@ -103,6 +108,6 @@ public final class ScriptHelpBrowser extends MaredComponent {
     @Override public boolean mouseClicked(double x,double y,int button){if(!contains(x,y))return false;requestFocus();if(button==0){for(var hit:hits)if(hit.bounds.contains(x,y)){hit.action.run();return true;}searchFocus=false;}return true;}
     @Override public boolean mouseScrolled(double x,double y,double dx,double dy){if(!contains(x,y))return false;if((sidebarW>0&&x<articleX)||(sidebarW==0&&indexOpen))indexScroll+=dy<0?3:dy>0?-3:0;else scroll=Math.max(0,Math.min(maxScroll,scroll+(dy<0?36:dy>0?-36:0)));return true;}
     @Override public boolean charTyped(char c,int mods){if(!isFocused()||!searchFocus)return false;ensure();if(c>=32&&c!=127)search((selectQuery?"":query)+c);return true;}
-    @Override public boolean keyPressed(int key,int scan,int mods){if(key==256)return false;if(!isFocused())return false;ensure();if((mods&2)!=0){if(key==70){searchFocus=true;if(bounds.width()<430)indexOpen=true;return true;}if(key==67){copy(article().copyText());return true;}if(key==65&&searchFocus){selectQuery=true;return true;}if(key==86&&searchFocus){String clip=Minecraft.getInstance().keyboardHandler.getClipboard();if(clip!=null)search((selectQuery?"":query)+clip.substring(0,Math.min(160,clip.length())).replaceAll("[\\p{Cntrl}]",""));return true;}}
-        if(searchFocus){if(key==259&&!query.isEmpty())search(selectQuery?"":query.substring(0,query.length()-1));else if(key==257&&!results.isEmpty())openArticle(results.get(0).id());return true;}if(key==268)scroll=0;else if(key==269)scroll=maxScroll;else if(key==267)scroll=Math.min(maxScroll,scroll+120);else if(key==266)scroll=Math.max(0,scroll-120);else if(key==264)scroll=Math.min(maxScroll,scroll+36);else if(key==265)scroll=Math.max(0,scroll-36);else return false;return true;}
+    @Override public boolean keyPressed(int key,int scan,int mods){if(!isFocused())return false;ensure();if(key==256&&searchFocus){searchFocus=false;return true;}if(key==256)return false;if((mods&2)!=0){if(key==70){searchFocus=true;if(bounds.width()<430)indexOpen=true;return true;}if(key==67){copy(article().copyText());return true;}if(key==65&&searchFocus){selectQuery=true;return true;}if(key==86&&searchFocus){String clip=Minecraft.getInstance().keyboardHandler.getClipboard();if(clip!=null)search((selectQuery?"":query)+clip.substring(0,Math.min(160,clip.length())).replaceAll("[\\p{Cntrl}]",""));return true;}}
+        if(searchFocus){if(key==259&&!query.isEmpty())search(selectQuery?"":query.substring(0,query.length()-1));else if((key==264||key==265)&&!results.isEmpty())searchSelection=Math.clamp(searchSelection+(key==264?1:-1),0,results.size()-1);else if((key==257||key==335)&&!results.isEmpty())openArticle(results.get(searchSelection).id());return true;}if(key==268)scroll=0;else if(key==269)scroll=maxScroll;else if(key==267)scroll=Math.min(maxScroll,scroll+120);else if(key==266)scroll=Math.max(0,scroll-120);else if(key==264)scroll=Math.min(maxScroll,scroll+36);else if(key==265)scroll=Math.max(0,scroll-36);else return false;return true;}
 }

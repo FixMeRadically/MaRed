@@ -21,6 +21,8 @@ public class MaredContainer extends MaredComponent {
     //  Управление детьми
     // ============================================================
 
+    @Override public void addChild(MaredComponent component){add(component);}
+    @Override public void removeChild(MaredComponent component){remove(component);}
     public void add(MaredComponent component) {
         if (component != null && !children.contains(component)) {
             children.add(component);

@@ -9,6 +9,14 @@ import java.util.concurrent.*;
 /** Owns the direct process and retains discovered descendants after parent exit. */
 final class ManagedChildProcess {
     private final Process process;
+    final FailureReport101.Capture failureLog101=new FailureReport101.Capture();
+    final java.util.concurrent.atomic.AtomicBoolean failureHandled101=new java.util.concurrent.atomic.AtomicBoolean();
+    private final String trial101,nonce101;
+    volatile String failureReason101="";
+    String trial101(){return trial101;}
+    String nonce101(){return nonce101;}
+    void startupStop101(String reason)throws IOException{StartupAbort101.write(runtime.directory.resolve("startup-stop101.properties"),runtime.id,nonce101,reason);}
+    private final java.util.concurrent.CountDownLatch outputEnded101=new java.util.concurrent.CountDownLatch(1);
     private final RuntimeFiles runtime;
     private final CdsSupport.Session cds;
     private final GameSession session;
@@ -16,7 +24,7 @@ final class ManagedChildProcess {
     volatile boolean expectedExit;
     final java.util.concurrent.atomic.AtomicBoolean presentationReleased=new java.util.concurrent.atomic.AtomicBoolean();
     final java.util.concurrent.atomic.AtomicBoolean bootGapWritten=new java.util.concurrent.atomic.AtomicBoolean();
-    final long spawnWall=System.currentTimeMillis();
+    final long spawnWall;
     GameSession session(){return session;}
     private volatile boolean untrackedDescendant;
     private final Map<Long,java.time.Instant> identities = new ConcurrentHashMap<>();
@@ -24,21 +32,24 @@ final class ManagedChildProcess {
     boolean startupProfileRequested;
     boolean customCds() { return cds.custom(); }
     void requestShutdown() throws IOException { runtime.shutdown(); }
+    void requestShutdown95(String request)throws IOException{runtime.shutdown95(request);}
+    void cancelShutdown95(String request)throws IOException{runtime.cancelShutdown95(request);}
 
     private final long started = System.nanoTime();
     private final Map<Long, ProcessHandle> tree = new ConcurrentHashMap<>();
     private final ScheduledExecutorService tracker = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "supervisor-tree"); t.setDaemon(true); return t;
     });
-    private ManagedChildProcess(Process process, SupervisorLog log,RuntimeFiles runtime,CdsSupport.Session cds,SupervisorConfig config) throws IOException {
-        this.runtime=runtime;this.cds=cds;this.session=new GameSession(runtime,config);
+    private ManagedChildProcess(Process process, SupervisorLog log,RuntimeFiles runtime,CdsSupport.Session cds,SupervisorConfig config,String trial,String nonce,long spawnWall101) throws IOException {
+        this.spawnWall=spawnWall101;
+        this.runtime=runtime;this.cds=cds;this.session=new GameSession(runtime,config);this.trial101=trial;this.nonce101=nonce;
         this.process = process; tree.put(process.pid(), process.toHandle());
         process.getOutputStream().close(); // Never depend on an interactive child stdin.
         tracker.scheduleWithFixedDelay(this::rememberTree, 0, 50, TimeUnit.MILLISECONDS);
         Thread reader = new Thread(() -> {
             try (Reader in = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                ChildOutput.copy(in,log::child);
-            } catch (IOException e) { log.warn("Child output closed: " + e.getMessage()); }
+                ChildOutput.copy(in,line->{failureLog101.add(line);log.child(line);});
+            } catch (IOException e) { log.warn("Child output closed: " + e.getMessage()); }finally{outputEnded101.countDown();}
         }, "supervisor-output");
         reader.setDaemon(true); reader.start();
     }
@@ -50,8 +61,11 @@ final class ManagedChildProcess {
         List<String> command = new ArrayList<>(plan.command());
         Map<String,String> extra=new HashMap<>(plan.environment());
         var policy=StartupCompatibility.read(config.gameDir());
+        ProfileLaunch93.apply(config.gameDir(),plan.mode(),command,extra);
+        log.info("[profile93] Early admission requested for the game JVM; no bytecode transformation");
         CdsSupport.Session cds=CdsSupport.apply(config,command,extra,bypassCds,log,plan.workDir(),policy.experimental());
         RuntimeFiles runtime=new RuntimeFiles(config.gameDir());
+        String nonce101=java.util.UUID.randomUUID().toString().replace("-","")+java.util.UUID.randomUUID().toString().replace("-","");
         if(!policy.experimental())StartupCompatibility.clearAgentReport(config.gameDir(),log);
         boolean startupAgent=StartupPathCache.apply(config.gameDir(),plan.mode(),command,extra,runtime.id,cds.custom(),log,policy.experimental());
         var startupRecording=StartupRecording.prepare(config.gameDir(),plan.mode(),command,runtime.id,log);
@@ -61,6 +75,9 @@ final class ManagedChildProcess {
             catch(IOException e){startupRecording.failed(log);runtime.cleanup(log);throw e;}
         }
         ProcessBuilder builder = new ProcessBuilder(command).directory(plan.workDir().toFile()).redirectErrorStream(true);
+        builder.environment().remove(ProfileLaunch93.AGENT);
+        builder.environment().remove(ProfileLaunch93.REQUIRED);
+        builder.environment().remove("GENESIS_COLD_RECORD94");
         builder.environment().putAll(extra);
         builder.environment().remove("GENESIS_TRANSITION_FILE");
         Path surface=RestartSurface.path(config.gameDir());
@@ -71,7 +88,13 @@ final class ManagedChildProcess {
         builder.environment().put("GENESIS_SHUTDOWN_FILE",runtime.shutdownFile().toString());
         builder.environment().put("GENESIS_SUPERVISOR", "1");
         builder.environment().put("GENESIS_SUPERVISOR_PROTOCOL", "4");
+        builder.environment().put("GENESIS_INTEGRATED_PROTOCOL90", "90");
+        builder.environment().put("GENESIS_RECOVERY_PROTOCOL91", "91");
+        builder.environment().put("GENESIS_RECOVERY_PROTOCOL92", "92");
+        builder.environment().put("GENESIS_RESTART_PROTOCOL95","95");
+        builder.environment().put("GENESIS_SUPERVISOR_INSTANCE95",config.instanceId());
         builder.environment().put("GENESIS_FRAME_HANDOFF", "32");
+        builder.environment().put("GENESIS_GAME_DIR101",config.gameDir().toString());builder.environment().put("GENESIS_STARTUP_NONCE101",nonce101);
         builder.environment().put("GENESIS_DEV_MODE", "true");
         builder.environment().put("GENESIS_SUPERVISOR_PORT", Integer.toString(config.controlPort()));
         builder.environment().put("GENESIS_SUPERVISOR_TOKEN", config.token());
@@ -79,12 +102,17 @@ final class ManagedChildProcess {
         if (!trial.isEmpty()) builder.environment().put("GENESIS_MOD_TRIAL",trial);
         // Do not print launch arguments: launcher commands can contain account tokens.
         log.info("Launching child in " + plan.workDir());
-        Process process;
-        try { process=builder.start(); }
+        Process process;long spawnWall101=System.currentTimeMillis();
+        try {
+            if(!trial.isEmpty())new ModDeployment(config.gameDir()).bindStartup101(trial,runtime.id,nonce101);
+            if(OwnerLease94.owned(config.configPath()))builder.environment().put("GENESIS_COLD_RECORD94",ColdOwner94.record(config,runtime.id,trial));
+            else log.warn("[cold94] No owner lease; this direct helper launch creates no cold-recovery authority");
+            process=builder.start();
+        }
         catch(IOException e) { startupRecording.failed(log);runtime.cleanup(log);throw e; }
         StartupCompatibility.report(config.gameDir(),runtime.id,plan.mode(),policy,startupAgent,cds.custom(),log);
         startupRecording.spawned(log);
-        try { var managed=new ManagedChildProcess(process, log,runtime,cds,config);managed.startupProfileRequested=startupRecording.claim()!=null;return managed; }
+        try { var managed=new ManagedChildProcess(process, log,runtime,cds,config,trial,nonce101,spawnWall101);managed.startupProfileRequested=startupRecording.claim()!=null;return managed; }
         catch (IOException | RuntimeException e) { process.destroyForcibly();runtime.cleanup(log);throw e; }
     }
     static List<String> normalize(List<String> original, Path cwd) throws IOException {
@@ -144,6 +172,11 @@ final class ManagedChildProcess {
         try{var start=identities.get(h.pid());return start!=null&&h.info().startInstant().filter(start::equals).isPresent();}
         catch(RuntimeException e){return false;}
     }
+    boolean mayReapAfterExit92(){
+        rememberTree();session.poll();
+        if(session.registered()&&session.pid()!=process.pid())return session.confirmedExit();
+        return !process.isAlive()&&!untrackedDescendant&&tree.values().stream().noneMatch(h->h.pid()!=process.pid()&&blocksReap(h));
+    }
     boolean isAlive() { return process.isAlive(); }
     long pid() { return process.pid(); }
     long uptimeMs() { return (System.nanoTime()-started)/1_000_000; }
@@ -173,6 +206,7 @@ final class ManagedChildProcess {
             process.destroyForcibly();
             if (!awaitTree(5000)) {tracker.shutdownNow();return false;}
         }
+        outputEnded101.await(300,TimeUnit.MILLISECONDS);
         cds.finished(process.exitValue(),log);
         runtime.cleanup(log);
         tracker.shutdownNow();

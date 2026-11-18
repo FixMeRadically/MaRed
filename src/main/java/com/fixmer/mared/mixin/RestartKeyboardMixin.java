@@ -7,8 +7,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Observe callback delivery only; keep Minecraft and other mods in control of key handling. */
 @Mixin(KeyboardHandler.class)
 public abstract class RestartKeyboardMixin {
-    @Inject(method="keyPress",at=@At("HEAD"),require=0)
+    @Inject(method="keyPress",at=@At("HEAD"),require=0,cancellable=true)
     private void genesis$observeRestartKey(long window,int key,int scan,int action,int modifiers,CallbackInfo ci){
         com.fixmer.mared.dev.client.DevRestartWindow.inputEvent(window,true);
+        if(com.fixmer.mared.dev.client.DevRestartOverlay.cancelFromKey95(window,key,action)||com.fixmer.mared.technology.server.setup.ServerReturnClient108.keyReplacement(window,key,scan,action,modifiers))ci.cancel();
     }
 }

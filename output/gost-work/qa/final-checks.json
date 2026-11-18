@@ -1,0 +1,45 @@
+[
+  {
+    "file": "00_Памятка_WPS.docx",
+    "source_media_count": 0,
+    "changed_or_reencoded_media": []
+  },
+  {
+    "file": "01_Отчёт.docx",
+    "source_media_count": 2,
+    "changed_or_reencoded_media": []
+  },
+  {
+    "file": "01_План_квартиры.docx",
+    "source_media_count": 4,
+    "changed_or_reencoded_media": [
+      "word/embeddings/",
+      "word/media/"
+    ]
+  },
+  {
+    "file": "02_Отчёт.docx",
+    "source_media_count": 1,
+    "changed_or_reencoded_media": []
+  },
+  {
+    "file": "02_Семейное_дерево.docx",
+    "source_media_count": 0,
+    "changed_or_reencoded_media": []
+  },
+  {
+    "file": "03_Реферат.docx",
+    "source_media_count": 0,
+    "changed_or_reencoded_media": []
+  },
+  {
+    "file": "04_Отчёт.docx",
+    "source_media_count": 1,
+    "changed_or_reencoded_media": []
+  },
+  {
+    "file": "05_Отчёт.docx",
+    "source_media_count": 2,
+    "changed_or_reencoded_media": []
+  }
+]

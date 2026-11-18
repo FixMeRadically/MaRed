@@ -1,0 +1,12 @@
+{
+  "patch": "82-publication-fix",
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "src/test/java/com/fixmer/mared/PublicationChecks79.java",
+      "existed": true,
+      "before": "1881a85d60a4313692472944ba8adfd4bd08f3bfeb6291eeb98bdf0ccc550578",
+      "after": "f30e86d5064e688c381215e5ee9ef0222b03a704f08b6dbb701386d88e0e2fd1"
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "patch": 85,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "5bf4e2457bd366c52b41d32a189acb6d99891d15d83dfa944d81046db4174873",
+      "after": "81b6f97860a0e78c571f9bd6946adb315add021bb274b9b07ca8300f4965a058"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/PublicationHealthScreen80.java",
+      "existed": true,
+      "before": "a681e6354605c24235986f32969663cd4e3dc612b4aa347110b24aabef974da2",
+      "after": "a19f75aac32108eb5d2c3de31ec16392d42c38b24d5d865d9828406e5f7c7786"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RenewalScreen85.java",
+      "existed": false,
+      "before": null,
+      "after": "978105d1df365d67834ac970660ceaad085d43c587aa39a6aa71561b234dc6ed"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RenewalService85.java",
+      "existed": false,
+      "before": null,
+      "after": "b2c4ab51258204255a4479b5ccbff4cc988488ea1a2ef12f33a545dfb930e245"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "63ef7d2e60f1fefd4ecadfa0c824b4b126908f97fde135c557335c71777dc67d",
+      "after": "b9f5b29cdae4a92d98c4330f4e470c9bcd598bb76d9b67d96e9068300fdf08f9"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "4a53190f2288eae13099ce7b25571f830e397a8b5aa954b1135fc424d7f80ad0",
+      "after": "70071545c2bf5b62605cfc8bef1ad5457315edbba3926f92a554a88804911798"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/RenewalChecks85.java",
+      "existed": false,
+      "before": null,
+      "after": "53218fd7335ddb56009f83cfcf1c50f78b0804fe5240e15b0aa128abc7c5ff71"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "17e90319303b639a1dc8af56ef692c32e0f8cca1cafd59a4112a343720d0af70",
+      "after": "de8f541a19428232d64aabb84b5d6cacb29976faca5df9d0db76112ef0b99a76"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Renewal85.java",
+      "existed": false,
+      "before": null,
+      "after": "7ea8053e876d212fc135c201cdf06c6736a7432c023dac46385c5e560e6da382"
+    },
+    {
+      "path": "tools/dedicated_server75.py",
+      "existed": true,
+      "before": "8f64969d99ccb06615c81d0f99e0b5ef4096b99476e4f537ab92e192e968fb88",
+      "after": "d8d26c0ee5eaab32af4d048f7a95718e95a8687306e0818561c642dddeccf19d"
+    },
+    {
+      "path": "tools/first58/dedicated77.py",
+      "existed": true,
+      "before": "89848e66a2c7aa36051d43718bd617d0da51bfe4b202e164c7d2086295db6c04",
+      "after": "722997e733ca9c9352c8a97e749c26eda3dc0404cbe49ae52bb4c7a89f371f18"
+    },
+    {
+      "path": "tools/first58/dedicated78.py",
+      "existed": true,
+      "before": "91f7dd94b958d788ea584e08e64d586832d6ff18daf9a98c396a3e26d7a4e21f",
+      "after": "7f1a6c5ed536ba1e54b2a658996494b2862dbc4cb873e17984c70c47e0b9b3f0"
+    },
+    {
+      "path": "tools/first58/dedicated83.py",
+      "existed": true,
+      "before": "fdbb739cee85e4316822bcf5d2c1fc593b2de29a42104a94ab677cf6a4610d2c",
+      "after": "236021cb5e73264a9378ceaf6a2e4b71f3f9a47f52ebad7bd056ed150f2f8bc9"
+    },
+    {
+      "path": "tools/first58/dedicated85.py",
+      "existed": false,
+      "before": null,
+      "after": "679b0cf9c13aad90689e741a91036eb01e9152d867278823ebb548db0b7a5d9f"
+    },
+    {
+      "path": "tools/first58/https78.py",
+      "existed": true,
+      "before": "59aef1a967a03bc5fd51385934b5e57e35b3dac09e1ae5e14988d271b51822d8",
+      "after": "b419dc3f78dd1c9d5a8f27296007e3fe87cf02e887b3c23992709e3b41107c9f"
+    },
+    {
+      "path": "tools/first58/publication83.py",
+      "existed": true,
+      "before": "be3fdbd4147c1dec73436bd1a916abca349f189ad5f29d7da15ce41693b791d7",
+      "after": "ba9ff5dc98aba6b1d7eef44a849601485dd2db823f354d32e45e7ff099970250"
+    },
+    {
+      "path": "tools/first58/publication85.py",
+      "existed": false,
+      "before": null,
+      "after": "7218c912d9b0776ab72ad7a180223d705c44c62753dc178514e982688e0885c3"
+    },
+    {
+      "path": "tools/first58/renew85.py",
+      "existed": false,
+      "before": null,
+      "after": "39b15e420f717acd51b378c3114539b5127f3ec8b08220b0e7744cdb9561262e"
+    },
+    {
+      "path": "tools/first58/repair78.py",
+      "existed": true,
+      "before": "b87326619ce98785bd446bd288bec7c8cd53452b35c42c6caa33e1f31653adf5",
+      "after": "4576941d58a7b7a117c3ec173659e84d6b98e352f869752546b69022fcce3461"
+    },
+    {
+      "path": "verification/server59/RenewalFixture85.java",
+      "existed": false,
+      "before": null,
+      "after": "7141921872f1bcdaed56d29decfebc026cfc4bc34c2e29252f2c485184aca961"
+    },
+    {
+      "path": "verification/server59/publication_files85.py",
+      "existed": false,
+      "before": null,
+      "after": "9c7fbf4bf7fffd85d34f7d73302d15df8fec1cc3719177434c0ecbf017be3d9a"
+    },
+    {
+      "path": "verification/server59/test_renewal85.py",
+      "existed": false,
+      "before": null,
+      "after": "b78b2136855128f1a4f6aea1d0f68e9d876cac7fb22eed25e1e01c7b50270b60"
+    }
+  ]
+}

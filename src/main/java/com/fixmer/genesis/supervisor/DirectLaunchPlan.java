@@ -121,13 +121,17 @@ public final class DirectLaunchPlan {
             Path original=cwd.resolve(command.get(i).substring(1)).normalize();RuntimeFiles.safe(original);
             if(!Files.isRegularFile(original)||Files.size(original)>1024*1024)throw new IOException("Argument file unavailable");
             // Launcher @files are not recursive. Preserve bytes and relative paths, keep the same cwd.
-            byte[] bytes=Files.readAllBytes(original);
+            byte[] bytes;
+            try(var input=Files.newInputStream(original,LinkOption.NOFOLLOW_LINKS)){bytes=input.readNBytes(1024*1024+1);}
+            if(bytes.length>1024*1024)throw new IOException("Argument file unavailable");
             String options=new String(bytes,StandardCharsets.UTF_8);
             if(options.contains("-agentlib:jdwp")||options.contains("-Xrunjdwp"))throw new IOException("DEBUG_LAUNCH");
             Path local=target.resolveSibling("direct-launch-arg-"+generation+"-"+i+".txt");RuntimeFiles.safe(local);
-            copies.add(local);
-            Files.write(local,bytes,StandardOpenOption.CREATE_NEW);
-            try {Files.setPosixFilePermissions(local,PosixFilePermissions.fromString("rw-------"));}catch(UnsupportedOperationException ignored) { }
+            try(var output=Files.newOutputStream(local,StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS)){
+                copies.add(local);
+                try{Files.setPosixFilePermissions(local,PosixFilePermissions.fromString("rw-------"));}catch(UnsupportedOperationException ignored) { }
+                output.write(bytes);
+            }
             p.setProperty("command."+i,"@"+local);
             inputs.removeIf(value->cwd.resolve(value).toAbsolutePath().normalize().equals(original.toAbsolutePath().normalize()));inputs.add(local.toString());
         }

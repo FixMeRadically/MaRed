@@ -11,17 +11,25 @@ public final class GenesisEditorVisuals {
     public static final int LOGIC=0xFFAA55FF,ACCENT=0xFF9F80BB;
     private static com.fixmer.mared.gui2.framework.theme.MaredTheme cachedTheme;
     private static EditorDialogStyle cachedStyle;
+    private static int directionAccent152=LOGIC;
+    private static java.util.Map<String,Integer> surfaces152=java.util.Map.of();
+    public static void colors152(WorkbenchPreferences prefs,com.fixmer.genesis.technology.creation.CreationCatalog145.Direction direction){
+        int rgb=0xff000000|prefs.directionColors152.getOrDefault(direction.id(),direction.color&0xffffff);
+        if(directionAccent152!=rgb){directionAccent152=rgb;cachedTheme=null;}
+        surfaces152=prefs.surfaceColors152;
+    }
+    private static int surface152(String key,int fallback){var value=surfaces152.get(key);return value==null?fallback:0xff000000|value;}
     private static EditorDialogStyle style(){
         var theme=com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active();
-        if(theme!=cachedTheme){cachedTheme=theme;cachedStyle=EditorDialogStyle.from(theme,LOGIC);}
+        if(theme!=cachedTheme){cachedTheme=theme;cachedStyle=EditorDialogStyle.from(theme,directionAccent152);}
         return cachedStyle;
     }
-    public static int bg(){return com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgScreen;}
-    public static int panel(){return style().panel();}
-    public static int raised(){return style().raised();}
-    public static int edge(){return style().border();}
-    public static int text(){return style().text();}
-    public static int dim(){return style().muted();}
+    public static int bg(){return surface152("background",com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgScreen);}
+    public static int panel(){return surface152("panel",style().panel());}
+    public static int raised(){return surface152("raised",style().raised());}
+    public static int edge(){return surface152("border",style().border());}
+    public static int text(){return surface152("text",style().text());}
+    public static int dim(){return surface152("muted",style().muted());}
     public static int accent(){return style().accent();}
     public static int sunken(){return style().input();}
     public static int hover(){return style().hover();}

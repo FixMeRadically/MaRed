@@ -28,10 +28,9 @@ public class MaredRepeatCommand extends MaredScriptCommand {
     public void execute(MaredScriptContext ctx, MaredScriptExecutor exec) {
         int count = 0;
         try {
-            count = (int) MaredExpr.toLong(MaredExpr.eval(countExpr, ctx));
+            count = Math.toIntExact(MaredExpr.toLong(MaredExpr.eval(countExpr, ctx)));
         } catch (Exception e) {
-            ctx.log(MaredLang.format("mared.log.eval.error", countExpr, e.getMessage()));
-            return;
+            throw new IllegalArgumentException("Invalid repeat count: " + countExpr, e);
         }
 
         if (count <= 0 || body.isEmpty()) return;

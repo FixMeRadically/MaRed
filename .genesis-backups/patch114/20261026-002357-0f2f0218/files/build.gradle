@@ -1,0 +1,788 @@
+plugins {
+    id 'java-library'
+    id 'idea'
+    id 'maven-publish'
+    id 'net.neoforged.gradle.userdev' version '7.1.38'
+}
+
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+version = mod_version
+group = mod_group_id
+
+sourceSets.main.resources {
+    srcDir('src/generated/resources')
+    exclude("**/*.bbmodel")
+    exclude("src/generated/**/.cache")
+}
+
+repositories {
+    mavenCentral()
+    // Add here additional repositories if required by some of the dependencies below.
+}
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+// Detailed registry logging is opt-in; keep ordinary restart startup free of debug output.
+def genesisDebugLogs = providers.gradleProperty('maredDebugLogs').map { it.toBoolean() }.getOrElse(false)
+runs {
+    configureEach {
+        if (genesisDebugLogs) systemProperty 'forge.logging.markers', 'REGISTRIES'
+        systemProperty 'forge.logging.console.level', genesisDebugLogs ? 'debug' : 'info' 
+        workingDirectory project.layout.projectDirectory.dir('run').dir(name)
+        modSource project.sourceSets.main
+        dependencies { runtime project(':genesis-core') }
+    }
+
+    client {
+        systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        arguments.addAll '--username', 'fix'
+    }
+
+    server {
+        systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        argument '--nogui'
+    }
+
+    gameTestServer {
+        systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+    }
+
+    data {
+        arguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
+    }
+}
+
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    implementation project(':genesis-core')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    implementation "net.neoforged:neoforge:${neo_version}"
+}
+
+tasks.withType(ProcessResources).configureEach {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand replaceProperties
+    }
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            url "file://${project.projectDir}/repo"
+        }
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}
+// NeoForge Jar-in-Jar includes the exact same library used by this mod.
+def genesisMetadata = layout.buildDirectory.dir('generated/genesis-jarjar')
+tasks.register('genesisJarJarMetadata') {
+    inputs.property('genesisVersion', provider { project(':genesis-core').version.toString() })
+    outputs.dir(genesisMetadata)
+    doLast {
+        def metadata = genesisMetadata.get().file('META-INF/jarjar/metadata.json').asFile
+        metadata.parentFile.mkdirs()
+                def coreVersion = project(':genesis-core').version.toString()
+        metadata.text = groovy.json.JsonOutput.toJson([jars: [[
+            identifier: [group: 'com.fixmer.genesis', artifact: 'genesis-core'],
+            version: [range: "[${coreVersion},0.2.0)", artifactVersion: coreVersion],
+            path: "META-INF/jarjar/genesis-core-${coreVersion}.jar"
+        ]]])
+    }
+}
+tasks.named('jar') {
+    dependsOn ':genesis-core:jar', 'genesisJarJarMetadata'
+    from(genesisMetadata)
+    from(project(':genesis-core').tasks.named('jar')) { into 'META-INF/jarjar' }
+}
+
+// Explicit dependency-free regression main, using the compiled mod and real game classpath.
+tasks.register('runtimeIntegrationChecks', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.RuntimeIntegrationChecks'
+    workingDir layout.buildDirectory.dir('runtime-checks').get().asFile
+    doFirst { workingDir.mkdirs() }
+}
+tasks.named('check') { dependsOn 'runtimeIntegrationChecks' }
+// Keep conventional tests enabled so future JUnit suites participate in check.
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    workingDir layout.buildDirectory.dir("junit-checks/${name}").get().asFile
+    doFirst { workingDir.mkdirs() }
+}
+
+// Inspect the shipped archive with FML, instead of testing only a flat Java classpath.
+tasks.withType(Test).configureEach {
+    dependsOn tasks.named('jar')
+    jvmArgs '--add-opens=java.base/java.lang.invoke=ALL-UNNAMED'
+    systemProperty 'genesis.packagedMod', tasks.named('jar').get().archiveFile.get().asFile.absolutePath
+}
+
+// Copy tasks can retain removed outputs: remove the obsolete bundled MC templates on rebuild.
+tasks.register('purgeObsoleteCommandTemplates', Delete) {
+    delete layout.buildDirectory.dir('resources/main/mared/commands')
+}
+tasks.named('processResources') {
+    dependsOn 'purgeObsoleteCommandTemplates'
+}
+
+// A private bootstrap resource for FML/module launches. This is built by the mod itself.
+def supervisorClasses = layout.buildDirectory.dir('supervisor/classes')
+tasks.register('compileSupervisorBootstrap', JavaCompile) {
+    source = fileTree('src/main/java') { include 'com/fixmer/genesis/supervisor/**'; include 'com/fixmer/genesis/admission/**' }
+    classpath = files()
+    destinationDirectory = supervisorClasses
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(21) }
+    options.release = 21
+}
+// Isolated agent: no agent classes on the game/module classpath.
+sourceSets.main.java.exclude 'com/fixmer/genesis/startup/**'
+def startupAgentClasses = layout.buildDirectory.dir('startup-agent/classes')
+tasks.register('compileStartupAgent', JavaCompile) {
+    source = fileTree('src/main/java') { include 'com/fixmer/genesis/startup/**' }
+    classpath = files()
+    destinationDirectory = startupAgentClasses
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(21) }
+    options.release = 17
+}
+def startupAgentArchive = tasks.register('startupAgentJar', Jar) {
+    dependsOn 'compileStartupAgent'
+    archiveFileName = 'startup-agent.jar'
+    destinationDirectory = layout.buildDirectory.dir('startup-agent/resource')
+    from startupAgentClasses
+    manifest { attributes 'Premain-Class': 'com.fixmer.genesis.startup.PathCacheAgent' }
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+def profileAdmissionArchive93 = tasks.register('profileAdmissionJar93', Jar) {
+    dependsOn 'compileSupervisorBootstrap'
+    archiveFileName = 'profile-admission93.jar'
+    destinationDirectory = layout.buildDirectory.dir('profile-admission93')
+    from(supervisorClasses) { include 'com/fixmer/genesis/admission/**' }
+    manifest { attributes 'Premain-Class': 'com.fixmer.genesis.admission.ProfileAgent93' }
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+def supervisorBootstrap = tasks.register('supervisorBootstrapJar', Jar) {
+    dependsOn 'compileSupervisorBootstrap', startupAgentArchive, profileAdmissionArchive93
+    archiveFileName = 'supervisor-bootstrap.jar'
+    destinationDirectory = layout.buildDirectory.dir('supervisor/resource/mared/dev')
+    from supervisorClasses
+    from(startupAgentArchive.flatMap { it.archiveFile }) { into 'mared/dev' }
+    from(profileAdmissionArchive93.flatMap { it.archiveFile }) { into 'mared/dev' }
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+tasks.named('processResources') {
+    dependsOn supervisorBootstrap
+    from(supervisorBootstrap.flatMap { it.archiveFile }) { into 'mared/dev' }
+}
+
+
+// A Java String is required at collection/reflection boundaries: GString.equals(String)
+// is false even when the text matches. Shared with the build-time regression check.
+def genesisSeedArgument = { File seed -> "-Dgenesis.launch.seed=${seed.absolutePath}".toString() }
+tasks.register('genesisCaptureChecks') {
+    doLast {
+        def genesisProofMarker = genesisSeedArgument(new File(projectDir,'capture-type-proof.properties'))
+        if (!(genesisProofMarker instanceof String) || ![genesisProofMarker.toString()].contains(genesisProofMarker))
+            throw new GradleException('Genesis seed argument must be a Java String')
+    }
+}
+tasks.named('check') { dependsOn 'genesisCaptureChecks' }
+
+// Stage 12: capture lazily when JavaExec evaluates its effective arguments.
+// Capture a build-content baseline in Gradle and confirm it in the game; no extra helper JVM.
+tasks.withType(JavaExec).configureEach { launchTask ->
+    if (launchTask.name == 'runClient') {
+        dependsOn supervisorBootstrap
+        def armed = false
+        def collecting = false
+        def attempted = false
+        String captureState = "pending"
+        def seedFile = null
+        def captureId = UUID.randomUUID().toString()
+        // Only the actual game JVM gets the admission agent; never Gradle or a shared daemon.
+        launchTask.jvmArgumentProviders.add({
+            if (!armed) return []
+            def admissionHelper93 = new URLClassLoader([supervisorBootstrap.get().archiveFile.get().asFile.toURI().toURL()] as URL[],ClassLoader.getPlatformClassLoader())
+            try {
+                def guardType93 = admissionHelper93.loadClass('com.fixmer.genesis.supervisor.ProfileLaunch93')
+                String option93 = guardType93.getMethod('forGradle',String.class,java.nio.file.Path.class,java.nio.file.Path.class)
+                    .invoke(null,System.getenv('GENESIS_PROFILE_AGENT93'),profileAdmissionArchive93.get().archiveFile.get().asFile.toPath(),launchTask.workingDir.toPath())
+                return [option93]
+            } finally { admissionHelper93.close() }
+        } as org.gradle.process.CommandLineArgumentProvider)
+        doFirst { armed = true }
+        launchTask.jvmArgumentProviders.add({
+            if (!armed) return []
+            if (seedFile == null) seedFile = new File(launchTask.workingDir, "config/mared/dev/launch-seed-${captureId}.properties")
+            String marker = genesisSeedArgument(seedFile)
+            // Reentrant allJvmArgs only needs the seed marker, never an in-progress state
+            // in the cached command. The real launch receives the final bounded state.
+            if (collecting) return [marker]
+            if (attempted) return [marker, '-Dgenesis.launch.capture='+captureState]
+            collecting = true
+            attempted = true
+            String captureStage = 'java_entry'
+            try {
+                def snapshot = new Properties()
+                snapshot.setProperty('schema', '2')
+                snapshot.setProperty('captureId', captureId)
+                snapshot.setProperty('projectDir', rootProject.projectDir.absolutePath)
+                snapshot.setProperty('workDir', launchTask.workingDir.absolutePath)
+                // JavaExec.commandLine may contain only executable + application arguments.
+                // Read the public JavaForkOptions + JavaExec components explicitly instead.
+                def executable = launchTask.executable
+                if (executable == null || !new File(executable).isAbsolute()) {
+                    def launcher = launchTask.javaLauncher.orNull
+                    if (launcher != null) executable = launcher.executablePath.asFile.absolutePath
+                }
+                if (executable == null || !new File(executable).isAbsolute()) throw new GradleException('Unresolved Java executable')
+                if (launchTask.mainModule.present) throw new GradleException('Capture of inferred module entry is unsupported')
+                captureStage = 'jvm_options'
+                // JavaExecCommand removes only the transient admission capsule from persisted argv.
+                def jvm = launchTask.allJvmArgs.collect { it.toString() }
+                if (!jvm.contains(marker)) throw new GradleException('Missing JVM confirmation marker')
+                captureStage = 'application'
+                def application = (launchTask.args ?: []).collect { it.toString() }
+                launchTask.argumentProviders.each { provider -> application.addAll(provider.asArguments().collect { it.toString() }) }
+                def launchMainClass = launchTask.mainClass.orNull
+                def classpath = launchTask.classpath.files.collect { it.absolutePath }
+                // The same JDK-only command assembler is exercised by actual child replay tests.
+                captureStage = 'assemble'
+                def commandHelper = new URLClassLoader([supervisorBootstrap.get().archiveFile.get().asFile.toURI().toURL()] as URL[],ClassLoader.getPlatformClassLoader())
+                def cmd
+                try {
+                    def type = commandHelper.loadClass('com.fixmer.genesis.supervisor.JavaExecCommand')
+                    cmd = type.getMethod('classic',String.class,List.class,List.class,String.class,List.class)
+                        .invoke(null,executable,jvm,classpath,launchMainClass,application)
+                } finally { commandHelper.close() }
+                snapshot.setProperty('command.count', cmd.size().toString())
+                cmd.eachWithIndex { value, i -> snapshot.setProperty("command.${i}", value) }
+                launchTask.environment.each { key, value ->
+                    if (value != null && !key.toString().startsWith('GENESIS_') && System.getenv(key.toString()) != value.toString())
+                        snapshot.setProperty("env.${key}", value.toString())
+                }
+                captureStage = 'build_inputs'
+                def inputs = new LinkedHashSet<File>()
+                rootProject.allprojects.each { prj ->
+                    ['build.gradle','build.gradle.kts','settings.gradle','settings.gradle.kts','gradle.properties'].each { inputs.add(new File(prj.projectDir,it)) }
+                    def sets = prj.extensions.findByName('sourceSets')
+                    if (sets != null) { def sourceMainSet = sets.findByName('main'); if (sourceMainSet != null) { inputs.addAll(sourceMainSet.allSource.srcDirs); inputs.addAll(sourceMainSet.output.files) } }
+                }
+                inputs.add(new File(rootProject.projectDir,'gradle'))
+                ['buildSrc/src','buildSrc/build.gradle','buildSrc/build.gradle.kts','buildSrc/settings.gradle','buildSrc/settings.gradle.kts','buildSrc/gradle.properties'].each { inputs.add(new File(rootProject.projectDir,it)) }
+                inputs.addAll(launchTask.classpath.files)
+                inputs.add(new File(cmd[0]))
+                inputs.add(new File(new File(cmd[0]).parentFile.parentFile,'release'))
+                captureStage = 'native_inputs'
+                def natives = new LinkedHashSet<File>()
+                cmd.findAll { it.startsWith('-Djava.library.path=') || it.startsWith('-Dorg.lwjgl.librarypath=') }.each { value ->
+                    value.substring(value.indexOf('=')+1).split(java.util.regex.Pattern.quote(File.pathSeparator),-1).each { part ->
+                        def path = part.isEmpty() ? launchTask.workingDir : new File(part)
+                        natives.add(path.isAbsolute() ? path : new File(launchTask.workingDir,part))
+                    }
+                }
+                cmd.findAll { it.startsWith('-javaagent:') }.each { value -> def path = new File(value.substring(11).split('=',2)[0]); inputs.add(path.isAbsolute() ? path : new File(launchTask.workingDir,path.path)) }
+                cmd.findAll { it.startsWith('@') }.each { value -> def path = new File(value.substring(1)); inputs.add(path.isAbsolute() ? path : new File(launchTask.workingDir,path.path)) }
+                def paths = inputs.collect { it.absolutePath }.sort()
+                snapshot.setProperty('input.count', paths.size().toString())
+                paths.eachWithIndex { value, i -> snapshot.setProperty("input.${i}", value) }
+                def nativePaths = natives.collect { it.toPath().toAbsolutePath().normalize().toString() }.unique().sort()
+                snapshot.setProperty('native.count',nativePaths.size().toString())
+                nativePaths.eachWithIndex { value, i -> snapshot.setProperty("native.${i}",value) }
+                // Load only the JDK-only helper; do not fork another JVM or retain the JAR lock.
+                captureStage = 'baseline'
+                def helper = new URLClassLoader([supervisorBootstrap.get().archiveFile.get().asFile.toURI().toURL()] as URL[],ClassLoader.getPlatformClassLoader())
+                try {
+                    def type = helper.loadClass('com.fixmer.genesis.supervisor.DirectLaunchPlan')
+                    type.getMethod('captureBaseline',Properties.class).invoke(null,snapshot)
+                } finally { helper.close() }
+                captureStage = 'write_seed'
+                seedFile.parentFile.mkdirs()
+                def temp = java.nio.file.Files.createTempFile(seedFile.parentFile.toPath(),'seed-','.tmp')
+                try {
+                    try { java.nio.file.Files.setPosixFilePermissions(temp,java.nio.file.attribute.PosixFilePermissions.fromString('rw-------')) }
+                    catch (UnsupportedOperationException ignored) { }
+                    java.nio.file.Files.newBufferedWriter(temp,java.nio.charset.StandardCharsets.UTF_8).withCloseable { writer -> snapshot.store(writer,'Genesis private launch seed; do not share') }
+                    java.nio.file.Files.move(temp,seedFile.toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+                } finally { java.nio.file.Files.deleteIfExists(temp) }
+                captureState = "ready"
+                logger.lifecycle('Genesis: effective JVM launch seed saved; validation will run in the game background.')
+            } catch (Exception error) {
+                // Exception class only: messages can include private command/environment values.
+                captureState = 'failed_'+captureStage
+                logger.lifecycle('Genesis: JVM launch capture unavailable at '+captureStage+' ('+error.class.simpleName+'); configured launcher retained.')
+            } finally { collecting = false }
+            return [marker, '-Dgenesis.launch.capture='+captureState]
+        } as org.gradle.process.CommandLineArgumentProvider)
+    }
+}
+
+// Portable setup UI: includes the same core JAR and Python controller as the build.
+// No paths, credentials or developer profiles are included in this resource.
+def genesisServerSetup59 = tasks.register('genesisServerSetup59', Zip) {
+    dependsOn ':genesis-core:jar'
+    archiveFileName = 'controller.zip'
+    destinationDirectory = layout.buildDirectory.dir('server59-bundle')
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    from('tools') {
+        include 'server104.py', 'first_launch.py', 'server_setup.py', 'server_panel66.py', 'remote_update.py', 'control_setup73.py', 'dedicated_server74.py', 'dedicated_server75.py', 'remote_client70.py', 'first58/**/*.py'
+        exclude '**/__pycache__/**'
+        into 'tools'
+    }
+    from(project(':genesis-core').tasks.named('jar')) {
+        into 'runtime'
+        rename { 'core.jar' }
+    }
+}
+tasks.named('processResources') {
+    dependsOn genesisServerSetup59
+    from(genesisServerSetup59.flatMap { it.archiveFile }) { into 'genesis/server59' }
+}
+tasks.register('serverSetupResourceChecks59', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerSetupResourceChecks59'
+}
+tasks.named('check') { dependsOn 'serverSetupResourceChecks59' }
+
+//72: consent state checks also run on the real Gradle game classpath.
+tasks.register('remoteConsentChecks72', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.RemoteConsentChecks72'
+}
+tasks.named('check') { dependsOn 'remoteConsentChecks72' }
+
+//73: real cryptography, receipt ordering, durable journal and frozen threshold checks.
+tasks.register('remoteControlChecks73', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.RemoteControlChecks73'
+}
+tasks.named('check') { dependsOn 'remoteControlChecks73' }
+
+//74: private dedicated session and real runtime-path receipt checks.
+tasks.register('dedicatedChecks74', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.DedicatedChecks74'
+}
+tasks.named('check') { dependsOn 'dedicatedChecks74' }
+
+//75: generation binding, admin authorization and authenticated request queue.
+tasks.register('dedicatedChecks75', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.DedicatedChecks75'
+}
+tasks.named('check') { dependsOn 'dedicatedChecks75' }
+
+//76: real signature, pre-login config and filesystem checks; native/game acceptance remains separate.
+tasks.register('bootstrapChecks76', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.BootstrapChecks76'
+}
+tasks.named('check') { dependsOn 'bootstrapChecks76' }
+
+//79: actual signed paired releases and preview snapshot guards.
+tasks.register('publicationChecks79', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.PublicationChecks79'
+}
+tasks.named('check') { dependsOn 'publicationChecks79' }
+
+//80: expiry is separate from saved-world integrity; real signatures and signer EOF checks.
+tasks.register('recoveryExpiryChecks80', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.RecoveryExpiryChecks80'
+}
+tasks.named('check') { dependsOn 'recoveryExpiryChecks80' }
+
+//81: actual signed COMMIT snapshots and idempotent close; native/game fixtures are explicit.
+tasks.register('commitFenceChecks81', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.CommitFenceChecks81'
+}
+tasks.named('check') { dependsOn 'commitFenceChecks81' }
+
+//82: actual expired signed pair and member-bound JOIN-only proof (no game/native claims).
+tasks.register('admissionChecks82', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.AdmissionChecks82'
+}
+tasks.named('check') { dependsOn 'admissionChecks82' }
+
+//83: first publisher identity, paired release and immutable preview; no game/native readiness claims.
+tasks.register('publicationChecks83', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.PublicationChecks83'
+}
+tasks.named('check') { dependsOn 'publicationChecks83' }
+
+// Script build provenance and complete signed successor sets (no Minecraft process).
+tasks.register('scriptPublicationChecks84', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ScriptPublicationChecks84'
+}
+tasks.named('check') { dependsOn 'scriptPublicationChecks84' }
+
+// Immutable-code renewal; signatures and package bytes, no game processes.
+tasks.register('renewalChecks85', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.RenewalChecks85'
+}
+tasks.named('check') { dependsOn 'renewalChecks85' }
+
+// Fresh identical-code continuation is separate from install authority.
+tasks.register('updaterChecks86', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.UpdaterChecks86'
+}
+tasks.named('check') { dependsOn 'updaterChecks86' }
+
+//88 roles: real HMAC/CAS/queue tests, actual game context remains an adapter obligation.
+tasks.register('serverAccessChecks88', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerAccessChecks88'
+}
+tasks.named('check') { dependsOn 'serverAccessChecks88' }
+
+//89 current-client identity handoff. Online HTTP/network is tested separately with bounded fixtures.
+tasks.register('sessionHandoffChecks89', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.SessionHandoffChecks89'
+}
+tasks.named('check') { dependsOn 'sessionHandoffChecks89' }
+
+//90 integrated save/exit evidence; game adapters are verified separately.
+tasks.register('integratedChecks90', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.IntegratedChecks90'
+}
+tasks.named('check') { dependsOn 'integratedChecks90' }
+
+//91 real deployment journal, candidate bytes, recovery decisions; no Minecraft runtime.
+tasks.register('recoveryChecks91', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.RecoveryChecks91'
+}
+tasks.named('check') { dependsOn 'recoveryChecks91' }
+
+//92 owner-bound emergency recovery, lease and single-use control; real process checks live in verification.
+tasks.register('bootstrapRecoveryChecks92', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.RecoveryChecks92'
+}
+tasks.named('check') { dependsOn 'bootstrapRecoveryChecks92' }
+
+// Profile93 admission contract; real cross-process premain checks have a separate harness.
+tasks.register('profileAdmissionChecks93', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.AdmissionChecks93'
+}
+tasks.named('check') { dependsOn 'profileAdmissionChecks93' }
+
+// Cold94 uses real OS locks and journal/config binding; native JVM admission is a separate harness.
+tasks.register('coldRecoveryChecks94', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.ColdChecks94'
+}
+tasks.named('check') { dependsOn 'coldRecoveryChecks94' }
+
+//95 prepare/commit/cancel gate; real child-JVM/HTTP integration is a separate harness.
+tasks.register('restartFlowChecks95', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.RestartChecks95'
+}
+tasks.named('check') { dependsOn 'restartFlowChecks95' }
+
+//96 initial activation requires final save + normal source exit, never PID-only handoff.
+tasks.register('initialHandoffChecks96', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.HandoffChecks96'
+}
+tasks.named('check') { dependsOn 'initialHandoffChecks96' }
+
+//97 read-only history, bounded persistence, privacy projection and screen-scoped async publication.
+tasks.register('restartHistoryChecks97', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.HistoryChecks97'
+}
+tasks.named('check') { dependsOn 'restartHistoryChecks97' }
+
+//98 real-file inventory / stale-review / deferred installation checks.
+tasks.register('deploymentReviewChecks98', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.DeploymentChecks98'
+}
+tasks.named('check') { dependsOn 'deploymentReviewChecks98' }
+tasks.register('deploymentOverlayChecks98', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.DeploymentOverlayChecks98'
+}
+tasks.named('check') { dependsOn 'deploymentOverlayChecks98' }
+
+//99 whole managed revisions, future dependencies, journal/CAS and partial installation recovery.
+tasks.register('modSetChecks99', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.ModSetChecks99'
+}
+tasks.named('check') { dependsOn 'modSetChecks99' }
+// Explicit: starts only disposable JVM/TLS/file fixtures; does not launch Minecraft or use real accounts.
+tasks.register('modSetSystemChecks99', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.UpdateSystemChecks99'
+    workingDir layout.buildDirectory.dir('update-system99').get().asFile
+    doFirst { workingDir.mkdirs() }
+    systemProperty 'genesis.report99', layout.buildDirectory.file('update-system99/report99.json').get().asFile.absolutePath
+}
+
+// Failed trial diagnostics and atomic startup/world admission gates.
+tasks.register('startupFailureChecks101', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.genesis.supervisor.FailureChecks101'
+}
+tasks.named('check') { dependsOn tasks.named('startupFailureChecks101') }
+
+// Opt-in disposable owner/child JVM tests. Requires Python 3; does not launch Minecraft.
+tasks.register('startupFailureSystemChecks101', Exec) {
+    dependsOn tasks.named('testClasses'), supervisorBootstrap
+    workingDir projectDir
+    doFirst {
+        def failureClasspath101 = layout.buildDirectory.file('startup-failure101/classpath.json').get().asFile
+        failureClasspath101.parentFile.mkdirs()
+        failureClasspath101.setText(groovy.json.JsonOutput.toJson((sourceSets.test.runtimeClasspath + files(supervisorBootstrap.flatMap { it.archiveFile })).files.collect { it.absolutePath }), 'UTF-8')
+        def failureJava101 = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get().executablePath.asFile.absolutePath
+        def failureWindows101 = System.getProperty('os.name').toLowerCase(java.util.Locale.ROOT).startsWith('windows')
+        commandLine(([failureWindows101 ? 'py' : 'python3'] + (failureWindows101 ? ['-3'] : []) +
+            [file('verification/server59/failure_process101.py').absolutePath, '--java', failureJava101, '--classpath-file', failureClasspath101.absolutePath]))
+    }
+}
+
+// Routine server restart stays behind owner capability and existing player authorization.
+tasks.register('simpleServerChecks103', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.SimpleServerChecks103'
+}
+tasks.named('check') { dependsOn tasks.named('simpleServerChecks103') }
+
+// Standalone host application: Java21/Python3, no Minecraft client or IDE required.
+def serverLauncher104 = tasks.register('serverLauncher104Jar', Jar) {
+    dependsOn tasks.named('jar'), genesisServerSetup59, project(':genesis-core').tasks.named('jar')
+    archiveFileName = 'Genesis-server.jar'
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from({ zipTree(project(':genesis-core').tasks.named('jar', Jar).get().archiveFile.get().asFile) }) { include 'com/fixmer/genesis/**' }
+    from(genesisServerSetup59.flatMap { it.archiveFile }) { into 'genesis/server59' }
+    from(tasks.named('jar', Jar).flatMap { it.archiveFile }) { into 'genesis/server104'; rename { 'mared.jar' } }
+    manifest { attributes 'Main-Class': 'com.fixmer.genesis.technology.server.remote.ServerLauncher104' }
+}
+//106: the normal build ships only MaRed. The standalone launcher remains an explicit optional task.
+tasks.register('retireStandaloneLauncher106') {
+    doLast {
+        def oldLauncher106 = layout.buildDirectory.file('libs/Genesis-server.jar').get().asFile
+        if (oldLauncher106.isFile()) {
+            boolean generatedLauncher106 = false
+            try {
+                def archive106 = new java.util.zip.ZipFile(oldLauncher106)
+                try {
+                    def entry106 = archive106.getEntry('META-INF/MANIFEST.MF')
+                    if (entry106 != null && entry106.size >= 0 && entry106.size < 16384) {
+                        def stream106 = archive106.getInputStream(entry106)
+                        try {
+                            def manifest106 = new java.util.jar.Manifest(stream106)
+                            generatedLauncher106 = manifest106.mainAttributes.getValue('Main-Class') == 'com.fixmer.genesis.technology.server.remote.ServerLauncher104' && archive106.getEntry('genesis/server104/mared.jar') != null
+                        } finally { stream106.close() }
+                    }
+                } finally { archive106.close() }
+            } catch (IOException ignored106) { }
+            if (generatedLauncher106 && !oldLauncher106.delete()) throw new GradleException('Cannot remove old generated Genesis-server.jar; close its launcher and build again.')
+        }
+    }
+}
+tasks.named('assemble') { dependsOn tasks.named('retireStandaloneLauncher106') }
+
+// Same-folder controller contracts; game/native Windows acceptance remains separate.
+tasks.register('inplaceServerChecks104', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.InPlaceChecks104'
+}
+tasks.named('check') { dependsOn tasks.named('inplaceServerChecks104') }
+
+// Optional real Windows test, not part of normal build and never starts Minecraft.
+tasks.register('serverNativeChecks104', Exec) {
+    dependsOn tasks.named('testClasses')
+    doFirst {
+        def nativeWindows104 = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')
+        if (!nativeWindows104) throw new GradleException('Actual Windows x64 is required for serverNativeChecks104')
+        def nativeClasspath104 = layout.buildDirectory.file('server104/native-classpath.txt').get().asFile
+        nativeClasspath104.parentFile.mkdirs()
+        nativeClasspath104.setText(sourceSets.test.runtimeClasspath.asPath, 'UTF-8')
+        commandLine 'py', '-3', file('verification/server59/independent_process104.py').absolutePath,
+            '--java', javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get().executablePath.asFile.absolutePath,
+            '--classpath-file', nativeClasspath104.absolutePath,
+            '--output', layout.buildDirectory.file('server104/native-report.json').get().asFile.absolutePath
+    }
+}
+
+// UI decisions and diagnostic/recovery controls on actual test runtime dependencies.
+tasks.register('serverUiChecks105', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerUiChecks105'
+}
+tasks.named('check') { dependsOn tasks.named('serverUiChecks105') }
+
+//106: real JVM bootstrap-agent isolation plus authenticated handoff/console contracts.
+tasks.register('serverAutoChecks106', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerAutoChecks106'
+}
+tasks.named('check') { dependsOn tasks.named('serverAutoChecks106') }
+
+// Optional native source identity check. Does not launch Minecraft or touch a server profile.
+tasks.register('serverNativeChecks106', Exec) {
+    dependsOn tasks.named('testClasses')
+    doFirst {
+        if (!System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('win')) throw new GradleException('Actual Windows x64 is required')
+        def sourceClasspath106 = layout.buildDirectory.file('server106/source-classpath.txt').get().asFile
+        sourceClasspath106.parentFile.mkdirs()
+        sourceClasspath106.setText(sourceSets.test.runtimeClasspath.asPath, 'UTF-8')
+        commandLine 'py', '-3', file('verification/server59/source_native106.py').absolutePath,
+            '--java', javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get().executablePath.asFile.absolutePath,
+            '--classpath-file', sourceClasspath106.absolutePath,
+            '--output', layout.buildDirectory.file('server106/source-report.json').get().asFile.absolutePath
+    }
+}
+
+//107: stale owner recovery checks use real locks/sockets and a separate Java process.
+tasks.register('serverRecoveryChecks107', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerRecoveryChecks107'
+}
+tasks.named('check') { dependsOn tasks.named('serverRecoveryChecks107') }
+
+//108: reconnect intent, rejection, deadlines, retries and cancellation without game dependencies.
+tasks.register('serverReturnChecks108', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerReturnChecks108'
+}
+tasks.named('check') { dependsOn tasks.named('serverReturnChecks108') }
+
+tasks.register('serverReturnLocalChecks108', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerReturnLocalChecks108'
+}
+tasks.named('check') { dependsOn tasks.named('serverReturnLocalChecks108') }
+
+//109: scoped IPv6 endpoint parsing and conservative local-server matching.
+tasks.register('serverTargetChecks109', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerTargetChecks109'
+}
+tasks.named('check') { dependsOn tasks.named('serverTargetChecks109') }
+
+//110: actual deadline/layout/scope invariants; Minecraft rendering remains a separate runtime check.
+tasks.register('serverReturnChecks110', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerReturnChecks110'
+}
+tasks.named('check') { dependsOn tasks.named('serverReturnChecks110') }
+
+tasks.register('serverCoreGeometryChecks110', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.ServerCoreGeometryChecks110'
+}
+tasks.named('check') { dependsOn tasks.named('serverCoreGeometryChecks110') }
+
+//111: actual executor/file lifecycle and editor-model regression tests.
+tasks.register('auditCoreChecks111', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.AuditCoreChecks111'
+}
+tasks.register('auditEditorChecks111', JavaExec) {
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.fixmer.mared.AuditEditorChecks111'
+}
+tasks.named('check') { dependsOn tasks.named('auditCoreChecks111'), tasks.named('auditEditorChecks111') }

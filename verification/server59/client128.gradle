@@ -1,0 +1,14 @@
+// Manual local acceptance harness: a separate client profile, no launcher credentials.
+gradle.beforeProject { p ->
+    if (p.path == ':') p.afterEvaluate {
+        p.runs.named('client') {
+            workingDirectory p.layout.projectDirectory.dir('verification/client128')
+            def probeArguments128 = new ArrayList(arguments.get())
+            def username128 = probeArguments128.indexOf('--username')
+            if (username128 >= 0) probeArguments128[username128 + 1] = 'Genesis128'
+            else probeArguments128.addAll(['--username', 'Genesis128'])
+            probeArguments128.addAll(['--quickPlayMultiplayer', '127.0.0.1:25565'])
+            arguments.set(probeArguments128)
+        }
+    }
+}

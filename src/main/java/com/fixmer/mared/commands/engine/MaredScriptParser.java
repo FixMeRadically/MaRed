@@ -68,7 +68,7 @@ public final class MaredScriptParser {
 
     public static List<MaredScriptCommand> parse(String text) {
         if (text == null) return new ArrayList<>(0);
-        text = text.replace("\r", "");
+        text = text.replace("\r\n", "\n").replace('\r', '\n');
 
         String trimmed = text.trim();
         if (trimmed.startsWith("{") && trimmed.endsWith("}") && coversWhole(trimmed)) {
@@ -369,19 +369,23 @@ public final class MaredScriptParser {
 
     private static MaredScriptCommand parseOn(Cursor cur, List<String> tokens, int line) {
         if (tokens.size() < 2) throw new ParseException(line, "on: missing event type");
-        String eventType = tokens.get(1).toLowerCase();
+        String eventType = tokens.get(1).toLowerCase(java.util.Locale.ROOT);
         if (!isKnownEvent(eventType)) throw new ParseException(line, "on: unknown event: " + eventType);
 
         boolean replace = true;
         if (tokens.size() >= 3) {
-            String mode = tokens.get(2).toLowerCase();
+            String mode = tokens.get(2).toLowerCase(java.util.Locale.ROOT);
             if ("add".equals(mode)) replace = false;
             else if ("replace".equals(mode)) replace = true;
             else throw new ParseException(line, "on: unknown mode: " + mode + " (use 'add' or 'replace')");
         }
         if (tokens.size() > 3) throw new ParseException(line, "on: extra arguments after event type");
 
-        return new MaredOnCommand(eventType, parseBody(cur, line), replace);
+        // An empty on declaration is documented as a way to replace a listener.
+        cur.skipWhitespaceAndNewlines();
+        List<MaredScriptCommand> body = !cur.eof() && cur.peekChar() == '{'
+            ? parseBody(cur, line) : new ArrayList<>(0);
+        return new MaredOnCommand(eventType, body, replace);
     }
 
     private static boolean isKnownEvent(String type) {
@@ -434,7 +438,7 @@ public final class MaredScriptParser {
     }
 
     private static MaredScriptCommand parseOnce(Cursor cur, List<String> tokens, int line) {
-        return new MaredOnceCommand(parseBody(cur, line));
+        int start=cur.lastHeadStart;var body=parseBody(cur,line);return new MaredOnceCommand(body,cur.text.substring(start,cur.getPos()));
     }
 
     private static MaredScriptCommand parseFirstJoin(Cursor cur, List<String> tokens, int line) {
@@ -469,28 +473,21 @@ public final class MaredScriptParser {
     //  Строки / сервер
     // ============================================================
 
-    private static MaredScriptCommand parseSay(List<String> tokens, int line) {
-        if (tokens.size() < 2) throw new ParseException(line, "say: missing text");
-        String raw = join(tokens.subList(1, tokens.size()));
-        String scope = "all";
-        int scopeIdx = raw.lastIndexOf(" scope=");
-        if (scopeIdx >= 0) {
-            scope = raw.substring(scopeIdx + " scope=".length()).trim();
-            raw = raw.substring(0, scopeIdx).trim();
+    private record ScopedText142(String text,String scope) {}
+    private static ScopedText142 scopedText142(List<String> tokens,String defaultScope,int line) {
+        int end=tokens.size();String scope=defaultScope;
+        if(end>1&&tokens.get(end-1).startsWith("scope=")){
+            scope=tokens.get(--end).substring(6);
+            if(!scope.equals("self")&&!scope.equals("all"))throw new ParseException(line,"Invalid scope: "+scope);
         }
-        return new MaredSayCommand(raw, scope);
+        if(end<=1)throw new ParseException(line,"Missing text");
+        return new ScopedText142(join(tokens.subList(1,end)),scope);
     }
-
-    private static MaredScriptCommand parsePrint(List<String> tokens, int line) {
-        if (tokens.size() < 2) throw new ParseException(line, "print: missing text");
-        String raw = join(tokens.subList(1, tokens.size()));
-        String scope = "";
-        int scopeIdx = raw.lastIndexOf(" scope=");
-        if (scopeIdx >= 0) {
-            scope = raw.substring(scopeIdx + " scope=".length()).trim();
-            raw = raw.substring(0, scopeIdx).trim();
-        }
-        return new MaredPrintCommand(raw, scope);
+    private static MaredScriptCommand parseSay(List<String> tokens,int line){
+        var value=scopedText142(tokens,"all",line);return new MaredSayCommand(value.text(),value.scope());
+    }
+    private static MaredScriptCommand parsePrint(List<String> tokens,int line){
+        var value=scopedText142(tokens,"",line);return new MaredPrintCommand(value.text(),value.scope());
     }
 
     private static MaredScriptCommand parseWait(List<String> tokens, int line) {
@@ -527,10 +524,7 @@ public final class MaredScriptParser {
             String inside = callPart.substring(paren + 1, callPart.length() - 1).trim();
             List<String> callArgs = new ArrayList<>(2);
             if (!inside.isEmpty()) {
-                for (String a : inside.split(",")) {
-                    String s = a.trim();
-                    if (!s.isEmpty()) callArgs.add(s);
-                }
+                callArgs.addAll(arguments140(inside,line));
             }
             return new MaredSetFromCallCommand(name, funcName, callArgs);
         }
@@ -545,6 +539,8 @@ public final class MaredScriptParser {
         return new MaredSetCommand(name, join(tokens.subList(3, tokens.size())));
     }
 
+    private static List<String> arguments140(String source,int line){try{return com.fixmer.genesis.technology.expression.ValueLimits140.arguments(source);}catch(IllegalArgumentException error){throw new ParseException(line,error.getMessage());}}
+
     private static MaredScriptCommand parseCall(List<String> tokens, int line) {
         if (tokens.size() < 2) throw new ParseException(line, "call: missing name");
         String full = join(tokens.subList(1, tokens.size()));
@@ -555,10 +551,7 @@ public final class MaredScriptParser {
             name = full.substring(0, paren).trim();
             String inside = full.substring(paren + 1, full.length() - 1).trim();
             if (!inside.isEmpty()) {
-                for (String a : inside.split(",")) {
-                    String s = a.trim();
-                    if (!s.isEmpty()) args.add(s);
-                }
+                args.addAll(arguments140(inside,line));
             }
         } else name = full.trim();
         return new MaredCallCommand(name, args);
@@ -582,7 +575,7 @@ public final class MaredScriptParser {
         if (condTokens.size() >= 2) {
             String last = condTokens.get(condTokens.size() - 1);
             String beforeLast = condTokens.get(condTokens.size() - 2);
-            boolean lastIsString = last.startsWith("\"") && last.endsWith("\"");
+            boolean lastIsString = com.fixmer.genesis.technology.expression.ExpressionEngine.isStringLiteral(last);
             boolean beforeIsOperator = isComparisonOrLogicalOperator(beforeLast);
             if (lastIsString && !beforeIsOperator) {
                 message = stripQuotes(last);
@@ -594,7 +587,7 @@ public final class MaredScriptParser {
 
     private static boolean isComparisonOrLogicalOperator(String s) {
         return switch (s) {
-            case "==", "!=", "<", ">", "<=", ">=", "&&", "||", "contains" -> true;
+            case "==", "!=", "<", ">", "<=", ">=", "&&", "||", "contains", "+", "-", "*", "/", "%", "!" -> true;
             default -> false;
         };
     }
@@ -644,7 +637,7 @@ public final class MaredScriptParser {
 
         for (int i = 1; i < tokens.size(); i++) {
             String t = tokens.get(i);
-            switch (t.toLowerCase()) {
+            switch (t.toLowerCase(java.util.Locale.ROOT)) {
                 case "add"     -> mode = MaredBindCommand.Mode.ADD;
                 case "replace" -> mode = MaredBindCommand.Mode.REPLACE;
                 case "clear"   -> mode = MaredBindCommand.Mode.CLEAR;
@@ -683,7 +676,7 @@ public final class MaredScriptParser {
 
     private static List<MaredScriptCommand> parseBody(Cursor cur, int line) {
         cur.skipWhitespaceAndNewlines();
-        if (cur.eof() || cur.peekChar() != '{') return new ArrayList<>(0);
+        if (cur.eof() || cur.peekChar() != '{') throw new ParseException(line, "expected '{' after block arguments");
         cur.next();
         List<MaredScriptCommand> body = parseStatements(cur, line);
         cur.skipSeparators();
@@ -699,7 +692,7 @@ public final class MaredScriptParser {
     private static List<String> tokenize(String line) {
         List<String> tokens = new ArrayList<>(8);
         StringBuilder current = new StringBuilder(24);
-        boolean inString = false;
+        char quote = 0;
         int paren = 0;
         int braceDepth = 0;
         int n = line.length();
@@ -707,27 +700,27 @@ public final class MaredScriptParser {
         for (int i = 0; i < n; i++) {
             char c = line.charAt(i);
 
-            if (!inString && c == '$' && i + 1 < n && line.charAt(i + 1) == '{') {
+            if (quote==0 && c == '$' && i + 1 < n && line.charAt(i + 1) == '{') {
                 braceDepth++;
                 current.append(c).append('{');
                 i++;
                 continue;
             }
-            if (!inString && c == '}' && braceDepth > 0) {
+            if (quote==0 && c == '}' && braceDepth > 0) {
                 braceDepth--;
                 current.append(c);
                 continue;
             }
-            if (c == '\\' && inString && i + 1 < n) {
+            if (c == '\\' && quote!=0 && i + 1 < n) {
                 current.append(c).append(line.charAt(i + 1));
                 i++;
                 continue;
             }
-            if (c == '"' && braceDepth == 0) { inString = !inString; current.append(c); continue; }
-            if (c == '(' && !inString && braceDepth == 0) { paren++; current.append(c); continue; }
-            if (c == ')' && !inString && braceDepth == 0) { paren--; current.append(c); continue; }
+            if ((c=='"'||c=='\'')&&braceDepth==0){if(quote==0)quote=c;else if(quote==c)quote=0;current.append(c);continue;}
+            if (c == '(' && quote==0 && braceDepth == 0) { paren++; current.append(c); continue; }
+            if (c == ')' && quote==0 && braceDepth == 0) { paren--; current.append(c); continue; }
 
-            if ((c == ' ' || c == '\t') && !inString && paren == 0 && braceDepth == 0) {
+            if ((c == ' ' || c == '\t') && quote==0 && paren == 0 && braceDepth == 0) {
                 if (current.length() > 0) { tokens.add(current.toString()); current.setLength(0); }
                 continue;
             }

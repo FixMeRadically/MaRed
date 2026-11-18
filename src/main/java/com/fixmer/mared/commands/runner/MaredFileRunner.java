@@ -24,6 +24,8 @@ public final class MaredFileRunner {
         final boolean persistent;
         final Consumer<String> legacyLogger;
         int index;
+        boolean mrScheduled143;
+        MaredScriptContext context143;
         long legacySequence;
         Pending(FileRun run, List<Section> sections, Minecraft mc, boolean persistent, Consumer<String> logger) {
             this.run=run; this.sections=sections; connection=mc.getConnection(); server=mc.getSingleplayerServer();
@@ -69,35 +71,51 @@ public final class MaredFileRunner {
             if (run.stopRequested()) { pending.index = pending.sections.size(); run.submissionDone(); }
             int budget = 4;
             while (pending.index < pending.sections.size() && budget-- > 0 && !run.stopRequested()) {
-                Section section = pending.sections.get(pending.index++);
+                if(pending.mrScheduled143){
+                    if(!run.readyForNextSection143())break;
+                    pending.mrScheduled143=false;
+                }
+                Section section=pending.sections.get(pending.index);
+                if(section.part().script()&&!run.readyForNextSection143())break;
+                pending.index++;
                 try {
-                    if (!section.part().script()) {
-                        pending.connection.sendCommand(section.part().text()); run.commandSent();
-                        run.journal().add("[cmd] /" + section.part().text());
-                    } else if (run.reserveBlock()) {
-                        Runnable submit = () -> {
-                            try {
-                                if (run.stopRequested()) return;
-                                var initiator = pending.server == null ? null : pending.server.getPlayerList().getPlayer(pending.player);
-                                if (pending.server != null && initiator == null) throw new IllegalStateException("Server player unavailable");
-                                var context = new MaredScriptContext(initiator, pending.server, run.journal()::add);
-                                context.setExecutionScope(run.scope());
-                                context.setPersistent(pending.persistent); context.forceRefreshPlayerData();
-                                var executor = new MaredScriptExecutor(context, section.commands());
-                                run.attach(executor); MaredScriptRunner.start(executor);
-                                if (!section.commands().isEmpty() && executor.isFinished())
-                                    throw new IllegalStateException("Executor rejected by active-script limit");
-                            } catch (RuntimeException error) { run.fail(error); }
-                            finally { run.blockSubmitted(); }
-                        };
-                        if (pending.server != null) {
-                            try { if (!com.fixmer.mared.technology.runtime.ScriptDispatch.submit(pending.server, submit)) {
-                                run.blockSubmitted(); run.fail(new IllegalStateException("Server dispatch queue full"));
-                            } }
-                            catch (RuntimeException error) { run.blockSubmitted(); throw error; }
-                        } else submit.run();
+                    if(!section.part().script()){
+                        if(pending.server==null){pending.connection.sendCommand(section.part().text());run.commandSent();run.journal().add("[cmd] /"+section.part().text());}
+                        else {
+                            var reservation=run.reserveSection143();
+                            if(reservation!=null)submit143(pending,()->{
+                                var player=pending.server.getPlayerList().getPlayer(pending.player);
+                                if(player==null)throw new IllegalStateException("Server player unavailable");
+                                pending.server.getCommands().performPrefixedCommand(player.createCommandSourceStack(),section.part().text());
+                                run.commandSent();run.journal().add("[cmd] /"+section.part().text());
+                            },reservation);
+                        }
+                    }else{
+                        var reservation=run.reserveSection143();
+                        if(reservation!=null){
+                            pending.mrScheduled143=true;
+                            submit143(pending,()->{
+                                var initiator=pending.server==null?null:pending.server.getPlayerList().getPlayer(pending.player);
+                                if(pending.server!=null&&initiator==null)throw new IllegalStateException("Server player unavailable");
+                                if(pending.context143==null){
+                                    pending.context143=new MaredScriptContext(initiator,pending.server,run.journal()::add);
+                                    pending.context143.setExecutionScope(run.scope());pending.context143.setPersistent(pending.persistent);
+                                    if(pending.server==null)pending.context143.setPlayerDataProvider143(()->{
+                                        var client=Minecraft.getInstance();
+                                        if(!client.isSameThread())throw new IllegalStateException("Client snapshot requested from another thread");
+                                        if(client.getConnection()!=pending.connection||client.player==null||!client.player.getUUID().equals(pending.player)||client.getSingleplayerServer()!=null)return java.util.Map.of();
+                                        return MaredScriptContext.playerSnapshot143(client.player,client.gameMode==null?"unknown":client.gameMode.getPlayerMode().getName(),pending.connection.getOnlinePlayers().size());
+                                    });
+                                }
+                                var context=pending.context143;context.setInitiator(initiator);context.forceRefreshPlayerData();
+                                var executor=new MaredScriptExecutor(context,section.commands());
+                                run.attach(executor);MaredScriptRunner.start(executor);
+                                if(!section.commands().isEmpty()&&executor.isFinished())throw new IllegalStateException("Executor rejected by active-script limit");
+                            },reservation);
+                        }
                     }
                 } catch (RuntimeException error) { run.fail(error); }
+
             }
             if (pending.index == pending.sections.size()) run.submissionDone();
             var snapshot = run.snapshot();
@@ -109,4 +127,14 @@ public final class MaredFileRunner {
             if (snapshot.terminal()) iterator.remove();
         }
     }
+    private static void submit143(Pending pending,Runnable action,FileRun.Reservation143 reservation){
+        Runnable guarded=()->{try{if(!pending.run.stopRequested())action.run();}catch(RuntimeException error){pending.run.fail(error);}finally{reservation.close();}};
+        try{
+            if(pending.server==null)guarded.run();
+            else if(!com.fixmer.mared.technology.runtime.ScriptDispatch.submit(pending.server,guarded)){
+                reservation.close();pending.run.fail(new IllegalStateException("Server dispatch queue full"));
+            }
+        }catch(RuntimeException error){reservation.close();pending.run.fail(error);}
+    }
+
 }

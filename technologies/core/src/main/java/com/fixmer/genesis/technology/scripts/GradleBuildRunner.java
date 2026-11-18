@@ -69,7 +69,7 @@ public final class GradleBuildRunner implements AutoCloseable {
             if(token.get())return result(Status.CANCELLED,-1,List.of());
             if(!validTask(task))return invalid("Use one Gradle task, e.g. build, test, clean or :module:build");
             if(!Files.isDirectory(project)||!BuildTools.gradleRoot(project))return invalid("Project has no Gradle build or settings file");
-            Path javaExecutable=settings.javaHome.resolve("bin").resolve(System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win")?"java.exe":"java");
+            Path javaExecutable=settings.javaHome.resolve("bin").resolve(System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win")?"javaw.exe":"java");
             if(!Files.isExecutable(javaExecutable))return invalid("Java executable not found in configured JDK home");
             try{BuildTools.validateWrapper(settings.wrapperJar);}catch(IOException invalid){return invalid(invalid.getMessage());}
             for(Path p=project;p!=null;p=p.getParent())if(Files.isSymbolicLink(p))return invalid("Linked Gradle project is unsupported");

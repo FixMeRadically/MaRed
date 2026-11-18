@@ -195,6 +195,7 @@ public final class StudioEventBus {
     }
 
     public void clear() {
+        for(var list:subs.values())for(var sub:list)sub.active=false;
         subs.clear();
     }
 }

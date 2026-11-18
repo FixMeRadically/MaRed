@@ -112,6 +112,11 @@ public class MaredMultiLineEditBox extends AbstractWidget {
         }
     }
 
+    /** A network acknowledgement may lock writes without moving the caret or losing keyboard focus. */
+    public void setWriteEnabled(boolean enabled) {
+        this.editable = enabled;
+    }
+
     public boolean isEditable() { return editable; }
 
     public String getValue() {

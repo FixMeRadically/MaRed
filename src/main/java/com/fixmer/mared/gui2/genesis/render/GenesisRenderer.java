@@ -423,27 +423,10 @@ public final class GenesisRenderer {
     }
 
     private static String categoryKey(GenesisNodeData.NodeType type) {
-        return switch (type) {
-            case CORE      -> "mared.genesis.core";
-            case CONTENT   -> "mared.genesis.content";
-            case WORLD     -> "mared.genesis.world";
-            case LOGIC     -> "mared.genesis.logic";
-            case RESOURCES -> "mared.genesis.resources";
-            case TOOLS     -> "mared.genesis.tools";
-            case SCENARIOS -> "mared.genesis.scenarios";
-        };
+        return type==GenesisNodeData.NodeType.CORE?"mared.genesis.core":"mared.creation145.direction."+type.name().toLowerCase(java.util.Locale.ROOT);
     }
-
     private static String descKey(GenesisNodeData.NodeType type) {
-        return switch (type) {
-            case CORE      -> "mared.genesis.desc.core";
-            case CONTENT   -> "mared.genesis.desc.content";
-            case WORLD     -> "mared.genesis.desc.world";
-            case LOGIC     -> "mared.genesis.desc.logic";
-            case RESOURCES -> "mared.genesis.desc.resources";
-            case TOOLS     -> "mared.genesis.desc.tools";
-            case SCENARIOS -> "mared.genesis.desc.scenarios";
-        };
+        return type==GenesisNodeData.NodeType.CORE?"mared.genesis.desc.core":"mared.creation145.description."+type.name().toLowerCase(java.util.Locale.ROOT);
     }
 
     private static List<String> wrap(Font font, String text, int maxW) {

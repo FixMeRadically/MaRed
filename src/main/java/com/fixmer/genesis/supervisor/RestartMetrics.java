@@ -9,7 +9,10 @@ import java.util.UUID;
 
 /** Bounded local timings. One cycle ID spans shutdown of the old JVM and launch of the new one. */
 final class RestartMetrics {
-    private final Path file;
+    private final Path file,game97;
+    private long created97=System.currentTimeMillis();
+    private String mode97="unrecorded";
+    private final java.util.Map<String,Long> durations97=new java.util.HashMap<>();
     private long cycle = System.nanoTime();
     private String cycleId = UUID.randomUUID().toString();
     private String cycleKind = "initial";
@@ -20,12 +23,14 @@ final class RestartMetrics {
     private final Set<String> milestones = new java.util.HashSet<>();
 
     RestartMetrics(Path game) {
+        game97=game;
         file = game.resolve("config/mared/dev/logs/timings.jsonl");
     }
     synchronized void begin() { begin("restart"); }
     synchronized void begin(String kind) {
         if (!Set.of("restart", "rollback", "cds_fallback").contains(kind))
             throw new IllegalArgumentException("Unknown timing cycle kind");
+        created97=System.currentTimeMillis();mode97="unrecorded";durations97.clear();
         cycle = System.nanoTime();
         cycleId = UUID.randomUUID().toString();
         cycleKind = kind;
@@ -70,6 +75,12 @@ final class RestartMetrics {
                 + ",\"cycleMs\":" + elapsed
                 + (changes.isEmpty()?"":",\"changedInputs\":["+changes.stream().map(SupervisorHttpServer::quote).collect(java.util.stream.Collectors.joining(","))+"]") + "}\n";
             Files.writeString(file, json, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            if(phase.equals("launch_direct_cache")||phase.equals("launch_direct_config")||phase.equals("launch_gradle"))mode97=phase.substring(7);
+            if(RestartHistory97.DURATIONS.contains(phase)){
+                durations97.putIfAbsent(phase,duration);
+                if(phase.equals("world_ready")||phase.equals("title_ready"))durations97.put("total",elapsed);
+                RestartHistory97.recordCycle(game97,cycleId,cycleKind,mode97,created97,durations97);
+            }
             log.info("[timing] " + phase + "=" + duration + " ms (" + (milestone ? "JVM uptime" : "duration") + "); cycle=" + elapsed + " ms");
             // Async HTTP delivery can put world_ready before world_loading.
             if (!worldLoadWritten && worldLoading >= 0 && worldReady >= worldLoading) {

@@ -26,7 +26,7 @@ public final class GradleProjectImport {
     private GradleProjectImport() {}
     public static boolean editable(String path){
         return com.fixmer.genesis.technology.storage.ProjectPath.valid(path)&&!path.equalsIgnoreCase("genesis-project.properties")&&
-                (com.fixmer.genesis.technology.storage.ProjectPath.plainTextDotfile(path)||path.equals("gradlew")||path.equals("gradlew.bat")||path.toLowerCase(Locale.ROOT).matches(".+\\.(java|kt|kts|gradle|groovy|scala|py|rs|cpp|c|h|hpp|json|txt|md|toml|properties|xml|yaml|yml|cfg|conf|mcmeta|mr|mcfunction|csv|js|ts|css|html|glsl|vert|frag|sql|bat|sh)"));
+                (com.fixmer.genesis.technology.storage.ProjectPath.plainTextDotfile(path)||path.equals("gradlew")||path.equals("gradlew.bat")||path.toLowerCase(Locale.ROOT).matches(".+\\.(java|kt|kts|gradle|groovy|scala|py|rs|cpp|c|h|hpp|json|txt|md|toml|properties|xml|yaml|yml|cfg|conf|mcmeta|mr|mcfunction|csv|js|ts|css|html|glsl|vert|frag|vsh|fsh|gsh|csh|bbmodel|json5|snbt|sql|bat|sh)"));
     }
     private static boolean validPath(String path){
         return com.fixmer.genesis.technology.storage.ProjectPath.valid(path);
@@ -106,7 +106,9 @@ public final class GradleProjectImport {
     /** Refuse publishing an addition that would make the complete project unreadable. */
     static void validateAddition(Path project,Path data,boolean directory,String destination)throws IOException{
         Snapshot current=scan(project,()->false,false);long bytes;int count;
-        if(directory){Snapshot addition=scan(data,()->false,false,"src");bytes=addition.bytes;count=addition.entries.size()+1;
+        if(directory){Snapshot addition=scan(data,()->false,false,destination);bytes=addition.bytes;count=addition.entries.size()+1;
+            Snapshot complete=scan(data,()->false,false,"src");
+            if(!complete.entries.keySet().equals(addition.entries.keySet()))throw new IOException("Copy destination hides source entries (build/out): "+destination);
             for(String path:addition.entries.keySet())if(!com.fixmer.genesis.technology.storage.ProjectPath.valid(destination+"/"+path))throw new IOException("Destination path limit: "+path);
         }else{bytes=Files.size(data);count=1;if(editable(destination)&&bytes>SourceProjects.MAX_BYTES)throw new IOException("Editable copy exceeds 4 MiB");}
         if(current.entries.size()+count>MAX_ENTRIES||current.bytes+bytes>MAX_TOTAL_BYTES)throw new IOException("Copy exceeds project entry or byte limit");
@@ -139,6 +141,9 @@ public final class GradleProjectImport {
     }
     private static String text(byte[] data)throws IOException{return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(data)).toString().replace("\r\n","\n").replace('\r','\n');}
     public static Path export(Path project,Path exports,String id,Map<String,Edit> edits,byte[] metadata)throws IOException{
+        return export(project,exports,id,edits,metadata,project.resolve("genesis-project.properties"),metadata);
+    }
+    static Path export(Path project,Path exports,String id,Map<String,Edit> edits,byte[] metadata,Path metadataSource,byte[] originalMetadata)throws IOException{
         if(!SourceProjects.validProject(id)||metadata==null||metadata.length>4096)throw new IOException("Invalid export project id or metadata");
         Objects.requireNonNull(edits);
         Snapshot snapshot=scan(project,()->false,true);for(String path:edits.keySet())if(!editable(path)||!snapshot.entries.containsKey(path)||snapshot.entries.get(path).directory)throw new IOException("Missing editable file: "+path);
@@ -161,8 +166,8 @@ public final class GradleProjectImport {
                 }
             }
             unchanged(project,snapshot,()->false);
-            byte[] current;try(var input=Files.newInputStream(project.resolve("genesis-project.properties"),LinkOption.NOFOLLOW_LINKS)){current=input.readNBytes(4097);}
-            if(!Arrays.equals(metadata,current))throw new IOException("Project metadata changed while exporting");
+            byte[] current;try(var input=Files.newInputStream(metadataSource,LinkOption.NOFOLLOW_LINKS)){current=input.readNBytes(4097);}
+            if(!Arrays.equals(originalMetadata,current))throw new IOException("Project metadata changed while exporting");
             Files.move(temporary,target,StandardCopyOption.ATOMIC_MOVE);return target;
         }finally{Files.deleteIfExists(temporary);}
     }

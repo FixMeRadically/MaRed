@@ -3,6 +3,7 @@ package com.fixmer.mared;
 import cpw.mods.jarhandling.JarContents;
 import java.io.*;
 import java.nio.file.*;
+import java.util.jar.JarFile;
 import java.util.zip.ZipFile;
 import net.neoforged.fml.loading.moddiscovery.readers.JarModsDotTomlModFileReader;
 import net.neoforged.neoforgespi.locating.IModFile;
@@ -19,10 +20,22 @@ public class PackagingIntegrationTest {
         try(var archive=new ZipFile(mod.toFile())) {
             String json=new String(archive.getInputStream(archive.getEntry("META-INF/jarjar/metadata.json")).readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
             var metadata=com.google.gson.JsonParser.parseString(json).getAsJsonObject().getAsJsonArray("jars").get(0).getAsJsonObject();
-            assertEquals("0.1.38",metadata.getAsJsonObject("version").get("artifactVersion").getAsString());
-            assertEquals("[0.1.38,0.2.0)",metadata.getAsJsonObject("version").get("range").getAsString());
-            Path core=directory.resolve("genesis-core-0.1.38.jar");
-            try(var in=archive.getInputStream(archive.getEntry(metadata.get("path").getAsString()))){Files.copy(in,core);}
+            var identifier=metadata.getAsJsonObject("identifier");
+            assertEquals("com.fixmer.genesis",identifier.get("group").getAsString());
+            assertEquals("genesis-core",identifier.get("artifact").getAsString());
+            var version=metadata.getAsJsonObject("version");
+            String artifactVersion=version.get("artifactVersion").getAsString();
+            assertFalse(artifactVersion.isBlank());
+            assertEquals("["+artifactVersion+",0.2.0)",version.get("range").getAsString());
+            String path=metadata.get("path").getAsString();
+            assertEquals("META-INF/jarjar/genesis-core-"+artifactVersion+".jar",path);
+            var entry=archive.getEntry(path);
+            assertNotNull(entry,"Nested Genesis Core JAR");
+            Path core=directory.resolve("genesis-core.jar");
+            try(var in=archive.getInputStream(entry)){Files.copy(in,core);}
+            try(var jar=new JarFile(core.toFile())){
+                assertEquals(artifactVersion,jar.getManifest().getMainAttributes().getValue("Implementation-Version"));
+            }
             return core;
         }
     }

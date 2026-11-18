@@ -12,7 +12,7 @@ import com.fixmer.mared.modules.ModuleRegistry;
 /**
  * Контекст, передаваемый плагину в onLoad().
  *
- * Все методы регистрации делегируют в соответствующие реестры.
+ * Регистрации накапливаются и применяются после успешного завершения onLoad().
  *
  * EditorAction — особый случай: EditorActionRegistry создаётся
  * per-session в StudioSession, поэтому плагин регистрирует action
@@ -22,6 +22,10 @@ import com.fixmer.mared.modules.ModuleRegistry;
 public final class PluginContext {
 
     private final String pluginId;
+    private final java.util.List<Runnable> commit=new java.util.ArrayList<>();
+    private boolean completed;
+    void commit140(){if(completed)throw new IllegalStateException("Plugin context already committed");for(var action:commit)action.run();completed=true;commit.clear();}
+    private void stage140(Runnable action){if(completed)throw new IllegalStateException("Plugin registration phase completed");commit.add(action);}
 
     PluginContext(String pluginId) {
         this.pluginId = pluginId;
@@ -35,22 +39,22 @@ public final class PluginContext {
 
     public void registerModule(ModuleDescriptor d) {
         if (d == null) return;
-        ModuleRegistry.register(d);
-        Mared.LOGGER.debug("[plugin:{}] module '{}' registered",
+        stage140(()->ModuleRegistry.register(d));
+        Mared.LOGGER.debug("[plugin:{}] module '{}' staged",
             pluginId, d.id());
     }
 
     public void registerPanel(PanelDescriptor d) {
         if (d == null) return;
-        PanelRegistry.register(d);
-        Mared.LOGGER.debug("[plugin:{}] panel '{}' registered",
+        stage140(()->PanelRegistry.register(d));
+        Mared.LOGGER.debug("[plugin:{}] panel '{}' staged",
             pluginId, d.id());
     }
 
     public void registerSettingsPage(SettingsPageDescriptor d) {
         if (d == null) return;
-        SettingsPageRegistry.register(d);
-        Mared.LOGGER.debug("[plugin:{}] settings page '{}' registered",
+        stage140(()->SettingsPageRegistry.register(d));
+        Mared.LOGGER.debug("[plugin:{}] settings page '{}' staged",
             pluginId, d.id());
     }
 
@@ -62,7 +66,7 @@ public final class PluginContext {
      */
     public void registerAction(EditorAction a) {
         if (a == null) return;
-        PluginRegistry.addPendingAction(a);
+        stage140(()->PluginRegistry.addPendingAction(a));
         Mared.LOGGER.debug("[plugin:{}] action '{}' queued",
             pluginId, a.id());
     }

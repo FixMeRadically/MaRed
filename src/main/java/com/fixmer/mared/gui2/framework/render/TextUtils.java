@@ -77,78 +77,29 @@ public final class TextUtils {
     }
 
     public static List<String> wrapLines(Font f, String text, int maxW) {
-        if (text == null) text = "";
-        if (maxW <= 0) return Collections.singletonList(text);
-        if (text.isEmpty()) return Collections.singletonList("");
-        if (f.width(text) <= maxW) return Collections.singletonList(text);
-
-        List<String> result = new ArrayList<>(4);
-        int n = text.length();
-        int i = 0;
-        StringBuilder cur = new StringBuilder(64);
-        int curW = 0;
-
-        while (i < n) {
-            int wordStart = i;
-            while (i < n && text.charAt(i) == ' ') i++;
-            int wordEnd = i;
-            while (wordEnd < n && text.charAt(wordEnd) != ' ') wordEnd++;
-            if (wordStart == wordEnd) break;
-
-            String word = text.substring(wordStart, wordEnd);
-            int wordW = f.width(word);
-
-            if (wordW > maxW) {
-                if (cur.length() > 0) {
-                    result.add(cur.toString());
-                    cur.setLength(0);
-                    curW = 0;
+        if(text==null)text="";
+        var result=new ArrayList<String>();
+        for(String paragraph:text.replace("\r\n","\n").replace('\r','\n').split("\n",-1)) {
+            if(paragraph.isEmpty()||maxW<=0){result.add(paragraph);continue;}
+            int at=0;
+            while(at<paragraph.length()){
+                String rest=paragraph.substring(at);
+                String part=f.plainSubstrByWidth(rest,maxW);
+                int end=part.length();
+                if(end>0&&end<rest.length()&&Character.isHighSurrogate(rest.charAt(end-1))&&Character.isLowSurrogate(rest.charAt(end)))end--;
+                if(end==0)end=Character.charCount(rest.codePointAt(0));
+                if(end<rest.length()){
+                    int space=rest.lastIndexOf(' ',end-1);
+                    if(space>0)end=space+1;
                 }
-                int wStart = 0;
-                int wn = word.length();
-                while (wStart < wn) {
-                    int wEnd = wStart + 1;
-                    int lastFit = wStart;
-                    while (wEnd <= wn) {
-                        int ww = f.width(word.substring(wStart, wEnd));
-                        if (ww > maxW) break;
-                        lastFit = wEnd;
-                        wEnd++;
-                    }
-                    if (lastFit == wStart) lastFit = wStart + 1;
-                    result.add(word.substring(wStart, lastFit));
-                    wStart = lastFit;
-                }
-                i = wordEnd;
-                continue;
+                result.add(rest.substring(0,end));at+=end;
             }
-
-            if (cur.length() == 0) {
-                cur.append(word);
-                curW = wordW;
-            } else {
-                int totalW = curW + f.width(" ") + wordW;
-                if (totalW <= maxW) {
-                    cur.append(' ').append(word);
-                    curW = totalW;
-                } else {
-                    result.add(cur.toString());
-                    cur.setLength(0);
-                    cur.append(word);
-                    curW = wordW;
-                }
-            }
-            i = wordEnd;
         }
-
-        if (cur.length() > 0) result.add(cur.toString());
-        if (result.isEmpty()) result.add("");
-        return result;
+        return List.copyOf(result);
     }
 
     public static List<String> wrapLinesCached(Font f, String text, int maxW) {
         if (text == null) text = "";
-        if (maxW <= 0) return Collections.singletonList(text);
         if (text.isEmpty()) return Collections.singletonList("");
 
         String key = cacheKey(f, text, maxW);
@@ -174,7 +125,6 @@ public final class TextUtils {
 
     public static int wrappedHeight(Font f, String text, int maxW) {
         if (text == null || text.isEmpty()) return 10;
-        if (maxW <= 0) return 10;
 
         String key = cacheKey(f, text, maxW);
         Integer cached = HEIGHT_CACHE.get(key);

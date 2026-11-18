@@ -13,7 +13,12 @@ final class RuntimeFiles {
         Files.createDirectories(directory);
     }
     static void safe(Path path)throws IOException {
-        for(Path p=path.toAbsolutePath();p!=null;p=p.getParent())if(Files.isSymbolicLink(p))throw new IOException("Linked runtime path: "+p);
+        for(Path p=path.toAbsolutePath().normalize();p!=null;p=p.getParent()){
+            if(!Files.exists(p,LinkOption.NOFOLLOW_LINKS))continue;
+            var attributes=Files.readAttributes(p,java.nio.file.attribute.BasicFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
+            if(attributes.isSymbolicLink()||attributes.isOther()||!p.toRealPath().equals(p.toRealPath(LinkOption.NOFOLLOW_LINKS)))
+                throw new IOException("Linked runtime path: "+p);
+        }
     }
     Path shutdownFile() {
         return directory.resolve("shutdown.request");
@@ -22,10 +27,21 @@ final class RuntimeFiles {
         safe(shutdownFile());
         Files.writeString(shutdownFile(),id,StandardCharsets.UTF_8,StandardOpenOption.CREATE,StandardOpenOption.TRUNCATE_EXISTING);
     }
+    void shutdown95(String request)throws IOException{
+        RestartPermit95.uuid(request);safe(shutdownFile());
+        Path temp=Files.createTempFile(directory,"shutdown95-",".tmp");
+        try{
+            Files.writeString(temp,id+"\nrestart95="+request,StandardCharsets.UTF_8);
+            try{Files.move(temp,shutdownFile(),StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);}
+            catch(AtomicMoveNotSupportedException unsupported){throw new IOException("RESTART95_ATOMIC_SIGNAL_REQUIRED",unsupported);}
+        }finally{Files.deleteIfExists(temp);}
+    }
+    void cancelShutdown95(String request)throws IOException{safe(shutdownFile());if(Files.isRegularFile(shutdownFile(),LinkOption.NOFOLLOW_LINKS)&&Files.size(shutdownFile())<=128&&Files.readString(shutdownFile()).equals(id+"\nrestart95="+request))Files.deleteIfExists(shutdownFile());}
     void cleanup(SupervisorLog log) {
         try {
             safe(directory);
             Files.deleteIfExists(shutdownFile());
+            Files.deleteIfExists(directory.resolve("startup-stop101.properties"));
             Files.deleteIfExists(directory.resolve("launch.args"));
             Files.deleteIfExists(directory.resolve("session.properties"));
             Files.deleteIfExists(directory.resolve("game.lease"));

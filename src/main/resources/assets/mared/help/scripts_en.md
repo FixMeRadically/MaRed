@@ -1,27 +1,10 @@
-@@ start|Getting started|Scripts: capability map|Built-in Help for Genesis / MaRed 0.4.0: projects, editing, Java execution and Gradle builds.|help guide manual capabilities version
-## What Scripts does
-Scripts is a source-code workspace. Create projects, import folders, organize files, edit text, save drafts, run standalone Java programs and build configured Gradle projects. This manual is available offline. Opening a page or copying an example never executes that example.
+@@ start|Start|Scripts workbench 0.5.0|Current project, server and deployment workflows.|0.5.0 start server apply help
+Scripts uses the standard project editor. Genesis selects directions; the sidebar selects sections. Servers has a separate folder context and real configuration pages. Applying a project prepares a release automatically. Commands belongs to Maps.
 
-Java uses a real compiler and a separate JVM. A main program is different from a NeoForge mod. Minecraft APIs require the appropriate Gradle dependencies and lifecycle; the ordinary Java runner does not receive live game objects. MR belongs to Commands and is not a language or API of Scripts.
-
-Python, Rust and C++ sources can be edited and exported, but their execution engines are not integrated. Genesis Java ServerModule can now be applied and replaced in a singleplayer world without reconnecting. Multiplayer/LAN, universal hot installation of ordinary mods, a breakpoint debugger, semantic Java language server and automatic refactoring remain absent.
-::: flow|Create or import project → Edit sources → Choose launch mode → Read logs and diagnostics → Deliver artifact or export project
-## Reading Help
-The wide window has an article index and a reading pane. Search checks titles, summaries, keywords and complete article bodies, including code. All query words must match. Category and bookmark filters further restrict results; restore All and the unfiltered category when necessary.
-
-Back and Forward retain navigation history and per-page scroll. Copy page copies the article; Copy code copies only the original source. Bookmarks and history last for this Genesis window, not across game restarts. The full Help window can be moved and resized. Dock right uses a compact panel; Open window restores the floating view. In a narrow panel, Contents switches index and article, and searching displays the index.
-
-Process diagrams and the step viewer are illustrations, not Minecraft recordings or a video player. They never run code, save files or start builds.
-=> first-run|Start with a working Java program
-=> mod|Build a standalone NeoForge mod
-=> limits|Current limitations
-
-## Java and Gradle tool paths
-Paste an absolute JDK path, including Windows backslashes and spaces. Explorer quotes are removed. A `bin` folder or `java.exe`/`javac.exe` path is normalized to the JDK root. Use a full JDK 21 or newer with Java, javac and a release file. Saved configuration takes priority; otherwise `JAVA_HOME`, then client Java is inspected. Missing or changed tools are checked again before use.
-
-The saved JDK is used for both local Java execution and server module compilation. Neither needs Wrapper. Apply `WorldModule` through Apply on server: its entry is `onEnable`, with no `main` required. Run Java invokes `main(String[] args)` in a separate JVM and does not apply changes to the world.
-
-Gradle needs a real `gradle-wrapper.jar` with adjacent `gradle-wrapper.properties`. Select the JAR, properties file, Wrapper folder or a project root containing `gradle/wrapper`. `gradlew.bat` is not the Wrapper JAR. The selected project's Wrapper takes priority over global configuration; a broken project Wrapper is reported rather than silently replaced. Select a Wrapper from a trusted working project if missing. Saving a path performs no downloads or execution. Task discovery/build can download the configured distribution and dependencies; network and compatibility failures are retained in the Gradle report.
+=> creation145|Directions
+=> server156|Server folder
+=> configs156|Configuration editing
+=> apply156|Apply and launch
 
 @@ first-run|Getting started|Your first Java program|A complete route from a project to output in the logs.|hello main println first run java
 ::: tutorial|First Java run
@@ -37,7 +20,7 @@ public class Main {
 }
 ```
 ## 3. Launch
-Select Main.java in the explorer. Open the arrow next to Run and choose Run Java file; choosing the mode does not execute anything. Press Run, confirm Main as the entry class, and wait. Ctrl+R follows the selected mode. All project sources are compiled, so an error in another class can also block execution.
+Open Main.java in the active pane. Open the arrow next to Run and choose Run Java file; choosing the mode does not execute anything. Press Run, confirm Main as the entry class, and wait. Ctrl+R follows the selected mode. All project sources are compiled, so an error in another class can also block execution.
 ## 4. Check output
 Expand the bottom logs using the arrow at their boundary. Expect Hello, Genesis and a successful result. Resize the logs with the divider. Change the message and run again: open drafts participate in local Java execution. Save / Save all is still required to keep changes on disk.
 
@@ -45,20 +28,8 @@ Compiler unavailable means the client needs a complete JDK. Main class errors re
 => java|Entry classes and Java lifecycle
 => errors|Troubleshooting
 
-@@ projects|Projects|Projects and workspace folders|Project roots, selection, multiple expanded trees and physical storage.|project folder root workspace path
-## A project is a folder
-Each project has its own sources, resources and configuration. Multiple roots can be expanded together. The root arrow expands or collapses; clicking the name selects it. The active project and its continuous indentation guides use the Logic accent, while other roots are neutral.
-
-Opening a file in another expanded project switches project context first. Collapsing a root does not close documents or discard drafts. The project selected in the explorer determines the launch target; do not assume the last edited document is the target of every operation.
-## Physical location
-Working projects live in config/mared/script_projects under the Minecraft launch directory. Copy project path supplies the exact absolute location for your OS file manager. A development launch may use a run/config folder. genesis-project.properties contains Genesis project metadata; arbitrary changes can break project interpretation.
-## Refresh and state
-The explorer displays cached trees. Refresh rereads files after changes made by external tools; it is not a forced overwrite of drafts. Up to 16 project trees are cached; older roots collapse when that cache fills, without deleting documents.
-
-Supported selected-project and nested-folder context can be restored. The set of simultaneously expanded roots and the current launch mode are session state, not permanent project settings.
-=> files|File and folder operations
-=> drafts|Saving and recovery
-
+@@ projects|Projects|Ordinary folders and explorer|Opening a folder links it in place.|133 projects
+Open folder uses the actual directory, without copying it into an archive or another workspace. File operations affect that directory. The explorer shows folder/file icons, indentation, selection and path tooltips. F2 renames, Delete moves entries to project trash, Ctrl+C / Ctrl+V copy within the project. Save dirty files before file operations. In the folder picker single-click selects, double-click or Enter opens, Ctrl+Enter confirms, Ctrl+L enters a path, Backspace goes up. Back/forward and new-folder controls are available. At a filesystem root, Up lists drives. ZIP transfer is an explicit separate action.
 @@ files|Projects|Files and folders|Create, rename, copy, delete and restore entries.|file folder rename delete restore copy paste
 ## Search and keyboard
 The centered editable search field sits below menus and Run. Click the field and start typing. Five modes and matching files/results appear below the same field. Clicking a mode or pressing Tab changes the mode while retaining your query. Arrows select results, Enter opens, Esc closes.
@@ -181,18 +152,11 @@ public class Main {
 Declare dependencies and repositories in build.gradle / build.gradle.kts and configure sourceSets. Conventional resources go in src/main/resources. Imported Gradle projects do not automatically receive the ordinary runner libraries classpath. A library JAR is not itself a Minecraft mod; mod metadata and lifecycle still need configuration.
 => gradle|Build tools
 
-@@ launch|Build|The Run arrow and modes|Explicit targets: Gradle task, Java main or singleplayer server application.|run build debug server mode arrow
-## Build mod
-Runs the saved Gradle task of the explorer-selected project. Selecting a mode or task does not execute it. Press Run or Ctrl+R afterwards. Required changes are saved before build preparation succeeds. A label cannot turn an arbitrary source into a mod. Check operation status for the actual project and task if you switch context during a build.
-## Run Java file
-Available for a selected .java file in a standalone Java project. Confirm its main class, then compile the project and run that entry in a separate JVM. Drafts participate without mandatory save. Imported Gradle projects use Gradle tasks instead. A stale entry dialog cannot silently launch a newly selected project/file.
-## Apply in world
-Runs a Genesis ServerModule in the current singleplayer world without LAN. This is a separate Java contract, not main or @Mod. Standalone projects compile sources and drafts; imported Gradle projects select a JAR from a successful build. Building alone does not activate code.
-=> server-first|First world application
-## Stop
-Cancels the currently managed Java, Gradle, import or artifact-delivery operation. Preparation also checks cancellation. Partial Gradle outputs may remain on disk after cancellation; do not treat them as a successful new build.
-=> tasks|Gradle tasks
-=> artifacts|Build artifacts
+@@ launch|Build|Launch and apply actions|Available actions follow the current context.|0.5.0 run apply server java
+For a Gradle mod with a selected server, Apply to selected server builds and prepares the release. Launch in the deployment page offers installation and continues after consent. Plain Java projects keep Run Java file. Ctrl+B builds; Ctrl+R invokes the currently labelled primary action. Inapplicable primary actions are hidden; advanced tools remain separate.
+
+=> apply156|Deployment workflow
+=> remote_test152|Server JAR only
 
 @@ gradle|Build|Gradle tools and Wrapper|Choose the build JDK, preserve project configuration and diagnose first-build setup.|gradle jdk wrapper java_home tools build.gradle
 
@@ -229,6 +193,7 @@ Check project selection, plugins and the result of tasks --all. A failed refresh
 Open bottom logs and the build report/diagnostics. Note the requested project and task. BUILD FAILED is the outcome; the substantive cause normally appears earlier. Deprecated API warnings are not automatically a failed build.
 
 Supported Java/Gradle positions can navigate to a source and line. Windows paths, Unicode and nested files are handled subject to project-root validation. Outside paths, traversal, URLs and invalid positions do not open arbitrary computer files. Such entries can still be useful as text.
+Tools → Export current project files exports acknowledged shared files, including models, to config/mared/workspace-exports147 without building a mod. New shared projects retain their original product direction.
 ## Limits
 This parser is not a Java language server and cannot understand every plugin's format. Diagnostic counts and captured output are bounded. For truncated logs, reproduce a specific issue or run a focused task. Java runner output includes compiler errors and process stack traces. A printed message does not guarantee success: the process can fail afterwards.
 => errors|Error, cause and next action
@@ -244,18 +209,8 @@ A normal correctly configured NeoForge mod can work without MaRed if its code an
 => mod|Starter-to-mod workflow
 => export|Export an editable project
 
-@@ import|Projects|Import folders and Gradle projects|Create a working copy without modifying the source folder.|import folder gradle copy
-## Choose the root
-In Project, choose the suitable import operation and select the original directory. Choose the root containing configuration and sources, not a single .java file or build folder. Gradle roots contain build.gradle or build.gradle.kts plus their related settings.
-
-Import creates a copy in Genesis storage. The original folder is not a live linked workspace and does not receive subsequent edits. Coordinate changes with a teammate through exported copies and explicit version comparison.
-## Preservation and checks
-Supported structure, sources, binary resources and hidden project files are preserved within import rules. External links and caches are not a way to mount arbitrary computer directories. Oversized projects, symlinks, invalid paths or changing contents can cause refusal. Stop external source writers before retrying; do not publish a mixed-version project.
-## Next steps
-Select the imported root, edit and save. For Gradle, configure JDK, verify the own Wrapper, list tasks and choose a build target. A generic folder without Gradle is a file project; .java files do not guarantee a main and arbitrary JAR locations do not declare dependencies.
-=> gradle|Configure imported Gradle projects
-=> export|Move edits back outside
-
+@@ import|Projects|Ordinary folders and explorer|Opening a folder links it in place.|133 import
+Open folder uses the actual directory, without copying it into an archive or another workspace. File operations affect that directory. The explorer shows folder/file icons, indentation, selection and path tooltips. F2 renames, Delete moves entries to project trash, Ctrl+C / Ctrl+V copy within the project. Save dirty files before file operations. In the folder picker single-click selects, double-click or Enter opens, Ctrl+Enter confirms, Ctrl+L enters a path, Backspace goes up. Back/forward and new-folder controls are available. At a filesystem root, Up lists drives. ZIP transfer is an explicit separate action.
 @@ export|Projects|Export: sources, drafts and JARs|Transfer an editable project without mistaking its ZIP for a built mod.|export zip drafts backup jar sources
 ## Project ZIP
 Export creates a ZIP of the selected project with supported layout, configuration and binary resources. Open drafts can overlay the exported snapshot without saving those source files to disk. Check the resulting path and unpack a copy before handing it to someone else.
@@ -270,7 +225,7 @@ Save writes the working source. Export creates a separate archive. Java run comp
 ## Create the starter
 Choose NeoForge project creation in Project and provide a unique mod id: 2–48 lowercase letters/digits/underscores, starting with a letter. minecraft, neoforge, mared and javafml are reserved. The template includes build.gradle, settings.gradle, gradle.properties, metadata and ExampleMod.java.
 
-New mods use the official NeoForge 1.21.1 ModDevGradle MDK snapshot 3bca8f1e0756c001e4b71f266c328d1568d29363, plugin 2.0.148, Gradle 9.2.1 and Java 21. NeoForge is pinned to the MaRed baseline 21.1.235. The initial mod version is 1.0.0. The original wrapper, examples, Config, client events, resources, datagen and publishing are included. Creation needs no external wrapper and executes no build. Building needs a full JDK 21 and network access for first-time dependency downloads.
+New mods use the official NeoForge 1.21.1 ModDevGradle MDK snapshot 3bca8f1e0756c001e4b71f266c328d1568d29363, plugin 2.0.148, Gradle 9.2.1 and Java 21. NeoForge is pinned to the MaRed baseline 21.1.264. The initial mod version is 1.0.0. The original wrapper, examples, Config, client events, resources, datagen and publishing are included. Creation needs no external wrapper and executes no build. Building needs a full JDK 21 and network access for first-time dependency downloads.
 ## Edit the entrypoint
 Open src/main/java/genesis/generated/mod_<id>/ExampleMod.java. Change the constructor log message and save. Do not replace @Mod with an ordinary main: the loader has its own entry lifecycle. That log message appears when the built mod is loaded, not during compilation.
 ## Build and verify
@@ -331,16 +286,10 @@ Up to 16 open documents and 16 cached project trees. Help queries are bounded to
 No breakpoint debugger, Java language server, semantic refactoring, Python/Rust/C++ runtime, universal hot NeoForge loader, multiplayer code installation or automatic live synchronization of two external folders. Scripts has its own preferences; Commands execution settings remain separate. Adding a library or choosing a label does not implement those systems.
 => boundaries|Minecraft and server boundaries
 
-@@ boundaries|Support|Minecraft, servers and other tabs|Shared files, local processes and singleplayer runtime boundaries.|server network apply hot reload commands MR permissions
-## Other Logic tabs
-A shared project can be shown through a read-only file view. It reads saved content; a Scripts draft is not yet a new disk version for that view. This is shared project context, not a complete binding of arbitrary AI settings to arbitrary Java methods. MR and Minecraft command catalogs belong to Commands, not the Scripts language/API.
-## Server execution
-Local main runs on the client computer and receives neither operator rights nor the remote server process. Gradle builds files. A normal mod is installed on the required sides according to loader rules. A future multiplayer runtime needs permissions, transport and compatibility checks. Applying a ServerModule in singleplayer without leaving the world is available; remote-server downloads/application are not.
-## Running another person's project
-Reading Help and editing sources do not execute examples. Java run, Gradle build and tasks --all execute real code; Gradle configuration may act before any selected task runs. Review projects and libraries first. Execution bounds do not restrict every process permission.
+@@ boundaries|Help|Scripts, Commands and services|Shared editor, distinct service permissions.|133 boundaries
+Commands uses the same project/editor component as Scripts, including folders, tabs, syntax colors, recovery, search/replace, snippets and split view. Create a map project or open a real folder. The default file is main.mcfunction. Ctrl+R executes the active document through the existing MaRed executor; Ctrl+Shift+R stops. F7 validates file structure and MR syntax without executing. Results are in Logs. Server permissions apply. Commands does not expose JDK, Gradle, NeoForge build or mod installation. Running a file does not install or export a datapack. View → Command reference opens the live MC command tree and documented MR commands.
 
-For collaboration, share an export and tool versions and verify an independent build. Multiplayer editing, server application and a stable public library API are not completed by this Help stage.
-
+Server opens server folder and process controls. Supervisor opens activation, managed restart and restart history. WorkSpace opens collaboration. These screens contain no cross-navigation to adjacent global sections. Back returns to the workbench, where another white global control can be chosen. Server management rights and shared-project roles are separate.
 @@ help-tools|Support|Help controls and shortcuts|Every action in this window and compact panel.|help ctrl f copy bookmarks dock shortcuts
 ## Search and filters
 Ctrl+F focuses a query of up to 160 characters. Search is offline and checks the whole manual. Ctrl+A selects the query for replacement by the next input; Backspace removes that selection or the last character. Ctrl+V inserts bounded clipboard text without control characters. Enter opens the first filtered result.
@@ -354,7 +303,7 @@ Wheel over the index scrolls the index, over the article scrolls the article. Ho
 Drag the full-window title and resizing borders. Dock right uses the same reader, preserving its current page. A narrow panel uses Contents to show the index; selecting a page returns to reading. Searching also displays the index. Display wraps do not alter copied code. Bookmarks, query and history are window-session state. Diagrams and steps explain operations; they are not execution controls.
 => start|Return to the capability map
 
-@@ server-first|Server modules|Apply Java in a singleplayer world|Create a module, see a world change and replace it without reconnecting.|ServerModule apply world runtime hot reload
+@@ server-first|Server modules|Apply Java in a singleplayer world|Create a module, see a world change and replace it with a managed client restart in development mode.|ServerModule apply world runtime hot reload
 ## First application
 Enter singleplayer without opening LAN. In Scripts → Project, create a server Java module. Its src/WorldModule.java opens and Apply in world becomes the launch mode. The project includes the exact API JAR under libraries.
 
@@ -368,7 +317,7 @@ import com.fixmer.genesis.technology.server.ServerContext;
 public final class WorldModule implements ServerModule {
     @Override public void onEnable(ServerContext context) {
         context.setDayTime("minecraft:overworld", 6000);
-        context.broadcast("Applied without reconnecting!");
+        context.broadcast("Applied with a managed client restart in development mode!");
     }
 }
 ```
@@ -461,3 +410,168 @@ Multiline strings/comments, escapes, tab switching, theme changes, restored docu
 @@ split|Editor|Two files side by side|Independent editor groups and focus.|split windows panes focus
 Ctrl+\ toggles two panes, using the existing global split-editor setting. Right-click a file → Open on the right, or Alt+click a tab. Ctrl+1 and Ctrl+2 focus the left/right group; clicking its text also changes focus. Typing, saving and searching use the focused pane. Ctrl+Alt+S saves all open documents. Drag the divider to resize.
 Each pane retains its document history, selection, scrolling and syntax colors. Selecting an already visible file focuses its existing pane, so two widgets never share its mutable view. Below 240 GUI pixels the editor falls back to one pane, retaining the split preference. These are panes inside Minecraft, not separate desktop windows.
+
+
+@@ assist|Editor|Code tools 33|Find/replace, snippet fields and editing commands.|replace snippets brackets block lines whitespace
+Ctrl+Shift+J opens code tools for the focused pane; Search and the file menu also provide access. Ctrl+H configures literal replacement: match case, whole identifier words and selection only. Enter find/replacement text; an empty replacement deletes matches and surrounding spaces are preserved. Preview shows the count and first 30 original excerpts. Continue chooses the next match from the cursor (wrapping to the start) or all matches. Esc cancels. Replace all is one undo step. A changed/switched document rejects stale previews. There are no regular expressions or project-wide replacements.
+Ctrl+J selects Java/Python/JavaScript snippets. Edit the selected field and use Tab/Shift+Tab to visit fields. The final Tab moves to the ending cursor; Esc ends field mode. Selection can be wrapped by a template. Fields are independent, without semantic renaming or import insertion. Editing outside the active field cancels field navigation at the next Tab. Snippet insertion is one undo step; later typing uses ordinary history.
+Ctrl+M jumps to a matching ()[]{} bracket at/just before the cursor. Ctrl+Shift+M selects its enclosing contents and expands to an outer pair on repetition. Strings/comments follow the colour lexer, not a compiler. Ctrl+Shift+K deletes the current/selected lines, excluding a final row selected only through column zero. Trim trailing whitespace removes ending spaces/tabs throughout the focused file, preserving indentation, line breaks and the final newline. Text edits are undoable.
+Find/replace and snippet input: 1 MiB; at most 5000 replacement matches and 2 MiB output. Brackets: 20000 rows, 32768 characters per row, 100000 brackets, with a token overflow guard. Ordinary editing remains available beyond these feature limits.
+
+@@ interface|Getting started|Interface actions|Folder selection, run targets and dialog actions.|interface folder path run keyboard cancel
+## Select a folder
+Click a folder to open it. Select this folder confirms the currently open folder, not the highlighted row. ↑/↓ selects a row; Enter opens it; Ctrl+Enter confirms the open folder. Backspace opens the parent. In Drives view, open a drive before confirming.
+Ctrl+L opens full-path entry. Windows paths with spaces and quotes from Copy as path are accepted. Ctrl+C copies the current path. After an access error, open the parent or enter another path.
+## Run target
+Run Gradle task executes the selected task, which need not be build. Run Java file uses the active document and runs main in a separate JVM; compilation includes Java sources from the entire project. Switching tabs changes the Java run file.
+Build mod and restart and Apply module and restart explicitly restart the client. Applying requires a single-player world without LAN. Building alone does not install the mod.
+## Dialogs
+New files use Create, renaming uses Rename, settings use Save. Find and replacement prompts use Next. An empty replacement deletes matching text.
+The underlined confirmation button is activated by Enter. Tab or ←/→ changes it; Esc cancels. Destructive dialogs initially select Cancel. Scroll long messages with the wheel or ↑/↓. Input errors remain visible; Ctrl+Shift+C copies their complete text.
+## Help and unfinished sections
+Open window displays help inside Genesis; Dock right returns it to the side panel. This does not create a native OS window. The introduction distinguishes available tools from categories whose editors are not connected. Its content scrolls in small windows while navigation buttons remain visible.
+=> launch|Run modes
+=> projects|Projects and working folders
+
+@@ workspace133|Collaboration|Shared WorkSpace|The normal Scripts / Commands editor with collaboration enabled.|133 workspace133
+Use the white global control to open six management actions: project, members and rights, history, personal settings, remove sharing, advanced. Choose an existing Scripts or Commands project. Joining opens the normal corresponding workbench, its explorer and documents; no second local Scripts project is created. Removing sharing keeps the owner folder.
+
+@@ invites133|Collaboration|Invitations and access requests|Explicit consent before file access.|133 invites133
+Plus invites a player; minus removes a member; the adjacent control edits permissions. Notifications appear at the top right. F9 opens the inbox. The recipient sees the actual role and restrictions before accepting, then downloads permitted files and enters the normal editor. The owner receives a join notice. Accepting an access request creates an invitation, which still needs recipient consent. Requests and invitations expire after 15 minutes.
+
+@@ rights133|Collaboration|Roles and restrictions|The server checks every protected operation.|133 rights133
+The owner manages membership. Other roles are Maintainer, Developer, Reviewer and Viewer. Permission checkboxes restrict reading, editing, code erasure, file selection, file operations, history, restore, build and publication. Panels can be hidden globally or under a path. Checkboxes cannot exceed the role. Revoked write rights block server edits and preserve local drafts. Project access does not grant Minecraft OP rights.
+
+@@ history133|Collaboration|History and line diffs|Filter by file, author and action.|133 history133
+Select a history entry to see numbered added lines in green with + and removed lines in red with −. There are older pages, changed-lines-only mode and horizontal scrolling. Binary files have no text diff. Restore needs permission and confirmation; an intervening revision requires inspecting the change again.
+
+@@ presence133|Collaboration|Cursors and activity|Peers appear in the ordinary explorer and editor.|133 presence133
+File activity lists participants. Open files show peer cursors and selections. Personal settings provide a saturation/value field, hue slider, RGB and HEX input, colored presets and preview. Save applies the preference; cancel discards it. Disconnection blocks edits and preserves queued operations and drafts for recovery.
+
+@@ folders133|Projects|Ordinary folders and explorer|Opening a folder links it in place.|133 folders133
+Open folder uses the actual directory, without copying it into an archive or another workspace. File operations affect that directory. The explorer shows folder/file icons, indentation, selection and path tooltips. F2 renames, Delete moves entries to project trash, Ctrl+C / Ctrl+V copy within the project. Save dirty files before file operations. In the folder picker single-click selects, double-click or Enter opens, Ctrl+Enter confirms, Ctrl+L enters a path, Backspace goes up. Back/forward and new-folder controls are available. At a filesystem root, Up lists drives. ZIP transfer is an explicit separate action.
+
+@@ keys133|Editor|Scripts and Commands shortcuts|Shared editor, shared everyday actions.|133 keys133
+Ctrl+N new file; Ctrl+S save; Ctrl+Alt+S save all modified open files. Ctrl+F text search; Ctrl+Shift+F project search; Ctrl+P file search; Ctrl+O open-document search; Ctrl+G go to line. Ctrl+H replace; Ctrl+J snippets; Ctrl+Shift+J code tools. Tab / Shift+Tab navigate snippet fields. Ctrl+/ comments; Ctrl+Shift+K removes lines; Ctrl+M matching bracket; Ctrl+Shift+M block selection. Ctrl+Z / Ctrl+Y undo/redo. Ctrl+\ splits; Ctrl+1 / Ctrl+2 focus panes. Ctrl+R runs; Ctrl+Shift+R stops. Commands F7 checks structure and MR syntax without execution. Scripts F8 navigates build diagnostics. F6 cycles pane focus; F9 opens invitations. Focused search and help fields own their input.
+
+@@ commands133|Commands|Map projects in Commands|The same editor without mod build tools.|133 commands133
+Commands uses the same project/editor component as Scripts, including folders, tabs, syntax colors, recovery, search/replace, snippets and split view. Create a map project or open a real folder. The default file is main.mcfunction. Ctrl+R executes the active document through the existing MaRed executor; Ctrl+Shift+R stops. F7 validates file structure and MR syntax without executing. Results are in Logs. Server permissions apply. Commands does not expose JDK, Gradle, NeoForge build or mod installation. Running a file does not install or export a datapack. View → Command reference opens the live MC command tree and documented MR commands.
+
+@@ command-format133|Commands|Minecraft lines and MR blocks|Only a leading { starts MR.|133 command-format133
+Outside MR blocks each significant line is a Minecraft command; an optional leading slash is stripped. SNBT braces inside a Minecraft command do not start MR. A leading { starts an MR block. All MR syntax is parsed before execution. F7 checks structure and MR; Minecraft command validity and permissions are checked by the game server. # and // are comments outside blocks. #persistent on the first line enables persistent resources. Stop releases resources; switching connections prevents sending old commands into another world. Use Command reference → MR for control flow, functions, events, timers, actions and their parameters.
+
+@@ migration133|Commands|Existing Commands and recovery|Legacy saved sources remain intact.|133 migration133
+On first opening Commands, saved config/mared/commands files are copied once into a LegacyCommands project under config/mared/command_projects. Folder structure is retained and .mr is appended to filenames. A free project name is selected on collision. Originals are neither modified nor deleted. This is a one-time migration, not ongoing two-way synchronization; existing command bindings can keep using originals. Unsaved old-editor drafts remain available through View → Legacy Commands and drafts. Use View → Return to Commands projects to return to the new editor.
+
+
+Migration shortens overlong names/paths and resolves physical filename/folder collisions without replacing content. The original-to-new mapping is retained in .genesis/migration-paths135.properties in the new project. A retry recovers an already committed migration. Commands files accept a UTF-8 BOM and LF, CRLF or CR line endings.
+
+@@ services133|Services|Separate server and supervisor screens|Each global control has its own destination.|133 services133
+Server opens server folder and process controls. Supervisor opens activation, managed restart and restart history. WorkSpace opens collaboration. These screens contain no cross-navigation to adjacent global sections. Back returns to the workbench, where another white global control can be chosen. Server management rights and shared-project roles are separate.
+
+@@ sync-errors133|Help|Actual synchronization errors|Readable details, copy and an explicit log path.|133 sync-errors133
+WorkSpace has an Error details control with exception text, stack, Copy and Open log folder. The dedicated client file is logs/mared-workspace.log. Empty project title and default Viewer text can indicate failure before joining. Errors are displayed at that stage as well. Allowed dotfiles include .gitignore, .gitattributes, .editorconfig, .gitkeep and .github. Spaces and Unicode project paths are accepted within safe path rules. Traversal and arbitrary hidden directories remain blocked. The shared text limit is 16384 Unicode code points, supporting standard gradlew scripts longer than the former 8192 limit. Creation snapshots still allow at most 64 text files and 20000 compressed bytes. Conflicting local drafts are preserved. Owner files update while its connected client services the session; offline changes remain on the server.
+
+
+@@ reliability142|Help|Run failures and persisted logs|assert, wait, scope and shared-project limitations.|142 reliability142
+A failed assert marks the run as failed and cancels timers, listeners and actions owned by that run. Previously scheduled work owned by the failed run must not continue.
+
+wait accepts finite nonnegative durations. Units: ticks/t, ms, seconds/s, minutes/m. Unknown units, NaN, Infinity and duration overflow are errors. Large repeat counts must not wrap into small counts.
+
+scope=self or scope=all is a separate final token outside quotes. Example: print "Hello" scope=self. Inside a quoted string, "hello scope=all" remains ordinary message text.
+
+The in-memory journal retains up to 2000 entries. The persisted log keeps the newest entries within 8 MiB; omitted older entries are reported by a warning at the beginning of the saved log. Long messages are limited to 4096 characters with a truncation mark. Available entries can be exported separately.
+
+Shared projects currently synchronize text files. Binary PNG/JAR/audio resources and empty folders are not transferred. Shared folder creation and tree copying are not implemented; inactive actions are disabled. These limitations are distinct from a complete project synchronization.
+
+@@ runtime143|Help|Function calls and Commands ordering|Parameters, map/filter/reduce, cancellation and mixed files.|143 runtime143
+map, filter, forEach and reduce inherit the caller's variables and user functions. Callback bindings stay private, so a nested map does not replace its outer $v or $i. Lists and objects remain shared references; mutating the object itself inside a function can still be visible to the caller.
+
+reduce requires two distinct local names without $: [1,2,3].reduce("acc","item","$acc + $item"). global.*, self and world are rejected. Function parameters are restored even if executor creation fails, including restoring an absent parameter to absence.
+
+A mixed Commands file waits for the preceding foreground MR block, including wait, before advancing. Later MR blocks in the same run retain variables and function definitions. Background every/on handlers do not block advancement. In singleplayer, ordinary commands execute on the server thread before the next MR block. In multiplayer, sending a command does not acknowledge completion on the remote server.
+
+Multiplayer MR receives the local player data available to the client. This does not grant additional server permissions. The scenario still requires acceptance testing with a matching game client and server.
+
+Each complete map/filter/forEach/reduce operation has a cooperative 100 ms budget checked between items together with cancellation. A blocking external call cannot be preempted by this check. Explicit run cancellation by itself is not an execution failure.
+
+Shared Workspaces can start from empty Scripts or Commands projects and accept files afterwards. The binary-resource and empty-folder transfer limitations described above still apply.
+
+@@ creation145|Directions|Workbench 0.5.0|Genesis directions and their sections.|0.5.0 156 server apply configuration
+Genesis selects Mods, Datapacks, Maps, Servers, Shaders, Modpacks or Resourcepacks. The sidebar switches sections of that direction. Semantic icons replace the repeated short list. Servers now has only management, mod configurations and server settings, all bound to the selected installed server folder. Scripts, extensions and a separate Supervisor tab are removed from Servers.
+
+@@ blockbench146|Projects|Blockbench Desktop and shared Workspace|Installed application without embedded Chromium.|blockbench models animations textures bbmodel workspace desktop
+# Connect desktop Blockbench
+Models and Animations open the connector for your installed Blockbench application. MaRed no longer bundles MCEF or downloads Chromium at Minecraft startup. Remove a separately installed MCEF JAR from client mods if no other mod needs it. Blockbench must be installed and runs in a separate window.
+Choose a relative .bbmodel path in the current project. Existing models have a fixed path. Launch detects the application or uses a complete executable path, without additional arguments.
+Copy the connector file path. In Blockbench use Plugins → Load Plugin from File and select mared_desktop148.js. Then Tools → Connect to MaRed: paste the connection code copied from MaRed. New Blockbench versions may ask for network permission. This connector uses only 127.0.0.1. The code expires when the connector screen closes; do not share it.
+# Shared models
+Edit operations, Undo and Redo send .bbmodel snapshots after a 250 ms pause, with embedded images. The server verifies permissions and the previous file version. Conflicts keep local work rather than overwriting it. The model limit is 4 MiB. Keep the MaRed connector screen open until synchronization finishes.
+Remote versions are checked every 500 ms; actual latency depends on server, network, size and the transport queue. Incoming models do not replace local edits. Save a local copy through Blockbench and reconnect after a conflict. Selecting another Blockbench project does not rebind the MaRed file.
+Individual vertex operations are not merged; concurrent edits to the same model can conflict. Blockbench 3D mouse pointers are not synchronized. Imports, exports and plugins run in the installed application. Separately exported files are not automatically imported into Workspace.
+# Code and pointers
+Text carets and selections remain available. Mouse pointers over file text in the normal MaRed editor are also shared. Document positions account for the receiver's wrapping and scrolling. Pointers are not shared over menus, the file tree or Blockbench's 3D view. Stale pointers expire and file permissions are enforced.
+Draft persistence and copying acknowledged code to disk run without disabling typing. Unchanged documents use compact replies; changed documents and recovery still use snapshots. Update every participant and the server for the new protocol.
+# Navigation
+Choose global directions in Genesis. The left rail contains sections of the current direction, Workspace, help and settings. Wide screens show section labels; narrow screens show numbers with tooltips. The header shows the current direction and section.
+
+# Transfer improvements and mouse pointers
+Patch 149 removes the old browser screen, adapter, browser script and MCEF dependency declaration. A separate MCEF JAR still starts independently if you or another mod keep it installed.
+Participants see a white mouse arrow with their personal colour outline and name over file text. Coordinates use a separate transient channel, up to 20 updates per second, with stale samples replaced by newer ones. Stationary pointers send fewer updates. Text carets remain available. Menus and Blockbench's 3D viewport do not share mouse pointers.
+Models use optional lossless compression negotiated with the server. Original bytes, hash and permissions are checked before storage. Already compressed textures can still take longer than simple geometry. Large JSON parsing, encoding and compression run in the background. Large code pastes use batches of up to 256 characters.
+Status shows measured edit acknowledgment time, from transmission to server reply. This is neither a pure network ping nor delivery time to every participant. It excludes local draft persistence and time waiting to send. No constant latency is guaranteed across all networks and workloads.
+Reload mared_desktop148.js in Blockbench after updating. It supports compact save acknowledgments, permission changes and safe reconnect/timeout handling. Workspace journal format remains compatible.
+
+# Reconnects and lost replies
+Patch 150 assigns each desktop connection a generation and a fresh session identifier. Deferred messages from an old connection cannot be delivered to the new app. Reconnect refreshes the source model version while keeping local app edits protected. Reload mared_desktop148.js after updating.
+Lost model chunk replies are retried a bounded number of times. A short-lived commit receipt allows retrying the same completed save without another journal revision. Receipts are bound to player, project and path; current permissions are checked again. A server restart or expired receipt can leave the outcome unknown; keep a local copy and reconnect.
+Code edit acknowledgments are accepted only if exact inserted characters and deletion tombstones are present in the confirmed document. Unacknowledged work remains recoverable.
+
+## Text caret and direct navigation — update 151
+Text carets and selections use short independent messages instead of waiting behind document edits, models or file transfers. Changed positions are sampled at up to 20Hz, stationary positions use a 500ms heartbeat, and older samples are rejected. This is a send cadence, not a network or server latency guarantee.
+Remote carets remain visible during local typing. Positions are projected through unprepared local text; a position inside a concurrently replaced fragment is temporarily approximate. Mouse pointers use a separate channel.
+Server controls, server tools and Supervisor render directly inside the workbench. Specific settings forms return to the workbench. The general Tools section shows its scrollable actions immediately instead of a button opening a second catalog. Hidden code editor controls do not receive server panel input.
+
+@@ environment152|Settings|Custom colors, sidebar and participants|Rail width, direction palettes and file presence.|152 colors rail icons workspace cursor
+## Custom colors, sidebar and participants — 152
+Drag the left rail boundary to resize it independently of the project tree. Width is persisted and constrained to available window space. Section icons are restored.
+Settings → Custom colors provides a separate accent for every direction, plus optional background, panel, raised surface, text, muted text and border colors. The HSV/RGB/HEX picker edits a settings draft; the main Settings Save commits it. Reset restores theme surfaces and default direction accents.
+Workspace cursor color is stored by the server for your account and propagated to the active editor. Existing local colors migrate when no server preference exists. A single dot before a file name cycles participants' colors every 1.5 seconds; hover to see names and tools.
+@@ remote_test152|Build|Server JAR only|An explicit narrower route.|0.5.0 156 server apply configuration
+Apply server JAR only is shown for a supported connected server and permissions. It builds/uploads one server JAR and requests restart; it does not distribute a client mod set. Full automatic publication applies to a locally selected managed server folder. Device authentication protects offline server administration, but does not migrate the legacy complete remote offline client installer.
+
+@@ devices153|Server|Offline server administration|Device trust without mandatory online-mode.|153 offline online-mode device Maop trust key
+## Device verification
+The management panel and remote JAR test no longer require online-mode=true. In offline mode, MaRed creates a local key for this server address and player name. Different addresses/accounts use separate keys. The private key never enters network fields.
+The Server section shows state, role and fingerprint. Use Copy device trust command, verify the fingerprint, and run maop trust PLAYER FINGERPRINT in the real console of that server. Trust does not grant a role: grant the appropriate role separately, for example maop PLAYER maintainer. Revoke with maop untrust PLAYER FINGERPRINT. Vanilla OP, RCON and execute-as cannot grant device trust.
+Update clients, server MaRed and the running controller to 153. Offline administration stays disabled with an old controller. A different address or player name may require another approval. Keys are stored in config/mared/devices153 and must not be shared.
+## Signed operations
+Offline panel operations and JAR application requests bind signatures to the connection, exact fields, request ID and counter. A duplicate obtains the original result; an evicted result is not blindly executed again. Applying also binds the chosen artifact hash, confirmed target and generation. The controller rechecks current device trust and role.
+Use panel controls. Legacy unsigned player chat administration is not the offline route; the real console remains available. The older client reinstall/restart publication pipeline retains its ONLINE/LOCAL_OFFLINE modes and is not migrated to the new device scheme yet.
+Signatures protect MaRed actions; they do not encrypt all offline Minecraft traffic or replace player identity in every other Minecraft subsystem.
+
+@@ remote154|Build|Contextual launch actions|Show applicable actions.|0.5.0 156 server apply configuration
+The launch menu exposes applicable Gradle build, selected-server deployment, connected server JAR, Java file and single-player actions. Additional actions retain advanced tools. A plain Java file is not a NeoForge mod. Shared builds still require server-approved source state and participant permissions.
+
+@@ display155|Servers|Embedded button labels|Correct clip translation in embedded screens.|155 buttons server Supervisor clipping
+Embedded server, Supervisor and server-tool screens use a translated pose. In 155, text scissors and the scissor hit-test receive the same offset, including scroll. Standalone screens retain unchanged coordinates. The deliberately empty idle status translation remains; server button labels are not empty.
+
+@@ first155|Build|Automatic initial release|No manual release names or staging folders.|0.5.0 156 server apply configuration
+Apply to selected server creates a random release name and imports complete current client/server mod sets once. Successors use the verified signed baseline and replace the project JAR by modId. Preview and signing are performed by the owner-local pipeline. Configure reachable game/distribution endpoints in Servers if needed. Leave both PEM fields blank to generate a publisher-rooted certificate and key automatically. Public domain names and routing are not generated.
+
+@@ server156|Servers|Selected server folder|A server context independent of Scripts projects.|0.5.0 156 server apply configuration
+Choose an installed folder with server.properties. The remembered folder scopes management, mod configurations and server settings. Management has start/stop, deployment status and one-time connection setup. Supervision remains automatic inside the existing controller, which does not adopt unrelated process IDs. Settings do not imply universal hot reload. Restart management after changing port, authentication mode or bind address.
+
+@@ configs156|Servers|Configurations and settings|Real files, search, parameter edits and backups.|0.5.0 156 server apply configuration
+Mod configurations scan config, defaultconfigs and the selected world serverconfig. Groups use folder/filename prefixes rather than claiming perfect modId mapping. Voicechat remains here and is not duplicated as a Minecraft setting. Server settings discover server.properties and access lists. Simple properties/INI/CFG/TOML and JSON scalars use parameter lists; booleans toggle on click. Complex YAML, JSON arrays and multiline TOML use the raw file editor. Unsaved edits persist as file-bound drafts when leaving the screen. Saves compare the original hash and create a backup; symlinks and scope escapes are refused. Full third-party configuration schema validation is not claimed.
+
+@@ apply156|Build|Apply and launch|Automatic publication for a locally managed server.|0.5.0 156 server apply configuration
+Select the managed server folder and configure reachable endpoint addresses if needed. Leave both PEM fields blank for automatic certificate generation. Preparation starts the managed server automatically if it is stopped. Save the project and Apply to selected server: Gradle build, verified snapshot, automatic release label, complete initial side sets and signed successor are prepared. If multiple mod artifacts exist, choose the correct JAR. The remembered project side can be client, server or both. Launch connects the owner to the ready server if necessary and authorizes the existing participant offer and commits only after accepting participants prepare. Then the existing controller handles save/stop/install/restart/readiness. Uncertain commits are not blindly replayed. Job receipts live under automatic156. This full client/server automation is owner-local; remote-only JAR application and legacy offline client rollout retain their documented limits.
+
+For gradlew runClient/IDE, the client input uses the packaged MaRed JAR and standalone JARs reported by the NeoForge loaded-mod list. An empty run/mods is allowed. Build MaRed itself with gradlew jar first. Other development mods backed only by class directories or virtual nested paths require standalone packaging. Temporary input does not install files into the active run/mods. Authoring from IDE does not add automatic installation or restart of the IDE/Gradle session; use a normal managed client to validate client rollout.
+
+HTTPS 159: MaRed generates a private publisher-rooted certificate and server key outside published files. Connection-local trust retains hostname, validity and signed-package checks; it never changes JVM/system trust defaults. First contact is through the selected game connection and the existing publisher approval; approved pins persist across restarts. All participants need this updated MaRed. Porthole port forwarding also needs the HTTPS TCP port (8443 by default). Public routing and full remote-host rollout are not added by this fix.
+
+@@ changes156|Version|Changes in 0.5.0|Server context, automatic publication and semantic icons.|0.5.0 156 server apply configuration
+MaRed is now 0.5.0. Minecraft, NeoForge and core compatibility versions are unchanged. Server pages edit real scoped files, per-release staging and labels are automatic, icons distinguish sections, and Scripts/Commands help includes the current server workflow. Passing a build does not prove arbitrary mod compatibility or native lifecycle acceptance.
+

@@ -11,7 +11,7 @@ class SourceProjectsIntegrationTest {
         var root=Files.createTempDirectory("source-projects-");var store=new SourceProjects(root);
         for(Language l:Language.values()){var p=store.create(l.name(),l);assertEquals(l,store.project(p.id()).language());
             assertEquals(l.starter,store.read(p.id(),"src/"+l.entry));assertTrue(Files.isDirectory(root.resolve(p.id()+"/libraries")));assertTrue(Files.isDirectory(root.resolve(p.id()+"/resources")));}
-        assertEquals(4,store.list().projects().size());assertFalse(Files.exists(root.resolve("commands")));
+        assertEquals(Language.values().length,store.list().projects().size());assertFalse(Files.exists(root.resolve("commands")));
     }
     @Test void nestedFilesSaveAtomicallyAndRefuseExternalChangesOrMissingFiles() throws Exception {
         var root=Files.createTempDirectory("source-projects-");var store=new SourceProjects(root);store.create("demo",Language.PYTHON);

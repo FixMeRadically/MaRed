@@ -3,12 +3,21 @@
   "package": "com.fixmer.mared.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "MaredButtonStyle129",
     "MouseHandlerMixin",
     "TitleScreenMixin",
     "RestartWindowMixin",
-    "RestartKeyboardMixin"
+    "RestartKeyboardMixin",
+    "FirstLaunchConnectAccessor58",
+    "BootstrapConnectMixin76",
+    "LocalWorldOpenMixin91",
+    "ServerReturnScreenMixin110",
+    "EmbeddedScissor155"
   ],
   "mixins": [
     "GenesisMobGoals"
+  ],
+  "server": [
+    "DedicatedBootstrapMixin106"
   ]
 }

@@ -15,12 +15,7 @@ import com.google.gson.JsonParser;
 import net.minecraft.client.Minecraft;
 import net.neoforged.fml.ModList;
 
-/**
- * Р›РѕРєР°Р»РёР·Р°С†РёСЏ MaRed.
- *
- * v9: hardcoded HARDCODED/HARDCODED_RU РїРµСЂРµРїРёСЃР°РЅС‹ РІ UTF-8 (Р±С‹Р»Рё mojibake).
- * РўРѕС‡РєР° U+00B7 "В·" Р·Р°РјРµРЅРµРЅР° РЅР° "|" вЂ” РЅРµ РІСЃРµ С€СЂРёС„С‚С‹ РµС‘ РґРµСЂР¶Р°С‚.
- */
+/** UTF-8 localization with bounded resource reads and synchronized language changes. */
 public final class MaredLang {
 
     private MaredLang() {}
@@ -64,33 +59,33 @@ public final class MaredLang {
     private static final Map<String, String> HARDCODED_RU = new HashMap<>();
     static {
         HARDCODED_RU.put("mared.genesis.title", "Genesis");
-        HARDCODED_RU.put("mared.genesis.hint", "Р’С‹Р±РµСЂРё РєР°С‚РµРіРѕСЂРёСЋ | Esc вЂ” РЅР°Р·Р°Рґ");
-        HARDCODED_RU.put("mared.genesis.panel_hint", "РљР»РёРєРЅРё РµС‰С‘ СЂР°Р· РґР»СЏ РІС…РѕРґР° | Esc вЂ” РЅР°Р·Р°Рґ");
-        HARDCODED_RU.put("mared.genesis.core", "РЇРґСЂРѕ MaRed");
-        HARDCODED_RU.put("mared.genesis.content", "РљРѕРЅС‚РµРЅС‚");
-        HARDCODED_RU.put("mared.genesis.world", "РњРёСЂ");
-        HARDCODED_RU.put("mared.genesis.logic", "Р›РѕРіРёРєР°");
-        HARDCODED_RU.put("mared.genesis.resources", "Р РµСЃСѓСЂСЃС‹");
-        HARDCODED_RU.put("mared.genesis.tools", "РРЅСЃС‚СЂСѓРјРµРЅС‚С‹");
-        HARDCODED_RU.put("mared.genesis.scenarios", "РЎС†РµРЅР°СЂРёРё");
-        HARDCODED_RU.put("mared.genesis.desc.core", "РЇРґСЂРѕ MaRed. РСЃС‚РѕС‡РЅРёРє РІСЃРµРіРѕ СЃРѕР·РґР°РЅРёСЏ.");
-        HARDCODED_RU.put("mared.genesis.desc.content", "РџСЂРµРґРјРµС‚С‹, СЃСѓС‰РЅРѕСЃС‚Рё, РјРѕРґРµР»Рё, Р°РЅРёРјР°С†РёРё Рё РєРѕРЅС‚РµРЅС‚.");
-        HARDCODED_RU.put("mared.genesis.desc.world", "РњРёСЂ, Р±РёРѕРјС‹, С‡Р°РЅРєРё, РёР·РјРµСЂРµРЅРёСЏ Рё СЃС‚СЂСѓРєС‚СѓСЂС‹.");
-        HARDCODED_RU.put("mared.genesis.desc.logic", "РЎРєСЂРёРїС‚С‹, СЃРѕР±С‹С‚РёСЏ, СѓСЃР»РѕРІРёСЏ, РґРµР№СЃС‚РІРёСЏ Рё РїРѕРІРµРґРµРЅРёРµ.");
-        HARDCODED_RU.put("mared.genesis.desc.resources", "РўРµРєСЃС‚СѓСЂС‹, Р·РІСѓРєРё, РјРѕРґРµР»Рё Рё С„Р°Р№Р»С‹ РґР°РЅРЅС‹С….");
-        HARDCODED_RU.put("mared.genesis.desc.tools", "РћС‚Р»Р°РґРєР°, РїСЂРѕС„РёР»РёСЂРѕРІР°РЅРёРµ Рё С‚РµСЃС‚С‹.");
-        HARDCODED_RU.put("mared.genesis.desc.scenarios", "РљРІРµСЃС‚С‹, РєР°РјРїР°РЅРёРё, РєР°С‚СЃС†РµРЅС‹ Рё СЃСЋР¶РµС‚.");
-        HARDCODED_RU.put("mared.onboarding.back", "РќР°Р·Р°Рґ");
-        HARDCODED_RU.put("mared.onboarding.next", "Р”Р°Р»РµРµ");
-        HARDCODED_RU.put("mared.onboarding.skip", "РџСЂРѕРїСѓСЃС‚РёС‚СЊ");
-        HARDCODED_RU.put("mared.onboarding.enter", "Р’РѕР№С‚Рё");
-        HARDCODED_RU.put("mared.dialog.cancel", "РћС‚РјРµРЅР°");
-        HARDCODED_RU.put("mared.dialog.confirm", "РџРѕРґС‚РІРµСЂРґРёС‚СЊ");
-        HARDCODED_RU.put("mared.dialog.create", "РЎРѕР·РґР°С‚СЊ");
-        HARDCODED_RU.put("mared.dialog.name_label", "РРјСЏ");
+        HARDCODED_RU.put("mared.genesis.hint", "Выбери категорию  |  Esc — назад");
+        HARDCODED_RU.put("mared.genesis.panel_hint", "Кликни ещё раз для входа  |  Esc — назад");
+        HARDCODED_RU.put("mared.genesis.core", "Ядро MaRed");
+        HARDCODED_RU.put("mared.genesis.content", "Контент");
+        HARDCODED_RU.put("mared.genesis.world", "Мир");
+        HARDCODED_RU.put("mared.genesis.logic", "Логика");
+        HARDCODED_RU.put("mared.genesis.resources", "Ресурсы");
+        HARDCODED_RU.put("mared.genesis.tools", "Инструменты");
+        HARDCODED_RU.put("mared.genesis.scenarios", "Сценарии");
+        HARDCODED_RU.put("mared.genesis.desc.core", "Ядро MaRed. Источник всего создания.");
+        HARDCODED_RU.put("mared.genesis.desc.content", "Предметы, сущности, модели, анимации и контент.");
+        HARDCODED_RU.put("mared.genesis.desc.world", "Мир, биомы, чанки, измерения и структуры.");
+        HARDCODED_RU.put("mared.genesis.desc.logic", "Скрипты, события, условия, действия и поведение.");
+        HARDCODED_RU.put("mared.genesis.desc.resources", "Текстуры, звуки, модели и файлы данных.");
+        HARDCODED_RU.put("mared.genesis.desc.tools", "Отладка, профилирование и тесты.");
+        HARDCODED_RU.put("mared.genesis.desc.scenarios", "Квесты, кампании, катсцены и сюжет.");
+        HARDCODED_RU.put("mared.onboarding.back", "Назад");
+        HARDCODED_RU.put("mared.onboarding.next", "Далее");
+        HARDCODED_RU.put("mared.onboarding.skip", "Пропустить");
+        HARDCODED_RU.put("mared.onboarding.enter", "Войти");
+        HARDCODED_RU.put("mared.dialog.cancel", "Отмена");
+        HARDCODED_RU.put("mared.dialog.confirm", "Подтвердить");
+        HARDCODED_RU.put("mared.dialog.create", "Создать");
+        HARDCODED_RU.put("mared.dialog.name_label", "Имя");
     }
 
-    public static String get(String key) {
+    public static synchronized String get(String key) {
         if (key == null || key.isEmpty()) return "";
         try { ensureLoaded(); }
         catch (Throwable t) {
@@ -141,17 +136,21 @@ public final class MaredLang {
         catch (java.util.IllegalFormatException error) { return template; }
     }
 
-    public static void reload() {
+    public static synchronized void reload() {
         loaded = false;
         DICTS.clear();
         try { ensureLoaded(); } catch (Throwable ignored) { }
     }
 
-    public static void setLanguage(String code) {
-        currentCode = (code == null || code.isEmpty()) ? FALLBACK : code;
+    public static synchronized void setLanguage(String code) {
+        String requested=code==null?FALLBACK:code.toLowerCase(java.util.Locale.ROOT);
+        currentCode=requested.matches("[a-z0-9_]{1,32}")?requested:FALLBACK;
+        if(!DICTS.containsKey(currentCode))loadLanguage(currentCode);
+        if(!DICTS.containsKey(FALLBACK))loadLanguage(FALLBACK);
+        loaded=true;
     }
 
-    public static String getCurrentCode() { return currentCode; }
+    public static synchronized String getCurrentCode() { return currentCode; }
 
     private static void ensureLoaded() {
         if (loaded) return;
@@ -176,7 +175,7 @@ public final class MaredLang {
                 Mared.LOGGER.warn("[Mared] Lang file not found: {}", relative);
                 return;
             }
-            byte[] bytes = in.readAllBytes();
+            byte[] bytes = in.readNBytes((int)MAX_LANG_FILE_SIZE+1);
             if (bytes.length > MAX_LANG_FILE_SIZE) {
                 Mared.LOGGER.error("[Mared] Lang {} too large: {} bytes", relative, bytes.length);
                 return;

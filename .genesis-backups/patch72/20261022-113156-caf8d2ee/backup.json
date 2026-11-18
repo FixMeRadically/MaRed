@@ -1,0 +1,66 @@
+{
+  "patch": 69,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "a5699f67390668412b334e5e5d46ce4ae2c31283e80ca8dea2239dd29bd24de7",
+      "after": "042568c04ad4e01abc900233976a41f030fb8d875f4042019b251318dd88554e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/RemoteConsentPayloads72.java",
+      "existed": false,
+      "before": null,
+      "after": "8730a6be1d259375bd60f719818f6fe30c99437737868e326825583fad9a941e"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/RemoteConsentServer72.java",
+      "existed": false,
+      "before": null,
+      "after": "68b213e6c46402954493a1950fed17e54f820c45aed5785a2b4fdff82a242cde"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/remote/client/RemoteConsentClient72.java",
+      "existed": false,
+      "before": null,
+      "after": "1a369efc52c84337d3be3e0047c644a06c3567674da4ee9d9778cc9c7602fd13"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "a671c30c5dd78dce4d9ad9187fb3ad90ee8e660e1e1d46a8293e4e96198d4a02",
+      "after": "5ddb0dfabef9b1b4bd7a3e55a504a4a6e3e3014620c1d5db34cb7db8d2d0e3f2"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "568b422f7b6d49f63427d4a340b109e23bc32c48b176dc6430f704e4b4e3f81d",
+      "after": "3c3a99ac14b39628f0ff274506c0dbdf7fe19b49972f9d851149f3e74d485b41"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/RemoteConsentChecks72.java",
+      "existed": false,
+      "before": null,
+      "after": "80945237764d3436b1937d16a89a12ac90beafb074dbdea07575435cceb2dd57"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "1a125ee1704c7716200e34ea4129fef00e2003d4b71ca0dc0072969368983637",
+      "after": "aaa9222d9190a25009a1b988d772b617fea9ccaa63b8be38202b7c3fac66e8f2"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/RemoteConsent72.java",
+      "existed": false,
+      "before": null,
+      "after": "ea14b652f93e770e0294f114f5a87445fde94e0b8431a4fe9e477c7665547e3d"
+    },
+    {
+      "path": "verification/server59/remote_https_checks69.py",
+      "existed": true,
+      "before": "530f88383cb017de43793f4b118db6d8d8dc34b135ecba8dd5faa511ec50157b",
+      "after": "7f4af5412a790547d866461b4515aae0512a0a14ae137dd4a13029fd174d5d01"
+    }
+  ]
+}

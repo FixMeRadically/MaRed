@@ -23,7 +23,7 @@ import net.minecraft.client.gui.GuiGraphics;
  */
 public final class ContextMenuOverlay implements Overlay {
 
-    private static final int ITEM_H = 14;
+    private int itemH = 16;
     private static final int SEP_H  = 5;
     private static final int PAD_X  = 8;
     private static final int PAD_Y  = 4;
@@ -42,6 +42,7 @@ public final class ContextMenuOverlay implements Overlay {
     private int menuX, menuY, menuW, menuH;
     private int contentH,scrollOffset,layoutW=-1,layoutH=-1;
     private boolean layoutDone = false;
+    private Font layoutFont;private int layoutLineHeight;
     private int highlightedIndex = -1;
     private boolean closeRequested = false;
 
@@ -92,9 +93,9 @@ public final class ContextMenuOverlay implements Overlay {
                        int mouseX, int mouseY) {
         if (entries.isEmpty()) return;
 
-        if (!layoutDone||layoutW!=screenW||layoutH!=screenH) {
+        if (!layoutDone||layoutW!=screenW||layoutH!=screenH||layoutFont!=font||layoutLineHeight!=font.lineHeight) {
             computeLayout(font, screenW, screenH);
-            layoutDone = true;layoutW=screenW;layoutH=screenH;
+            layoutDone = true;layoutW=screenW;layoutH=screenH;layoutFont=font;layoutLineHeight=font.lineHeight;
         }
 
         MaredTheme t = MaredThemeRegistry.active();
@@ -127,28 +128,25 @@ public final class ContextMenuOverlay implements Overlay {
 
             if (hov) {
                 Render.rect(g, menuX + 2, curY,
-                    menuX + menuW - 2, curY + ITEM_H, t.bgHover);
+                    menuX + menuW - 2, curY + itemH, t.bgHover);
             }
 
-            int color = it.enabled() ? t.text : t.textFaint;
-            String label = it.label();
-            int tab = label.indexOf('\t');
-            if (tab >= 0) {
-                String left = label.substring(0, tab);
-                String right = label.substring(tab + 1);
-                TextUtils.text(g, font, left, menuX + PAD_X, curY + 3, color);
-                int rw = font.width(right);
-                TextUtils.text(g, font, right,
-                    menuX + menuW - PAD_X - rw, curY + 3, t.textDim);
-            } else {
-                TextUtils.text(g, font, label, menuX + PAD_X, curY + 3, color);
-            }
+            int color = it.enabled() ? t.text : t.textDim;
+            var columns=com.fixmer.genesis.technology.editor.MenuText154.columns(it.label(),Math.max(0,menuW-PAD_X*2),font::width);
+            int textY=curY+Math.max(2,(itemH-font.lineHeight)/2);
+            TextUtils.textNoShadow(g,font,columns.left(),menuX+PAD_X,textY,color);
+            if(!columns.right().isEmpty())TextUtils.textNoShadow(g,font,columns.right(),menuX+PAD_X+columns.rightOffset(),textY,t.textDim);
 
-            curY += ITEM_H;
+            curY += itemH;
         }}finally{g.disableScissor();}
         if(scrollOffset>0)g.drawString(font,"^",menuX+menuW-8,menuY+1,t.textDim,false);
         if(scrollOffset<contentH-menuH)g.drawString(font,"v",menuX+menuW-8,menuY+menuH-10,t.textDim,false);
 
+        if(hoveredIdx>=0&&!entries.get(hoveredIdx).separator()){
+            String full=entries.get(hoveredIdx).label();
+            if(font.width(full.replace("\t","    "))>Math.max(0,menuW-PAD_X*2))
+                g.renderTooltip(font,net.minecraft.network.chat.Component.literal(full.replace("\t","    ")),mouseX,mouseY);
+        }
         // 0.3.2: показать буфер поиска в углу панели.
         if (searchBuffer.length() > 0 && !isSearchExpired()) {
             String buf = searchBuffer.toString();
@@ -161,6 +159,7 @@ public final class ContextMenuOverlay implements Overlay {
     }
 
     private void computeLayout(Font font, int screenW, int screenH) {
+        itemH=Math.max(16,font.lineHeight+6);
         int w = 0;
         for (ContextMenuEntry it : entries) {
             if (it.separator()) continue;
@@ -180,7 +179,7 @@ public final class ContextMenuOverlay implements Overlay {
 
         int h = PAD_Y * 2;
         for (ContextMenuEntry it : entries) {
-            h += it.separator() ? SEP_H : ITEM_H;
+            h += it.separator() ? SEP_H : itemH;
         }
         contentH=h;menuH=Math.max(1,Math.min(h,screenH-16));scrollOffset=Math.max(0,Math.min(scrollOffset,contentH-menuH));
 
@@ -231,7 +230,7 @@ public final class ContextMenuOverlay implements Overlay {
         int n = entries.size();
         for (int i = 0; i < n; i++) {
             ContextMenuEntry it = entries.get(i);
-            int h = it.separator() ? SEP_H : ITEM_H;
+            int h = it.separator() ? SEP_H : itemH;
             if (my >= curY && my < curY + h) {
                 return it.separator() ? -1 : i;
             }
@@ -249,7 +248,7 @@ public final class ContextMenuOverlay implements Overlay {
         if (keyCode == 256) return false; // ESC → OverlayManager
 
         // 0.3.2: любой не-char ключ сбрасывает буфер поиска.
-        clearSearchBuffer();
+        if(!(keyCode>=32&&keyCode<=96||keyCode>=161&&keyCode<=162))clearSearchBuffer();
 
         switch (keyCode) {
             case 264: moveSelection(+1); return true;
@@ -350,14 +349,14 @@ public final class ContextMenuOverlay implements Overlay {
 
     private void ensureSelectionVisible(){
         if(!layoutDone||highlightedIndex<0)return;int top=PAD_Y;
-        for(int i=0;i<highlightedIndex;i++)top+=entries.get(i).separator()?SEP_H:ITEM_H;
+        for(int i=0;i<highlightedIndex;i++)top+=entries.get(i).separator()?SEP_H:itemH;
         if(top-scrollOffset<PAD_Y)scrollOffset=top-PAD_Y;
-        if(top+ITEM_H-scrollOffset>menuH-PAD_Y)scrollOffset=top+ITEM_H-menuH+PAD_Y;
+        if(top+itemH-scrollOffset>menuH-PAD_Y)scrollOffset=top+itemH-menuH+PAD_Y;
         scrollOffset=Math.max(0,Math.min(scrollOffset,Math.max(0,contentH-menuH)));
     }
     @Override public boolean mouseScrolled(double mx,double my,double dx,double dy){
         if(mx<menuX||mx>=menuX+menuW||my<menuY||my>=menuY+menuH)return false;
-        scrollOffset=Math.max(0,Math.min(scrollOffset+(dy<0?ITEM_H*3:dy>0?-ITEM_H*3:0),Math.max(0,contentH-menuH)));return true;
+        scrollOffset=Math.max(0,Math.min(scrollOffset+(dy<0?itemH*3:dy>0?-itemH*3:0),Math.max(0,contentH-menuH)));return true;
     }
     private void activateHighlighted() {
         if (highlightedIndex < 0 || highlightedIndex >= entries.size()) return;

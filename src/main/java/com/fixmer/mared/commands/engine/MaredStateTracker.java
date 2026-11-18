@@ -58,6 +58,7 @@ public final class MaredStateTracker {
     // ---- Предыдущее состояние ----
     private static double lastX, lastY, lastZ;
     private static boolean posInit = false;
+    private static LocalPlayer trackedPlayer;
     private static int lastHp = -1;
     private static int lastFood = -1;
     private static int lastXpLevel = -1;
@@ -74,7 +75,8 @@ public final class MaredStateTracker {
 
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer p = mc.player;
-        if (p == null) return diff;
+        if (p == null) { reset(); return diff; }
+        if (p != trackedPlayer) { reset(); trackedPlayer = p; }
 
         long now = System.currentTimeMillis();
 
@@ -88,19 +90,20 @@ public final class MaredStateTracker {
 
                 if (now - lastPlayerMoveMs >= PLAYER_MOVE_COOLDOWN_MS) {
                     lastPlayerMoveMs = now;
-                    diff.put("from_x", (int) lastX);
-                    diff.put("from_y", (int) lastY);
-                    diff.put("from_z", (int) lastZ);
-                    diff.put("x", (int) x);
-                    diff.put("y", (int) y);
-                    diff.put("z", (int) z);
-                    diff.put("dx", (int) dx);
-                    diff.put("dy", (int) dy);
-                    diff.put("dz", (int) dz);
+                    diff.put("from_x", lastX);
+                    diff.put("from_y", lastY);
+                    diff.put("from_z", lastZ);
+                    diff.put("x", x);
+                    diff.put("y", y);
+                    diff.put("z", z);
+                    diff.put("dx", dx);
+                    diff.put("dy", dy);
+                    diff.put("dz", dz);
+                    lastX = x; lastY = y; lastZ = z;
                 }
             }
         }
-        lastX = x; lastY = y; lastZ = z; posInit = true;
+        if (!posInit) { lastX = x; lastY = y; lastZ = z; posInit = true; }
 
         // ---- HP ----
         int hp = (int) p.getHealth();
@@ -168,6 +171,7 @@ public final class MaredStateTracker {
 
     public static void reset() {
         posInit = false;
+        trackedPlayer = null;
         lastHp = -1;
         lastFood = -1;
         lastXpLevel = -1;

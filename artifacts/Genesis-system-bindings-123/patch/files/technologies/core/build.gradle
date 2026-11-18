@@ -1,0 +1,58 @@
+plugins { id 'java-library'; id 'maven-publish' }
+group = 'com.fixmer.genesis'
+version = '0.1.39'
+java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+publishing { publications { core(MavenPublication) { from components.java } } }
+
+// NeoForge must put this dependency in its GAME layer, not the boot/library layer.
+tasks.named('jar', Jar) {
+    manifest.attributes(
+        'FMLModType': 'GAMELIBRARY',
+        'Automatic-Module-Name': 'com.fixmer.genesis.core',
+        'Implementation-Version': project.version.toString()
+    )
+}
+
+//117: fail before javac when a partial checkout silently omits core packages.
+tasks.register('verifySourceFoundation117') {
+    doLast {
+        def manifest117 = new groovy.json.JsonSlurper().parse(file('foundation117.json'), 'UTF-8')
+        if (manifest117.schema != 117) throw new GradleException('GENESIS117_FOUNDATION_SCHEMA')
+        def effective117 = sourceSets.main.java.files.collect { it.canonicalFile }.toSet()
+        def missing117 = []
+        def excluded117 = []
+        manifest117.sources.each { relative117 ->
+            def source117 = file(relative117)
+            if (!source117.isFile()) missing117.add(relative117)
+            else if (!effective117.contains(source117.canonicalFile)) excluded117.add(relative117)
+        }
+        manifest117.resources.each { relative117 ->
+            if (!file(relative117).isFile()) missing117.add(relative117)
+        }
+        if (!missing117.isEmpty() || !excluded117.isEmpty()) {
+            throw new GradleException('GENESIS117_CORE_INPUTS_INCOMPLETE\nMissing: ' + missing117.join(', ') +
+                '\nExcluded by sourceSets: ' + excluded117.join(', '))
+        }
+        logger.lifecycle('Genesis117 core source inputs verified: ' + manifest117.sources.size())
+    }
+}
+tasks.named('compileJava') { dependsOn tasks.named('verifySourceFoundation117') }
+
+//118: full core compilation and evidence from the actual JavaCompile input.
+tasks.named('compileJava', JavaCompile) {
+    setSource(sourceSets.main.java)
+    options.incremental = false
+    doFirst {
+        def contract118 = new groovy.json.JsonSlurper().parse(file('foundation117.json'), 'UTF-8')
+        def actual118 = source.files.collect { it.canonicalFile }.toSet()
+        def absent118 = contract118.sources.findAll { !actual118.contains(file(it).canonicalFile) }
+        if (!absent118.isEmpty()) throw new GradleException('GENESIS118_COMPILE_SOURCE_MISMATCH: ' + absent118.join(', '))
+        logger.lifecycle('Genesis118 actual JavaCompile sources: ' + actual118.size() + '; incremental=false')
+    }
+    doLast {
+        def contract118 = new groovy.json.JsonSlurper().parse(file('foundation117.json'), 'UTF-8')
+        def absent118 = contract118.abi.findAll { !new File(destinationDirectory.get().asFile, it).isFile() }
+        if (!absent118.isEmpty()) throw new GradleException('GENESIS118_COMPILE_OUTPUT_MISSING: ' + absent118.join(', '))
+    }
+}

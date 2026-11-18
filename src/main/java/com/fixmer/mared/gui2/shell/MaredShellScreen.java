@@ -35,6 +35,8 @@ public final class MaredShellScreen extends MaredScreen {
     private StudioRuntime runtime;
     private boolean suspendedForSettings;
     public void suspendForSettings(){suspendedForSettings=true;}
+    /** Dispose a suspended editor if its embedded tool is closed by an unrelated screen. */
+    public void closeSuspendedTool146(){suspendedForSettings=false;removed();}
     private SpaceId initialSpace = SpaceId.GENESIS;
 
     public MaredShellScreen() {
@@ -164,11 +166,21 @@ public final class MaredShellScreen extends MaredScreen {
     @Override
     public boolean keyPressed(int key, int scan, int mods) {
         if (runtime == null) return super.keyPressed(key, scan, mods);
+        int shortcutModifiers=mods & (GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_ALT
+                | GLFW.GLFW_MOD_SHIFT | GLFW.GLFW_MOD_SUPER);
+        if (key == GLFW.GLFW_KEY_D
+                && shortcutModifiers == (GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_ALT)
+                && !runtime.navigation().isTransitioning()
+                && !runtime.session().overlayManager().shouldBlockGenericInput()) {
+            if (runtime.navigation().current() instanceof com.fixmer.mared.gui2.spaces.StudioSpace) runtime.session().workbench().suspended();
+            com.fixmer.mared.gui2.development.DevelopmentNavigation129.open(com.fixmer.mared.gui2.development.DevelopmentHub129.Section.SERVER);
+            return true;
+        }
 
         // F4 — Studio из любого пространства.
         if (key == GLFW.GLFW_KEY_F4 && !runtime.navigation().isTransitioning()) {
             var cur = runtime.navigation().current();
-            if (cur != null && cur.id() != SpaceId.STUDIO && cur.id() != SpaceId.LOGIC) {
+            if (cur != null && !(cur instanceof com.fixmer.mared.gui2.spaces.StudioSpace)) {
                 runtime.navigation().push(SpaceId.STUDIO);
                 return true;
             }

@@ -38,7 +38,7 @@ public final class Shortcut {
     }
 
     public boolean matches(int keyCode, int modifiers) {
-        return this.keyCode == keyCode && this.modifiers == modifiers;
+        return this.keyCode == keyCode && this.modifiers == (modifiers & 15);
     }
 
     public boolean isModifierOnly() {
@@ -56,7 +56,7 @@ public final class Shortcut {
         int mods = 0;
         String keyPart = null;
 
-        String[] parts = t.split("\\+");
+        String[] parts = t.split("\\+", -1);
         for (int i = 0; i < parts.length; i++) {
             String p = parts[i].trim();
             if (p.isEmpty()) return null;

@@ -33,6 +33,7 @@ public final class GenesisWorld {
     private float currentFps = 0f;
 
     public GenesisWorld() {
+        com.fixmer.mared.technology.editor.WorkbenchPreferences.load();
         List<GenesisNodeData> raw = NodeRegistry.buildAll();
         List<GenesisNode> list = new ArrayList<>(raw.size());
         for (GenesisNodeData d : raw) list.add(new GenesisNode(d));

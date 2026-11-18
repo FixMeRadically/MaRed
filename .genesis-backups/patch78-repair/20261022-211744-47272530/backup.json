@@ -1,0 +1,174 @@
+{
+  "patch": "78-repair",
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/DedicatedPanelScreen75.java",
+      "existed": true,
+      "before": "95b0fad041bc8e24059b68083511cef9abe43c90765d43488b8c7688e0524473",
+      "after": "243d226770cae3d5430ce90e32c11155cf5b036e9145c973c2dfc6e832def038"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/DedicatedPanelService75.java",
+      "existed": true,
+      "before": "65cee109984d21e8a49524caa659a0065642f35e91d2eb2f9d88046b5d4f4c25",
+      "after": "36fb0d064415d82cc47188aefa6da7d1da3192d97d1a8e9eb63630b96f93c296"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/HttpsScreen78.java",
+      "existed": false,
+      "before": null,
+      "after": "06a8fe4c848e5ebf36b1171fe7dcdd9185ee10b929bf1f3748201a7212c170e2"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/HttpsService78.java",
+      "existed": false,
+      "before": null,
+      "after": "e758117326c4b7bdf48ce621f8d12219fa344b596f7e4925d839093c43cb0b2f"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/LocalPickerScreen68.java",
+      "existed": true,
+      "before": "716f94cec0e3aebfc604753f52e12a8a2f58d10e258b73ab5ddb1409c1a78fd0",
+      "after": "5e1b4393792928613d50386bdd5b2755113880a4fee4a70dc6404ec50307ef63"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RecoveryScreen77.java",
+      "existed": false,
+      "before": null,
+      "after": "acd12be8335564bc73eddd7e686517d73f090332e237edf81d1d532e620b49a6"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RecoveryService77.java",
+      "existed": false,
+      "before": null,
+      "after": "75ff54bc5e25339f124986c917cb9574fbdeae6ee3ec4020d4b482c55496d92d"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "3390196545d9683962738812b61cb17279c49c9eb76c173f39d7cc25182c3c79",
+      "after": "1cbe10c27b7f87ff05a53d1410241581103d0407981572472dfc577c34f3b0dc"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "5796f97c46e5201e1d0416816063fdb26e2e869f388028eb9e3cfa6d9cd07468",
+      "after": "7ad0afc70e500dddb3359ada5b31a3f94e05af055ee6b4c686006bb9a1c24ecc"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/TlsChecks78.java",
+      "existed": false,
+      "before": null,
+      "after": "b6238173bc23432f787efcda359f54f0b2c5b6a256322440bd550561533d99bd"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/firstlaunch/LocalFileBrowser68.java",
+      "existed": true,
+      "before": "ceba8b567b25aeb0f305ff8ecd9bcf1d35b69b402d7165ed1122d659d82024cd",
+      "after": "fc411c9d6b0952b0a4b13a215f38ed0287edceb7c1960a152557af19d92614cb"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Tls78.java",
+      "existed": false,
+      "before": null,
+      "after": "6cb3f6eabe8057469f6771f74d6ca8b9eef764223390445bb23feeaaa234a134"
+    },
+    {
+      "path": "tools/dedicated_server75.py",
+      "existed": true,
+      "before": "2d8c81af3f75fd57e1e4f3c0c8e0d1ead4e953d70f01953bfbf40ee6e32a07a7",
+      "after": "f8578a938c34a17ecc7b4db5f69d8489aafe0fb59a80517ecea141a9458f3640"
+    },
+    {
+      "path": "tools/first58/dedicated74.py",
+      "existed": true,
+      "before": "3d947d909bb55ac479a50736c3263273ba322c1ad56038a5639d9ff0c89fd1c5",
+      "after": "899049930beec20b61be26f642333131c8aff9bd0c64422c8e661b03d7d8d807"
+    },
+    {
+      "path": "tools/first58/dedicated75.py",
+      "existed": true,
+      "before": "683ea2f5b88af53050aa11377ca031a021f5ad42282d6cb950567b550bbb670c",
+      "after": "04abc00ac04c71f8bddbdbca29c858e18904e1b9958d4a65a7c6f1998c2ee762"
+    },
+    {
+      "path": "tools/first58/dedicated76.py",
+      "existed": true,
+      "before": "490836689ddf6c4599def99554cb905dff8bad9269799e776466ab3d5d7a7b64",
+      "after": "382c74e222b9bd14bd313d934d098de589a8863e98a980323a82c78deca50df9"
+    },
+    {
+      "path": "tools/first58/dedicated77.py",
+      "existed": false,
+      "before": null,
+      "after": "554e737fac4b7e920bfad6d1cda864f1848de2f528f26bd6d2b17370ded7cbc6"
+    },
+    {
+      "path": "tools/first58/dedicated78.py",
+      "existed": false,
+      "before": null,
+      "after": "91f7dd94b958d788ea584e08e64d586832d6ff18daf9a98c396a3e26d7a4e21f"
+    },
+    {
+      "path": "tools/first58/https78.py",
+      "existed": false,
+      "before": null,
+      "after": "1736d5700e15aaf5a05a690e540b9b301b82548353706086de572db4c53d9fb3"
+    },
+    {
+      "path": "tools/first58/repair78.py",
+      "existed": false,
+      "before": null,
+      "after": "8b340c87e57296f03a725a53eaa0da2dca017e790c44f6a8a4f7418ae5487434"
+    },
+    {
+      "path": "tools/remote_update.py",
+      "existed": true,
+      "before": "d650fab328fb38e065cb2d6d21fd33877e1d30228699ad5831597118d3f3748e",
+      "after": "22a5816e4631b6003831b32c53e8020efd21bb487bedd641790169a89e558e14"
+    },
+    {
+      "path": "verification/server59/https_owner_checks78.py",
+      "existed": false,
+      "before": null,
+      "after": "fc2f3a930b03f2f7bc4395c7f9ed3179bf911d15b44cf85044d1030fb00727d5"
+    },
+    {
+      "path": "verification/server59/recovery_files77.py",
+      "existed": false,
+      "before": null,
+      "after": "b5e3ae31ad18026d0c702b07a270b8e65409123dda30b8ae73c6bf31bab649a8"
+    },
+    {
+      "path": "verification/server59/remote_control_checks73.py",
+      "existed": true,
+      "before": "c77a91cf6006ac69930fcdd4629ec4f1e1e1a5d2b0bb0a46c6a2988ac5d0fb37",
+      "after": "f77aef0e54aaac74a8a1ed990d767c2131739094d5c12b782fe9def6d5ff46d9"
+    },
+    {
+      "path": "verification/server59/remote_https_checks69.py",
+      "existed": true,
+      "before": "9e9935cd494903553783f3b8e74c3443c5cef96f473c3ee17bdb9ab8eba0b16b",
+      "after": "4633715341578aadf314f85bf25c4ab76aac02a5f0b7401dd60be13d5e88f025"
+    },
+    {
+      "path": "verification/server59/test_dedicated77.py",
+      "existed": false,
+      "before": null,
+      "after": "d20bde5d2730bbd370f11adbd90f40c1aa2968d3afad3907e12e877bc3197675"
+    },
+    {
+      "path": "verification/server59/test_https78.py",
+      "existed": false,
+      "before": null,
+      "after": "73f3e2aaeace78665195be89770da4f570bddd096c8e49445ce858075d411ee3"
+    },
+    {
+      "path": "verification/server59/test_repair78.py",
+      "existed": false,
+      "before": null,
+      "after": "ea485b563aec959659e1d01ca39e53b8a08023a1c6aa28505f32d98bfc7d2ef1"
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "patch": 80,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "build.gradle",
+      "existed": true,
+      "before": "ca4387ab0c19473cd23f84347d61a37b7a1385af891b1c190eebf2de7d3eb373",
+      "after": "90569cd590eb05e9bc71afc505370e36636d3763a473199eae80d5a191239c90"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/DedicatedPanelScreen75.java",
+      "existed": true,
+      "before": "3ffd6c7a7f1ba92862e3b2d0d87f2eb6bf049b27cdd46f3e79654db32a103f97",
+      "after": "1117846e37c071bc4a81a58664dc194b144d960b6cb1c55e3749919fcaca346c"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/HttpsScreen78.java",
+      "existed": true,
+      "before": "06a8fe4c848e5ebf36b1171fe7dcdd9185ee10b929bf1f3748201a7212c170e2",
+      "after": "bf36b2e0cf4a7870f4145363debd9f2981b5aa3d5127e80289a136b370422335"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/PublicationHealthScreen80.java",
+      "existed": false,
+      "before": null,
+      "after": "a681e6354605c24235986f32969663cd4e3dc612b4aa347110b24aabef974da2"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/PublicationHealthService80.java",
+      "existed": false,
+      "before": null,
+      "after": "89a5ad842def71d7c2855f4e3668031b3e2c5b8a6d557eaa3b0a1f03c6feb8a8"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RecoveryScreen77.java",
+      "existed": true,
+      "before": "acd12be8335564bc73eddd7e686517d73f090332e237edf81d1d532e620b49a6",
+      "after": "ceae3f0d24dc0d2401d4ac791d8b53b6f8f6381da3ccd58cde953d481abe399d"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/RecoveryService77.java",
+      "existed": true,
+      "before": "75ff54bc5e25339f124986c917cb9574fbdeae6ee3ec4020d4b482c55496d92d",
+      "after": "ba23210a51998504a4d775f058c1e8123e2740c83c12633dbed8884700bcced6"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "36bb9cbf5da0154cc933de42a90883b65541368835c6547666718794d496fc5e",
+      "after": "a8080b3c8cf0a3f5e62b2d7f20a0293f07009ac8ff963b1667607a283749d038"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "a758949948a1e987056e3e2c22f20547c425a7b52c951ce6b7bfff9b8aa3ba70",
+      "after": "a7fbd147881f90f4cc37facc09929f8cfbc3855c00528eb606eb1633fb50eb7e"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/RecoveryExpiryChecks80.java",
+      "existed": false,
+      "before": null,
+      "after": "7cdeb28e7c4fcf5b5331f793a341d254ef109eaae429c9b490c5579a3f3995e3"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "5bfb04c258879693307517dcd72cba47d9d7bc15cce4533c0cd4b036fa005cf8",
+      "after": "b6287d525b6ab156ca6ba5c391cf9ab631c7c25a241c772c6267cfa2d97898a6"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/BootstrapPublisher76.java",
+      "existed": true,
+      "before": "6d72fc877a8909cd8f0adce5fedf0ab336a21431700ff8719e8f8b3961d3a052",
+      "after": "a1ac6fc5394c2538d7421fe79ae08321a6185b7c819e57fcca8a963a88504137"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/DedicatedRelease74.java",
+      "existed": true,
+      "before": "0b5223f83139b54ed506b5af2d7d2e562ee8677280a6c4c5963605448da8c0f4",
+      "after": "55d5522c0ad8759c300b8b01cd8c9c5428a30e17dc1b54eb9762cbb397378ed5"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/DedicatedTools74.java",
+      "existed": true,
+      "before": "c67742a0abff0a36879b92f5714ad1c71bc87ec14f02791e0596aad3757ccaa1",
+      "after": "a10fb08283116a6ca76917eb097d03e7790b8477d79044d769810e13943dcef9"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/PublicationHealth80.java",
+      "existed": false,
+      "before": null,
+      "after": "3bf38da77a92ba7eaa2665c50c786d5c7e11698ade2a85ccdc34a9936be24b56"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/remote/Tls78.java",
+      "existed": true,
+      "before": "6cb3f6eabe8057469f6771f74d6ca8b9eef764223390445bb23feeaaa234a134",
+      "after": "172633efd06e3d47fc56883e8c82a038f5841817ec3276bb28cc19cb3dcd5a1e"
+    },
+    {
+      "path": "tools/first58/dedicated76.py",
+      "existed": true,
+      "before": "382c74e222b9bd14bd313d934d098de589a8863e98a980323a82c78deca50df9",
+      "after": "ce99834750f71644cb6e185890836f91b13bb51a06b08b0d7e40a5f74662a374"
+    },
+    {
+      "path": "tools/first58/dedicated77.py",
+      "existed": true,
+      "before": "e2ae8f721b173c784da32e0c645794cdaed65d4135592457381b00180ba31b49",
+      "after": "89848e66a2c7aa36051d43718bd617d0da51bfe4b202e164c7d2086295db6c04"
+    },
+    {
+      "path": "tools/first58/https78.py",
+      "existed": true,
+      "before": "1736d5700e15aaf5a05a690e540b9b301b82548353706086de572db4c53d9fb3",
+      "after": "59aef1a967a03bc5fd51385934b5e57e35b3dac09e1ae5e14988d271b51822d8"
+    },
+    {
+      "path": "tools/first58/repair78.py",
+      "existed": true,
+      "before": "8b340c87e57296f03a725a53eaa0da2dca017e790c44f6a8a4f7418ae5487434",
+      "after": "b87326619ce98785bd446bd288bec7c8cd53452b35c42c6caa33e1f31653adf5"
+    },
+    {
+      "path": "verification/server59/test_expiry80.py",
+      "existed": false,
+      "before": null,
+      "after": "943acf951bf40ac39c3d682318b82d6f0b1cda92d03b1e7b50d4cdd6596f579e"
+    }
+  ]
+}

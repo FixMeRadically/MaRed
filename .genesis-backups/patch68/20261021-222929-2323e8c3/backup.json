@@ -1,0 +1,84 @@
+{
+  "patch": 68,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/LocalPickerScreen68.java",
+      "existed": false,
+      "before": null,
+      "after": "716f94cec0e3aebfc604753f52e12a8a2f58d10e258b73ab5ddb1409c1a78fd0"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ManagedApplyPanel67.java",
+      "existed": true,
+      "before": "4720e945cc2f707209e3c5a4746c32311e42dcc9cf8b2c6cdf39e68e87684ab2",
+      "after": "82713e5cecddb24e6f8c2bfee629dccb9890ada8c8268d717fe346594240fdfe"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerChangesScreen68.java",
+      "existed": false,
+      "before": null,
+      "after": "93b1fdd336cc858293cfe1a8c6a5a13c7d7850286dd0650c74ef2c2686842052"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerPanelScreen66.java",
+      "existed": true,
+      "before": "228aa02b7ce4f02473633165213e1aa8abea814ab102199ee385c27f0b17b568",
+      "after": "4648416f3ba87018577b9b716c94f6e82f33854b210d012ef2e7d4a9dc744ed3"
+    },
+    {
+      "path": "src/main/java/com/fixmer/mared/technology/server/setup/ServerPanelService66.java",
+      "existed": true,
+      "before": "b3a99d78f8e47b0bdf5fcc5bf3534e9b7f679dc7685ed6531021eb64c40144c3",
+      "after": "c2f327c1d087b951850843de649c343cdf09fe195c62e5d76eebad68d9ac9a21"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/en_us.json",
+      "existed": true,
+      "before": "2a75cc52c9df91244383637ef402701915fc9b1b917d9ae6ca0214a021e74910",
+      "after": "096224b1bd719e7429cf0bebb67ddbe6645e9b8a6d576f0b8d0cf91a0fbd1f82"
+    },
+    {
+      "path": "src/main/resources/assets/mared/lang/ru_ru.json",
+      "existed": true,
+      "before": "7030e185f57be71262f212baed3173978a6570b432a990c4e755602dfed5300d",
+      "after": "751d378c9f42bd39105b19be582029947e4de81465443c0f8c5684670bc00ef0"
+    },
+    {
+      "path": "src/test/java/com/fixmer/mared/ServerSetupResourceChecks59.java",
+      "existed": true,
+      "before": "26a9cce99e48d5c6faee5b0afe412421d093765d760cab9b214cc5454b1a4ac6",
+      "after": "5e069b5c3d01a1e83a59d0ca976358c1dceabd401bafcb557763905bf7c8fd40"
+    },
+    {
+      "path": "technologies/core/src/main/java/com/fixmer/genesis/technology/server/firstlaunch/LocalFileBrowser68.java",
+      "existed": false,
+      "before": null,
+      "after": "ceba8b567b25aeb0f305ff8ecd9bcf1d35b69b402d7165ed1122d659d82024cd"
+    },
+    {
+      "path": "tools/first58/diagnostics63.py",
+      "existed": true,
+      "before": "90e8aa39d8d37c0f2314bb0a9e2d8465da59ff425beddcfd74399a350d413d9c",
+      "after": "0e433860320b56da19af8a728eb89c14164a9a13e09195cdfd7eb3c6a889efa4"
+    },
+    {
+      "path": "tools/first58/repeat67.py",
+      "existed": true,
+      "before": "29b8841faaa8ff15bf954127b869dcb273514d9dd2336af3e4327252b4e3751d",
+      "after": "dc02346e2a36f824b06e9d40e60f6cdec174ca48d8282a2484d26a3dfeb4ee5b"
+    },
+    {
+      "path": "verification/server59/LocalBrowserChecks68.java",
+      "existed": false,
+      "before": null,
+      "after": "b4d3e350aa3efc11f018648c71e294ec6b27a79457a5011dd374220dbe2ef81c"
+    },
+    {
+      "path": "verification/server59/test_panel_messages68.py",
+      "existed": false,
+      "before": null,
+      "after": "8862c0769117267cb161c38dcfca169bb6e9b0381100ad62cba5cfd4aa6a4311"
+    }
+  ]
+}

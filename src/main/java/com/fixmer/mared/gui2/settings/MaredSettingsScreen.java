@@ -7,7 +7,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.lwjgl.glfw.GLFW;
+
 
 import com.fixmer.mared.Mared;
 import com.fixmer.mared.MaredLang;
@@ -76,6 +76,7 @@ public class MaredSettingsScreen extends MaredScreen {
 
     // Sidebar layout cache.
     private int sidebarStep=TAB_ROW_H;
+    private int sidebarScroll,sidebarEnd;
     private int[] sidebarY = new int[0];
     private int[] sidebarHeaderY = new int[0]; // -1 if no header before tab
 
@@ -86,15 +87,19 @@ public class MaredSettingsScreen extends MaredScreen {
     private ToastOverlay toastOverlay;
     private MaredTheme initialTheme;
     private boolean logicContext;
-    private boolean settingsApplied;
+    private boolean settingsApplied,paletteChild152;
+    public void chooseColor152(int rgb,String label,java.util.function.IntConsumer accepted){paletteChild152=true;minecraft.setScreen(new com.fixmer.mared.technology.workspace.live122.WorkspaceColor124(this,rgb,accepted,()->{},()->{paletteChild152=false;minecraft.setScreen(this);},()->{},Component.literal(label)));}
 
     private final com.fixmer.mared.technology.editor.WorkbenchPreferences scriptsPreferences,scriptsDraft;
-    private final Runnable scriptsSaved;
+    private final Runnable scriptsSaved;private final com.fixmer.mared.technology.editor.WorkbenchPreferences palettePreferences152,paletteDraft152;
     public MaredSettingsScreen(Screen parent){this(parent,null,()->{},action->{});}
-    public MaredSettingsScreen(Screen parent,com.fixmer.mared.technology.editor.WorkbenchPreferences preferences,Runnable saved,java.util.function.Consumer<String> tools) {
+    public MaredSettingsScreen(Screen parent,com.fixmer.mared.technology.editor.WorkbenchPreferences preferences,Runnable saved,java.util.function.Consumer<String> tools) {this(parent,preferences,saved,tools,false);}
+    public MaredSettingsScreen(Screen parent,com.fixmer.mared.technology.editor.WorkbenchPreferences preferences,Runnable saved,java.util.function.Consumer<String> tools,boolean commandsMode) {
         super(Component.literal("Mared Settings"));
         this.parent = parent;
         this.scriptsPreferences=preferences;this.scriptsDraft=preferences==null?null:preferences.settingsDraft();this.scriptsSaved=saved;
+        this.palettePreferences152=preferences!=null?preferences:com.fixmer.mared.gui2.runtime.RuntimeProvider.isInstalled()?com.fixmer.mared.gui2.runtime.RuntimeProvider.get().session().workbench().preferences152():com.fixmer.mared.technology.editor.WorkbenchPreferences.load();
+        this.paletteDraft152=preferences!=null?scriptsDraft:palettePreferences152.settingsDraft();
         this.logicContext=parent instanceof MaredStudioScreen;
         if(parent instanceof com.fixmer.mared.gui2.shell.MaredShellScreen && com.fixmer.mared.gui2.runtime.RuntimeProvider.isInstalled()){
             var current=com.fixmer.mared.gui2.runtime.RuntimeProvider.get().navigation().current();
@@ -110,14 +115,15 @@ public class MaredSettingsScreen extends MaredScreen {
         this.initialShowStatusBar  = MaredSettings.isLayoutShowStatusBar();
         this.initialShowToolbar    = MaredSettings.isLayoutShowToolbar();
 
-        if(preferences==null)this.tabs=SettingsPageRegistry.instantiateAll();
+        if(preferences==null){this.tabs=new ArrayList<>(SettingsPageRegistry.instantiateAll());tabs.add(new PaletteSettings152(paletteDraft152,this));}
         else {
             this.tabs=new ArrayList<>();
             tabs.add(new ScriptsSettingsTab("layout",scriptsDraft,tools));
             tabs.add(new com.fixmer.mared.gui2.settings.tabs.MaredThemeTab(true));
+            tabs.add(new PaletteSettings152(scriptsDraft,this));
             tabs.add(new ScriptsSettingsTab("editor",scriptsDraft,tools));
             tabs.add(new ScriptsSettingsTab("logs",scriptsDraft,tools));
-            tabs.add(new ScriptsSettingsTab("tools",scriptsDraft,action->{onSave();tools.accept(action);}));
+            if(!commandsMode)tabs.add(new ScriptsSettingsTab("tools",scriptsDraft,action->{onSave();tools.accept(action);}));
             tabs.add(new ScriptsSettingsTab("keys",scriptsDraft,tools));
             tabs.add(new com.fixmer.mared.gui2.settings.tabs.MaredAboutTab());
         }
@@ -166,14 +172,14 @@ public class MaredSettingsScreen extends MaredScreen {
 
     @Override
     public void removed() {
-        restoreThemePreview();
+        if(!paletteChild152)restoreThemePreview();
         if (overlayManager != null) overlayManager.clear();
         MaredScale.unbind();
     }
 
     private String category(MaredSettingsTab tab){
         if(scriptsPreferences!=null){
-            if(tab.id().equals("scripts_layout")||tab.id().equals("theme"))return SettingsPageDescriptor.CATEGORY_APPEARANCE;
+            if(tab.id().equals("scripts_layout")||tab.id().equals("theme")||tab.id().equals("palette152"))return SettingsPageDescriptor.CATEGORY_APPEARANCE;
             return tab.id().equals("about")?SettingsPageDescriptor.CATEGORY_ABOUT:SettingsPageDescriptor.CATEGORY_EDITOR;
         }
         var descriptor=SettingsPageRegistry.byId(tab.id());
@@ -199,14 +205,41 @@ public class MaredSettingsScreen extends MaredScreen {
             sidebarY[i] = y;
             y += sidebarStep;
         }
+        sidebarEnd=y;
+        revealActiveTab();
+    }
+
+    private boolean compact() { return width < 490; }
+
+    private int sidebarScrollLimit() { return Math.max(0, sidebarEnd + SIDEBAR_PAD - height); }
+
+    private void revealActiveTab() {
+        if (compact() || tabs.isEmpty()) return;
+        int start = sidebarHeaderY[activeIndex] >= 0 ? sidebarHeaderY[activeIndex] : sidebarY[activeIndex];
+        if (start < sidebarScroll) sidebarScroll = start;
+        int end = sidebarY[activeIndex] + sidebarStep;
+        if (end > sidebarScroll + height) sidebarScroll = end - height;
+        sidebarScroll = Math.clamp(sidebarScroll, 0, sidebarScrollLimit());
+    }
+
+    private void openCategories() {
+        var entries = new ArrayList<com.fixmer.mared.gui2.framework.overlay.ContextMenuEntry>();
+        for (int i = 0; i < tabs.size(); i++) {
+            int target = i;
+            String label = tabs.get(i).displayName();
+            entries.add(com.fixmer.mared.gui2.framework.overlay.ContextMenuEntry.of(
+                    (i == activeIndex ? "✓ " : "") + label, () -> switchTab(target)));
+        }
+        if (!entries.isEmpty()) overlayManager.push(
+                new com.fixmer.mared.gui2.framework.overlay.ContextMenuOverlay(12, 31, entries));
     }
 
     private void computeButtonLayout() {
-        saveW = MaredUi.px(100);
+        saveW = Math.max(1, Math.min(MaredUi.px(100), (contentW() - 8) / 2));
         saveH = MaredUi.px(BUTTON_H);
         int gap = MaredUi.px(12);
         int totalW = saveW * 2 + gap;
-        int startX = this.width / 2 - totalW / 2;
+        int startX = Math.max(contentX(), width - CONTENT_PAD - totalW);
         int y = this.height - MaredUi.px(14) - saveH;
 
         cancelX = startX;
@@ -224,6 +257,7 @@ public class MaredSettingsScreen extends MaredScreen {
 
         tabs.get(activeIndex).onClose(ctx);
         activeIndex = idx;
+        revealActiveTab();
         if(scriptsPreferences==null)MaredSettings.setSettingsActiveTab(tabs.get(idx).id());
         tabs.get(activeIndex).onOpen(ctx);
     }
@@ -231,6 +265,7 @@ public class MaredSettingsScreen extends MaredScreen {
     private void onSave() {
         if(scriptsPreferences!=null){ctx.applyTheme();scriptsPreferences.applySettings(scriptsDraft);scriptsPreferences.save();scriptsSaved.run();settingsApplied=true;onClose();return;}
         ctx.apply();
+        palettePreferences152.directionColors152=new java.util.HashMap<>(paletteDraft152.directionColors152);palettePreferences152.surfaceColors152=new java.util.HashMap<>(paletteDraft152.surfaceColors152);palettePreferences152.save();
         settingsApplied=true;
 
         boolean layoutChanged =
@@ -264,9 +299,9 @@ public class MaredSettingsScreen extends MaredScreen {
         if(!settingsApplied&&initialTheme!=null&&MaredThemeRegistry.active()!=initialTheme)MaredThemeRegistry.setActive(initialTheme);
     }
 
-    private int contentX()      { return SIDEBAR_W + CONTENT_PAD; }
-    private int contentY()      { return CONTENT_PAD; }
-    private int contentW()      { return this.width - contentX() - CONTENT_PAD; }
+    private int contentX()      { return compact() ? 12 : SIDEBAR_W + CONTENT_PAD; }
+    private int contentY()      { return compact() ? 36 : CONTENT_PAD; }
+    private int contentW()      { return Math.max(1, this.width - contentX() - (compact() ? 12 : CONTENT_PAD)); }
     private int contentH()      {
         return this.height - contentY() - MaredUi.px(BUTTON_H + 40);
     }
@@ -292,9 +327,18 @@ public class MaredSettingsScreen extends MaredScreen {
     }
 
     private void drawSidebar(GuiGraphics g, int mouseX, int mouseY) {
+        if (compact()) {
+            String label = tabs.isEmpty() ? "" : tabs.get(activeIndex).displayName() + "  ▾";
+            MaredWidgets.button3D(g, font, 12, 8, contentW(), 20,
+                    font.plainSubstrByWidth(label,Math.max(1,contentW()-12)), PANEL_RAISED(), TEXT_DIM(), TEXT(),
+                    MaredUi.hovered(mouseX,mouseY,12,8,contentW(),20));
+            return;
+        }
         MaredUi.rect(g, 0, 0, SIDEBAR_W, this.height, SIDEBAR_BG());
         MaredUi.rect(g, SIDEBAR_W - 1, 0, SIDEBAR_W, this.height, com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().border);
 
+        g.enableScissor(0,0,SIDEBAR_W,height);
+        try {
         String prevCat = null;
         for (int i = 0; i < tabs.size(); i++) {
             MaredSettingsTab tab = tabs.get(i);
@@ -303,14 +347,14 @@ public class MaredSettingsScreen extends MaredScreen {
             if (!cat.equals(prevCat)) {
                 String label = MaredLang.get("mared.settings.category." + cat);
                 MaredUi.text(g, this.font, label,
-                    SIDEBAR_PAD, sidebarY[i] - CATEGORY_H + 7,
+                    SIDEBAR_PAD, sidebarY[i] - sidebarScroll - CATEGORY_H + 7,
                     TEXT_HEADER());
                 prevCat = cat;
             }
 
             int rowX = SIDEBAR_PAD;
             int rowW = SIDEBAR_W - SIDEBAR_PAD * 2;
-            int rowY = sidebarY[i];
+            int rowY = sidebarY[i] - sidebarScroll;
             int rowH = sidebarStep - 2;
 
             boolean active = i == activeIndex;
@@ -328,6 +372,7 @@ public class MaredSettingsScreen extends MaredScreen {
                 rowX + 12, rowY + 6,
                 active ? TEXT() : TEXT_DIM());
         }
+        } finally { g.disableScissor(); }
     }
 
     private void drawContent(GuiGraphics g, int mouseX, int mouseY) {
@@ -335,7 +380,7 @@ public class MaredSettingsScreen extends MaredScreen {
         int cy = contentY();
         int cw = contentW();
         int ch = contentH();
-        if (ch <= 0) return;
+        if (ch <= 0 || cw <= 0) return;
 
         MaredUi.text(g, this.font,
             tabs.isEmpty() ? "" : tabs.get(activeIndex).displayName(),
@@ -349,9 +394,10 @@ public class MaredSettingsScreen extends MaredScreen {
             cx + cw + 4, innerY + innerH + 4, PANEL_BG());
 
         if (!tabs.isEmpty()) {
-            tabs.get(activeIndex).render(g, this.font,
-                cx, innerY, cw, innerH,
-                ctx, mouseX, mouseY);
+            g.enableScissor(cx,innerY,cx+cw,innerY+innerH);
+            try { tabs.get(activeIndex).render(g, this.font,
+                cx, innerY, cw, innerH, ctx, mouseX, mouseY); }
+            finally { g.disableScissor(); }
         }
     }
 
@@ -367,7 +413,7 @@ public class MaredSettingsScreen extends MaredScreen {
         boolean saveHover = MaredUi.hovered(mouseX, mouseY,
             saveX, saveY, saveW, saveH);
         MaredWidgets.button3D(g, this.font, saveX, saveY, saveW, saveH,
-            MaredLang.get("mared.settings.save"),
+            MaredLang.get("mared.settings.save") + " · Ctrl+S",
             saveHover ? com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgHover : com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().bgPanelRaised,
             com.fixmer.mared.gui2.framework.theme.MaredThemeRegistry.active().success, TEXT(), saveHover);
     }
@@ -383,11 +429,14 @@ public class MaredSettingsScreen extends MaredScreen {
 
         if (button != 0) return super.mouseClicked(mx, my, button);
 
-        // Sidebar hit
-        for (int i = 0; i < tabs.size(); i++) {
+        if (compact() && MaredUi.hovered(mx,my,12,8,contentW(),20)) {
+            openCategories();
+            return true;
+        }
+        for (int i = 0; !compact() && i < tabs.size(); i++) {
             int rowX = SIDEBAR_PAD;
             int rowW = SIDEBAR_W - SIDEBAR_PAD * 2;
-            int rowY = sidebarY[i];
+            int rowY = sidebarY[i] - sidebarScroll;
             int rowH = sidebarStep - 2;
             if (MaredUi.hovered(mx, my, rowX, rowY, rowW, rowH)) {
                 switchTab(i);
@@ -425,6 +474,12 @@ public class MaredSettingsScreen extends MaredScreen {
         if (overlayManager != null
             && overlayManager.mouseScrolled(mx, my, dx, dy)) return true;
 
+        if (!compact() && mx >= 0 && mx < SIDEBAR_W) {
+            sidebarScroll = Math.clamp(sidebarScroll + (dy < 0 ? sidebarStep : dy > 0 ? -sidebarStep : 0),
+                    0, sidebarScrollLimit());
+            return true;
+        }
+
         if (!tabs.isEmpty()
             && my >= contentY() + 18 && my < contentY() + contentH()) {
             int cx = contentX();
@@ -445,35 +500,25 @@ public class MaredSettingsScreen extends MaredScreen {
             && overlayManager.keyPressed(keyCode, scanCode, modifiers))
             return true;
 
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (overlayManager != null && overlayManager.shouldBlockGenericInput()) return true;
+        if (!tabs.isEmpty() && tabs.get(activeIndex).keyPressed(keyCode, scanCode, modifiers, ctx))
+            return true;
+
+        if (keyCode == 256) {
             onCancel();
             return true;
         }
-
-        // 0.3.2 (audit #97): tab handles key FIRST — может перехватить
-        // (rebind, search).
-        if (!tabs.isEmpty()) {
-            if (tabs.get(activeIndex).keyPressed(keyCode, scanCode,
-                    modifiers, ctx)) {
-                return true;
-            }
-        }
-
-        // Screen-level tab switching (после tab).
-        if (keyCode == GLFW.GLFW_KEY_LEFT) {
-            switchTab(Math.max(0, activeIndex - 1));
+        int keys = modifiers & 15;
+        if (keyCode == 83 && keys == 2) {
+            onSave();
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_RIGHT) {
-            switchTab(Math.min(tabs.size() - 1, activeIndex + 1));
+        if (keyCode == 295 && keys == 0) {
+            openCategories();
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_TAB && (modifiers & 2) != 0) {
-            boolean shift = (modifiers & 1) != 0;
-            int next = shift
-                ? (activeIndex - 1 + tabs.size()) % tabs.size()
-                : (activeIndex + 1) % tabs.size();
-            switchTab(next);
+        if (keyCode == 258 && (keys == 2 || keys == 3) && !tabs.isEmpty()) {
+            switchTab(Math.floorMod(activeIndex + (keys == 3 ? -1 : 1), tabs.size()));
             return true;
         }
 

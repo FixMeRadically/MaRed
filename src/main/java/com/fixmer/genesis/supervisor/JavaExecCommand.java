@@ -9,7 +9,9 @@ public final class JavaExecCommand {
     private JavaExecCommand() { }
     public static List<String> classic(String executable,List<String> jvm,List<String> classpath,String main,List<String> args)throws IOException {
         if(executable==null||!Path.of(executable).isAbsolute())throw new IOException("Unresolved Java executable");
-        var result=new ArrayList<String>();result.add(executable);result.addAll(jvm);
+        var result=new ArrayList<String>();result.add(executable);
+        // Capture is persistent; the owner verifies/materializes its own current guard on every spawn.
+        jvm.stream().filter(a->!ProfileLaunch93.transientArgument(a)).forEach(result::add);
         if(main==null||main.isBlank()){
             if(classpath.size()!=1)throw new IOException("Missing Java main entry");
             result.add("-jar");result.add(classpath.get(0));

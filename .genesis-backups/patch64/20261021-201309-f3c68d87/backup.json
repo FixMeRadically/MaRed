@@ -1,0 +1,36 @@
+{
+  "patch": 64,
+  "project": "C:\\Users\\fixme\\Desktop\\MappetPort\\MaRed",
+  "files": [
+    {
+      "path": "tools/first58/launch62.py",
+      "existed": true,
+      "before": "d817d6ba365689bcb33d9d99e42de833cbc61ac277200ba050ba954dfc47e53f",
+      "after": "a0f52dc418964e723fde6989753247d87f4832f083958246c55234721a030ab2"
+    },
+    {
+      "path": "tools/first58/diagnostics63.py",
+      "existed": true,
+      "before": "3e10f840c56953c6370ed9a02811a3bd32234a7f853696205e68945026995a2c",
+      "after": "d251ee68a10d3a81a2abd5292d9a5b3acffdbfd817225888b557a6e07219f2e4"
+    },
+    {
+      "path": "verification/server59/test_launch62.py",
+      "existed": true,
+      "before": "1c25dfe22a0fd642f5cf0c38435ef5d627a798c37ad0e7240883fadf4b484c64",
+      "after": "17a0ab5be8cb1b19d70a490a7c377fa4259dd6d722c68ee749290206b6132b86"
+    },
+    {
+      "path": "verification/server59/test_legacy64.py",
+      "existed": false,
+      "before": null,
+      "after": "b1dd1029bdc207022eeea17c5cb3fe5bc3c31fc3a5e036aa79ff0db4541afd2c"
+    },
+    {
+      "path": "verification/server59/LegacyClasspathChecks64.java",
+      "existed": false,
+      "before": null,
+      "after": "e949e238433981f2f2c2bdba5fcd7de121553921436629da94e1b6bcaa814040"
+    }
+  ]
+}
